@@ -1,0 +1,47 @@
+{
+  "fields": [
+    {
+      "key": 73101,
+      "name": "Components",
+      "component": "vue-ui",
+      "category": "display_ui",
+      "icon": "components-ui",
+      "fieldType": "None",
+      "fieldLength": null,
+      "children": false,
+      "enable": true,
+      "formItemFlag": false,
+      "options": {
+        "name": "lab_patient_header",
+        "columnSpan": 4,
+        "hidden": false,
+        "content": "<el-card class=\"lab-patient-card\" shadow=\"always\">\n  <div v-if=\"tran\" class=\"lab-patient-main\">\n    <el-avatar shape=\"square\" :size=\"74\" fit=\"cover\" :src=\"picUrl()\" class=\"lab-patient-avatar\">\n      <svg viewBox=\"0 0 24 24\" class=\"lab-patient-avatar-placeholder\"><path d=\"M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2c-4.4 0-8 2.7-8 6v2h16v-2c0-3.3-3.6-6-8-6z\"/></svg>\n    </el-avatar>\n\n    <div class=\"lab-patient-identity\">\n      <div class=\"lab-patient-name-row\">\n        <span class=\"lab-patient-name\">{{ patientName() }}</span>\n        <span class=\"lab-patient-chip primary\">HN {{ patient().hn || '-' }}</span>\n        <span class=\"lab-patient-chip warning\">VN {{ visit().vn || '-' }}</span>\n        <span class=\"lab-patient-chip\">อายุ {{ patient().age || '-' }} ปี · {{ genderLabel() }}</span>\n        <span class=\"lab-patient-chip\">หมู่เลือด {{ aboLabel() }}</span>\n      </div>\n\n      <div class=\"lab-patient-meta\">\n        วันเกิด <b>{{ patient().birth_date || '-' }}</b>\n        <span class=\"lab-patient-sep\">·</span>\n        โทร. <b>{{ patient().p_phone || '-' }}</b>\n        <span class=\"lab-patient-sep\">·</span>\n        วันที่รับบริการ <b>{{ visitDate() }}</b>\n      </div>\n\n      <div class=\"lab-patient-tags\">\n        <span v-for=\"(item, index) in patientTypes()\" :key=\"'pttype-' + index\" class=\"lab-patient-chip success\">{{ item }}</span>\n        <span v-for=\"(item, index) in allergies()\" :key=\"'allergy-' + index\" class=\"lab-patient-chip danger\">แพ้ยา: {{ item }}</span>\n      </div>\n    </div>\n  </div>\n\n  <el-empty v-else :image-size=\"70\" description=\"ยังไม่ได้เรียกผู้ป่วย — เลือกผู้ป่วยจากหน้ารายการคิว\" />\n</el-card>",
+        "customClass": "",
+        "onCreated": "const s = this.vueState\nconst field = this\n\ns.tran = null\ns.patient = () => (s.tran && s.tran.vid && s.tran.vid.pid) || {}\ns.visit = () => (s.tran && s.tran.vid) || {}\ns.patientName = () => {\n  const p = s.patient()\n  const prefix = (p.prename && p.prename.label) || ''\n  return (prefix + (p.p_fname || '') + ' ' + (p.p_lname || '')).trim() || '-'\n}\ns.picUrl = () => {\n  const pics = s.patient().p_pic\n  return (Array.isArray(pics) && pics[0] && pics[0].url) || ''\n}\ns.genderLabel = () => ({ '1': 'ชาย', '2': 'หญิง' })[String(s.patient().p_gender || '')] || '-'\ns.aboLabel = () => {\n  const code = String(s.patient().p_abogroup || '')\n  return ({ '1': 'A', '2': 'B', '3': 'AB', '4': 'O', '5': 'ไม่ทราบ', '9': 'ไม่ทราบ' })[code] || code || '-'\n}\ns.visitDate = () => s.visit().visit_date || (s.tran && s.tran.checkin_at) || '-'\ns.patientTypes = () => Array.isArray(s.tran && s.tran.pttype) ? s.tran.pttype : []\ns.allergies = () => Array.isArray(s.tran && s.tran.allergy_tags) ? s.tran.allergy_tags : []\n\ns.setTran = (row) => {\n  s.tran = row || null\n  const form = field.getFormRef()\n  if (form) form.$labTran = s.tran\n}\ns.clearTran = () => s.setTran(null)\n",
+        "onMounted": "const form = this.getFormRef()\nconst initialTran = (form && (form.$labTran || form.$examTran)) || (formParams && formParams.tran) || null\nthis.vueState.setTran(initialTran)\n",
+        "onUnmount": "",
+        "label": "ข้อมูลผู้ป่วยสำหรับสั่ง LAB"
+      },
+      "id": "vue-ui73101"
+    }
+  ],
+  "formConfig": {
+    "modelName": "formData",
+    "refName": "sdForm",
+    "rulesName": "rules",
+    "labelWidth": 120,
+    "labelPosition": "top",
+    "size": "",
+    "labelAlign": "label-right-align",
+    "cssCode": ".lab-patient-card{border:1px solid var(--el-border-color);border-radius:12px;background:var(--el-bg-color)}\n.lab-patient-card .el-card__body{padding:16px 18px}\n.lab-patient-main{display:flex;align-items:center;gap:16px;min-width:0}\n.lab-patient-avatar{flex:none;background:var(--el-fill-color-light);border:1px solid var(--el-border-color)}\n.lab-patient-avatar-placeholder{width:62%;height:62%;fill:var(--el-text-color-secondary)}\n.lab-patient-identity{flex:1;min-width:0}\n.lab-patient-name-row{display:flex;align-items:center;flex-wrap:wrap;gap:7px}\n.lab-patient-name{font-size:20px;font-weight:750;color:var(--el-text-color-primary);margin-right:3px}\n.lab-patient-meta{margin-top:8px;font-size:13px;color:var(--el-text-color-regular)}\n.lab-patient-sep{margin:0 8px;color:var(--el-text-color-placeholder)}\n.lab-patient-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}\n.lab-patient-chip{display:inline-flex;align-items:center;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;color:var(--el-text-color-regular);background:var(--el-fill-color-light);border:1px solid var(--el-border-color-lighter)}\n.lab-patient-chip.primary{color:var(--el-color-primary);background:var(--el-color-primary-light-9);border-color:var(--el-color-primary-light-8)}\n.lab-patient-chip.warning{color:var(--el-color-warning);background:var(--el-color-warning-light-9);border-color:var(--el-color-warning-light-8)}\n.lab-patient-chip.success{color:var(--el-color-success);background:var(--el-color-success-light-9);border-color:var(--el-color-success-light-8)}\n.lab-patient-chip.danger{color:var(--el-color-danger);background:var(--el-color-danger-light-9);border-color:var(--el-color-danger-light-8)}\n@media (max-width:700px){.lab-patient-main{align-items:flex-start}.lab-patient-avatar{width:58px!important;height:58px!important}.lab-patient-name{font-size:17px}.lab-patient-meta{line-height:1.8}.lab-patient-sep{display:none}}",
+    "customClass": [],
+    "functions": "",
+    "layoutType": "PC",
+    "jsonVersion": 3,
+    "onFormCreated": "",
+    "onFormMounted": "",
+    "onParentChange": "",
+    "onFormDataChange": "",
+    "onFormUnmounted": ""
+  }
+}

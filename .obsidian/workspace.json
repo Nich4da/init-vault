@@ -1,0 +1,236 @@
+{
+  "main": {
+    "id": "b2fad50bb8f744a1",
+    "type": "split",
+    "children": [
+      {
+        "id": "3ccc12c60ed6e352",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "310a28e2616d3c27",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "CLAUDE.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "CLAUDE"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "8d57239406280963",
+    "type": "split",
+    "children": [
+      {
+        "id": "f4f46b6f6ceacc5c",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "b614ef7f919c6a46",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-folder-closed",
+              "title": "File explorer"
+            }
+          },
+          {
+            "id": "1c31cf0937850387",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "ค้นหา"
+            }
+          },
+          {
+            "id": "f71b52daef8eaf18",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "บุ๊กมาร์ก"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 212.5
+  },
+  "right": {
+    "id": "5daa0ba590c668ae",
+    "type": "split",
+    "children": [
+      {
+        "id": "dccab98f40756e82",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "152a6f0434e1fee3",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "แบ็คลิงค์"
+            }
+          },
+          {
+            "id": "3d6163f3c5aeb4de",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "ลิงค์ขาออก"
+            }
+          },
+          {
+            "id": "f7d40ac6eeef71fd",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "แท็ก"
+            }
+          },
+          {
+            "id": "ad8c1b7a9081b8f2",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "คุณสมบัติทั้งหมด"
+            }
+          },
+          {
+            "id": "efb795dec222a467",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "โครงเรื่อง"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:เปิด quick switcher": false,
+      "graph:เปิดมุมมองกราฟ": false,
+      "canvas:สร้างผืนผ้าใบใหม่": false,
+      "daily-notes:เปิดโน้ตของวันนี้": false,
+      "templates:แทรกเทมเพลต": false,
+      "command-palette:เปิดกระดานคำสั่ง": false,
+      "bases:สร้างฐานใหม่": false
+    }
+  },
+  "active": "310a28e2616d3c27",
+  "lastOpenFiles": [
+    "hotcache.md.tmp.5428.d295e28aa8c6",
+    "index.md.tmp.5428.09e83a474244",
+    "index.md.tmp.5428.d4335abe9869",
+    "wiki/syntheses/his-lab-worklist-ui.md",
+    "wiki/syntheses/his-lab-worklist-ui.md.tmp.5428.84e32462b29b",
+    "HIS/ui/lab-worklist-mockup.html",
+    "HIS/ui/lab-worklist-mockup.html.tmp.5428.980274bf3b1a",
+    "HIS/ui",
+    "hotcache.md.tmp.5428.e7261982097d",
+    "index.md.tmp.5428.b49b6d98cf6e",
+    "index.md.tmp.5428.248ad8958608",
+    "index.md.tmp.5428.ec966ef22e54",
+    "wiki/concepts/module-packages.md",
+    "wiki/sources/his-module-packages-backup.md",
+    "wiki/sources/his-lab-immuno-request-forms.md",
+    "wiki/sources/his-lab-bg-request-forms.md",
+    "raw/his-lab-immuno-request-forms.md",
+    "raw/his-lab-bg-request-forms.md",
+    "HIS/data/แลปภูมิคุ้มกันวิทยา-20260802T105442Z-1-001/แลปภูมิคุ้มกันวิทยา/IMG_6888.PNG",
+    "HIS/data/แลปภูมิคุ้มกันวิทยา-20260802T105442Z-1-001/แลปภูมิคุ้มกันวิทยา/IMG_6886.PNG",
+    "HIS/data/Biomolecular and Genetics/แลปชีวโมเลกุล.PNG",
+    "HIS/data/Biomolecular and Genetics/แลปชีวโมเลกุล-4.PNG",
+    "HIS/data/Biomolecular and Genetics/แลปชีวโมเลกุล-3.PNG",
+    "HIS/data/Biomolecular and Genetics/แลปชีวโมเลกุล-2.PNG",
+    "wiki/entities/sdform.md",
+    "wiki/concepts/his-data-model.md",
+    "wiki/concepts/his-insurance.md",
+    "wiki/sources/his-visit-form.md",
+    "index.md",
+    "wiki/syntheses/his-med-dispense-voucher-report.md",
+    "wiki/concepts/report-factory.md",
+    "raw/assets/Screenshot 2026-07-17 151821.png",
+    "raw/assets/Screenshot 2026-07-17 151757.png",
+    "raw/assets/Screenshot 2026-07-17 151729.png",
+    "raw/assets/Screenshot 2026-07-17 151630.png",
+    "raw/llm-wiki-idea.md",
+    "wiki/entities/erp-mongodb.md",
+    "wiki/concepts/form-model-json.md",
+    "wiki/concepts/vue-ui-pattern.md",
+    "wiki/concepts/openform.md",
+    "wiki/concepts/runprocess.md",
+    "wiki/concepts/crudgetall.md",
+    "wiki/concepts/sql-factory.md",
+    "wiki/concepts/api-factory.md",
+    "wiki/entities/his.md",
+    "wiki/sources/his-emr-form.md",
+    "ยังไม่ได้ตั้งชื่อ.canvas",
+    "ยังไม่ได้ตั้งชื่อ 1.canvas"
+  ]
+}

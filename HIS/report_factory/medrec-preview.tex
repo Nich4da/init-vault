@@ -1,0 +1,66 @@
+  % PREVIEW (ข้อมูลจริง hn 6900002 แทนค่าแล้ว) — compile บน Overleaf ด้วย XeLaTeX
+% ใช้ตรวจ layout/รอยปรุ/บาร์โค้ด ระหว่างรอ backend ติดตั้ง Tectonic
+\documentclass[12pt]{article}
+\usepackage{fontspec}\setmainfont{Leelawadee UI}   % preview-only (เครื่องนี้ไม่มี Sarabun) — ตัวจริงบน server ใช้ Sarabun
+\usepackage[paperwidth=20.8cm,paperheight=35.5cm,top=7cm,left=1cm,right=1cm,bottom=1cm]{geometry}
+\usepackage{tikz}\usepackage{calc}\usepackage{array}\usepackage{tabularx}\usepackage{graphicx}
+\usepackage{xstring}
+% \usepackage{code128}   % preview: code128 ไม่มีใน Tectonic bundle → ใช้ placeholder ชั่วคราว
+\newcommand{\hnbarcode}[1]{\framebox[3.6cm][c]{\ttfamily\footnotesize |||\,#1\,|||}}
+
+\newcommand{\two}[1]{\ifnum#1<10 0\fi\number#1}
+\newcommand{\bedate}[1]{\StrLeft{#1}{4}[\yy]\StrMid{#1}{6}{7}[\mm]\StrMid{#1}{9}{10}[\dd]\dd/\mm/\the\numexpr\yy+543\relax}
+\newcommand{\printthaidate}{\two\day/\two\month/\the\numexpr\year+543\relax}
+
+\pagestyle{empty}\setlength{\parindent}{0pt}
+\newlength{\marginL}\setlength{\marginL}{1cm}
+\newlength{\cardW}\setlength{\cardW}{8.6cm}\newlength{\cardH}\setlength{\cardH}{5.4cm}
+\newlength{\gapC}\setlength{\gapC}{1.8cm}\newlength{\headTop}\setlength{\headTop}{0.7cm}
+\newlength{\leftCardR}\setlength{\leftCardR}{\marginL+\cardW}
+\newlength{\rightCardL}\setlength{\rightCardL}{\marginL+\cardW+\gapC}
+\newlength{\rightCardR}\setlength{\rightCardR}{\rightCardL+\cardW}
+\newlength{\cardBot}\setlength{\cardBot}{\headTop+\cardH}
+
+\begin{document}
+
+\begin{tikzpicture}[remember picture,overlay]
+ \coordinate (O) at (current page.north west);
+ \draw[dashed] ([xshift=\marginL,yshift=-\headTop]O) rectangle ([xshift=\leftCardR,yshift=-\cardBot]O);
+ \node[anchor=north west,text width=\cardW,align=center,inner sep=6pt] at ([xshift=\marginL,yshift=-\headTop]O){%
+   น.ส.\,มาไว\ ใจกล้า\\[2pt]\textbf{6900002}\\[2pt]\hnbarcode{6900002}\\[2pt]{\footnotesize 7498542099013}};
+ \draw[dashed] ([xshift=\rightCardL,yshift=-\headTop]O) rectangle ([xshift=\rightCardR,yshift=-\cardBot]O);
+ \node[anchor=north west,text width=\cardW,align=center,inner sep=6pt] at ([xshift=\rightCardL,yshift=-\headTop]O){%
+   {\footnotesize บัตรประจำตัวผู้ป่วยกรมการแพทย์}\\{\footnotesize สถาบันสุขภาพเด็กแห่งชาติมหาราชินี}\\[1pt]
+   ชื่อ น.ส.\,มาไว\ ใจกล้า\\{\footnotesize วันที่ออกบัตร \printthaidate}\\[1pt]
+   \textbf{6900002}\\\hnbarcode{6900002}\\[2pt]{\footnotesize 7498542099013}};
+\end{tikzpicture}
+
+\noindent\begin{minipage}[c]{12.5cm}
+{\large\textbf{เวชระเบียนผู้ป่วยนอก}}\\[2pt]สถาบันสุขภาพเด็กแห่งชาติมหาราชินี\\ กรมการแพทย์ กระทรวงสาธารณสุข
+\end{minipage}\hfill\begin{minipage}[c]{5.5cm}\raggedleft
+\hnbarcode{6900002}\\[2pt]{\large 6900002}\ \ {\small HN}
+\end{minipage}
+\vspace{4pt}\hrule\vspace{6pt}
+
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}|p{9.6cm}|p{8.4cm}|@{}}\hline
+\multicolumn{2}{@{}|p{18.2cm}|@{}}{ชื่อผู้ป่วย น.ส.\,มาไว\hfill นามสกุล ใจกล้า}\\ \hline
+\begin{tabular}[t]{@{}ll@{}}
+ วันเกิด & \bedate{2001-06-28}\\ อายุ & 25 ปี\\
+ เพศ & หญิง\\
+ เชื้อชาติ & ไทย\\ สัญชาติ & ไทย\\ ศาสนา & ศาสนาอิสลาม\\
+ อาชีพ & นักเรียน/นักศึกษา\\ สถานภาพ & หย่า\\
+ หมู่เลือด & A\\
+ โทร. & 028-293-9112\\
+\end{tabular}
+&
+\begin{tabular}[t]{@{}ll@{}}
+ บ้านเลขที่ & 111\\ หมู่ที่ & 11\\ ซอย & 1111\\
+ หมู่บ้าน & 1111\\ ถนน & 1111\\ ตำบล & ทะเลวังวัด\\
+ อำเภอ & ท่าหลวง\\ จังหวัด & ลพบุรี\\ รหัสไปรษณีย์ & 11111\\
+ เลขบัตร ปชช. & 7498542099013\\
+\end{tabular}\\ \hline
+\multicolumn{2}{@{}|p{18.2cm}|@{}}{ประวัติการแพ้ยา (ระบุ): แพ้ยา}\\ \hline
+\multicolumn{2}{@{}|p{18.2cm}|@{}}{ปัญหาการเจ็บป่วยที่สำคัญ\rule[-6cm]{0pt}{1.2\baselineskip}}\\ \hline
+\end{tabular}
+\end{document}

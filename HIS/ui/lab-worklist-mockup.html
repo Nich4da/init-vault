@@ -1,0 +1,578 @@
+<title>LAB Worklist — งานชีวเคมี (S2/S3/S4)</title>
+
+<style>
+:root{
+  /* Element Plus palette — matches Lab_CHE_Order_Component.json's --el-* usage */
+  --brand:#409EFF; --brand-9:#ECF5FF; --brand-5:#A0CFFF;
+  --wait:#E6A23C;  --wait-9:#FDF6EC;
+  --done:#67C23A;  --done-9:#F0F9EB;
+  --crit:#F56C6C;  --crit-9:#FEF0F0;
+  --ink:#303133; --ink-2:#606266; --ink-3:#909399;
+  --line:#DCDFE6; --line-2:#EBEEF5;
+  --bg:#F2F5F9; --surface:#FFFFFF; --fill:#F5F7FA; --fill-2:#EDF0F5;
+  --shadow:0 1px 2px rgba(48,49,51,.06), 0 4px 14px rgba(48,49,51,.05);
+  --r:10px; --r-lg:14px;
+  --ui:"Leelawadee UI","Noto Sans Thai","IBM Plex Sans Thai","Segoe UI",system-ui,sans-serif;
+  --mono:ui-monospace,"Cascadia Mono",Consolas,"Courier New",monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --brand:#5FAEFF; --brand-9:#1B2A3C; --brand-5:#2E5B8A;
+    --wait:#EBB563; --wait-9:#332A19;
+    --done:#85CE61; --done-9:#1E2E19;
+    --crit:#F98A8A; --crit-9:#3A1F1F;
+    --ink:#E5EAF3; --ink-2:#CFD3DC; --ink-3:#8D9095;
+    --line:#4C4D4F; --line-2:#363637;
+    --bg:#0F1114; --surface:#1B1D20; --fill:#232528; --fill-2:#2B2E32;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 4px 14px rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"]{
+  --brand:#5FAEFF; --brand-9:#1B2A3C; --brand-5:#2E5B8A;
+  --wait:#EBB563; --wait-9:#332A19;
+  --done:#85CE61; --done-9:#1E2E19;
+  --crit:#F98A8A; --crit-9:#3A1F1F;
+  --ink:#E5EAF3; --ink-2:#CFD3DC; --ink-3:#8D9095;
+  --line:#4C4D4F; --line-2:#363637;
+  --bg:#0F1114; --surface:#1B1D20; --fill:#232528; --fill-2:#2B2E32;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 4px 14px rgba(0,0,0,.3);
+}
+:root[data-theme="light"]{
+  --brand:#409EFF; --brand-9:#ECF5FF; --brand-5:#A0CFFF;
+  --wait:#E6A23C; --wait-9:#FDF6EC;
+  --done:#67C23A; --done-9:#F0F9EB;
+  --crit:#F56C6C; --crit-9:#FEF0F0;
+  --ink:#303133; --ink-2:#606266; --ink-3:#909399;
+  --line:#DCDFE6; --line-2:#EBEEF5;
+  --bg:#F2F5F9; --surface:#FFFFFF; --fill:#F5F7FA; --fill-2:#EDF0F5;
+  --shadow:0 1px 2px rgba(48,49,51,.06), 0 4px 14px rgba(48,49,51,.05);
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--ui);font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--brand);outline-offset:2px;border-radius:4px}
+@media (prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important}}
+
+/* ---------- shell ---------- */
+.wrap{max-width:1500px;margin:0 auto;padding:18px 20px 56px;display:flex;flex-direction:column;gap:14px}
+
+.mock-note{display:flex;gap:10px;align-items:flex-start;background:var(--wait-9);border:1px solid var(--wait);border-radius:var(--r);padding:10px 14px;font-size:12.5px;color:var(--ink-2)}
+.mock-note b{color:var(--ink)}
+
+.topbar{display:flex;flex-wrap:wrap;gap:14px;justify-content:space-between;align-items:flex-end}
+.h1{font-size:22px;font-weight:800;letter-spacing:-.2px;margin:0;text-wrap:balance}
+.sub{font-size:12.5px;color:var(--ink-3);margin-top:2px}
+.who{display:flex;gap:8px;align-items:center;font-size:12.5px;color:var(--ink-2)}
+.chip-unit{background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:6px 13px;font-weight:600}
+
+/* ---------- tabs ---------- */
+.tabs{display:flex;gap:8px;flex-wrap:wrap}
+.tab{position:relative;flex:1 1 200px;display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--tabc,var(--line));border-radius:var(--r-lg);padding:12px 16px;text-align:left;transition:border-color .15s,box-shadow .15s}
+.tab:hover{border-color:var(--tabc)}
+.tab[aria-selected="true"]{border-color:var(--tabc);box-shadow:var(--shadow),0 0 0 1px var(--tabc) inset}
+.tab-n{font-size:26px;font-weight:800;line-height:1;font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--tabc)}
+.tab-t{font-weight:700}
+.tab-d{font-size:11.5px;color:var(--ink-3)}
+.tab-1{--tabc:var(--wait)} .tab-2{--tabc:var(--brand)} .tab-3{--tabc:var(--done)}
+.tab-flag{margin-left:auto;background:var(--crit);color:#fff;font-size:11px;font-weight:700;border-radius:999px;padding:2px 9px}
+
+/* ---------- filter bar ---------- */
+.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:9px 12px}
+.fsearch{flex:1 1 260px;min-width:200px;background:var(--fill);border:1px solid var(--line);border-radius:8px;padding:7px 12px;color:var(--ink);font:inherit}
+.fsearch::placeholder{color:var(--ink-3)}
+.fsel{background:var(--fill);border:1px solid var(--line);border-radius:8px;padding:7px 11px;color:var(--ink-2);font-size:13px}
+.fchip{border:1px solid var(--line);background:transparent;color:var(--ink-2);border-radius:999px;padding:5px 12px;font-size:12.5px}
+.fchip.on{border-color:var(--crit);color:var(--crit);background:var(--crit-9);font-weight:700}
+
+/* ---------- split ---------- */
+.split{display:grid;grid-template-columns:minmax(0,380px) minmax(0,1fr);gap:14px;align-items:start}
+@media (max-width:1080px){.split{grid-template-columns:1fr}}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow);overflow:hidden}
+.panel-h{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--line-2);background:var(--fill)}
+.panel-h h2{margin:0;font-size:13px;font-weight:800;letter-spacing:.02em}
+.panel-h .cnt{font-size:11.5px;color:var(--ink-3);margin-left:auto}
+
+/* queue rows */
+.q{max-height:600px;overflow-y:auto}
+.qrow{display:grid;grid-template-columns:6px 1fr;gap:0;width:100%;background:transparent;border:0;border-bottom:1px solid var(--line-2);padding:0;text-align:left}
+.qrow:last-child{border-bottom:0}
+.qstripe{background:var(--rowc,var(--line))}
+.qbody{padding:11px 14px;display:flex;flex-direction:column;gap:5px;min-width:0}
+.qrow:hover .qbody{background:var(--fill)}
+.qrow.sel .qbody{background:var(--brand-9)}
+.qrow.sel{--rowc:var(--brand)}
+.qtop{display:flex;align-items:center;gap:8px}
+.labno{font-family:var(--mono);font-size:12px;font-weight:700;background:var(--fill-2);border:1px solid var(--line);border-radius:6px;padding:2px 8px;letter-spacing:.02em}
+.labno.crit{background:var(--crit-9);border-color:var(--crit);color:var(--crit)}
+.labno.none{color:var(--ink-3);font-style:italic;font-family:var(--ui);font-weight:500}
+.qname{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.qmeta{display:flex;flex-wrap:wrap;gap:6px;font-size:11.5px;color:var(--ink-3)}
+.qmeta span{white-space:nowrap}
+.dot{color:var(--line)}
+.qtags{display:flex;gap:5px;flex-wrap:wrap;margin-top:1px}
+
+.tag{font-size:11px;font-weight:700;border-radius:5px;padding:1px 7px;border:1px solid transparent}
+.t-stat{background:var(--crit);color:#fff}
+.t-crit{background:var(--crit-9);color:var(--crit);border-color:var(--crit)}
+.t-pend{background:var(--wait-9);color:var(--wait);border-color:var(--wait)}
+.t-ok{background:var(--done-9);color:var(--done);border-color:var(--done)}
+.t-info{background:var(--fill-2);color:var(--ink-2);border-color:var(--line)}
+.t-pay{background:var(--brand-9);color:var(--brand);border-color:var(--brand-5)}
+
+/* ---------- detail ---------- */
+.dwrap{display:flex;flex-direction:column}
+.patient{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start;padding:14px;border-bottom:1px solid var(--line-2)}
+.avatar{width:52px;height:52px;border-radius:12px;background:var(--brand-9);color:var(--brand);display:grid;place-items:center;font-weight:800;font-size:19px;flex:none}
+.pmain{flex:1 1 260px;min-width:0}
+.pname{font-size:17px;font-weight:800;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.remark{font-size:11px;font-weight:600;color:var(--wait);background:var(--wait-9);border:1px solid var(--wait);border-radius:5px;padding:1px 7px}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:4px 18px;margin-top:7px;font-size:12.5px}
+.pgrid div{display:flex;gap:6px;min-width:0}
+.pgrid dt{color:var(--ink-3);flex:none}
+.pgrid dd{margin:0;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pside{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+
+.crit-banner{display:flex;align-items:center;gap:10px;background:var(--crit-9);border-top:1px solid var(--crit);border-bottom:1px solid var(--crit);padding:10px 14px;font-size:13px;font-weight:700;color:var(--crit)}
+.crit-banner .mark{background:var(--crit);color:#fff;border-radius:6px;padding:1px 8px;font-size:11px;letter-spacing:.04em}
+
+.sect{padding:14px;border-bottom:1px solid var(--line-2);display:flex;flex-direction:column;gap:10px}
+.sect:last-child{border-bottom:0}
+.sect-t{font-size:11.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px}
+.kv-i{background:var(--fill);border:1px solid var(--line-2);border-radius:8px;padding:8px 11px}
+.kv-i .k{font-size:11px;color:var(--ink-3)}
+.kv-i .v{font-weight:700;margin-top:1px}
+
+/* table */
+.tbl-scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:620px}
+th{text-align:left;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3);font-weight:700;padding:7px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:8px 10px;border-bottom:1px solid var(--line-2);vertical-align:top}
+tbody tr:last-child td{border-bottom:0}
+tr.grouprow td{background:var(--fill);font-weight:800;font-size:12px;letter-spacing:.02em}
+.code{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--brand)}
+td.n{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+tr.is-crit td{background:var(--crit-9)}
+tr.is-hidden td{opacity:.5}
+.val{font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:800;font-size:14px}
+.val.hi{color:var(--crit)}
+.arrow{font-size:11px;font-weight:800}
+.modifier{display:inline-block;font-size:11px;color:var(--ink-3);background:var(--fill-2);border-radius:5px;padding:0 6px;margin-left:5px}
+
+/* actions */
+.actions{display:flex;flex-wrap:wrap;gap:8px;padding:13px 14px;background:var(--fill);border-top:1px solid var(--line-2)}
+.btn{border:1px solid var(--line);background:var(--surface);color:var(--ink-2);border-radius:8px;padding:8px 15px;font-size:13px;font-weight:600;transition:border-color .15s,color .15s}
+.btn:hover{border-color:var(--ink-3);color:var(--ink)}
+.btn-pri{background:var(--brand);border-color:var(--brand);color:#fff}
+.btn-pri:hover{color:#fff;filter:brightness(1.06)}
+.btn-danger{color:var(--crit);border-color:var(--crit)}
+.btn-danger:hover{color:var(--crit);background:var(--crit-9)}
+.btn-ok{background:var(--done);border-color:var(--done);color:#fff}
+.btn-ok:hover{color:#fff;filter:brightness(1.06)}
+.spacer{flex:1}
+
+.copybar{display:flex;flex-wrap:wrap;gap:6px 16px;padding:10px 14px;font-size:11.5px;color:var(--ink-3);border-top:1px dashed var(--line);background:repeating-linear-gradient(45deg,transparent,transparent 9px,var(--fill) 9px,var(--fill) 18px)}
+.copybar b{color:var(--ink-2)}
+
+.empty{padding:56px 20px;text-align:center;color:var(--ink-3);font-size:13.5px}
+
+/* spec callouts */
+.legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+.lg{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:11px 13px;font-size:12.5px;color:var(--ink-2)}
+.lg b{display:block;color:var(--ink);font-size:13px;margin-bottom:2px}
+.q-open{border-left:3px solid var(--wait)}
+[hidden]{display:none !important}
+</style>
+
+<div class="wrap">
+
+  <div class="mock-note">
+    <span aria-hidden="true">✳</span>
+    <div><b>Mockup ไม่ใช่ของจริง</b> — ข้อมูลผู้ป่วยและผลตรวจทั้งหมดเป็นตัวอย่างที่แต่งขึ้น
+    รหัสตรวจ (C20, C21, C36…) และหมวดหมู่มาจากใบส่งตรวจจริง C-20/L3.1
+    กดแท็บและกดแถวในคิวเพื่อดูแต่ละสถานะได้</div>
+  </div>
+
+  <div class="topbar">
+    <div>
+      <h1 class="h1">หน้าต่างการทำงานห้อง LAB</h1>
+      <div class="sub">งานชีวเคมี · กลุ่มงานพยาธิวิทยาคลินิกและเทคนิคการแพทย์ · ชั้น 5 ห้อง 503</div>
+    </div>
+    <div class="who">
+      <span class="chip-unit">งานชีวเคมี (CHE)</span>
+      <span class="num">4 ส.ค. 2569 · 14:07</span>
+      <span class="dot">·</span>
+      <span>ทนพ. สมหญิง ก.</span>
+    </div>
+  </div>
+
+  <div class="tabs" role="tablist" aria-label="สถานะงานห้องแลป">
+    <button class="tab tab-1" role="tab" aria-selected="true" aria-controls="p1" id="t1" data-tab="1">
+      <span class="tab-n">12</span>
+      <span><span class="tab-t">รอรับ</span><br><span class="tab-d">ยังไม่รับสิ่งส่งตรวจ</span></span>
+      <span class="tab-flag">2 ด่วน</span>
+    </button>
+    <button class="tab tab-2" role="tab" aria-selected="false" aria-controls="p2" id="t2" data-tab="2">
+      <span class="tab-n">8</span>
+      <span><span class="tab-t">รับเข้าแล้ว</span><br><span class="tab-d">กำลังดำเนินการ</span></span>
+    </button>
+    <button class="tab tab-3" role="tab" aria-selected="false" aria-controls="p3" id="t3" data-tab="3">
+      <span class="tab-n">24</span>
+      <span><span class="tab-t">ออกผลแล้ว</span><br><span class="tab-d">วันนี้</span></span>
+      <span class="tab-flag">1 วิกฤติ</span>
+    </button>
+  </div>
+
+  <div class="filters">
+    <input class="fsearch" type="search" placeholder="ค้นหา HN / ชื่อ-สกุล / LAB NO. / VN" aria-label="ค้นหา">
+    <select class="fsel" aria-label="Ward"><option>ทุก Ward</option><option>อายุรกรรม 5/1</option><option>NICU</option><option>ศัลยกรรม 3</option></select>
+    <select class="fsel" aria-label="Clinic"><option>ทุก Clinic</option><option>OPD กุมารเวช</option><option>คลินิกโรคไต</option></select>
+    <select class="fsel" aria-label="ชนิดสิ่งส่งตรวจ"><option>ทุกสิ่งส่งตรวจ</option><option>Clotted blood</option><option>Li-Heparin</option><option>NaF</option><option>EDTA</option><option>Urine spot</option><option>CSF</option></select>
+    <button class="fchip on" aria-pressed="true">● ด่วนเท่านั้น</button>
+    <button class="fchip" aria-pressed="false">ค่าวิกฤติ</button>
+  </div>
+
+  <!-- ============ TAB 1 : รอรับ ============ -->
+  <div class="split" id="p1" role="tabpanel" aria-labelledby="t1">
+    <div class="panel">
+      <div class="panel-h"><h2>คิวรอรับ</h2><span class="cnt num">12 ราย</span></div>
+      <div class="q">
+        <button class="qrow sel" style="--rowc:var(--crit)">
+          <span class="qstripe"></span>
+          <span class="qbody">
+            <span class="qtop"><span class="labno none">ยังไม่ออก LAB NO.</span><span class="qname">ด.ช. ภูริช ทองสุขใส</span></span>
+            <span class="qmeta"><span class="num">HN 6900017</span><span class="dot">·</span><span class="num">VN 6900342</span><span class="dot">·</span><span>อายุ 4 ปี 2 ด.</span><span class="dot">·</span><span>NICU</span></span>
+            <span class="qtags"><span class="tag t-stat">ด่วน อุบัติเหตุ</span><span class="tag t-info">8 รายการ</span><span class="tag t-info">Clotted, NaF</span><span class="tag t-pay">ชำระแล้ว</span></span>
+          </span>
+        </button>
+        <button class="qrow" style="--rowc:var(--crit)">
+          <span class="qstripe"></span>
+          <span class="qbody">
+            <span class="qtop"><span class="labno none">ยังไม่ออก LAB NO.</span><span class="qname">ด.ญ. ปุณยนุช เกียรติวงศ์</span></span>
+            <span class="qmeta"><span class="num">HN 6900002</span><span class="dot">·</span><span class="num">VN 6900338</span><span class="dot">·</span><span>อายุ 11 ปี</span><span class="dot">·</span><span>อายุรกรรม 5/1</span></span>
+            <span class="qtags"><span class="tag t-stat">ด่วน</span><span class="tag t-info">3 รายการ</span><span class="tag t-pend">รอตรวจสอบสิทธิ</span></span>
+          </span>
+        </button>
+        <button class="qrow" style="--rowc:var(--wait)">
+          <span class="qstripe"></span>
+          <span class="qbody">
+            <span class="qtop"><span class="labno">CHE-690804-041</span><span class="qname">ด.ช. ธนกฤต แสงอรุณ</span></span>
+            <span class="qmeta"><span class="num">HN 6900012</span><span class="dot">·</span><span class="num">VN 6900351</span><span class="dot">·</span><span>อายุ 7 ปี 8 ด.</span><span class="dot">·</span><span>OPD กุมารเวช</span></span>
+            <span class="qtags"><span class="tag t-info">5 รายการ</span><span class="tag t-info">Urine 24h · 1,250 ml</span><span class="tag t-pay">ชำระแล้ว</span></span>
+          </span>
+        </button>
+        <button class="qrow" style="--rowc:var(--wait)">
+          <span class="qstripe"></span>
+          <span class="qbody">
+            <span class="qtop"><span class="labno">CHE-690804-042</span><span class="qname">ด.ญ. อริสา พูนทรัพย์</span></span>
+            <span class="qmeta"><span class="num">HN 6900023</span><span class="dot">·</span><span class="num">VN 6900355</span><span class="dot">·</span><span>อายุ 2 ปี 5 ด.</span><span class="dot">·</span><span>ศัลยกรรม 3</span></span>
+            <span class="qtags"><span class="tag t-info">12 รายการ</span><span class="tag t-info">GTT</span><span class="tag t-pend">ค้างชำระ</span></span>
+          </span>
+        </button>
+        <button class="qrow" style="--rowc:var(--wait)">
+          <span class="qstripe"></span>
+          <span class="qbody">
+            <span class="qtop"><span class="labno">CHE-690804-043</span><span class="qname">ด.ช. กันตพัฒน์ ศรีเรือง</span></span>
+            <span class="qmeta"><span class="num">HN 6900025</span><span class="dot">·</span><span class="num">VN 6900357</span><span class="dot">·</span><span>อายุ 9 ปี 1 ด.</span><span class="dot">·</span><span>คลินิกโรคไต</span></span>
+            <span class="qtags"><span class="tag t-info">6 รายการ</span><span class="tag t-info">นัดล่วงหน้า</span><span class="tag t-pay">ชำระแล้ว</span></span>
+          </span>
+        </button>
+      </div>
+    </div>
+
+    <div class="panel dwrap">
+      <div class="panel-h"><h2>รายละเอียดคำขอ — รอรับ</h2><span class="cnt">สั่งเมื่อ 4 ส.ค. 2569 13:42</span></div>
+
+      <div class="patient">
+        <div class="avatar" aria-hidden="true">ภท</div>
+        <div class="pmain">
+          <div class="pname">ด.ช. ภูริช ทองสุขใส <span class="remark">เปลี่ยนชื่อ-สกุล 12 มี.ค. 2569</span></div>
+          <div class="pgrid">
+            <div><dt>HN</dt><dd class="num">6900017</dd></div>
+            <div><dt>VN</dt><dd class="num">6900342</dd></div>
+            <div><dt>วันเกิด</dt><dd class="num">14 พ.ค. 2565</dd></div>
+            <div><dt>เลข ปชช.</dt><dd class="num">1-1037-0xxxx-xx-x</dd></div>
+            <div><dt>หมู่เลือด</dt><dd>O Rh+</dd></div>
+            <div><dt>โทรศัพท์</dt><dd class="num">08x-xxx-4471</dd></div>
+            <div><dt>ผู้ติดต่อได้</dt><dd>นางสาวมาลี (มารดา)</dd></div>
+            <div><dt>สถานะ</dt><dd>Admit — NICU เตียง 7</dd></div>
+            <div><dt>สิทธิ</dt><dd>UC ในเขต — รพ.สต. บางกะปิ</dd></div>
+            <div><dt>นัดครั้งถัดไป</dt><dd class="num">21 ส.ค. 2569</dd></div>
+          </div>
+        </div>
+        <div class="pside">
+          <span class="tag t-stat">ด่วน อุบัติเหตุ</span>
+          <span class="tag t-pay">ตรวจสอบสิทธิแล้ว · ชำระแล้ว</span>
+          <span class="tag t-crit">แพ้ยา: Penicillin</span>
+        </div>
+      </div>
+
+      <div class="sect">
+        <div class="sect-t">LAB NO. และการรับเข้า</div>
+        <div class="kv">
+          <div class="kv-i"><div class="k">LAB NO. <em>(เจ้าหน้าที่ LAB กำหนด/แก้ไขได้)</em></div><div class="v num">— ยังไม่ออก —</div></div>
+          <div class="kv-i"><div class="k">แพทย์ผู้สั่งตรวจ</div><div class="v">พญ. ชลิดา วรกุล</div></div>
+          <div class="kv-i"><div class="k">Ward / Clinic</div><div class="v">NICU</div></div>
+          <div class="kv-i"><div class="k">ผู้เก็บ / เวลาเก็บ</div><div class="v num">พย.อรอุมา · 13:35</div></div>
+        </div>
+      </div>
+
+      <div class="sect">
+        <div class="sect-t">สิ่งส่งตรวจ</div>
+        <div class="kv">
+          <div class="kv-i"><div class="k">Blood</div><div class="v">Clotted · NaF</div></div>
+          <div class="kv-i"><div class="k">Urine</div><div class="v">—</div></div>
+          <div class="kv-i"><div class="k">CSF</div><div class="v">—</div></div>
+          <div class="kv-i"><div class="k">Body fluid</div><div class="v">—</div></div>
+        </div>
+      </div>
+
+      <div class="sect">
+        <div class="sect-t">รายการตรวจ — แก้ไข / ลบได้ก่อนรับเข้า</div>
+        <div class="tbl-scroll">
+          <table>
+            <thead><tr><th>รหัส</th><th>รายการตรวจ</th><th>สิ่งส่งตรวจ</th><th class="n">ราคา</th><th class="n">เบิกได้</th><th></th></tr></thead>
+            <tbody>
+              <tr class="grouprow"><td colspan="6">Renal</td></tr>
+              <tr><td class="code">C20</td><td>BUN</td><td>Clotted</td><td class="n">60</td><td class="n">60</td><td class="n">✕</td></tr>
+              <tr><td class="code">C21</td><td>Creatinine</td><td>Clotted</td><td class="n">60</td><td class="n">60</td><td class="n">✕</td></tr>
+              <tr class="grouprow"><td colspan="6">Electrolyte (Clot Blood) — C25</td></tr>
+              <tr><td class="code">C25.1</td><td>Sodium</td><td>Clotted</td><td class="n">50</td><td class="n">50</td><td class="n">✕</td></tr>
+              <tr><td class="code">C25.2</td><td>Potassium</td><td>Clotted</td><td class="n">50</td><td class="n">50</td><td class="n">✕</td></tr>
+              <tr><td class="code">C25.3</td><td>Chloride</td><td>Clotted</td><td class="n">50</td><td class="n">50</td><td class="n">✕</td></tr>
+              <tr><td class="code">C25.4</td><td>CO₂</td><td>Clotted</td><td class="n">50</td><td class="n">50</td><td class="n">✕</td></tr>
+              <tr class="grouprow"><td colspan="6">Diabetes Mellitus</td></tr>
+              <tr><td class="code">C23</td><td>Sugar (Glucose)</td><td>NaF</td><td class="n">50</td><td class="n">50</td><td class="n">✕</td></tr>
+              <tr class="grouprow"><td colspan="6">Other</td></tr>
+              <tr><td class="code">C59</td><td>Lactate <span class="modifier">NaF</span></td><td>NaF</td><td class="n">120</td><td class="n">120</td><td class="n">✕</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-ok">✓ รับเข้าดำเนินการ <span style="opacity:.85;font-weight:500">— บันทึกเวลารับ</span></button>
+        <button class="btn btn-danger">✕ ปฏิเสธสิ่งส่งตรวจ</button>
+        <button class="btn">+ เพิ่มรายการตรวจ</button>
+        <button class="btn">ออก / แก้ LAB NO.</button>
+        <span class="spacer"></span>
+        <button class="btn">🖨 พิมพ์ใบสั่งตรวจ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ TAB 2 : รับเข้าแล้ว ============ -->
+  <div class="split" id="p2" role="tabpanel" aria-labelledby="t2" hidden>
+    <div class="panel">
+      <div class="panel-h"><h2>กำลังดำเนินการ</h2><span class="cnt num">8 ราย</span></div>
+      <div class="q">
+        <button class="qrow sel" style="--rowc:var(--brand)">
+          <span class="qstripe"></span>
+          <span class="qbody">
+            <span class="qtop"><span class="labno">CHE-690804-038</span><span class="qname">ด.ญ. ณิชาภัทร บุญมาก</span></span>
+            <span class="qmeta"><span class="num">HN 6900007</span><span class="dot">·</span><span>รับเข้า 13:12</span><span class="dot">·</span><span>อายุรกรรม 5/1</span></span>
+            <span class="qtags"><span class="tag t-info">9 รายการ</span><span class="tag t-ok">ออกผลแล้ว 4</span><span class="tag t-pend">รอผล 5</span></span>
+          </span>
+        </button>
+        <button class="qrow" style="--rowc:var(--brand)">
+          <span class="qstripe"></span>
+          <span class="qbody">
+            <span class="qtop"><span class="labno">CHE-690804-036</span><span class="qname">ด.ช. รัชชานนท์ อินทโชติ</span></span>
+            <span class="qmeta"><span class="num">HN 6900027</span><span class="dot">·</span><span>รับเข้า 12:48</span><span class="dot">·</span><span>OPD กุมารเวช</span></span>
+            <span class="qtags"><span class="tag t-info">4 รายการ</span><span class="tag t-pend">รอผล 4</span></span>
+          </span>
+        </button>
+        <button class="qrow" style="--rowc:var(--brand)">
+          <span class="qstripe"></span>
+          <span class="qbody">
+            <span class="qtop"><span class="labno">CHE-690804-033</span><span class="qname">ด.ญ. พิมพ์ลภัส เจริญสุข</span></span>
+            <span class="qmeta"><span class="num">HN 6900001</span><span class="dot">·</span><span>รับเข้า 11:55</span><span class="dot">·</span><span>คลินิกโรคไต</span></span>
+            <span class="qtags"><span class="tag t-info">6 รายการ</span><span class="tag t-ok">ออกผลแล้ว 6</span></span>
+          </span>
+        </button>
+      </div>
+    </div>
+
+    <div class="panel dwrap">
+      <div class="panel-h"><h2>รายการสั่งตรวจของผู้ป่วย</h2><span class="cnt">← หน้านี้คือ list order เดิม</span></div>
+
+      <div class="patient">
+        <div class="avatar" aria-hidden="true">ณบ</div>
+        <div class="pmain">
+          <div class="pname">ด.ญ. ณิชาภัทร บุญมาก</div>
+          <div class="pgrid">
+            <div><dt>HN</dt><dd class="num">6900007</dd></div>
+            <div><dt>VN</dt><dd class="num">6900329</dd></div>
+            <div><dt>อายุ</dt><dd>6 ปี 3 ด.</dd></div>
+            <div><dt>Ward</dt><dd>อายุรกรรม 5/1 เตียง 12</dd></div>
+            <div><dt>สิทธิ</dt><dd>ข้าราชการ (จ่ายตรง)</dd></div>
+            <div><dt>แพทย์ผู้สั่ง</dt><dd>นพ. ปรีชา ธนวัฒน์</dd></div>
+          </div>
+        </div>
+        <div class="pside">
+          <span class="tag t-ok">รับเข้า 13:12 · ทนพ.สมหญิง ก.</span>
+          <span class="tag t-info">Clotted · Li-Heparin</span>
+        </div>
+      </div>
+
+      <div class="sect">
+        <div class="sect-t">รายการตรวจ 9 รายการ — ออกผลแล้ว 4 · รอผล 5</div>
+        <div class="tbl-scroll">
+          <table>
+            <thead><tr><th>รหัส</th><th>รายการตรวจ</th><th>สถานะ</th><th class="n">ส่ง LIS</th><th class="n">ผล</th></tr></thead>
+            <tbody>
+              <tr class="grouprow"><td colspan="5">Liver Function Test</td></tr>
+              <tr><td class="code">C1</td><td>Total Protein</td><td><span class="tag t-ok">ออกผลแล้ว</span></td><td class="n">13:15</td><td class="n">14:02</td></tr>
+              <tr><td class="code">C2</td><td>Albumin</td><td><span class="tag t-ok">ออกผลแล้ว</span></td><td class="n">13:15</td><td class="n">14:02</td></tr>
+              <tr><td class="code">C3</td><td>Total Bilirubin</td><td><span class="tag t-ok">ออกผลแล้ว</span></td><td class="n">13:15</td><td class="n">14:02</td></tr>
+              <tr><td class="code">C5</td><td>SGOT (AST)</td><td><span class="tag t-pend">รอผล</span></td><td class="n">13:15</td><td class="n">—</td></tr>
+              <tr><td class="code">C6</td><td>SGPT (ALT)</td><td><span class="tag t-pend">รอผล</span></td><td class="n">13:15</td><td class="n">—</td></tr>
+              <tr class="grouprow"><td colspan="5">Renal</td></tr>
+              <tr><td class="code">C20</td><td>BUN</td><td><span class="tag t-ok">ออกผลแล้ว</span></td><td class="n">13:15</td><td class="n">13:58</td></tr>
+              <tr><td class="code">C21</td><td>Creatinine</td><td><span class="tag t-pend">รอผล</span></td><td class="n">13:15</td><td class="n">—</td></tr>
+              <tr class="grouprow"><td colspan="5">Trace Element</td></tr>
+              <tr><td class="code">C26</td><td>Total Calcium</td><td><span class="tag t-pend">รอผล</span></td><td class="n">13:15</td><td class="n">—</td></tr>
+              <tr><td class="code">C28</td><td>Phosphorus</td><td><span class="tag t-pend">รอผล</span></td><td class="n">13:15</td><td class="n">—</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-pri">ลงผล Manual (กรณี LIS ล่ม)</button>
+        <button class="btn">ส่ง Order ไป LIS ซ้ำ</button>
+        <button class="btn">แก้ไข LAB NO.</button>
+        <span class="spacer"></span>
+        <button class="btn">🖨 พิมพ์ใบสั่งตรวจ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ TAB 3 : ออกผลแล้ว ============ -->
+  <div class="split" id="p3" role="tabpanel" aria-labelledby="t3" hidden>
+    <div class="panel">
+      <div class="panel-h"><h2>ออกผลแล้ว</h2><span class="cnt num">24 ราย</span></div>
+      <div class="q">
+        <button class="qrow sel" style="--rowc:var(--crit)">
+          <span class="qstripe"></span>
+          <span class="qbody">
+            <span class="qtop"><span class="labno crit">CHE-690804-029 ⚠</span><span class="qname">ด.ช. ศุภวิชญ์ ดำรงชัย</span></span>
+            <span class="qmeta"><span class="num">HN 6900033</span><span class="dot">·</span><span>ออกผล 13:41</span><span class="dot">·</span><span>NICU</span></span>
+            <span class="qtags"><span class="tag t-crit">ค่าวิกฤติ 1 รายการ</span><span class="tag t-info">7 รายการ</span></span>
+          </span>
+        </button>
+        <button class="qrow" style="--rowc:var(--done)">
+          <span class="qstripe"></span>
+          <span class="qbody">
+            <span class="qtop"><span class="labno">CHE-690804-027</span><span class="qname">ด.ญ. พิมพ์ลภัส เจริญสุข</span></span>
+            <span class="qmeta"><span class="num">HN 6900001</span><span class="dot">·</span><span>ออกผล 13:20</span><span class="dot">·</span><span>คลินิกโรคไต</span></span>
+            <span class="qtags"><span class="tag t-ok">ครบทุกรายการ</span><span class="tag t-info">6 รายการ</span></span>
+          </span>
+        </button>
+        <button class="qrow" style="--rowc:var(--done)">
+          <span class="qstripe"></span>
+          <span class="qbody">
+            <span class="qtop"><span class="labno">CHE-690804-024</span><span class="qname">ด.ช. อติวิชญ์ พงศ์ไพศาล</span></span>
+            <span class="qmeta"><span class="num">HN 6900002</span><span class="dot">·</span><span>ออกผล 12:10</span><span class="dot">·</span><span>OPD กุมารเวช</span></span>
+            <span class="qtags"><span class="tag t-ok">ครบทุกรายการ</span><span class="tag t-info">3 รายการ</span><span class="tag t-info">ปกปิด 1</span></span>
+          </span>
+        </button>
+      </div>
+    </div>
+
+    <div class="panel dwrap">
+      <div class="panel-h"><h2>ผลการตรวจ</h2><span class="cnt">เรียงตามลำดับ Report LIS</span></div>
+
+      <div class="crit-banner">
+        <span class="mark">CRITICAL</span>
+        <span>ค่าวิกฤติที่ LAB NO. <span class="num">CHE-690804-029</span> — Potassium 7.4 mmol/L · แจ้งแพทย์แล้ว 13:44 โดย ทนพ.สมหญิง ก.</span>
+      </div>
+
+      <div class="patient">
+        <div class="avatar" aria-hidden="true">ศด</div>
+        <div class="pmain">
+          <div class="pname">ด.ช. ศุภวิชญ์ ดำรงชัย</div>
+          <div class="pgrid">
+            <div><dt>HN</dt><dd class="num">6900033</dd></div>
+            <div><dt>LAB NO.</dt><dd class="num">CHE-690804-029</dd></div>
+            <div><dt>อายุ</dt><dd>1 ด. 12 วัน</dd></div>
+            <div><dt>Ward</dt><dd>NICU เตียง 3</dd></div>
+            <div><dt>เก็บตัวอย่าง</dt><dd class="num">4 ส.ค. 12:20</dd></div>
+            <div><dt>รายงานผล</dt><dd class="num">4 ส.ค. 13:41</dd></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sect">
+        <div class="sect-t">ผลการตรวจ 7 รายการ</div>
+        <div class="tbl-scroll">
+          <table>
+            <thead><tr><th>รหัส</th><th>รายการตรวจ</th><th class="n">ผล</th><th>หน่วย</th><th class="n">Ref. Range</th><th>Comment</th><th></th></tr></thead>
+            <tbody>
+              <tr class="grouprow"><td colspan="7">Electrolyte (Clot Blood) — C25</td></tr>
+              <tr><td class="code">C25.1</td><td>Sodium</td><td class="n"><span class="val">138</span></td><td>mmol/L</td><td class="n">135 – 145</td><td></td><td></td></tr>
+              <tr class="is-crit"><td class="code">C25.2</td><td>Potassium</td><td class="n"><span class="val hi">7.4 <span class="arrow">▲</span></span></td><td>mmol/L</td><td class="n">3.5 – 5.1</td><td><span class="tag t-crit">ค่าวิกฤติ</span> ตรวจซ้ำยืนยันแล้ว</td><td></td></tr>
+              <tr><td class="code">C25.3</td><td>Chloride</td><td class="n"><span class="val">103</span></td><td>mmol/L</td><td class="n">98 – 107</td><td></td><td></td></tr>
+              <tr><td class="code">C25.4</td><td>CO₂</td><td class="n"><span class="val">19</span></td><td>mmol/L</td><td class="n">22 – 29</td><td>ต่ำเล็กน้อย</td><td></td></tr>
+              <tr class="grouprow"><td colspan="7">Renal</td></tr>
+              <tr><td class="code">C20</td><td>BUN</td><td class="n"><span class="val">24</span></td><td>mg/dL</td><td class="n">7 – 18</td><td></td><td></td></tr>
+              <tr><td class="code">C21</td><td>Creatinine</td><td class="n"><span class="val">0.9</span></td><td>mg/dL</td><td class="n">0.3 – 1.0</td><td></td><td></td></tr>
+              <tr class="grouprow"><td colspan="7">Diabetes Mellitus</td></tr>
+              <tr class="is-hidden"><td class="code">C23</td><td>Sugar (Glucose)</td><td class="n"><span class="val">—</span></td><td>mg/dL</td><td class="n">70 – 110</td><td><span class="tag t-info">ปกปิดผล</span> รอ MT ยืนยัน — ทนพ.สมหญิง ก. 13:50</td><td></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn">แก้ไขผล</button>
+        <button class="btn">ปกปิด / เปิดผล</button>
+        <button class="btn btn-danger">บันทึกการแจ้งค่าวิกฤติ</button>
+        <span class="spacer"></span>
+        <button class="btn btn-pri">🖨 พิมพ์ผลการตรวจ</button>
+      </div>
+
+      <div class="copybar">
+        <span><b>สำเนาพิมพ์ออนไลน์</b> — ท้ายกระดาษทุกใบ</span>
+        <span>ผู้พิมพ์: ทนพ. สมหญิง ก.</span>
+        <span class="num">4 ส.ค. 2569 14:07 น.</span>
+        <span class="num">page 1/2</span>
+        <span>ฉบับจริงต้องมีลายเซ็นนักเทคนิคการแพทย์</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ spec notes ============ -->
+  <div class="legend">
+    <div class="lg"><b>แถบสีซ้ายแถว = ความเร่งด่วน</b>แดง = ด่วน/ค่าวิกฤติ · เหลือง = รอรับปกติ · ฟ้า = กำลังดำเนินการ · เขียว = ออกผลครบ อ่านได้จากหางตาโดยไม่ต้องอ่านตัวหนังสือ</div>
+    <div class="lg"><b>LAB NO. เป็นป้าย monospace</b>ตาม req. 8 ค่าวิกฤติต้องเห็นชัด “ตรง LAB NO.” ป้ายจึงเปลี่ยนเป็นสีแดง + ⚠ ในตัวมันเอง ไม่ใช่แค่ badge ลอยข้างๆ</div>
+    <div class="lg"><b>ตัวเลขทุกคอลัมน์เป็น tabular-nums</b>ผล / Ref.Range / ราคา / เวลา เรียงตรงหลักกันทุกแถว เทียบค่าได้เร็ว</div>
+    <div class="lg q-open"><b>⚠ ยังต้องยืนยัน: ช่อง “ด่วน”</b>ตอนนี้พบบนใบภูมิคุ้มกัน (C-20/L5.1-1) เท่านั้น — ใบชีวเคมี C-20/L3.1 ไม่มี ถ้าชีวเคมีไม่ใช้ ให้ตัด filter “ด่วนเท่านั้น” กับ tag ออก</div>
+    <div class="lg q-open"><b>⚠ ยังต้องยืนยัน: ราคา</b>ในตารางกรอกเลขตัวอย่างไว้ ของจริงยังไม่มีแหล่ง — ใบส่งตรวจไม่พิมพ์ราคา และคอมโพเนนต์ที่สร้างไว้ hard-code เป็น 0</div>
+    <div class="lg q-open"><b>⚠ ยังต้องยืนยัน: ลำดับ Report LIS</b>แท็บ 3 เรียงตามกลุ่มบนใบส่งตรวจไปก่อน ของจริง req. 5 บอกให้ยึดลำดับตาม Report LIS ซึ่งยังไม่มีตัวอย่าง</div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('.tab'));
+  var panels = {1:document.getElementById('p1'),2:document.getElementById('p2'),3:document.getElementById('p3')};
+  tabs.forEach(function(tab){
+    tab.addEventListener('click', function(){
+      tabs.forEach(function(t){ t.setAttribute('aria-selected', String(t === tab)); });
+      Object.keys(panels).forEach(function(k){ panels[k].hidden = (k !== tab.dataset.tab); });
+    });
+  });
+  document.querySelectorAll('.q').forEach(function(list){
+    list.addEventListener('click', function(ev){
+      var row = ev.target.closest('.qrow');
+      if(!row) return;
+      list.querySelectorAll('.qrow').forEach(function(r){ r.classList.remove('sel'); });
+      row.classList.add('sel');
+    });
+  });
+})();
+</script>

@@ -1,0 +1,419 @@
+============================================================
+LAB PATIENT HEADER — สคริปต์สำหรับคัดลอกลง initCraft SDForm
+============================================================
+
+ชื่อ Components widget ต้องเป็น:
+
+lab_patient_header
+
+
+============================================================
+1) COMPONENTS > COMMON SETTING
+============================================================
+
+Variable Name / Name : lab_patient_header
+Column Span          : 4
+Hidden               : false / ปิด
+Label                : ข้อมูลผู้ป่วยสำหรับสั่ง LAB
+
+
+============================================================
+2) COMPONENTS > CONTENT
+============================================================
+
+<el-card class="lab-patient-card" shadow="always">
+  <div v-if="tran" class="lab-patient-main">
+    <el-avatar
+      shape="square"
+      :size="74"
+      fit="cover"
+      :src="picUrl()"
+      class="lab-patient-avatar"
+    >
+      <svg viewBox="0 0 24 24" class="lab-patient-avatar-placeholder">
+        <path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2c-4.4 0-8 2.7-8 6v2h16v-2c0-3.3-3.6-6-8-6z" />
+      </svg>
+    </el-avatar>
+
+    <div class="lab-patient-identity">
+      <div class="lab-patient-name-row">
+        <span class="lab-patient-name">
+          {{ patientName() }}
+        </span>
+
+        <span class="lab-patient-chip primary">
+          HN {{ patient().hn || '-' }}
+        </span>
+
+        <span class="lab-patient-chip warning">
+          VN {{ visit().vn || '-' }}
+        </span>
+
+        <span class="lab-patient-chip">
+          อายุ {{ patient().age || '-' }} ปี · {{ genderLabel() }}
+        </span>
+
+        <span class="lab-patient-chip">
+          หมู่เลือด {{ aboLabel() }}
+        </span>
+      </div>
+
+      <div class="lab-patient-meta">
+        วันเกิด <b>{{ patient().birth_date || '-' }}</b>
+
+        <span class="lab-patient-sep">·</span>
+
+        โทร. <b>{{ patient().p_phone || '-' }}</b>
+
+        <span class="lab-patient-sep">·</span>
+
+        วันที่รับบริการ <b>{{ visitDate() }}</b>
+      </div>
+
+      <div class="lab-patient-tags">
+        <span
+          v-for="(item, index) in patientTypes()"
+          :key="'pttype-' + index"
+          class="lab-patient-chip success"
+        >
+          {{ item }}
+        </span>
+
+        <span
+          v-for="(item, index) in allergies()"
+          :key="'allergy-' + index"
+          class="lab-patient-chip danger"
+        >
+          แพ้ยา: {{ item }}
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <el-empty
+    v-else
+    :image-size="70"
+    description="ยังไม่ได้เรียกผู้ป่วย — เลือกผู้ป่วยจากหน้ารายการคิว"
+  />
+</el-card>
+
+
+============================================================
+3) COMPONENTS > EVENT SETTING > onCreated
+============================================================
+
+const s = this.vueState
+const field = this
+
+s.tran = null
+
+s.patient = () => {
+  return (s.tran && s.tran.vid && s.tran.vid.pid) || {}
+}
+
+s.visit = () => {
+  return (s.tran && s.tran.vid) || {}
+}
+
+s.patientName = () => {
+  const p = s.patient()
+  const prefix = (p.prename && p.prename.label) || ''
+
+  return (
+    prefix +
+    (p.p_fname || '') +
+    ' ' +
+    (p.p_lname || '')
+  ).trim() || '-'
+}
+
+s.picUrl = () => {
+  const pictures = s.patient().p_pic
+
+  return (
+    Array.isArray(pictures) &&
+    pictures[0] &&
+    pictures[0].url
+  ) || ''
+}
+
+s.genderLabel = () => {
+  const genderMap = {
+    '1': 'ชาย',
+    '2': 'หญิง'
+  }
+
+  return genderMap[String(s.patient().p_gender || '')] || '-'
+}
+
+s.aboLabel = () => {
+  const bloodGroupMap = {
+    '1': 'A',
+    '2': 'B',
+    '3': 'AB',
+    '4': 'O',
+    '5': 'ไม่ทราบ',
+    '9': 'ไม่ทราบ'
+  }
+
+  const code = String(s.patient().p_abogroup || '')
+
+  return bloodGroupMap[code] || code || '-'
+}
+
+s.visitDate = () => {
+  return (
+    s.visit().visit_date ||
+    (s.tran && s.tran.checkin_at) ||
+    '-'
+  )
+}
+
+s.patientTypes = () => {
+  const values = s.tran && s.tran.pttype
+  return Array.isArray(values) ? values : []
+}
+
+s.allergies = () => {
+  const values = s.tran && s.tran.allergy_tags
+  return Array.isArray(values) ? values : []
+}
+
+s.setTran = (row) => {
+  s.tran = row || null
+
+  const form = field.getFormRef()
+
+  if (form) {
+    form.$labTran = s.tran
+  }
+}
+
+s.clearTran = () => {
+  s.setTran(null)
+}
+
+
+============================================================
+4) COMPONENTS > EVENT SETTING > onMounted
+============================================================
+
+const form = this.getFormRef()
+
+const initialTran =
+  (form && (form.$labTran || form.$examTran)) ||
+  (formParams && formParams.tran) ||
+  null
+
+this.vueState.setTran(initialTran)
+
+
+============================================================
+5) COMPONENTS > EVENT SETTING > onUnmount
+============================================================
+
+ปล่อยว่าง ไม่ต้องใส่สคริปต์
+
+
+============================================================
+6) FORM SETTING > CSS CODE
+============================================================
+
+.lab-patient-card {
+  border: 1px solid var(--el-border-color);
+  border-radius: 12px;
+  background: var(--el-bg-color);
+}
+
+.lab-patient-card .el-card__body {
+  padding: 16px 18px;
+}
+
+.lab-patient-main {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.lab-patient-avatar {
+  flex: none;
+  background: var(--el-fill-color-light);
+  border: 1px solid var(--el-border-color);
+}
+
+.lab-patient-avatar-placeholder {
+  width: 62%;
+  height: 62%;
+  fill: var(--el-text-color-secondary);
+}
+
+.lab-patient-identity {
+  flex: 1;
+  min-width: 0;
+}
+
+.lab-patient-name-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.lab-patient-name {
+  margin-right: 3px;
+  color: var(--el-text-color-primary);
+  font-size: 20px;
+  font-weight: 750;
+}
+
+.lab-patient-meta {
+  margin-top: 8px;
+  color: var(--el-text-color-regular);
+  font-size: 13px;
+}
+
+.lab-patient-sep {
+  margin: 0 8px;
+  color: var(--el-text-color-placeholder);
+}
+
+.lab-patient-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 9px;
+}
+
+.lab-patient-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 999px;
+  color: var(--el-text-color-regular);
+  background: var(--el-fill-color-light);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.lab-patient-chip.primary {
+  color: var(--el-color-primary);
+  background: var(--el-color-primary-light-9);
+  border-color: var(--el-color-primary-light-8);
+}
+
+.lab-patient-chip.warning {
+  color: var(--el-color-warning);
+  background: var(--el-color-warning-light-9);
+  border-color: var(--el-color-warning-light-8);
+}
+
+.lab-patient-chip.success {
+  color: var(--el-color-success);
+  background: var(--el-color-success-light-9);
+  border-color: var(--el-color-success-light-8);
+}
+
+.lab-patient-chip.danger {
+  color: var(--el-color-danger);
+  background: var(--el-color-danger-light-9);
+  border-color: var(--el-color-danger-light-8);
+}
+
+@media (max-width: 700px) {
+  .lab-patient-main {
+    align-items: flex-start;
+  }
+
+  .lab-patient-avatar {
+    width: 58px !important;
+    height: 58px !important;
+  }
+
+  .lab-patient-name {
+    font-size: 17px;
+  }
+
+  .lab-patient-meta {
+    line-height: 1.8;
+  }
+
+  .lab-patient-sep {
+    display: none;
+  }
+}
+
+
+============================================================
+7) LIST VIEW > BUTTONS ROW > ปุ่มเรียก/เลือกผู้ป่วย > onClick
+============================================================
+
+หมายเหตุ:
+- ใน Buttons Row ของ List View ข้อมูลแถวปัจจุบันใช้ตัวแปร dataRow
+- ต้องวาง Component และตั้งชื่อ lab_patient_header ก่อน
+
+const form = this.getFormRef()
+const selectedTran = dataRow
+
+form.$labTran = selectedTran
+
+const patientHeader = form.getFieldRef('lab_patient_header')
+
+if (
+  patientHeader &&
+  patientHeader.vueState &&
+  patientHeader.vueState.setTran
+) {
+  patientHeader.vueState.setTran(selectedTran)
+} else {
+  this.alert(
+    'ไม่พบ Component lab_patient_header',
+    'warning'
+  )
+}
+
+
+============================================================
+8) สคริปต์ล้างผู้ป่วยออกจากหัวฟอร์ม (ถ้าต้องการปุ่มล้าง)
+============================================================
+
+const form = this.getFormRef()
+const patientHeader = form.getFieldRef('lab_patient_header')
+
+form.$labTran = null
+
+if (
+  patientHeader &&
+  patientHeader.vueState &&
+  patientHeader.vueState.clearTran
+) {
+  patientHeader.vueState.clearTran()
+}
+
+
+============================================================
+9) รูปแบบข้อมูลที่ Component ต้องได้รับ
+============================================================
+
+row.vid.pid.hn
+row.vid.pid.prename.label
+row.vid.pid.p_fname
+row.vid.pid.p_lname
+row.vid.pid.age
+row.vid.pid.p_gender
+row.vid.pid.birth_date
+row.vid.pid.p_phone
+row.vid.pid.p_abogroup
+row.vid.pid.p_pic
+
+ข้อมูล visit:
+
+row.vid.vn
+row.vid.visit_date
+
+ข้อมูลเพิ่มเติม:
+
+row.pttype
+row.allergy_tags
+
