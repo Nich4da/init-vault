@@ -2,9 +2,9 @@
 type: concept
 title: SQL Factory (module_sql queries)
 created: 2026-07-17
-updated: 2026-07-17
+updated: 2026-08-18
 tags: [initcraft, sql-factory, query, module-sql]
-sources: ["[[llm-api-docs]]", "[[erp-mongodb]]"]
+sources: ["[[llm-api-docs]]", "[[erp-mongodb]]", "[[his-medical-record-report]]"]
 ---
 
 # SQL Factory (`module_sql` queries)
@@ -39,6 +39,44 @@ and the client [[crudgetall|`crudGetAll`]] `where` — one language across all t
 sql_where:  `_id` = CONVERT(:_id, 'objectId')
 ```
 
+## ⚠️ Two representations of JOIN — editing only one is a silent no-op
+Confirmed 2026-08-18 while hand-editing an exported `module_sql` JSON file to fix a query's
+join direction. A document stores the JOIN graph in **two places that don't stay in sync**:
+- `sql_join` — array of `{type, hint, form, table, on}`. Looks like the authoritative field (it's
+  what the builder UI's Join grid renders from) — **but is NOT what actually executes.**
+- `sql_options.join` — array of `{type, hint, table, on}` (no `form`). **This is the one the
+  backend actually reads to generate the runtime SQL.**
+
+Editing `sql_join` alone and re-importing produced a query whose `FROM` clause changed correctly
+but whose `JOIN` clause silently kept the *old* table/condition — confirmed by inspecting the
+`sql` string returned in the SQL Test response, which still showed the pre-edit join verbatim.
+Fixed by editing `sql_options.join` too. **Any future file-based edit to a query's JOINs must
+update both arrays**, or the change does nothing and fails silently (still returns
+`"message": "Get data success."` with 0 rows — no error to signal the mismatch).
+
+Not yet checked whether `sql_options.from` / `sql_options.where` have the same split-brain
+problem — `sql_options.from` and `sql_options.where` were both empty strings `''` on the export
+inspected (while the *authoritative* `sql_from` and `sql_where` top-level fields were populated
+and DID take effect correctly) — so for those two, the top-level field alone was sufficient. Only
+`join` was proven to need the `sql_options` copy edited.
+
+## Confirmed function vocabulary (via live SQL Test, 2026-08-18)
+Confirmed working, including nested: `CASE WHEN...END`, `IFNULL(a,b)`, `CONVERT(x,'objectId')`,
+`SIZE_OF_ARRAY(x)`, `CONCAT(...)` (arbitrarily nested with the above), `ARRAY_ELEM_AT(arr,i)`,
+`PARSE_JSON(str)`. **Confirmed broken: `RIGHT(...)`** — `CONCAT(IFNULL(...), RIGHT(CONCAT('00',
+...), 3))` produced a silent `{"message":"Query Error.","sql":""}` (the backend failed to
+generate any SQL text at all — no line/column diagnostic). Removing just the `RIGHT` call fixed
+it; plain `CONCAT` nested with `CASE`/`IFNULL`/`ARRAY_ELEM_AT` in the same query was already
+working before and after. Not yet tested: any other string/date function beyond this list — treat
+anything not on the "confirmed working" list as a coin flip until SQL-Tested live.
+
+## Custom expressions can reference undeclared fields
+A joined table's fields only show up in the Field dropdown / autocomplete if they're declared in
+that table's SdForm schema. A field that exists in the raw MongoDB collection but isn't declared
+(e.g. `zdata_visit_tran.queue_label` — see [[his-medical-record-report]]) is still reachable by
+**typing the raw backtick path directly into the Custom box** — confirmed working, no function
+wrapper needed, same mechanism as any other Custom expression.
+
 ## Real example — `vms_car`
 - `sql_from`: `zdata_vms_car_bookin`
 - `sql_select`: 26 backtick-quoted columns (`req_type`, `doc_no`, `depart_date`,
@@ -59,3 +97,5 @@ linked to the *Learning SD Form* (see [[his]]).
 ## Related
 - Query object shape: [[dataprovider]] · client reads: [[crudgetall]] · API sibling: [[api-factory]].
 - Runs against [[mongodb]] / [[zdata-collections]]; storage facts in [[erp-mongodb]].
+- Worked example with the JOIN split-brain gotcha + confirmed function list in practice:
+  [[his-medical-record-report]].

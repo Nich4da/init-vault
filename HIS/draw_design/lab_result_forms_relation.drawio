@@ -1,0 +1,995 @@
+<mxfile host="app.diagrams.net" agent="claude-code" version="24.7.7" type="device">
+  <diagram id="labform-rel" name="1 · ความสัมพันธ์ 4 ฟอร์ม">
+    <mxGraphModel dx="1030" dy="570" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="2000" pageHeight="1420" math="0" shadow="0" adaptiveColors="auto">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="labform-rel-n1" value="3 CRUD Forms + 1 UI Form — เชื่อมกันด้วยอะไร และเชื่อมกันตรงไหน" style="text;html=1;fontSize=24;fontStyle=1;align=left;verticalAlign=middle;fontColor=light-dark(#1a1a1a,#f0f0f0);" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-rel-n2" value="จาก LAB_RESULT_3_FORM_SCHEMA_AND_UI.md (25 ส.ค. 2569) · ตัวเลขคือ live configuration ที่ตรวจแล้ว" style="text;html=1;fontSize=12;fontStyle=2;align=left;verticalAlign=middle;fontColor=light-dark(#777777,#999999);" vertex="1" parent="1">
+          <mxGeometry x="40" y="54" width="1920" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-rel-n3" value="แผนผังความสัมพันธ์ — สังเกตว่ามีการเชื่อม 3 แบบ ไม่เหมือนกัน" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="100" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-rel-n4" value="&lt;b&gt;Lab Work Item / Order Status&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;งานสั่งตรวจฝั่ง HIS — &lt;b&gt;อยู่นอก 3 ฟอร์มนี้&lt;/b&gt;&lt;br&gt;&lt;br&gt;เป็นต้นทางของทั้งขาส่ง order และ Manual Result&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="160" width="300" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-rel-n5" value="&lt;b&gt;① Lab_Result_Inbound_Receive&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;CRUD · &lt;b&gt;form_db&lt;/b&gt;&lt;br&gt;id &lt;b&gt;6a8b1c03f851000f28e501ef&lt;/b&gt;&lt;br&gt;→ &lt;b&gt;zdata_lab_result_inbound&lt;/b&gt;&lt;br&gt;&lt;br&gt;1 record = &lt;b&gt;1 ข้อความ&lt;/b&gt;ที่รับจาก Agent&lt;br&gt;&lt;b&gt;ไม่มี Join Parent&lt;/b&gt; (ถูกต้องแล้ว)&lt;br&gt;&lt;b&gt;record_kind = receipt&lt;/b&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="430" y="160" width="330" height="210" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-rel-n6" value="&lt;b&gt;② Result_Report_Manual_Entry&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;CRUD · &lt;b&gt;form_db&lt;/b&gt;&lt;br&gt;id &lt;b&gt;6a8d4334f851000f28e5025b&lt;/b&gt;&lt;br&gt;→ &lt;b&gt;zdata_lab_report_manual_entry&lt;/b&gt;&lt;br&gt;&lt;br&gt;1 record = &lt;b&gt;หัวชุดผลของ 1 LAB NO.&lt;/b&gt;&lt;br&gt;&lt;b&gt;record_kind = report&lt;/b&gt;&lt;br&gt;⚠️ live: &lt;b&gt;ยังไม่มี Join Parent&lt;/b&gt; — อ้างงาน Lab ด้วย &lt;b&gt;order_status_id&lt;/b&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="880" y="160" width="330" height="230" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-rel-n7" value="&lt;b&gt;③ LAB_result_item&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;CRUD · &lt;b&gt;form_db&lt;/b&gt;&lt;br&gt;id &lt;b&gt;6a8bc91df851000f28e501fb&lt;/b&gt;&lt;br&gt;→ &lt;b&gt;zdata_lab_result_item&lt;/b&gt;&lt;br&gt;&lt;br&gt;1 record = &lt;b&gt;1 ผลตรวจ (Test/OBS component)&lt;/b&gt;&lt;br&gt;✅ live: &lt;b&gt;เปิด Join Parent ไป ② แล้ว&lt;/b&gt;&lt;br&gt;Parent field &lt;b&gt;_id&lt;/b&gt; → child &lt;b&gt;parent_id&lt;/b&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="1330" y="160" width="330" height="230" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-rel-n8" value="&lt;b&gt;UI · Result Report Viewer&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;&lt;b&gt;form_ui&lt;/b&gt; · id &lt;b&gt;6a8d5620f851000f28e50270&lt;/b&gt; · &lt;b&gt;ไม่มี collection / ไม่มี table ของตัวเอง&lt;/b&gt;&lt;br&gt;แสดงหัวรายงาน (LAB NO. · HN · VN · ชื่อผู้ป่วย · reported/verified) + ListView &lt;b&gt;result_report_viewer_items_list&lt;/b&gt;&lt;br&gt;🔴 ไม่ใช่ตารางข้อมูลเพิ่ม — ทุกค่าที่เห็นมาจาก ② และ ③ หรือ params/API ตอนเปิด&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="880" y="560" width="780" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-rel-n9" value="&lt;b&gt;หน้า Lab รวม → Tab ออกผล &lt;i&gt;(ยังต้องออกแบบ)&lt;/i&gt;&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;ListView source = &lt;b&gt;Result_Report_Manual_Entry&lt;/b&gt; (1 แถวต่อ LAB NO./งาน)&lt;br&gt;Buttons Row: ปุ่ม &lt;b&gt;ดูผล&lt;/b&gt; → เปิด Viewer พร้อม &lt;b&gt;params.result_report_id&lt;/b&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#fff2cc,#4a3d13);strokeColor=light-dark(#d6b656,#d6b656);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="560" width="780" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-rel-n10" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;dashed=1;dashPattern=6 4;" edge="1" parent="1" source="labform-rel-n4" target="labform-rel-n5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-rel-n11" value="N : 1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="labform-rel-n5" target="labform-rel-n6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-rel-n12" value="1 : N" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="labform-rel-n6" target="labform-rel-n7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-rel-n13" value="ปุ่ม “ดูผล” → params.result_report_id" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="labform-rel-n9" target="labform-rel-n8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-rel-n14" value="อ่าน header" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=0.25;exitY=1;exitDx=0;exitDy=0;entryX=0.25;entryY=0;entryDx=0;entryDy=0;dashed=1;dashPattern=6 4;" edge="1" parent="1" source="labform-rel-n6" target="labform-rel-n8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-rel-n15" value="ListView อ่าน items" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.85;entryY=0;entryDx=0;entryDy=0;dashed=1;dashPattern=6 4;" edge="1" parent="1" source="labform-rel-n7" target="labform-rel-n8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-rel-n16" value="order_status_id" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.85;entryDx=0;entryDy=0;dashed=1;dashPattern=6 4;" edge="1" parent="1" source="labform-rel-n4" target="labform-rel-n6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-rel-n17" value="&lt;b&gt;① → ② เป็น logical reference&lt;/b&gt;&lt;br&gt;&lt;i&gt;ไม่ใช่&lt;/i&gt; Join Parent ของ initCraft" style="text;html=1;fontSize=10;align=center;verticalAlign=top;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="1">
+          <mxGeometry x="430" y="380" width="330" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-rel-n18" value="&lt;b&gt;② → ③ เป็น Join Parent จริง&lt;/b&gt;&lt;br&gt;บันทึกใน live configuration แล้ว" style="text;html=1;fontSize=10;align=center;verticalAlign=top;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="1">
+          <mxGeometry x="1330" y="400" width="330" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-rel-n19" value="การเชื่อม 3 แบบ — อย่าสลับกัน" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="740" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-rel-n20" value="&lt;b&gt;แบบ A · logical reference ผ่าน API (① → ②)&lt;/b&gt;&lt;br&gt;&lt;br&gt;&lt;code&gt;Receipt.result_report_id → Report._id&lt;/code&gt;&lt;br&gt;หรือค้นด้วย &lt;code&gt;Receipt.report_key&lt;/code&gt;&lt;br&gt;&lt;br&gt;🔴 &lt;b&gt;ห้ามทำเป็น Join Parent&lt;/b&gt; เพราะ&lt;br&gt;&amp;nbsp;• 1 Report มีได้หลาย Receipt (partial → final → corrected)&lt;br&gt;&amp;nbsp;• Receipt ที่ unmatched/error ต้องอยู่ได้&lt;b&gt;โดยยังไม่มี Report&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="40" y="790" width="620" height="195" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-rel-n21" value="&lt;b&gt;แบบ B · Join Parent ของ initCraft (② → ③)&lt;/b&gt;&lt;br&gt;&lt;br&gt;&lt;code&gt;Parent Form&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;= Result_Report_Manual_Entry&lt;/code&gt;&lt;br&gt;&lt;code&gt;Parent Form ID = 6a8d4334f851000f28e5025b&lt;/code&gt;&lt;br&gt;&lt;code&gt;Join Parent Field = _id&lt;/code&gt;&lt;br&gt;&lt;code&gt;Child Field Name&amp;nbsp; = parent_id&lt;/code&gt;&lt;br&gt;&lt;br&gt;สร้าง child ผ่าน parent context → initCraft เก็บ &lt;b&gt;xparentx&lt;/b&gt; + snapshot ใน &lt;b&gt;parent_id.*&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="700" y="790" width="620" height="195" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-rel-n22" value="&lt;b&gt;แบบ C · params + ListView filter (② ③ → Viewer)&lt;/b&gt;&lt;br&gt;&lt;br&gt;เปิด Viewer ด้วย &lt;code&gt;params.result_report_id&lt;/code&gt;&lt;br&gt;&lt;br&gt;ListView &lt;b&gt;result_report_viewer_items_list&lt;/b&gt;&lt;br&gt;source form = &lt;b&gt;LAB_result_item&lt;/b&gt; (6a8bc91d…)&lt;br&gt;&lt;code&gt;xparentx = CONVERT('&amp;lt;result_report_id&amp;gt;','objectId')&lt;/code&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);" vertex="1" parent="1">
+          <mxGeometry x="1360" y="790" width="600" height="195" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-rel-n23" value="🔴 &lt;b&gt;กฎ 3 ตัวชี้ต้องตรงกันเสมอ — ไม่ตรงเมื่อไหร่ถือว่าข้อมูลเสียความสัมพันธ์&lt;/b&gt;&lt;br&gt;&lt;code&gt;LAB_result_item.xparentx&lt;/code&gt; &amp;nbsp;=&amp;nbsp; &lt;code&gt;LAB_result_item.parent_id.value&lt;/code&gt; &amp;nbsp;=&amp;nbsp; &lt;code&gt;LAB_result_item.result_report_id&lt;/code&gt; &amp;nbsp;=&amp;nbsp; &lt;code&gt;Result_Report_Manual_Entry._id&lt;/code&gt;&lt;br&gt;&lt;i&gt;Join Parent เขียน 2 ตัวแรกให้อัตโนมัติ · ตัวที่สาม Adapter ต้องเขียนเองเพื่อใช้ query/idempotency&lt;/i&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="40" y="1005" width="1920" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-rel-n24" value="&lt;b&gt;Cardinality ที่ต้องจำ&lt;/b&gt;&lt;br&gt;Agent messages / Receipts &amp;nbsp;&lt;b&gt;หลายข้อความ&lt;/b&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;→ Report Header &amp;nbsp;&lt;b&gt;1 ชุดต่อ logical Lab result work&lt;/b&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;→ Result Items &amp;nbsp;&lt;b&gt;หลายรายการต่อ Report&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="40" y="1100" width="940" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-rel-n25" value="🔴 &lt;b&gt;ไม่ใช่ 1 record → 1 record → 1 record&lt;/b&gt;&lt;br&gt;• partial / final / corrected → หลาย Receipt ของ Report เดียวกัน&lt;br&gt;• 1 Report มีหลาย Result Item&lt;br&gt;• 1 Test/Panel ที่สั่ง อาจแตกเป็นหลาย OBS component" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="1020" y="1100" width="940" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-rel-n26" value="LEGEND" style="rounded=0;html=1;fillColor=light-dark(#fafafa,#1c1c1c);strokeColor=light-dark(#8a8a8a,#9aa3ad);verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontSize=11;fontStyle=1;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="1">
+          <mxGeometry x="40" y="1225" width="1500" height="112" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-rel-n27" value="" style="rounded=0;html=1;fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="labform-rel-n26">
+          <mxGeometry x="10" y="30" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-rel-n28" value="ของเดิม / มาจากฝั่ง Agent–LIS" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labform-rel-n26">
+          <mxGeometry x="30" y="30" width="760" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-rel-n29" value="" style="rounded=0;html=1;fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);" vertex="1" parent="labform-rel-n26">
+          <mxGeometry x="810" y="30" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-rel-n30" value="มีแล้วในระบบ (ฟอร์ม / JSON UI / schema)" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labform-rel-n26">
+          <mxGeometry x="830" y="30" width="760" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-rel-n31" value="" style="rounded=0;html=1;fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="labform-rel-n26">
+          <mxGeometry x="10" y="56" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-rel-n32" value="ทีม HIS ต้องเขียน Process หรือยืนยันด้วยข้อมูลจริง" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labform-rel-n26">
+          <mxGeometry x="30" y="56" width="760" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-rel-n33" value="" style="rounded=0;html=1;fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="labform-rel-n26">
+          <mxGeometry x="810" y="56" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-rel-n34" value="กฎห้ามพัง · ทางที่ต้องหยุด" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labform-rel-n26">
+          <mxGeometry x="830" y="56" width="760" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-rel-n35" value="" style="rounded=0;html=1;fillColor=light-dark(#fff2cc,#4a3d13);strokeColor=light-dark(#d6b656,#d6b656);" vertex="1" parent="labform-rel-n26">
+          <mxGeometry x="10" y="82" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-rel-n36" value="รอเคาะ / ยังไม่ยืนยัน end-to-end" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labform-rel-n26">
+          <mxGeometry x="30" y="82" width="760" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-rel-n37" value="" style="rounded=0;html=1;fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="labform-rel-n26">
+          <mxGeometry x="810" y="82" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-rel-n38" value="ข้อมูลอ้างอิง / บริบท" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labform-rel-n26">
+          <mxGeometry x="830" y="82" width="760" height="16" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="labform-role" name="2 · แต่ละฟอร์มมีไว้ทำอะไร">
+    <mxGraphModel dx="1030" dy="570" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="2000" pageHeight="1430" math="0" shadow="0" adaptiveColors="auto">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="labform-role-n1" value="แต่ละฟอร์มมีไว้ทำอะไร เพื่ออะไร — และห้ามทำอะไร" style="text;html=1;fontSize=24;fontStyle=1;align=left;verticalAlign=middle;fontColor=light-dark(#1a1a1a,#f0f0f0);" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-role-n2" value="อ่านเป็นคอลัมน์: 1 record คืออะไร → มีไว้เพื่ออะไร → ทำไมต้องแยก → ห้าม" style="text;html=1;fontSize=12;fontStyle=2;align=left;verticalAlign=middle;fontColor=light-dark(#777777,#999999);" vertex="1" parent="1">
+          <mxGeometry x="40" y="54" width="1920" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-role-n3" value="&lt;b&gt;① Lab_Result_Inbound_Receive&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;CRUD · zdata_lab_result_inbound&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="100" width="465" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-role-n4" value="&lt;b&gt;② Result_Report_Manual_Entry&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;CRUD · zdata_lab_report_manual_entry&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="525" y="100" width="465" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-role-n5" value="&lt;b&gt;③ LAB_result_item&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;CRUD · zdata_lab_result_item&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="1010" y="100" width="465" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-role-n6" value="&lt;b&gt;UI Result Report Viewer&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;form_ui · ไม่มี table&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="1495" y="100" width="465" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-role-n7" value="1 record คืออะไร" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="175" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-role-n8" value="&lt;b&gt;1 ข้อความผลที่ HIS รับจาก Agent&lt;/b&gt; 1 เหตุการณ์&lt;br&gt;&lt;code&gt;record_kind = receipt&lt;/code&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="40" y="210" width="465" height="105" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-role-n9" value="&lt;b&gt;หัวชุดผลของ 1 logical Lab result work / 1 LAB NO.&lt;/b&gt;&lt;br&gt;&lt;code&gt;record_kind = report&lt;/code&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="525" y="210" width="465" height="105" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-role-n10" value="&lt;b&gt;1 ผลตรวจที่รายงานได้&lt;/b&gt; เช่น Sodium, Creatinine หรือ organism 1 component" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="1010" y="210" width="465" height="105" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-role-n11" value="&lt;b&gt;ไม่มี record&lt;/b&gt; — เป็นหน้าจอล้วน ๆ ไม่มี collection ของตัวเอง" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="1495" y="210" width="465" height="105" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-role-n12" value="มีไว้เพื่ออะไร" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="330" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-role-n13" value="• เก็บหลักฐานข้อความต้นทาง + audit ทางเทคนิค&lt;br&gt;• กัน retry/duplicate ด้วย &lt;b&gt;result_uid&lt;/b&gt;&lt;br&gt;• เก็บ &lt;b&gt;raw_payload_json&lt;/b&gt; / &lt;b&gt;items_json&lt;/b&gt; / &lt;b&gt;payload_hash&lt;/b&gt;&lt;br&gt;• เก็บ counts: item/critical/matched/unmatched&lt;br&gt;• เก็บ &lt;b&gt;error_message&lt;/b&gt; เมื่อ validate/match/materialize ไม่ผ่าน" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="40" y="365" width="465" height="175" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-role-n14" value="• ค้นได้ &lt;b&gt;1 แถวต่อ LAB NO./งาน&lt;/b&gt; ในหน้า Tab ออกผล&lt;br&gt;• คำนวณสถานะรวม กำลังตรวจ / ออกผลบางส่วน / ออกผลครบ&lt;br&gt;• เก็บข้อมูลระดับ LAB NO. (HN, VN, ผู้ลงผล, ผู้รับรอง, เวลารายงาน) &lt;b&gt;ไม่ให้ซ้ำในทุกผล&lt;/b&gt;&lt;br&gt;• เป็นจุดที่ Agent/LIS และ Manual มาบรรจบกัน" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="525" y="365" width="465" height="175" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-role-n15" value="• ให้ update ผลบางรายการโดย&lt;b&gt;ไม่เขียนทับรายการอื่น&lt;/b&gt;&lt;br&gt;• รองรับ Panel ที่แตกเป็นหลาย result component (เรียงด้วย &lt;b&gt;result_sequence&lt;/b&gt;)&lt;br&gt;• เก็บ version / correction / audit ราย item&lt;br&gt;• เป็นที่เดียวที่ผู้ใช้แก้ &lt;b&gt;result_value&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="1010" y="365" width="465" height="175" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-role-n16" value="• เปิดจากปุ่ม &lt;b&gt;ดูผล&lt;/b&gt; ใน Tab ออกผล&lt;br&gt;• แสดง header จาก ② + ListView items จาก ③&lt;br&gt;• คลิกในรายการ → เปิด &lt;b&gt;LAB_result_item&lt;/b&gt; ราย record โดยส่ง &lt;b&gt;_id&lt;/b&gt; เป็น &lt;b&gt;dataId&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="1495" y="365" width="465" height="175" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-role-n17" value="ทำไมต้องแยกออกมา" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="555" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-role-n18" value="ข้อความอาจ &lt;b&gt;ซ้ำ / จับคู่ไม่สำเร็จ / schema ผิด / partial / correction&lt;/b&gt;&lt;br&gt;&lt;br&gt;ถ้าเขียนทับ Report ตรง ๆ จะ&lt;b&gt;เสียหลักฐานข้อความต้นทาง&lt;/b&gt;และหาสาเหตุย้อนหลังไม่ได้&lt;br&gt;&lt;br&gt;Receipt จึงต้องอยู่ได้&lt;b&gt;แม้ยังสร้าง Report/Item ไม่สำเร็จ&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="40" y="590" width="465" height="165" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-role-n19" value="ข้อมูลระดับ LAB NO. ไม่ควรถูกทำซ้ำเป็น record หลักของ&lt;b&gt;ทุก&lt;/b&gt;ผลตรวจ&lt;br&gt;&lt;br&gt;และต้องมีหัวเดียวให้ทั้ง &lt;b&gt;Agent/LIS&lt;/b&gt; และ &lt;b&gt;Manual&lt;/b&gt; เกาะ เพื่อให้หน้าปลายทางแสดงรวมกันได้" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="525" y="590" width="465" height="165" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-role-n20" value="แต่ละ Test/OBS มี&lt;b&gt;ชนิดผล, ค่า, หน่วย, Ref.Range, interpretation, critical และ version ต่างกัน&lt;/b&gt;&lt;br&gt;&lt;br&gt;ถ้ายัดรวมในหัวรายงาน จะ update รายเดียวไม่ได้ และรองรับ Panel หลาย component ไม่ได้" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="1010" y="590" width="465" height="165" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-role-n21" value="Viewer &lt;b&gt;ไม่ใช่ data form&lt;/b&gt; — ถ้าทำเป็น CRUD จะกลายเป็นข้อมูลชุดที่ 4 ที่ต้อง sync&lt;br&gt;&lt;br&gt;หน้าที่ของมันคือ&lt;b&gt;ประกอบภาพ&lt;/b&gt;จาก ② + ③ เท่านั้น" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="1495" y="590" width="465" height="165" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-role-n22" value="🔴 ห้าม" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="770" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-role-n23" value="• ห้ามให้ผู้ใช้ Lab ทั่วไปแก้ค่าที่ Agent ส่งมา&lt;br&gt;• ห้ามทำ Join Parent ไป ②&lt;br&gt;• ห้ามทิ้งข้อความที่จับคู่ไม่ได้" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="40" y="805" width="465" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-role-n24" value="• 🔴 &lt;b&gt;ห้ามสร้าง Report ใหม่ทุกครั้งที่ result_uid เปลี่ยน&lt;/b&gt; — ต้องค้นด้วย &lt;b&gt;report_key&lt;/b&gt; หรือ stable Work Item key&lt;br&gt;• ห้ามใช้ &lt;b&gt;result_uid&lt;/b&gt; เป็น identity เดียวของ Report&lt;br&gt;• ไม่ใช่เอกสาร PDF และไม่ใช่ receipt ใหม่" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="525" y="805" width="465" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-role-n25" value="• สำหรับ Lab ปกติ ห้ามเปิดแก้ Unit / interpretation / Ref.Range / Critical&lt;br&gt;• ห้ามแก้ผลแบบไม่ append &lt;b&gt;edit_history_json&lt;/b&gt;&lt;br&gt;• 🔴 ห้ามถือว่า &lt;b&gt;test_code = obs_code = his_code_id&lt;/b&gt; จนกว่า contract จะยืนยัน" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="1010" y="805" width="465" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-role-n26" value="• 🔴 ห้ามพึ่ง &lt;b&gt;File Upload ใน form_ui&lt;/b&gt; อย่างเดียว — &lt;b&gt;result_attachments&lt;/b&gt; ยังไม่มี persistence ต้องเก็บ metadata ใน Report CRUD หรือ collection เอกสารที่ผูก &lt;b&gt;result_report_id&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="1495" y="805" width="465" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-role-n27" value="สรุปสั้นที่สุด — ถ้าจำได้ 4 บรรทัดนี้ก็พอ" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="985" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-role-n28" value="&lt;b&gt;① Lab_Result_Inbound_Receive&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="40" y="1035" width="520" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-role-n29" value="= เก็บว่า &lt;b&gt;Agent ส่งอะไรมา&lt;/b&gt; และประมวลผลสำเร็จหรือไม่" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="570" y="1035" width="1390" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-role-n30" value="&lt;b&gt;② Result_Report_Manual_Entry&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="40" y="1087" width="520" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-role-n31" value="= &lt;b&gt;หัวชุดผลของ LAB NO. หนึ่งงาน&lt;/b&gt; ใช้ค้นและเปิดดูผล" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="570" y="1087" width="1390" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-role-n32" value="&lt;b&gt;③ LAB_result_item&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="40" y="1139" width="520" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-role-n33" value="= &lt;b&gt;ผลแต่ละ Test/OBS&lt;/b&gt; ที่แสดงและแก้ result_value ได้" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="570" y="1139" width="1390" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-role-n34" value="&lt;b&gt;UI Result Report Viewer&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);" vertex="1" parent="1">
+          <mxGeometry x="40" y="1191" width="520" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-role-n35" value="= &lt;b&gt;หน้าจอปลายทาง&lt;/b&gt; อ่าน Report + Items · ไม่มี table ของตัวเอง" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="570" y="1191" width="1390" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-role-n36" value="หมายเหตุเรื่องคำว่า “Report”" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1265" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-role-n37" value="“Report” ในเอกสารนี้ = &lt;b&gt;ชุดข้อมูลผลตรวจของ LAB NO. หนึ่งงาน&lt;/b&gt; — &lt;b&gt;ไม่ได้&lt;/b&gt;หมายถึงเอกสาร PDF หรือ Report Factory&lt;br&gt;ถ้าต้องพิมพ์เอกสารผล Lab ต้องมีปุ่ม / Report Factory &lt;b&gt;แยกต่างหาก&lt;/b&gt;ในภายหลัง" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#fff2cc,#4a3d13);strokeColor=light-dark(#d6b656,#d6b656);" vertex="1" parent="1">
+          <mxGeometry x="40" y="1315" width="1920" height="60" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="labform-in" name="3 · JSON ขารับ → ฟอร์มไหน">
+    <mxGraphModel dx="1030" dy="570" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="2000" pageHeight="1640" math="0" shadow="0" adaptiveColors="auto">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="labform-in-n1" value="JSON ขารับผล (Agent → HIS) ลงฟอร์มไหนบ้าง" style="text;html=1;fontSize=24;fontStyle=1;align=left;verticalAlign=middle;fontColor=light-dark(#1a1a1a,#f0f0f0);" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n2" value="schema: agent-to-his-result.schema.json · ตัวอย่างจริง: LIS/his-result-sample.json (result_uid &quot;rpt-7&quot;) · ★ = required ตาม schema" style="text;html=1;fontSize=12;fontStyle=2;align=left;verticalAlign=middle;fontColor=light-dark(#777777,#999999);" vertex="1" parent="1">
+          <mxGeometry x="40" y="54" width="1920" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n3" value="ระดับใบสั่ง (11 required + 2 optional) — ลงทั้ง ① และ ② เป็น snapshot" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="100" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n4" value="&lt;b&gt;field ใน payload&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="150" width="380" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n5" value="&lt;b&gt;① Receipt&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="430" y="150" width="470" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n6" value="&lt;b&gt;② Report&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="920" y="150" width="470" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n7" value="&lt;b&gt;หมายเหตุจาก schema&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1410" y="150" width="550" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n8" value="&lt;b&gt;★ order_no&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="182" width="380" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n9" value="order_no" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="430" y="182" width="470" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n10" value="order_no" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="920" y="182" width="470" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n11" value="" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="1410" y="182" width="550" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n12" value="&lt;b&gt;★ filler_order_no&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="228" width="380" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n13" value="filler_order_no" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="430" y="228" width="470" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n14" value="filler_order_no" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="920" y="228" width="470" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n15" value="= &lt;b&gt;labno&lt;/b&gt; ที่ HIS ออกและส่งไปตอนสั่ง (confirmed)" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="1410" y="228" width="550" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n16" value="&lt;b&gt;★ hn&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="274" width="380" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n17" value="hn" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="430" y="274" width="470" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n18" value="hn" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="920" y="274" width="470" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n19" value="ใช้ cross-check เท่านั้น ห้ามใช้จับคู่เดี่ยว" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="1410" y="274" width="550" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n20" value="&lt;b&gt;★ visit_id&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="320" width="380" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n21" value="visit_id" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="430" y="320" width="470" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n22" value="visit_id" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="920" y="320" width="470" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n23" value="" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="1410" y="320" width="550" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n24" value="&lt;b&gt;★ result_uid&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="366" width="380" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n25" value="result_uid &lt;b&gt;(idempotency key)&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="430" y="366" width="470" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n26" value="result_uid &lt;i&gt;(ล่าสุดเท่านั้น)&lt;/i&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="920" y="366" width="470" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n27" value="🔴 result_uid เดิม &lt;b&gt;ห้าม&lt;/b&gt;สร้าง receipt ที่สอง · และ&lt;b&gt;ห้าม&lt;/b&gt;ใช้เป็น identity ของ Report" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="1410" y="366" width="550" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n28" value="&lt;b&gt;★ report_seq&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="412" width="380" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n29" value="report_seq" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="430" y="412" width="470" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n30" value="report_seq" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="920" y="412" width="470" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n31" value="wire type = &lt;b&gt;string ของตัวเลข&lt;/b&gt; (^[0-9]+$)" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="1410" y="412" width="550" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n32" value="&lt;b&gt;★ stage&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="458" width="380" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n33" value="stage" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="430" y="458" width="470" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n34" value="stage" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="920" y="458" width="470" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n35" value="เช่น partial / final / corrected" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="1410" y="458" width="550" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n36" value="&lt;b&gt;★ overall_status&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="504" width="380" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n37" value="agent_overall_status&lt;br&gt;internal_overall_status" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="430" y="504" width="470" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n38" value="agent_overall_status&lt;br&gt;internal_overall_status" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="920" y="504" width="470" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n39" value="enum 4 ค่า — ใช้จริงตอนนี้แค่ &lt;b&gt;in_progress&lt;/b&gt; · &lt;b&gt;resulted&lt;/b&gt;&lt;br&gt;corrected / cancelled สงวนไว้" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="1410" y="504" width="550" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n40" value="&lt;b&gt;★ reported_at&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="550" width="380" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n41" value="reported_at" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="430" y="550" width="470" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n42" value="reported_at" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="920" y="550" width="470" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n43" value="🔴 บังคับลงท้าย &lt;b&gt;+07:00&lt;/b&gt; ตาม pattern" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="1410" y="550" width="550" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n44" value="&lt;b&gt;★ reported_by.source_id / .source_name&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="596" width="380" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n45" value="reported_by_source_id / _name" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="430" y="596" width="470" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n46" value="reported_by_source_id / _name" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="920" y="596" width="470" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n47" value="มีแค่ source_* — &lt;b&gt;ไม่มี his_id&lt;/b&gt; · HIS เป็นเจ้าของ mapping" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="1410" y="596" width="550" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n48" value="&lt;b&gt;verified_at&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="642" width="380" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n49" value="verified_at" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="430" y="642" width="470" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n50" value="verified_at" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="920" y="642" width="470" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n51" value="🔴 &lt;b&gt;บังคับเมื่อ overall_status = resulted&lt;/b&gt; (เงื่อนไข allOf ใน schema)" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="1410" y="642" width="550" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n52" value="&lt;b&gt;verified_by.source_id / .source_name&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="688" width="380" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n53" value="verified_by_source_id / _name" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="430" y="688" width="470" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n54" value="verified_by_source_id / _name" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="920" y="688" width="470" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n55" value="🔴 บังคับเมื่อ resulted เช่นกัน" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="1410" y="688" width="550" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n56" value="&lt;b&gt;★ items[]&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="734" width="380" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n57" value="&lt;b&gt;items_json&lt;/b&gt; (snapshot) + counts" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="430" y="734" width="470" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n58" value="&lt;b&gt;items_json&lt;/b&gt; (snapshot) + counts" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="920" y="734" width="470" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n59" value="แตกเป็น record จริงที่ ③ · minItems = 1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="1410" y="734" width="550" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n60" value="ระดับรายการผล — items[] (7 required + 9 optional) ลง ③ LAB_result_item ทุกตัว" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="805" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n61" value="&lt;b&gt;field ใน items[]&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="855" width="380" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n62" value="&lt;b&gt;③ LAB_result_item&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="430" y="855" width="470" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n63" value="&lt;b&gt;หมายเหตุ&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="920" y="855" width="1040" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n64" value="&lt;b&gt;★ obs_code&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="887" width="380" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n65" value="obs_code" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="430" y="887" width="470" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n66" value="🔑 คีย์ map กับ Result Definition · schema ระบุว่า &lt;b&gt;= test_code ขาส่ง = his_code_id&lt;/b&gt; แต่ handoff ยังสั่งว่า&lt;b&gt;ห้ามถือว่าเป็นรหัสเดียวกันจนกว่า contract จะยืนยัน&lt;/b&gt; → ยังขัดกันอยู่" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="920" y="887" width="1040" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n67" value="&lt;b&gt;★ obs_name&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="931" width="380" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n68" value="obs_name → &lt;b&gt;test_name&lt;/b&gt; (snapshot)" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="430" y="931" width="470" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n69" value="แยก raw กับ snapshot เพื่อให้ผลเก่าไม่เปลี่ยนตาม Master" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="920" y="931" width="1040" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n70" value="&lt;b&gt;★ value&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="975" width="380" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n71" value="&lt;b&gt;result_value&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="430" y="975" width="470" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n72" value="wire เป็น &lt;b&gt;string เสมอ&lt;/b&gt; เพราะผลอาจเป็นตัวเลขหรือข้อความ" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="920" y="975" width="1040" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n73" value="&lt;b&gt;units&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="1019" width="380" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n74" value="&lt;b&gt;unit_symbol_snapshot&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="430" y="1019" width="470" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n75" value="Lab ปกติ = read-only" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="920" y="1019" width="1040" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n76" value="&lt;b&gt;ref_range&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="1063" width="380" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n77" value="&lt;b&gt;reference_range_snapshot&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="430" y="1063" width="470" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n78" value="Lab ปกติ = read-only" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="920" y="1063" width="1040" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n79" value="&lt;b&gt;★ obx_status&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="1107" width="380" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n80" value="obx_status" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="430" y="1107" width="470" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n81" value="เก็บค่าดิบ &lt;b&gt;รวมค่าที่ HIS ยังไม่รู้จัก&lt;/b&gt; — ห้าม error" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="920" y="1107" width="1040" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n82" value="&lt;b&gt;★ change_kind&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="1151" width="380" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n83" value="change_kind" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="430" y="1151" width="470" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n84" value="ตัวอย่างจริงส่ง &lt;code&gt;&quot;first&quot;&lt;/code&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="920" y="1151" width="1040" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n85" value="&lt;b&gt;previous_value&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="1195" width="380" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n86" value="previous_value" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="430" y="1195" width="470" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n87" value="ค่าก่อนแก้ ใช้แสดง audit" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="920" y="1195" width="1040" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n88" value="&lt;b&gt;★ receipt_seq&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="1239" width="380" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n89" value="receipt_seq" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="430" y="1239" width="470" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n90" value="string ของตัวเลข · 🔴 &lt;b&gt;≠ result_version&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="920" y="1239" width="1040" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n91" value="&lt;b&gt;★ result_version&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="1283" width="380" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n92" value="result_version" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="430" y="1283" width="470" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n93" value="string ของตัวเลข · correction → +1 ห้ามทับ" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="920" y="1283" width="1040" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n94" value="&lt;b&gt;critical_low_rule&lt;br&gt;critical_high_rule&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="1327" width="380" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n95" value="critical_low_rule / critical_high_rule&lt;br&gt;→ &lt;b&gt;is_critical&lt;/b&gt; (Switch, disabled)" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="430" y="1327" width="470" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n96" value="🔴 &lt;b&gt;project decision: “มี rule = ผลนี้ critical”&lt;/b&gt; · HIS เก็บ rule ดิบและ&lt;b&gt;ไม่ประเมิน threshold เอง&lt;/b&gt; — แต่ handoff &lt;b&gt;ยังไม่ได้ระบุกติกาแปลง rule → is_critical&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="920" y="1327" width="1040" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n97" value="&lt;b&gt;panel_code / panel_name&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="1371" width="380" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n98" value="panel_code / panel_name" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="430" y="1371" width="470" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n99" value="จัดผลหลายตัวให้อยู่ใต้ Panel เดียวกัน" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="920" y="1371" width="1040" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n100" value="&lt;b&gt;group_role&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="1415" width="380" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n101" value="group_role" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="430" y="1415" width="470" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n102" value="" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="920" y="1415" width="1040" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n103" value="&lt;b&gt;organism&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="1459" width="380" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n104" value="organism" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="430" y="1459" width="470" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n105" value="สำหรับผล Microbiology" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="920" y="1459" width="1040" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-in-n106" value="✅ &lt;b&gt;ตรวจแล้ว: ตัวอย่าง his-result-sample.json ผ่าน schema ครบ&lt;/b&gt; — required ครบ 11 + items ครบ 7, ไม่มี field เกิน (schema เป็น additionalProperties:false)&lt;br&gt;✅ &lt;b&gt;ทุก field ในขารับผล มีที่ลงในฟอร์มใดฟอร์มหนึ่งครบ&lt;/b&gt; — ไม่มี field ที่ตกหล่น" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="1523" width="1920" height="62" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="labform-out" name="4 · ขาส่ง order + response">
+    <mxGraphModel dx="1030" dy="570" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="2000" pageHeight="1330" math="0" shadow="0" adaptiveColors="auto">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="labform-out-n1" value="ขาส่ง (HIS → Agent) และ response — ส่วนที่ handoff 3 ฟอร์ม “ยังไม่ครอบคลุม”" style="text;html=1;fontSize=24;fontStyle=1;align=left;verticalAlign=middle;fontColor=light-dark(#1a1a1a,#f0f0f0);" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-out-n2" value="schema: his-to-agent-order.schema.json · agent-to-his-order-response.schema.json · ตัวอย่าง: LIS/his-order-sample.json" style="text;html=1;fontSize=12;fontStyle=2;align=left;verticalAlign=middle;fontColor=light-dark(#777777,#999999);" vertex="1" parent="1">
+          <mxGeometry x="40" y="54" width="1920" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-out-n3" value="วงจรเต็ม — 3 ฟอร์มนี้อยู่แค่ครึ่งขวา" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="100" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-out-n4" value="&lt;b&gt;Lab Work Item (รับ specimen)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;ผู้ใช้ห้องแล็บรับสิ่งส่งตรวจ → HIS &lt;b&gt;ออก labno&lt;/b&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="155" width="300" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-out-n5" value="&lt;b&gt;POST {AGENT_URL}/api/orders&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;&lt;b&gt;his-to-agent-order&lt;/b&gt; · header &lt;b&gt;X-Agent-Key&lt;/b&gt;&lt;br&gt;24 field ระดับใบสั่ง + items[]&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="390" y="155" width="320" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-out-n6" value="&lt;b&gt;Response&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;&lt;b&gt;202 queued&lt;/b&gt; / &lt;b&gt;200 duplicate = สำเร็จ&lt;/b&gt;&lt;br&gt;หรือ error enum 10 ค่า&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="760" y="155" width="300" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-out-n7" value="&lt;b&gt;ห้องแล็บตรวจ&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;ผลอาจทยอยมาหลายครั้ง&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="1110" y="155" width="300" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-out-n8" value="&lt;b&gt;callback ผล → ① ② ③ (หน้า 1–3)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;&lt;b&gt;agent-to-his-result&lt;/b&gt; → hl7_result_upsert&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="1460" y="155" width="500" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-out-n9" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="labform-out-n4" target="labform-out-n5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-out-n10" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="labform-out-n5" target="labform-out-n6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-out-n11" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="labform-out-n6" target="labform-out-n7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-out-n12" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="labform-out-n7" target="labform-out-n8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-out-n13" value="🔴 &lt;b&gt;ครึ่งซ้ายนี้ไม่มีที่เก็บใน 3 ฟอร์ม&lt;/b&gt; — handoff ครอบคลุมเฉพาะ “ขารับผล”" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="40" y="300" width="1020" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-out-n14" value="สองสัญญาที่ผูกขาส่งกับขารับ — ถ้าพังตรงนี้ ผลจะกลับมาไม่เจอใบสั่ง" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="370" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-out-n15" value="&lt;b&gt;สัญญาที่ 1 · เลขใบสั่ง&lt;/b&gt;&lt;br&gt;&lt;br&gt;ขาส่ง &lt;code&gt;labno&lt;/code&gt; &amp;nbsp;&amp;nbsp;──►&amp;nbsp;&amp;nbsp; ขารับ &lt;code&gt;filler_order_no&lt;/code&gt;&lt;br&gt;&lt;i&gt;“the labno originally issued and sent by HIS”&lt;/i&gt; (คำในสเปค)&lt;br&gt;HIS เป็นผู้ออก · รูปแบบ &lt;b&gt;{ปีพ.ศ.2}{MM}{DD}{ลำดับ4}&lt;/b&gt; · ตัวอย่าง &lt;code&gt;6908090001&lt;/code&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);" vertex="1" parent="1">
+          <mxGeometry x="40" y="420" width="940" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-out-n16" value="&lt;b&gt;สัญญาที่ 2 · รหัสรายการตรวจ&lt;/b&gt;&lt;br&gt;&lt;br&gt;ขาส่ง &lt;code&gt;items[].test_code&lt;/code&gt; &amp;nbsp;──►&amp;nbsp; ขารับ &lt;code&gt;items[].obs_code&lt;/code&gt;&lt;br&gt;&lt;i&gt;“equals the outbound test_code and therefore his_code_id”&lt;/i&gt; (คำในสเปค)&lt;br&gt;🔴 แต่ handoff §7.4 เขียนว่า &lt;b&gt;“ห้ามถือว่า test_code, obs_code และ his_code_id เป็นรหัสเดียวกัน จนกว่า contract จะยืนยัน”&lt;/b&gt; → &lt;b&gt;ขัดกันเอง ต้องเคาะ&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#fff2cc,#4a3d13);strokeColor=light-dark(#d6b656,#d6b656);" vertex="1" parent="1">
+          <mxGeometry x="1020" y="420" width="940" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-out-n17" value="his-to-agent-order — โครงสร้าง payload ขาส่ง" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="570" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-out-n18" value="&lt;b&gt;ระดับใบสั่ง · required 6&lt;/b&gt;&lt;br&gt;★ &lt;b&gt;order_no&lt;/b&gt; — idempotency key ขาส่ง&lt;br&gt;★ &lt;b&gt;labno&lt;/b&gt;&lt;br&gt;★ hn&lt;br&gt;★ ordered_at&lt;br&gt;★ &lt;b&gt;priority&lt;/b&gt; — enum &lt;b&gt;S / A / R&lt;/b&gt;&lt;br&gt;★ items[] (minItems 1)&lt;br&gt;&lt;br&gt;&lt;b&gt;optional 17&lt;/b&gt;&lt;br&gt;visit_id · requested_at · note · patient_prefix / first / last · birth_date · sex · visit_type · doctor_code / title / name · clinic_code / name · station · station_seq · mongo_form_id · mongo_data_id" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="620" width="620" height="250" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-out-n19" value="&lt;b&gt;items[] · required 7&lt;/b&gt;&lt;br&gt;★ &lt;b&gt;seq&lt;/b&gt; — &lt;b&gt;integer&lt;/b&gt; (ต่างจากขารับที่เป็น string)&lt;br&gt;★ &lt;b&gt;test_code&lt;/b&gt; = his_code_id&lt;br&gt;★ test_name&lt;br&gt;★ specimen_code&lt;br&gt;★ collected_at&lt;br&gt;★ received_at&lt;br&gt;★ receiver&lt;br&gt;&lt;br&gt;&lt;b&gt;optional 3&lt;/b&gt;&lt;br&gt;specimen_name · collector_code · collector_name" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="700" y="620" width="620" height="250" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-out-n20" value="&lt;b&gt;🔴 เวลาและรูปแบบ&lt;/b&gt;&lt;br&gt;&lt;br&gt;ขาส่งรับ 2 รูปแบบ: &lt;code&gt;YYYYMMDDHHmmss&lt;/code&gt; หรือ ISO ลงท้าย &lt;code&gt;+07:00&lt;/code&gt;&lt;br&gt;ขารับ&lt;b&gt;บังคับ ISO +07:00 อย่างเดียว&lt;/b&gt;&lt;br&gt;&lt;br&gt;&lt;code&gt;birth_date&lt;/code&gt; = &lt;code&gt;YYYYMMDD&lt;/code&gt; หรือ &lt;code&gt;YYYYMMDDHHmmss&lt;/code&gt;&lt;br&gt;&lt;br&gt;🔴 ต้องเป็น&lt;b&gt;เวลาไทย&lt;/b&gt; — ปลายทางอ่านตัวเลขตามที่เห็น ไม่แปลงโซน" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="1360" y="620" width="600" height="250" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-out-n21" value="🔴 ตรวจพบ: ตัวอย่าง his-order-sample.json ไม่ผ่าน schema ขาส่ง" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="890" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-out-n22" value="&lt;b&gt;schema เป็น additionalProperties: false ทั้งระดับบนและใน items[]&lt;/b&gt;&lt;br&gt;ตัวอย่างมี &lt;b&gt;6 field ที่ schema ไม่รับ&lt;/b&gt;:&lt;br&gt;&lt;br&gt;ระดับใบสั่ง → &lt;code&gt;special_request&lt;/code&gt; · &lt;code&gt;diagnosis&lt;/code&gt; · &lt;code&gt;antimicrobial_used&lt;/code&gt; · &lt;code&gt;underlying_disease&lt;/code&gt;&lt;br&gt;ใน items[] → &lt;code&gt;lab_code&lt;/code&gt; (ทั้ง 2 รายการ)&lt;br&gt;&lt;br&gt;&lt;i&gt;(required ครบทุกตัว — ปัญหาคือ field เกิน ไม่ใช่ field ขาด)&lt;/i&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="40" y="940" width="1180" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-out-n23" value="&lt;b&gt;ยังไม่ตัดสินว่าฝั่งไหนถูก&lt;/b&gt;&lt;br&gt;&lt;br&gt;เป็นได้ 2 ทาง — ต้องเคาะกับทีม LISconnect:&lt;br&gt;(ก) ไฟล์ schema ในเครื่องเก่ากว่า spec — sample ถูก&lt;br&gt;(ข) sample ใส่ field เกิน — schema ถูก&lt;br&gt;&lt;br&gt;เทียบกับบันทึกเดิม: สเปค 2026-08-23 ระบุว่าต้องเพิ่ม &lt;b&gt;14 field ระดับใบสั่ง + 3 ใน items[]&lt;/b&gt; → น้ำหนักเอียงไปทาง (ก)" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#fff2cc,#4a3d13);strokeColor=light-dark(#d6b656,#d6b656);" vertex="1" parent="1">
+          <mxGeometry x="1260" y="940" width="700" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-out-n24" value="agent-to-his-order-response — และคำถามว่าเก็บไว้ที่ไหน" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1110" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-out-n25" value="&lt;b&gt;สำเร็จ&lt;/b&gt; — required &lt;code&gt;ok:true&lt;/code&gt; · &lt;code&gt;order_no&lt;/code&gt; · &lt;code&gt;duplicate&lt;/code&gt;&lt;br&gt;optional &lt;code&gt;order_ref&lt;/code&gt; · &lt;code&gt;routed_to[]&lt;/code&gt; · &lt;code&gt;dispatch_id&lt;/code&gt;&lt;br&gt;🔴 &lt;b&gt;duplicate: true ถือว่าสำเร็จ&lt;/b&gt; (unique constraint กันใบซ้ำให้เอง)" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="1160" width="940" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-out-n26" value="&lt;b&gt;ผิดพลาด&lt;/b&gt; — &lt;code&gt;error&lt;/code&gt; enum 10 ค่า: invalid_json · unauthorized · forbidden · payload_too_large · unsupported_media_type · mapping_failed · order_rejected · not_configured · draining · internal&lt;br&gt;🔴 &lt;b&gt;ไม่มีฟอร์มใดใน 3 ฟอร์มนี้เก็บ ack/dispatch_id/error ขาส่ง&lt;/b&gt; — ต้องไปอยู่ฝั่ง Lab Work Item" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="1020" y="1160" width="940" height="130" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="labform-gap" name="5 · ครอบคลุมหรือยัง">
+    <mxGraphModel dx="1030" dy="570" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="2000" pageHeight="1460" math="0" shadow="0" adaptiveColors="auto">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="labform-gap-n1" value="ครอบคลุม spec Agent และ JSON รับ/ส่ง หรือยัง — คำตอบตรง ๆ" style="text;html=1;fontSize=24;fontStyle=1;align=left;verticalAlign=middle;fontColor=light-dark(#1a1a1a,#f0f0f0);" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n2" value="เทียบ handoff 3 ฟอร์ม กับ schema จริง 3 ไฟล์ + ตัวอย่าง wire 2 ไฟล์" style="text;html=1;fontSize=12;fontStyle=2;align=left;verticalAlign=middle;fontColor=light-dark(#777777,#999999);" vertex="1" parent="1">
+          <mxGeometry x="40" y="54" width="1920" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n3" value="สรุปคำตอบ" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="100" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n4" value="&lt;b&gt;✅ JSON ขารับผล — ครอบคลุมครบ&lt;/b&gt;&lt;br&gt;&lt;br&gt;ทุก field ของ &lt;b&gt;agent-to-his-result&lt;/b&gt; (11 required ระดับใบสั่ง + 16 field ใน items[]) มีที่ลงในฟอร์ม ① ② ③ ครบ ไม่มีตัวไหนตกหล่น&lt;br&gt;และตัวอย่าง &lt;b&gt;his-result-sample.json&lt;/b&gt; ผ่าน schema" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="150" width="620" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n5" value="&lt;b&gt;⚠️ spec Agent — ครอบคลุมบางส่วน&lt;/b&gt;&lt;br&gt;&lt;br&gt;ครอบคลุม&lt;b&gt;โครงสร้างข้อมูล&lt;/b&gt;ครบ แต่&lt;b&gt;ยังไม่ครอบคลุมกติกาเชิงเงื่อนไข&lt;/b&gt;ของ schema (conditional required, รูปแบบเวลา, wire type, กติกาแปลง critical)" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#fff2cc,#4a3d13);strokeColor=light-dark(#d6b656,#d6b656);" vertex="1" parent="1">
+          <mxGeometry x="700" y="150" width="620" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n6" value="&lt;b&gt;🔴 JSON ขาส่ง — ไม่ครอบคลุม&lt;/b&gt;&lt;br&gt;&lt;br&gt;handoff ไม่พูดถึง &lt;b&gt;his-to-agent-order&lt;/b&gt; และ &lt;b&gt;agent-to-his-order-response&lt;/b&gt; เลย&lt;br&gt;เป็นเรื่องของฝั่ง Lab Work Item ไม่ใช่ 3 ฟอร์มนี้ — แต่ต้องมีเอกสารคู่กัน" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="1360" y="150" width="600" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n7" value="7 จุดที่ยังไม่ครอบคลุม — เรียงตามความเสี่ยง" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="325" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n8" value="&lt;b&gt;1&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=13;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="40" y="375" width="46" height="92" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n9" value="&lt;b&gt;conditional required ที่ schema บังคับ&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="96" y="375" width="420" height="92" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n10" value="schema มี &lt;code&gt;allOf&lt;/code&gt;: เมื่อ &lt;b&gt;overall_status = resulted&lt;/b&gt; → &lt;b&gt;verified_at และ verified_by กลายเป็น required&lt;/b&gt;&lt;br&gt;handoff §5.2C / §6.2B เขียนว่า verified_* “ถ้ามี” เท่านั้น → validator อาจปล่อยผ่านผลที่ควร reject" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="526" y="375" width="1434" height="92" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n11" value="&lt;b&gt;2&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=13;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="40" y="475" width="46" height="92" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n12" value="&lt;b&gt;กติกาแปลง critical rule → is_critical&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="96" y="475" width="420" height="92" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n13" value="schema ระบุ project decision ว่า &lt;b&gt;“การมี critical_low_rule หรือ critical_high_rule = ผลนี้ critical”&lt;/b&gt;&lt;br&gt;handoff บอกแค่ว่า &lt;code&gt;is_critical&lt;/code&gt; เป็น Switch disabled ที่ “Agent/LIS/ระบบเป็นผู้กำหนด” — &lt;b&gt;ไม่ได้เขียนกติกาว่าใครแปลงและแปลงยังไง&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="526" y="475" width="1434" height="92" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n14" value="&lt;b&gt;3&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=13;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="40" y="575" width="46" height="92" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n15" value="&lt;b&gt;test_code = obs_code = his_code_id ขัดกันเอง&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="96" y="575" width="420" height="92" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n16" value="schema ทั้งสองไฟล์ระบุว่าเป็นค่าเดียวกัน (&lt;i&gt;confirmed contract&lt;/i&gt;) แต่ handoff §7.4 สั่งว่า &lt;b&gt;ห้ามถือว่าเป็นรหัสเดียวกันจนกว่า contract จะยืนยัน&lt;/b&gt; → ต้องเคาะให้จบก่อนเขียน mapping" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="526" y="575" width="1434" height="92" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n17" value="&lt;b&gt;4&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=13;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="40" y="675" width="46" height="92" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n18" value="&lt;b&gt;รูปแบบเวลาและ wire type&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#fff2cc,#4a3d13);strokeColor=light-dark(#d6b656,#d6b656);" vertex="1" parent="1">
+          <mxGeometry x="96" y="675" width="420" height="92" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n19" value="ขารับบังคับ ISO ลงท้าย &lt;b&gt;+07:00&lt;/b&gt; เท่านั้น · &lt;code&gt;report_seq&lt;/code&gt; / &lt;code&gt;receipt_seq&lt;/code&gt; / &lt;code&gt;result_version&lt;/code&gt; เป็น &lt;b&gt;string ของตัวเลข&lt;/b&gt; · ขาส่ง &lt;code&gt;seq&lt;/code&gt; เป็น &lt;b&gt;integer&lt;/b&gt;&lt;br&gt;handoff ระบุ string ไว้เฉพาะ &lt;code&gt;report_seq&lt;/code&gt; ของ Receipt" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="526" y="675" width="1434" height="92" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n20" value="&lt;b&gt;5&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=13;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="40" y="775" width="46" height="92" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n21" value="&lt;b&gt;ตัวอย่างขาส่งไม่ตรง schema&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#fff2cc,#4a3d13);strokeColor=light-dark(#d6b656,#d6b656);" vertex="1" parent="1">
+          <mxGeometry x="96" y="775" width="420" height="92" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n22" value="&lt;code&gt;his-order-sample.json&lt;/code&gt; มี 6 field ที่ schema ไม่รับ (special_request · diagnosis · antimicrobial_used · underlying_disease · items[].lab_code) ขณะที่ schema เป็น &lt;code&gt;additionalProperties:false&lt;/code&gt; → ต้องเคาะว่าไฟล์ไหนล้าหลัง" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="526" y="775" width="1434" height="92" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n23" value="&lt;b&gt;6&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=13;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="40" y="875" width="46" height="92" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n24" value="&lt;b&gt;ไม่มีที่เก็บ response ขาส่ง&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#fff2cc,#4a3d13);strokeColor=light-dark(#d6b656,#d6b656);" vertex="1" parent="1">
+          <mxGeometry x="96" y="875" width="420" height="92" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n25" value="&lt;code&gt;ok&lt;/code&gt; / &lt;code&gt;duplicate&lt;/code&gt; / &lt;code&gt;order_ref&lt;/code&gt; / &lt;code&gt;dispatch_id&lt;/code&gt; / &lt;code&gt;routed_to[]&lt;/code&gt; / error enum 10 ค่า — &lt;b&gt;ไม่มีฟอร์มใดใน 3 ฟอร์มนี้เก็บ&lt;/b&gt; ต้องกำหนดว่าไปอยู่ที่ Lab Work Item field ใด" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="526" y="875" width="1434" height="92" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n26" value="&lt;b&gt;7&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=13;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="40" y="975" width="46" height="92" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n27" value="&lt;b&gt;hl7_order_status_sync ไม่ได้พูดถึง&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#fff2cc,#4a3d13);strokeColor=light-dark(#d6b656,#d6b656);" vertex="1" parent="1">
+          <mxGeometry x="96" y="975" width="420" height="92" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n28" value="ตามผัง LIS ขารับมี &lt;b&gt;2 process คนละ pid&lt;/b&gt; — &lt;code&gt;hl7_result_upsert&lt;/code&gt; (ผล) และ &lt;code&gt;hl7_order_status_sync&lt;/code&gt; (สถานะ 12 ค่า)&lt;br&gt;handoff นี้ครอบคลุมเฉพาะ process แรก · สถานะ 12 ค่ายังไม่มีที่เก็บที่ระบุ" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="526" y="975" width="1434" height="92" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n29" value="สิ่งที่ handoff ครอบคลุมดีอยู่แล้ว — ไม่ต้องทำซ้ำ" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1095" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n30" value="• โครงสร้าง 3 ชั้น + เหตุผลที่แยก ครบและตรงกับ schema&lt;br&gt;• Join Parent ② → ③ ระบุค่าจริงจาก live configuration&lt;br&gt;• กฎ 3 ตัวชี้ต้องตรงกัน (xparentx / parent_id.value / result_report_id)&lt;br&gt;• field ที่ควรแสดง vs ควรซ่อน (§12)" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="1145" width="940" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n31" value="• stable key ทั้ง 3 ระดับ + คำเตือนห้ามเดา compound key (§10)&lt;br&gt;• flow Agent เทียบ Manual (§11) และการไม่สร้าง Receipt ปลอมสำหรับ Manual&lt;br&gt;• ข้อจำกัด File Upload ใน form_ui (§8.4)&lt;br&gt;• checklist 11 ข้อก่อน production (§13)" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="1020" y="1145" width="940" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n32" value="LEGEND" style="rounded=0;html=1;fillColor=light-dark(#fafafa,#1c1c1c);strokeColor=light-dark(#8a8a8a,#9aa3ad);verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontSize=11;fontStyle=1;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="1">
+          <mxGeometry x="40" y="1290" width="1500" height="112" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n33" value="" style="rounded=0;html=1;fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="labform-gap-n32">
+          <mxGeometry x="10" y="30" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n34" value="ของเดิม / มาจากฝั่ง Agent–LIS" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labform-gap-n32">
+          <mxGeometry x="30" y="30" width="760" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n35" value="" style="rounded=0;html=1;fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);" vertex="1" parent="labform-gap-n32">
+          <mxGeometry x="810" y="30" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n36" value="มีแล้วในระบบ (ฟอร์ม / JSON UI / schema)" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labform-gap-n32">
+          <mxGeometry x="830" y="30" width="760" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n37" value="" style="rounded=0;html=1;fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="labform-gap-n32">
+          <mxGeometry x="10" y="56" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n38" value="ทีม HIS ต้องเขียน Process หรือยืนยันด้วยข้อมูลจริง" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labform-gap-n32">
+          <mxGeometry x="30" y="56" width="760" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n39" value="" style="rounded=0;html=1;fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="labform-gap-n32">
+          <mxGeometry x="810" y="56" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n40" value="กฎห้ามพัง · ทางที่ต้องหยุด" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labform-gap-n32">
+          <mxGeometry x="830" y="56" width="760" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n41" value="" style="rounded=0;html=1;fillColor=light-dark(#fff2cc,#4a3d13);strokeColor=light-dark(#d6b656,#d6b656);" vertex="1" parent="labform-gap-n32">
+          <mxGeometry x="10" y="82" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n42" value="รอเคาะ / ยังไม่ยืนยัน end-to-end" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labform-gap-n32">
+          <mxGeometry x="30" y="82" width="760" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n43" value="" style="rounded=0;html=1;fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="labform-gap-n32">
+          <mxGeometry x="810" y="82" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-gap-n44" value="ข้อมูลอ้างอิง / บริบท" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labform-gap-n32">
+          <mxGeometry x="830" y="82" width="760" height="16" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="labform-run" name="6 · Agent เทียบ Manual">
+    <mxGraphModel dx="1030" dy="570" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="2000" pageHeight="1180" math="0" shadow="0" adaptiveColors="auto">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="labform-run-n1" value="Runtime — เส้นทาง Agent/LIS เทียบ Manual และสิ่งที่ต้องทำก่อนใช้จริง" style="text;html=1;fontSize=24;fontStyle=1;align=left;verticalAlign=middle;fontColor=light-dark(#1a1a1a,#f0f0f0);" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n2" value="ทั้งสองเส้นจบที่ ② + ③ ชุดเดียวกัน จึงแสดงในหน้าเดียวกันได้" style="text;html=1;fontSize=12;fontStyle=2;align=left;verticalAlign=middle;fontColor=light-dark(#777777,#999999);" vertex="1" parent="1">
+          <mxGeometry x="40" y="54" width="1920" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n3" value="Agent / LIS" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="100" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n4" value="&lt;b&gt;Agent callback&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="150" width="280" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n5" value="&lt;b&gt;① Receipt&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="360" y="150" width="280" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n6" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="labform-run-n4" target="labform-run-n5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n7" value="&lt;b&gt;match / get-or-create ②&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="680" y="150" width="280" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n8" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="labform-run-n5" target="labform-run-n7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n9" value="&lt;b&gt;upsert ③ Result Items&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="1000" y="150" width="280" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n10" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="labform-run-n7" target="labform-run-n9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n11" value="&lt;b&gt;คำนวณสถานะรวมของ ②&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="1320" y="150" width="280" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n12" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="labform-run-n9" target="labform-run-n11">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n13" value="&lt;b&gt;Viewer แสดงผล&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="1640" y="150" width="280" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n14" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="labform-run-n11" target="labform-run-n13">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n15" value="Manual (Microbiology / แลปที่ไม่มีเครื่อง LIS)" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="250" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n16" value="&lt;b&gt;Lab Work Item&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="300" width="280" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n17" value="&lt;b&gt;🔴 ไม่สร้าง Receipt ปลอม&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="360" y="300" width="280" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n18" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="labform-run-n16" target="labform-run-n17">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n19" value="&lt;b&gt;get-or-create ②&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="680" y="300" width="280" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n20" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="labform-run-n17" target="labform-run-n19">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n21" value="&lt;b&gt;materialize ③ จาก ordered tests / Result Definition&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="1000" y="300" width="280" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n22" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="labform-run-n19" target="labform-run-n21">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n23" value="&lt;b&gt;เจ้าหน้าที่กรอก result_value + audit&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#fff2cc,#4a3d13);strokeColor=light-dark(#d6b656,#d6b656);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="1320" y="300" width="280" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n24" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="labform-run-n21" target="labform-run-n23">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n25" value="&lt;b&gt;Viewer แสดงผลโครงเดียวกัน&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="1640" y="300" width="280" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n26" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="labform-run-n23" target="labform-run-n25">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n27" value="🔴 &lt;b&gt;ข้อควรระวัง Microbiology:&lt;/b&gt; &lt;code&gt;is_critical&lt;/code&gt; ถูกตั้ง &lt;b&gt;disabled&lt;/b&gt; จึงยังกรอก Critical แบบ Manual ไม่ได้ · ถ้าต้องกรอกเอง ต้องกำหนด &lt;b&gt;critical flag + เหตุผล + ผู้บันทึก&lt;/b&gt; ก่อน &lt;b&gt;ห้ามเปิด switch เดิมให้แก้โดยไม่มี audit&lt;/b&gt; · Unit อาจไม่มีค่า ให้แสดง &lt;code&gt;-&lt;/code&gt; ห้ามสร้างหน่วยสมมติ" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="40" y="405" width="1920" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n28" value="11 ข้อที่ต้องทำ/ทดสอบก่อนใช้งานจริง (§13)" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="490" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n29" value="&lt;b&gt;1&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="40" y="540" width="46" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n30" value="ทำและทดสอบ API รับ callback, validate schema และ idempotency" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="92" y="540" width="878" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n31" value="&lt;b&gt;2&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="1010" y="540" width="46" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n32" value="ยืนยัน &lt;b&gt;stable Report key&lt;/b&gt; สำหรับ partial / final / corrected" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="1062" y="540" width="878" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n33" value="&lt;b&gt;3&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="40" y="596" width="46" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n34" value="ทดสอบ Receipt &lt;b&gt;หลายข้อความ&lt;/b&gt; materialize เข้า Report เดิม" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="92" y="596" width="878" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n35" value="&lt;b&gt;4&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="1010" y="596" width="46" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n36" value="ทดสอบ Result Item upsert โดยไม่เกิด duplicate" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="1062" y="596" width="878" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n37" value="&lt;b&gt;5&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="40" y="652" width="46" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n38" value="ยืนยัน &lt;b&gt;xparentx = parent_id.value = result_report_id&lt;/b&gt; ตรงกัน" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="92" y="652" width="878" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n39" value="&lt;b&gt;6&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="1010" y="652" width="46" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n40" value="ทำหน้า Lab รวมและ Tab ออกผล พร้อมปุ่ม &lt;b&gt;ดูผล&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#fff2cc,#4a3d13);strokeColor=light-dark(#d6b656,#d6b656);" vertex="1" parent="1">
+          <mxGeometry x="1062" y="652" width="878" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n41" value="&lt;b&gt;7&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="40" y="708" width="46" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n42" value="ทดสอบ Viewer รับ result_report_id แล้วโหลด header/items ถูกชุด" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#fff2cc,#4a3d13);strokeColor=light-dark(#d6b656,#d6b656);" vertex="1" parent="1">
+          <mxGeometry x="92" y="708" width="878" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n43" value="&lt;b&gt;8&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="1010" y="708" width="46" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n44" value="ทำ persistence ของไฟล์แนบ — &lt;b&gt;ไม่พึ่ง File Upload ใน form_ui อย่างเดียว&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="1062" y="708" width="878" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n45" value="&lt;b&gt;9&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="40" y="764" width="46" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n46" value="ทำ audit การแก้ &lt;code&gt;result_value&lt;/code&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="92" y="764" width="878" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n47" value="&lt;b&gt;10&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="1010" y="764" width="46" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n48" value="ยืนยัน workflow Manual Critical ของ Microbiology ก่อนเปิดแก้ field" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#fff2cc,#4a3d13);strokeColor=light-dark(#d6b656,#d6b656);" vertex="1" parent="1">
+          <mxGeometry x="1062" y="764" width="878" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n49" value="&lt;b&gt;11&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="40" y="820" width="46" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n50" value="ทดสอบ end-to-end: partial · complete · corrected · duplicate · unmatched · critical" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="92" y="820" width="878" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n51" value="🔴 &lt;b&gt;ระบบยังไม่ถือว่า production-ready จนกว่า API materialization, parent linkage, Viewer runtime, Manual audit และไฟล์แนบ จะผ่านการทดสอบจริง&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="40" y="890" width="1920" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n52" value="LEGEND" style="rounded=0;html=1;fillColor=light-dark(#fafafa,#1c1c1c);strokeColor=light-dark(#8a8a8a,#9aa3ad);verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontSize=11;fontStyle=1;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="1">
+          <mxGeometry x="40" y="965" width="1500" height="112" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n53" value="" style="rounded=0;html=1;fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="labform-run-n52">
+          <mxGeometry x="10" y="30" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n54" value="ของเดิม / มาจากฝั่ง Agent–LIS" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labform-run-n52">
+          <mxGeometry x="30" y="30" width="760" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n55" value="" style="rounded=0;html=1;fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);" vertex="1" parent="labform-run-n52">
+          <mxGeometry x="810" y="30" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n56" value="มีแล้วในระบบ (ฟอร์ม / JSON UI / schema)" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labform-run-n52">
+          <mxGeometry x="830" y="30" width="760" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n57" value="" style="rounded=0;html=1;fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="labform-run-n52">
+          <mxGeometry x="10" y="56" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n58" value="ทีม HIS ต้องเขียน Process หรือยืนยันด้วยข้อมูลจริง" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labform-run-n52">
+          <mxGeometry x="30" y="56" width="760" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n59" value="" style="rounded=0;html=1;fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="labform-run-n52">
+          <mxGeometry x="810" y="56" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n60" value="กฎห้ามพัง · ทางที่ต้องหยุด" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labform-run-n52">
+          <mxGeometry x="830" y="56" width="760" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n61" value="" style="rounded=0;html=1;fillColor=light-dark(#fff2cc,#4a3d13);strokeColor=light-dark(#d6b656,#d6b656);" vertex="1" parent="labform-run-n52">
+          <mxGeometry x="10" y="82" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n62" value="รอเคาะ / ยังไม่ยืนยัน end-to-end" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labform-run-n52">
+          <mxGeometry x="30" y="82" width="760" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n63" value="" style="rounded=0;html=1;fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="labform-run-n52">
+          <mxGeometry x="810" y="82" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labform-run-n64" value="ข้อมูลอ้างอิง / บริบท" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labform-run-n52">
+          <mxGeometry x="830" y="82" width="760" height="16" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

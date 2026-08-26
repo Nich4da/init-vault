@@ -130,3 +130,90 @@ Append-only, chronological. Newest at the bottom. Each entry header is
 - Visual system **inherited, not invented**: reuses the Element Plus tokens and `.lab-*` conventions already in [[his-lab-che-order-component]]'s `cssCode`, so mockup and real component render identically. Thai type via a system stack (no web font → no silent fallback); light + dark defined at token level.
 - ⚠ Three things flagged **inside the mockup itself** as invented: the **ด่วน** control (exists on immunology's L5.1-1, **not** on biochem's L3.1 — cut it if ชีวเคมี doesn't use it) · **ราคา** (placeholders; no source — decision 8) · **result ordering** (grouped by paper form; req. 5 wants Report LIS order — decision 3). All patients/values fabricated; test codes real.
 - Not covered: S1 (built), S5/S6/S7/S8/S9, and the **multi-unit header problem** — this design assumes one unit; genetics/immunology still need the `zdata_lab_unit`-driven header.
+
+## [2026-08-16] ingest | codex-backup — parallel LAB Workbench + Clinic Master workspace
+- User pointed at `/Users/nichada/Documents/codex-backup` — a **separate AI coding session's workspace** (a "codex" CLI agent working directly against initCraft, untracked by this vault) — and asked for a deep ingest, one source page per milestone.
+- **This supersedes [[his-lab-module-plan]].** The plan (frozen 2026-08-04, CHE-pilot framing, proposed `zdata_lab_order`/`_item`/`_test`/`_unit` model) was never implemented past [[his-lab-che-order-component]]. The parallel workspace spent 2026-08-08 → 08-16 actually building the LAB module with a different architecture: **one shared Lab Workbench app filtered by `lab_section`**, not one app per unit. Added a dated supersession notice to the plan page; kept its content for history.
+- Six new sources on the real build, in dependency order: [[his-lab-workbench-handoff]] (core architecture, non-negotiable decisions, shared Order/Result Item model, existing production form IDs) → [[his-lab-center-cpoe-master]] (doctor CPOE screen bound to a 1,605-record LAB+Xray master; `room_code` mapping; a LAB/Xray top-level grouping bug found and fixed) → [[his-lab-center-specimen-hub]] (3 build attempts at a central specimen-check screen — 2 abandoned to a `vue-ui` proxy/`activeTab` render error, 1 safe native-ListView version; a `form_ui` zero-row bug left unresolved) → [[his-lab-work-item-bridge]] (the architecture that replaced debugging the hub: canonical `zdata_specimen_collection_status` queue → idempotent bridge API → shared `zdata_lab_cen_crud` Work Item queue) → [[his-lab-specimen-status-session-aug16]] (the freshest material — same-week VN patient-snapshot hydration, EMR-style receive navigation cloning the real `opd_card`, an edit-audit trail `order_change_history_json`, two dev-only bypass switches) → [[his-lab-bio-workspace]] (Biochemistry's actually-working order/receive/reject lifecycle, the reference every other section generalizes from; found a `start_process` state-machine mismatch that skips `processing`).
+- Separately, [[his-clinic-master-handoff]] — a different initiative (generic Clinic Master → target form + shared status queue) discussed at length earlier this session but only now written up as a source page; confirmed `disease.json` is a structural twin of `clinic-master.json` (same generic master pattern); found a real gap (no field for a doctor's free-text consult order) not in the original handoff's own task list.
+- [[his-lab-misc-artifacts]] — two confirmed-superseded predecessor scripts, plus an **unlogged, previously-unrecorded drug-label printing side project** (2026-08-06: Figma exports, SQL/Report Factory backups, a live `label-preview` component) that this vault had never read before.
+- ⚠ **Naming-collision finding:** the file built earlier this session, `HIS/sdform_module/lab-unit-master.json` (a generic lab-department/section reference master), is **redundant** — a real, already-populated **Lab/Section Master** exists in production (`ประเภทการตรวจ`, form `6a79986bd5218a5b6a26bd15`, collection `zdata_section_code`) and is already the live routing key everywhere. Flagged to retire that file, not import it.
+- ⚠ **`his-lab-che-order-component.md` (2026-07-31) is now outdated** — `Lab_Bio_Order_CRUD.json` is a materially more complete successor with a real save target and full receive/reject/recheck lifecycle. Not yet edited (kept ingest scope to new pages); flagged for a follow-up pass.
+- Data gaps flagged, not yet ingested: `HIS/sdform_module/EMR_form/lab_center_order.json` (290KB), `Labcenter.json` (488KB), and the Aug-13 `EMR.json` (248KB) already sit in this vault as the direct input/output of the CPOE-master build script but have not been read.
+- Updated `index.md` (15 → **23 sources**), added a top-of-file pointer to the new material, and marked [[his-lab-module-plan]]'s index entry superseded.
+
+## [2026-08-17] query | slow report diagnosis + queue-number field + mongo-his MCP installed
+- User reported a slow-loading report and asked to check two fresh exports: `backup-data_report-factory_2026_08_17_21_01_15.zip` (Report Factory) + `backup-data_sql-factory_2026_08_17_21_04_17.zip` (SQL Factory). Filed the whole investigation as [[his-medical-record-report]] — fulfilling a greyed-out link that had sat in [[his-data-model]] since 2026-07-20.
+- **Diagnosis:** the report's SQL (`ใบปกเวชระเบียนผู้ป่วยนอก + บัตรฉีก`) is `FROM zdata_person` joined out to `zdata_visit`, but filters on the *joined* table's `_id` — backwards from the one other working example on file ([[sql-factory]]'s `vms_car`, which filters `_id` directly on `FROM`). Recommended flipping to `FROM zdata_visit WHERE _id = :xparentx` first. Also flagged the join condition (`zdata_visit.xparentx`) doesn't match [[his-data-model]]'s documented join key (`zdata_visit.pid.value`) — possibly wrong independent of performance.
+- **Second ask, same session:** add the OPD queue number (e.g. "D001", seen live in the EMR "My Room" screen) to the report. Confirmed `zdata_visit.visit_priority` is a false friend — it's a priority *enum* (`10 ตามคิว / 20 เร่งด่วน / 30 STAT`, matches the "routine" the user saw in the DB), used only for sort order, not the displayed code. Traced the real fields via `EMR.json`'s queue-label JS (`qtype` + zero-padded `queue_no`) to a previously undocumented collection, **confirmed live in the SQL Factory field picker**: `zdata_visit_tran` (form `6a461235e521219e514d1c4b`, "Visit Tran"), joined via `vid.value`. Updated [[his-data-model]] with the newly-confirmed `zdata_visit_tran` field list and a new join-key entry. Gave a full JOIN/SELECT spec to add to the report's SQL, including an unverified `CONCAT`/`RIGHT` custom expression (no confirmed function vocabulary for this SQL dialect beyond `CASE`/`IFNULL`/`CONVERT`/`SIZE_OF_ARRAY`).
+- **Installed `mongo-his`** — a read-only MongoDB MCP server (`mongodb-mcp-server`), project-scoped to this vault, connection stored in a new `.env` (already covered by `.gitignore`, chmod 600) + duplicated into `~/.claude.json` by `claude mcp add` (expected/normal). ⚠ The connection uses the `root` DB user — `--readOnly` is enforced only by the MCP server software, not real DB-level permissions; recommended a dedicated read-only Mongo user as a stronger follow-up. ⚠ **The Mongo root password was pasted into chat in plaintext** (second time this has happened in this project) — user was told to rotate it.
+- **Newly-added MCP tools did not load into the already-running session** — `claude mcp list` confirmed the server as connected, but `ToolSearch` found none of its tools. This needs a session restart before any of the above (join direction fix, queue field names, `CONCAT`/`RIGHT` support) can actually be verified against live data — recorded as an explicit "verification pending" section in the new page rather than claimed as confirmed.
+- Updated `index.md` (23 → **24 sources**), `his-data-model.md` (`zdata_visit_tran` fields + join key + Related), and this log entry. Also saved a **reference**-type memory entry for the `mongo-his` MCP (cross-session pointer, since MCP config lives outside this repo).
+
+## [2026-08-18] query | his-medical-record-report verified live + shipped, new platform gotchas found
+- Follow-on to 2026-08-17's session: `mongo-his` MCP now loaded (session had been restarted), used it to verify every unconfirmed claim from that session against live `his` data before touching the live report.
+- **Confirmed correct, not a bug:** `zdata_visit.xparentx` and `zdata_visit.pid.value` hold the same value on every visit sampled (11 visits) — the original join condition was fine all along; only the `FROM`/`WHERE` direction was ever the real performance bug. Updated [[his-data-model]].
+- **Corrected a wrong prior claim:** `zdata_visit_tran.queue_label` **is** a real, populated field (contrary to 2026-08-17's "dead defensive code" conclusion) — populated on visits from ~2026-07-27 onward (null before ~2026-07-20). Not exposed in SQL Factory's field picker (undeclared in the Visit Tran SdForm schema) but reachable via a raw Custom expression. Final `queue_display` field ships as a direct reference to it, no function needed.
+- **Found and fixed a real platform bug while applying the FROM/JOIN fix via file import:** SQL Factory documents store the JOIN graph in two places, `sql_join` (display copy) and `sql_options.join` (the one actually executed) — edited only the first on the first attempt, producing a query whose JOIN silently kept the old, broken condition (0 rows, no error). Fixed by editing both; documented as a standing gotcha in [[sql-factory]].
+- **Found the dialect's real function boundary:** a nested `CONCAT(...RIGHT(CONCAT(...)))` zero-pad expression failed with an empty-`sql` "Query Error." — isolated to `RIGHT` specifically; plain `CONCAT` (even nested with `CASE`/`IFNULL`/`ARRAY_ELEM_AT`/`SIZE_OF_ARRAY`) is confirmed working, proven by both a pre-existing field in the same query and a new `age_display` field added this session (`CONCAT` of `age`+`legacy.age_month`+`legacy.age_day` → "62 ปี 8 เดือน 3 วัน"). Found `legacy.age_month`/`legacy.age_day` are a frozen HOSXP migration snapshot — populated on ~94k migrated patients, absent on every patient registered after the new system's launch.
+- Cloned the fixed SQL as a new SQL Factory record (Clone Data / insert-new-id, original left untouched) and confirmed it returns correct data. Edited the report's header widgets (removed external logo, centered the title line) via the same JSON-export-edit-reimport workflow.
+- **New discovery: a report edit isn't live just by saving.** Traced the real publish chain — Report Factory (edit/preview) → a "Report Items" widget bound to a form's ListView → App Factory publish → the deployed app (QSNICH). Documented in [[report-factory]].
+- **Left one bug open, unresolved:** `{{prename_text}}` renders correctly in Report Factory's own Preview but shows as the literal unresolved tag in both the SDForm widget preview and the live QSNICH app, on a real patient — survives a hard refresh. Leading theory is a stale compiled-template cache in the widget/deployed-app layer, not yet confirmed. Flagged prominently to pick up first next session.
+- User connected the **Claude in Chrome** browser extension mid-session (`/chrome`) — same "needs a session restart before its tools load" caveat as `mongo-his` applied; not usable yet this session.
+- Updated `index.md` (his-medical-record-report one-liner), [[his-data-model]] (`legacy.*` fields, `queue_label`, `xparentx` equivalence), [[sql-factory]] (dual-JOIN gotcha, confirmed function list, Custom-expression-can-reach-undeclared-fields note), [[report-factory]] (publish chain, open cache bug), and this log entry.
+
+## [2026-08-24] note | HIS↔LISconnect flow deck — ออกแบบใหม่ตาม design system "FA V2"
+- **ขอบเขต**: `HIS/draw_design/request_reciece_agents_flow.drawio` — เดิม 4 หน้า (สเก็ตช์ + งานรอบก่อน 2 หน้า + หน้าว่าง)
+  → ตอนนี้ **12 หน้า**: 9 หน้าใหม่ + `Raw · Screenshots` (Page-1 เดิม ย้ายมาท้ายไฟล์) + `(v1)` 2 หน้าเดิมที่ถูกแทนที่
+- **หน้าใหม่**: Overview · Receive Flow · Order Submit Flow · Order Payload · Result Callback ·
+  Status Lifecycle · Field Mapping · Errors & Edge Cases · Open Questions
+- **แหล่งข้อมูล**: `/Users/nichada/Documents/LIS/` — `his-order-submit-spec.md` (68 KB, ลงวันที่ 2026-08-23),
+  `his-order-sample.json`, `his-result-sample.json` — **อยู่นอก vault ยังไม่ได้ ingest**
+- **ตัวอย่างดีไซน์ที่ผู้ใช้ให้มา** = ผัง "FA V2 · ห้องการเงิน" 13 หน้าบน Google Drive (public, ดึงมาได้)
+  ถอด design token ออกมาใช้ทั้งชุด — ดู `[[his-lis-flow-deck]]` ถ้าเขียนหน้า wiki ภายหลัง
+- สร้างด้วย generator (Python) + renderer ตรวจ layout ด้วยภาพก่อนติดตั้ง — script อยู่ใน scratchpad ยังไม่ได้เก็บเข้า repo
+
+## [2026-08-25] query | SDForm import: preview ว่างแต่ Tree View มี widget — หาสาเหตุได้แล้ว
+- **อาการ**: import JSON เข้า form-builder → canvas ว่าง แต่ Tree View ขึ้นครบ · คลิกในพื้นที่ว่างแล้ว widget โผล่
+- **สาเหตุจริง: `options` ของ widget ไม่ครบชุด** (ไม่ใช่ `id`, ไม่ใช่ cssCode, ไม่ใช่โครงสร้าง root)
+  - `text-input` ต้องมี **43 ช่อง** — ไฟล์ที่เขียนเองมีแค่ 25 ขาด 18 (`labelWidth` `labelAlign` `size`
+    `labelColor` `prefixIcon` `suffixIcon` `showWordLimit` `minLength` `appendButton` …)
+- **หลักฐาน** (สแกน 57 ไฟล์ใน `~/Documents/codex-backup/`): ทุกไฟล์ที่ options ไม่ครบ = preview ว่าง ·
+  ทุกไฟล์ที่ options ครบ = ใช้งานได้ **แม้จะตั้ง `id` เองแบบ kebab ก็ตาม**
+  (`Lab_Bio_Order_CRUD.json` 32 widget · `Center_Lab_Order_Master_Bound.json` 3 widget — id ตั้งเอง แต่ options ครบ → ทำงานได้)
+- **ตัดออกแล้ว**: รูปแบบ `id` · `key` (ไฟล์ที่ใช้งานได้จริงมี key ซ้ำกัน 40/47 ตัว = ไม่ใช่ identity) ·
+  cssCode (ไม่มี display:none) · widget เดี่ยวที่ root (`disease.json` ของระบบก็มี textarea เดี่ยวที่ root)
+- **แก้แล้ว**: `codex-backup/Result_Report_Manual_UI_FIXED.json` — เติม 108 ช่อง + `key` ที่หายของ `list-ui`
+  โดยไม่แตะ id / label / name / formConfig เดิม
+- ⚠️ `file-upload-input` (32 ช่อง) ไม่มีฟอร์มอ้างอิงในเครื่อง — ยังยืนยันไม่ได้ว่าครบ
+
+## [2026-08-25] note | ตั้งกฎเหล็ก SDForm JSON + validator ให้ Codex ใน ~/Documents/codex-backup
+- **ปัญหา**: กฎเดิมใน `AGENTS.md` (เขียนไว้ 2026-08-23 หลังเคสแรก) กว้างเกินไป — บอกแค่ "compare
+  options schemas with a known working exported form" ไม่มีตัวเลข ไม่มีเครื่องมือ → **เกิดซ้ำอีก 08-24**
+- **ไฟล์ใหม่ใน `~/Documents/codex-backup/`**
+  - `SDFORM_JSON_RULES.md` — กฎเหล็กฉบับเต็ม: อาการ · หลักฐาน · **ตารางจำนวนช่อง options ต่อ
+    component 23 ชนิด** · ฟอร์มแม่แบบที่ก๊อปได้ · สิ่งที่ตัดออกแล้ว (id/key/cssCode/root) · ข้อจำกัด
+  - `check_sdform_json.py` — validator รันก่อนส่งไฟล์ทุกครั้ง exit 1 = ห้ามส่ง
+    ดึงชุด options มาตรฐานจากฟอร์มแม่แบบในโฟลเดอร์เอง (ไม่ hardcode → ไม่ล้าสมัย)
+    ใช้ **intersection** ไม่ใช่ union เพราะ union เข้มเกินจน `person.json` ของระบบเองยังไม่ผ่าน
+  - `Result_Report_Manual_UI_FIXED.json` — ไฟล์ที่แก้แล้ว ผ่าน validator
+- **แก้ไฟล์เดิม** (ต่อยอด ไม่ทับ): `AGENTS.md` เพิ่มหัวข้อ 🔴 HIGHEST PRIORITY ไว้บนสุด +
+  ชี้ validator ในหัวข้อ Mandatory Delivery Verification · `MEMORY.md` เพิ่ม pointer
+- **ทดสอบ validator**: ฟอร์มแม่แบบ 10 ไฟล์ผ่านหมด · ไฟล์ที่รู้ว่าพัง 3 ไฟล์ไม่ผ่านหมด
+- ⚠️ ระหว่างทางเคยตั้งกฎผิดว่า "ทุก widget ต้องมี key" — `Lab_Bio_Order_CRUD.json` ที่ใช้งานจริง
+  ไม่มี key ใน 27/33 widget แต่ทำงานได้ จึงถอดออกเป็นแค่ข้อสังเกต
+
+## [2026-08-25] note | SDForm preview ว่าง — เจอ 4 สาเหตุ ยังเหลือ list-ui, handoff ให้ Codex แล้ว
+- **แก้ข้อสรุปเดิมของวันนี้**: "options ไม่ครบ" เป็นเงื่อนไข **จำเป็นแต่ไม่พอ** — รวมแล้วมี 4 ข้อ
+  | ก | `options` ครบชุดตามแม่แบบ | ✅ ยืนยัน |
+  | ข | มี container ห่อ · ลูกอยู่ใน **`.fields` ไม่ใช่ `.widgetList`** | ✅ ยืนยัน |
+  | ค | ห้ามใส่ `key` ให้ component ที่แม่แบบไม่เคยใส่ (`list-ui`) | ⚠️ ยังไม่พิสูจน์ว่าเป็นสาเหตุ |
+  | ง | ห้ามแต่งค่า presentation เอง (`labelIconClass:"el-paperclip"` ฯลฯ) | ✅ ยืนยัน — แก้ file-upload ได้ด้วยข้อนี้ |
+- 🔴 **บทเรียนสำคัญ**: เคยสรุปว่า "ขึ้นแล้ว" 2 ครั้งแล้วผิดทั้งคู่ เพราะภาพหน้าจอมี widget ถูกเลือกอยู่
+  ซึ่งการเลือกทำให้ canvas re-render — **หลักฐานต้องเป็นภาพหลัง import ที่ไม่คลิกอะไรเลย
+  และ Property panel แสดง Form Setting** เขียนเป็นกติกาลงเอกสารแล้ว
+- ข้อ ข กับ ค เกิดเพราะ**คำสั่งที่เขียนให้ Codex ผิดเอง** (`cols[].widgetList` และ "ใส่ key ให้ครบ")
+- ยืนยันแล้วว่า render ได้: `text-input` ในกริด · `file-upload-input` ที่ root
+  **ยังไม่เคยยืนยัน**: `list-ui` — handoff ต่อที่ `codex-backup/HANDOFF_SDFORM_LIST_UI.md`
+- ได้แม่แบบใหม่จากผู้ใช้: `TEMPLATE_file_upload_from_builder.json` (ลาก widget จาก palette แล้ว export)
+  → วิธีนี้ใช้เก็บแม่แบบ component ที่ยังไม่มีได้ทุกตัว

@@ -1,0 +1,93 @@
+<mxfile host="app.diagrams.net" modified="2026-08-22T00:00:00.000Z" agent="claude" version="24.0.0" type="device">
+  <diagram name="HIS-LIS Integration" id="his-lis-flow">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="HIS ↔ LISconnect ↔ ห้องแล็บ — การส่งใบสั่งตรวจและรับผลกลับ" style="text;html=1;fontSize=20;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="1320" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Three main system boxes -->
+        <mxCell id="his" value="HIS&#10;(initCraft / SDForm)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=16;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="60" y="100" width="220" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="lisconnect" value="LISconnect&#10;(Agent / Middleware)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=16;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="580" y="100" width="240" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="lab" value="ห้องแล็บ&#10;(Lab System / LIS)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=16;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="100" width="220" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- ================= ORDER FLOW (top, HIS -> Lab) ================= -->
+        <mxCell id="order_header" value="ส่งใบสั่งตรวจ (Order) — HIS ต้นทาง" style="text;html=1;fontSize=14;fontStyle=1;fontColor=#6c8ebf;align=left;" vertex="1" parent="1">
+          <mxGeometry x="60" y="220" width="400" height="24" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e1" value="① POST {AGENT_URL}/api/orders&#10;Header: X-Agent-Key, Content-Type: application/json&#10;order_no, labno (HIS ออกเลข), hn, patient/doctor/clinic, items[]" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=12;align=center;verticalAlign=top;strokeColor=#6c8ebf;strokeWidth=2;" edge="1" parent="1" source="his" target="lisconnect">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="440" y="260" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="resp1" value="ตอบทันที (ไม่รอไฟล์ถึงแล็บ):&#10;202 queued · 200 duplicate:true&#10;4xx/5xx = error (ดูตาราง reason)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="330" y="300" width="220" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e2" value="② เขียนไฟล์ .req&#10;(HL7 v2.03 ORM^O01, encoding TIS-620)&#10;ลงโฟลเดอร์รับใบสั่งของแล็บ" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=12;align=center;verticalAlign=top;strokeColor=#6c8ebf;strokeWidth=2;" edge="1" parent="1" source="lisconnect" target="lab">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="note_dup" value="กันยิงซ้ำ: unique constraint บน order_no&#10;→ ยิงซ้ำได้เสมอ ไม่เกิดใบสั่งซ้ำ/เจาะเลือดซ้ำ" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="60" y="300" width="220" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- ================= RESULT / STATUS FLOW (bottom, Lab -> HIS) ================= -->
+        <mxCell id="result_header" value="รับผลตรวจ + สถานะใบสั่งกลับ — LISconnect เป็นผู้เรียก HIS" style="text;html=1;fontSize=14;fontStyle=1;fontColor=#82b366;align=left;" vertex="1" parent="1">
+          <mxGeometry x="60" y="440" width="480" height="24" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e3" value="③ แล็บออกไฟล์ .res (ผลตรวจ)&#10;จับคู่กับใบสั่งด้วย labno" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=12;align=center;verticalAlign=bottom;strokeColor=#82b366;strokeWidth=2;" edge="1" parent="1" source="lab" target="lisconnect">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1000" y="560" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e4" value="④ POST {baseUrl}/v1/process/{pid}&#10;process: hl7_result_upsert · Auth: Bearer JWT&#10;กันผลซ้ำด้วย result_uid" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=12;align=center;verticalAlign=bottom;strokeColor=#82b366;strokeWidth=2;" edge="1" parent="1" source="lisconnect" target="his">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="440" y="560" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="e5" value="⑤ POST {baseUrl}/v1/process/{pid}&#10;process: hl7_order_status_sync (คนละ pid)&#10;new→queued→sent→in_progress→resulted&#10;/ stalled / failed / cancel_requested / cancelled / cancel_rejected" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;align=center;verticalAlign=top;strokeColor=#82b366;strokeWidth=2;dashed=1;" edge="1" parent="1" source="lisconnect" target="his">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="440" y="620" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="note_stage" value="ผลอาจมาหลายครั้ง (report_seq/stage)&#10;ห้ามทับผลเดิม — เก็บแบบ append&#10;LISconnect ไม่ตัดสินค่าวิกฤต ส่งแค่เกณฑ์ดิบ (critical_low/high_rule) ให้ HIS ประเมินเอง" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="820" y="440" width="300" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- Cancel flow note -->
+        <mxCell id="cancel_note" value="ยกเลิกใบสั่ง (HIS เป็นผู้เริ่ม): ยังไม่ส่ง → เงียบ / ส่งแล้วยังไม่มีผล → ORC-1=CA → cancelled / มีผลแล้ว → ปฏิเสธ 409 cancel_rejected (ต้องแจ้งผู้สั่ง)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="330" y="700" width="640" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Testing/status-poll (dashed side note) -->
+        <mxCell id="poll_note" value="ระหว่างทดสอบ: GET {AGENT_URL}/api/v1/orders/{order_no}&#10;(ไว้เช็คว่าใบสั่ง route ไปถึงไหนแล้ว)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="580" y="20" width="240" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_poll" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;strokeColor=#9673a6;endArrow=none;startArrow=none;" edge="1" parent="1" source="poll_note" target="lisconnect">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

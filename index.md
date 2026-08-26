@@ -2,7 +2,7 @@
 type: synthesis
 title: Wiki Index
 created: 2026-07-16
-updated: 2026-08-04
+updated: 2026-08-18
 tags: [meta, index]
 ---
 
@@ -14,7 +14,10 @@ find the relevant pages here, then drill in. See [[CLAUDE|the schema]] for the r
 
 **Domain:** the [[initcraft|initCraft / SDForm]] low-code platform (+ its first real app, [[his|HIS]]).
 **Second domain (2026-08-04):** [[open-design|Open Design]] — agent-native OSS design tooling. Unconnected to the above; see [[open-design-repo]] for why it's here.
-**Counts:** 15 sources · 8 entities · 30 concepts · 4 syntheses
+**⚠ 2026-08-16:** a **parallel, unconnected AI coding workspace** (`codex-backup`, outside this
+vault) was discovered and ingested — 8 days of *real* LAB Workbench + Clinic Master implementation
+that [[his-lab-module-plan]] never reached. Start at [[his-lab-workbench-handoff]].
+**Counts:** 24 sources · 8 entities · 30 concepts · 4 syntheses
 
 ---
 
@@ -36,6 +39,15 @@ _One summary page per ingested source. Backed by files in `raw/`._
 - [[his-lab-bg-request-forms]] — **ชีวโมเลกุลและพันธุศาสตร์** paper forms (`C-20/L8.1`, `L8.2` ×2, `BG49`): `BG` codes, **composite codes**, per-test fields, clinical narrative, `Out lab`. `2026-08-04`
 - [[his-lab-immuno-request-forms]] — **งานภูมิคุ้มกันวิทยา** paper forms (`C-20/L5.1-1` + `L5.1-2` **Out Lab**): urgency (ด่วน), สิทธิ on the form, allergen codes, panels, ~200 out-lab tests. `2026-08-04`
 - [[his-module-packages-backup]] — `module_packages` exports for **Patient · EMR · Drug & Stock**; reveals [[pis|PIS]] has started as `pis_drug` "Pharmacy Back Office". `2026-08-04`
+- [[his-lab-workbench-handoff]] — **the real LAB build's core architecture**: one shared Lab Workbench app filtered by `lab_section`, not per-unit; shared Order/Result Item model; existing production form IDs. `2026-08-16`
+- [[his-lab-center-cpoe-master]] — Lab Center (doctor CPOE, LAB+Xray in one screen) bound to a 1,605-record master; `room_code` mapping; LAB/Xray grouping bug fix. `2026-08-16`
+- [[his-lab-center-specimen-hub]] — 3 build attempts at a central specimen-check screen; 2 abandoned (`vue-ui` proxy error), 1 safe (native ListView); zero-row bug unresolved. `2026-08-16`
+- [[his-lab-work-item-bridge]] — the finalized architecture: `zdata_specimen_collection_status` (canonical queue) → idempotent bridge → shared `zdata_lab_cen_crud` Work Item queue. `2026-08-16`
+- [[his-lab-specimen-status-session-aug16]] — dense same-week session: VN patient-snapshot hydration, EMR-style receive navigation, order-edit audit history (`order_change_history_json`), dev-mode switches. `2026-08-16`
+- [[his-lab-bio-workspace]] — Biochemistry's working order→receive/reject lifecycle (`zdata_testlab_bio`); the reference flow every other lab section generalizes from; supersedes [[his-lab-che-order-component]]. `2026-08-16`
+- [[his-clinic-master-handoff]] — the separate **Clinic Master** initiative: generic clinic registry → target form + shared status queue; P0–P2 task list; `order_note` gap found. `2026-08-16`
+- [[his-lab-misc-artifacts]] — predecessor scripts + an unlogged drug-label printing side-project (2026-08-06), never previously ingested. `2026-08-16`
+- [[his-medical-record-report]] — ใบปกเวชระเบียนผู้ป่วยนอก + บัตรฉีก: `FROM`/JOIN fix + `queue_display`/`age_display` fields all confirmed live and shipped; found the SQL Factory dual-JOIN gotcha and the Report Factory → App Factory publish chain. **Open bug:** `{{prename_text}}` unresolved outside Report Factory's own preview. `2026-08-17`, updated `2026-08-18`
 
 ## Entities
 _People, orgs, tools, products, places._
@@ -100,7 +112,7 @@ _Overviews, comparisons, evolving theses, and filed query outputs._
 
 - [[his-med-dispense-voucher-report]] — the ใบฎีกาจ่ายยา Report Factory build (header/table/footer, placeholders, pending SQL). `2026-07-17`
 - [[his-opd-flow]] — end-to-end HIS OPD patient journey (register → EMR → billing → claims → data feeds) + module/transaction-table map. `2026-07-19`
-- [[his-lab-module-plan]] — **LAB module scope, gap analysis & build plan**: 9 screens, proposed `zdata_lab_*` model, build order, 18 blocking decisions. `2026-07-31` (revised `2026-08-04`)
+- [[his-lab-module-plan]] — ⚠ **SUPERSEDED 2026-08-16** by [[his-lab-workbench-handoff]] and siblings — LAB module scope/plan: 9 screens, proposed `zdata_lab_*` model, 18 blocking decisions. Kept for history. `2026-07-31` (revised `2026-08-04`)
 - [[his-lab-worklist-ui]] — **the 3-tab LAB worklist UI design** (S2/S3/S4) for งานชีวเคมี; clickable mockup at `HIS/ui/lab-worklist-mockup.html`. `2026-08-04`
 
 ---

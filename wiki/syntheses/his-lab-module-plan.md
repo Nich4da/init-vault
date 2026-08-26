@@ -2,17 +2,33 @@
 type: synthesis
 title: HIS LAB module — scope, gap analysis & build plan
 created: 2026-07-31
-updated: 2026-08-04
-tags: [his, lab, lis, plan, requirements, active-build]
-sources: ["[[his-lab-biochem-requirements]]", "[[his-lab-che-request-form]]", "[[his-lab-che-order-component]]", "[[his-system-flow]]", "[[his-lab-bg-request-forms]]", "[[his-lab-immuno-request-forms]]"]
+updated: 2026-08-16
+tags: [his, lab, lis, plan, requirements, superseded]
+sources: ["[[his-lab-biochem-requirements]]", "[[his-lab-che-request-form]]", "[[his-lab-che-order-component]]", "[[his-system-flow]]", "[[his-lab-bg-request-forms]]", "[[his-lab-immuno-request-forms]]", "[[his-lab-workbench-handoff]]"]
 ---
 
 # HIS LAB module — scope, gap analysis & build plan
 
+> ⚠ **SUPERSEDED 2026-08-16.** This plan (frozen 2026-08-04, never implemented past
+> [[his-lab-che-order-component]]) was built around per-unit rollout (CHE pilot → BG →
+> immunology, each with its own screens) and a proposed `zdata_lab_order`/`zdata_lab_order_item`/
+> `zdata_lab_test`/`zdata_lab_unit` data model. A **parallel, unconnected AI coding session**
+> (kept outside this vault at `/Users/nichada/Documents/codex-backup/`, discovered and ingested on
+> 2026-08-16) spent 2026-08-08 → 08-16 actually **building** the LAB module with a different
+> architecture: **one shared Lab Workbench app filtered by `lab_section`**, not one app per unit —
+> see [[his-lab-workbench-handoff]] and its linked pages
+> ([[his-lab-center-cpoe-master]] · [[his-lab-center-specimen-hub]] · [[his-lab-work-item-bridge]] ·
+> [[his-lab-specimen-status-session-aug16]] · [[his-lab-bio-workspace]]) for the real, current
+> state — real form IDs, live collections, and dated implementation history.
+>
+> **Kept below for history and because several open questions here (composite codes, multi-unit
+> headers, requirement memos) were never actually answered by the newer work either** — cross-check
+> before assuming anything here is stale. Do not treat the data model in §4 as current.
+
 > Derived from the biochemistry unit's requirement memo ([[his-lab-biochem-requirements]]),
 > the paper request form ([[his-lab-che-request-form]]) and what is already built
 > ([[his-lab-che-order-component]]). Proposals below are marked **(proposed)** — nothing here
-> is confirmed by the users yet.
+> is confirmed by the users yet. **Historical as of 2026-08-16 — see supersession notice above.**
 
 ## 1. Scope
 

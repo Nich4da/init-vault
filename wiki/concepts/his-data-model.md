@@ -2,9 +2,9 @@
 type: concept
 title: HIS data model (his MongoDB — zdata_person / zdata_visit / …)
 created: 2026-07-20
-updated: 2026-07-20
+updated: 2026-08-17
 tags: [initcraft, his, mongodb, data-model, schema, reference]
-sources: ["[[his-patient-form]]", "[[his-visit-form]]"]
+sources: ["[[his-patient-form]]", "[[his-visit-form]]", "[[his-medical-record-report]]"]
 ---
 
 # HIS data model (`his` MongoDB)
@@ -20,7 +20,7 @@ into the wiki. Schema-level only below.
 |---|---|---|
 | `zdata_person` | 8 | patient master (demographics, address, insurance, relatives, allergy) |
 | `zdata_visit` | 62 | encounter (VN, visit_date, service, `pid` link, insurance snapshot) |
-| `zdata_visit_tran` | — | exam transaction (backs the [[his-emr-form|EMR]]) |
+| `zdata_visit_tran` | — | exam/queue transaction (backs the [[his-emr-form|EMR]] unit & room queues); **fields confirmed 2026-08-17**, see below |
 | `zdata_patient_assessment` | 2 | per-visit vitals + CC/PI + allergy + underlying disease |
 | `zdata_person_relate` | 13 | **master** of relationship types (code/name/sort) — *not* a person's relatives |
 | `zdata_person_insurance` | — | insurance rows (`xparentx` = person `_id`) |
@@ -29,9 +29,12 @@ into the wiki. Schema-level only below.
 _*row counts as sampled 2026-07-20 (tiny — looks like a test/seed dataset)._
 
 ## Join keys (for reports/queries)
-- **person ↔ visit:** `zdata_visit.pid.value` → `zdata_person._id`.
+- **person ↔ visit:** `zdata_visit.pid.value` → `zdata_person._id`. **`zdata_visit.xparentx` is a
+  confirmed-equivalent alternate** (SDForm's generic parent-link field) — checked live 2026-08-18
+  against 11 visits, identical to `pid.value` on every one. Either works as a join key.
 - **assessment ↔ visit:** `zdata_patient_assessment.vid.value` → `zdata_visit._id` (`vid` also carries
   `vid.pid`). *(vid.value = visit _id assumed — standard `select-form-input` pattern.)*
+- **visit tran ↔ visit:** `zdata_visit_tran.vid.value` → `zdata_visit._id` (same pattern).
 - Child/sub-collections use **`xparentx` = parent `_id`** (e.g. `zdata_person_insurance`).
 
 ## `zdata_person` — key fields
@@ -55,6 +58,14 @@ _*row counts as sampled 2026-07-20 (tiny — looks like a test/seed dataset)._
 - **Medical:** `allergy_main` (**list** `{allergy_item, allergy_type, allergy_lvl, allergy_state}`)
   — the ประวัติการแพ้ยา source; `ailment_main` (list); `or_main`.
 - **Other:** `p_pic` (list `{url,…}`), `death_status`, `delivery_rajavithi`, `p_income`, `p_tags`.
+- **`legacy` (object, confirmed 2026-08-18) — frozen HOSXP migration snapshot, NOT live-computed:**
+  holds `birth` (Thai-BE date string), `age_month`, `age_day` (both strings — the y/m/d breakdown
+  the UI needs, since `age` alone is years-only), plus ~50 other old-system fields
+  (`hosxp_pcu`, `old_hn`, `father_fname`, etc). Populated on ~94,432 patients migrated from the old
+  system; **completely absent on patients registered directly in the new system** (e.g. the
+  post-launch test person `6900025`, created 2026-07-27, has no `legacy` object at all). Treat any
+  `legacy.*` field as "works for old patients, blank for new ones going forward," not a general
+  live field.
 
 ## `zdata_visit` — key fields
 - **Header:** `vn` (str, `69`+5 autonumber), `visit_date` (str), `dataid`.
@@ -71,6 +82,19 @@ _*row counts as sampled 2026-07-20 (tiny — looks like a test/seed dataset)._
 - **Money:** `vcost`, `vprice`, `vpayprice`, `vactualpay`. **Discharge:** `typeout`.
 - **Denormalized:** `birth_date`, `gender_text`, `abogroup_text`, `first_visit`, `diff_day_visit`.
 
+## `zdata_visit_tran` — key fields (confirmed 2026-08-17, via [[his-medical-record-report]])
+One row per unit/room queue-stop within a visit (a visit can pass through several). Confirmed
+fields: `vid` (object, `.value` → `zdata_visit._id` — the join key), `unit_to`/`room_to` (coded
+`{value,label}`, destination unit/room), `doctor_to` (coded), `vtran_status`
+(`waiting|called|in_progress|skipped`), `checkin_at`, `qtype` (letter prefix, e.g. `"D"`),
+`queue_no` (int), `queue_ts` (sequencing field for FIFO order — **not** a display label despite
+the name suggesting otherwise), `queue_label` (**confirmed real and populated 2026-08-18** — a
+pre-formatted, zero-padded display string like `"D002"`, matching `qtype`+`queue_no`. Populated
+only from ~2026-07-27 onward — null on every row before ~2026-07-20, so still needs the
+`qtype`+`queue_no` client-side fallback for older visits. **Not exposed in SQL Factory's field
+picker** — it's undeclared in the Visit Tran SdForm schema even though the raw collection has it;
+reachable only via a manually-typed Custom expression, not the Field dropdown).
+
 ## `zdata_patient_assessment` — key fields
 Per-visit assessment (links via `vid`): **vitals** `bp_h`/`bp_l`, `pulse`, `temp`, `rr`, `stature`,
 `bmi`, `bsa`; **clinical** `cc`, `pi`, `drug_allergy` (str), `food_allergy` (str),
@@ -80,9 +104,13 @@ Per-visit assessment (links via `vid`): **vitals** `bp_h`/`bp_l`, `pulse`, `temp
 - **Coded fields are stored as `{label,value}` objects** — read `.label` for display (in LaTeX,
   `\VAR{field.label}`; [[report-factory]] form-model conversion may also flatten them).
 - `age` is a **stored int** on person (and snapshotted as `pid.age` on the visit) — not computed at
-  query time; the detailed "5 ปี 0 เดือน 11 วัน" form would need a compute if required.
+  query time. The detailed "62 ปี 8 เดือน 3 วัน" form is available **only for migrated patients**
+  via `legacy.age_month`/`legacy.age_day` (see above) — no live date-diff compute confirmed for
+  new patients.
 - Dataset is tiny (8 persons / 62 visits) → a **test/seed** instance.
 
 ## Related
 - Forms: [[his-patient-form]] · [[his-visit-form]] · [[his-emr-form]]. Insurance: [[his-insurance]].
-- Report use: [[his-medical-record-report]] SQL joins `visit → person (→ assessment)`. Conventions: [[zdata-collections]].
+- Report use: [[his-medical-record-report]] — SQL joins `visit → person`, plus the
+  `zdata_visit_tran` queue-number join fix. Conventions: [[zdata-collections]].
+- DB access: `mongo-his` read-only MCP, configured 2026-08-17 (see hotcache for setup notes).

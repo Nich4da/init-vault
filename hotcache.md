@@ -1,7 +1,7 @@
 ---
 type: meta
 title: Hot Cache
-updated: 2026-08-04
+updated: 2026-08-25
 ---
 
 # 🔥 Hot Cache — read me first
@@ -10,56 +10,58 @@ updated: 2026-08-04
 > if this disagrees with a page, the page wins ([[CLAUDE]] §7).
 
 **Domain:** [[initcraft|initCraft / SDForm]] + its real app **[[his|HIS]]** (สถาบันสุขภาพเด็กฯ).
-User = developer, Thai, wants step-by-step + real-data verification.
-**Counts:** 15 sources · 8 entities · 30 concepts · 3 syntheses. **As of:** 2026-08-04.
+User = developer, Thai, wants step-by-step + real-data verification, **replies must be in Thai**.
+**Counts:** 24 sources · 8 entities · 30 concepts · 4 syntheses. **As of:** 2026-08-24.
 
-## 🔨 ACTIVE BUILD — LAB / [[lis|LIS]] — ⚠ **now multi-unit** (revised 2026-08-04)
-Plan/gaps/schema: **[[his-lab-module-plan]]**. Spine = `รอรับเข้า → รับเข้าดำเนินการ → ออกผลแล้ว`, 9 screens S1–S9.
+## 🆕 ล่าสุด 2026-08-24 — HIS ↔ LISconnect flow deck (ไม่ใช่งาน wiki, เป็นงานออกแบบผัง)
+`HIS/draw_design/request_reciece_agents_flow.drawio` เดิม 4 หน้า → **12 หน้า** แล้ว:
+9 หน้าใหม่ (Overview · Receive Flow · Order Submit Flow · Order Payload · Result Callback ·
+Status Lifecycle · Field Mapping · Errors & Edge Cases · Open Questions) + `Raw · Screenshots`
+(หน้าสเก็ตช์เดิม 15 screenshot ยังครบ) + `(v1)` 2 หน้าของรอบก่อนที่ถูกแทนที่
+- **ดีไซน์ลอกจาก** ผัง "FA V2 · ห้องการเงิน" ที่ผู้ใช้ให้ลิงก์ Google Drive มา (public ดึงได้):
+  `light-dark()` ทุกสี · แถบหัว `#647687` · การ์ด 12px + คำอธิบาย 10px · swimlane · แถบ
+  "ทางที่ไม่ใช่ทางหลัก" · LEGEND ท้ายหน้า · เขียว=ของเดิม ฟ้า=มีแล้ว ม่วง=ต้องสร้าง แดง=ห้ามพัง เหลือง=รอเคาะ
+- **สร้างด้วย generator Python + renderer ตรวจ layout เป็นภาพ** (อยู่ใน scratchpad ยังไม่เก็บเข้า repo —
+  ถ้าจะแก้ผังอีก ควรกู้/เขียนใหม่แทนแก้ XML มือ)
+- 🔴 **`/Users/nichada/Documents/LIS/` อยู่นอก vault และยังไม่ได้ ingest** — `his-order-submit-spec.md`
+  (68 KB, 2026-08-23) + `his-order-sample.json` + `his-result-sample.json` เป็นสัญญาจริงกับทีม LISconnect
 
-| Unit | Forms | Codes | Have |
-|---|---|---|---|
-| ชีวเคมี | C-20/L3.1 | `C` | memo + form + **order screen built** |
-| ชีวโมเลกุล/พันธุศาสตร์ | L8.1 · L8.2×2 · BG49 | `BG` | forms only ([[his-lab-bg-request-forms]]) |
-| ภูมิคุ้มกันวิทยา | L5.1-1 · L5.1-2 (Out Lab) | `IM/IN/ICO`, `I0/IO/IL` | forms only ([[his-lab-immuno-request-forms]]) |
+## 🔑 ข้อเท็จจริงจากสเปค LIS (ใช้ได้เลย ไม่ต้องเปิดไฟล์ซ้ำ)
+- เส้นเดียว `POST {AGENT_URL}/api/orders` + `X-Agent-Key` · ตอบทันทีที่ commit ไม่รอไฟล์ถึงแล็บ ·
+  202 queued / **200 duplicate = สำเร็จ** (unique constraint กันใบซ้ำให้เอง)
+- **`labno` — เคาะแล้วว่า HIS เป็นผู้ออก** รูปแบบ `{ปีพ.ศ.2}{MM}{DD}{ลำดับ4}` · เป็นกุญแจดอกเดียวที่ผูกผลกลับใบสั่ง ·
+  กลับมาในชื่อ `filler_order_no`
+- ต้องเพิ่ม field: **14 ระดับใบสั่ง + 3 ใน items[]** (rax-file) + **8 ของ mLab** (endpoint ยังปิด) — ฝั่งเขาต่อรอครบ 25 แล้ว
+- 🔴 **เวลาต้องเป็นเวลาไทย** (เขาอ่านตัวเลขตามที่เห็น ไม่แปลงโซน) · 🔴 **ไฟล์เป็น TIS-620** อักขระนอกชุด = ทั้งใบเข้า DLQ
+- `hl7_status` **12 ค่า** ต้องเก็บสำเนาเต็ม ห้าม map: new/queued/sending/sent/in_progress/resulted +
+  🆕 stalled/failed + 🆕 cancel_requested/cancelled/cancel_rejected (+ awaiting_result/ack_err สงวนไว้)
+- ขารับผล: `hl7_result_upsert` + `hl7_order_status_sync` (**คนละ pid**) · **`result_uid` = กุญแจกันซ้ำ ต้อง upsert** ·
+  เก็บ append ห้ามทับ (`receipt_seq` ≠ `result_version`) · **critical HIS ประเมินเอง** เขาส่งแค่เกณฑ์ดิบ
+- ⏳ ยังบล็อก UAT: `PV1-28/29` แปลว่าอะไร · `LABO`/`ORC-20`/`OBR-11` คงที่จริงไหม · รูปแบบ `NTE-3` ·
+  mLab `priority:"A"` → N หรือ S · และฝั่ง HIS ยังไม่ส่ง `baseUrl` · pid ×2 · JWT
 
-**CHE = pilot, not the project.** 4 things the built screen can't express:
-**composite codes** (`BG17+21` = order 2–3 codes ตามลำดับ, ~50 rows) · **per-test required fields**
-(BG49 urine creatinine) **+ single-select sub-options** (BG50 FISH Chr) · **clinical narrative in
-the order** (BG1 History/PE/Dx) · **out lab = per-test flag (BG) *and* a parallel catalogue (IM)**.
-Also new: **urgency ด่วน OR/อุบัติเหตุ/เพราะ__** · สิทธิ on the request · panels (IM120/121) ·
-external allergen codes (d1/f1/e1/fx5) · **โรงพยาบาล header on BG49 = referred-in specimens**.
-**No two unit headers match** → header must come from a new `zdata_lab_unit.header_fields[]`.
-First price seen anywhere: `BG45 TSH (DBS) = 125 บาท`. First TAT: BG49 = 10 วันทำการ, GCMS.
-**Still ❌ on S1:** any save at all · specimen block · LAB NO. · prices `0` · 90 codes hard-coded in `vue-ui`.
-**Next:** `zdata_lab_test` + `zdata_lab_unit` master → finish S1 + save process → S2/S3 → S5 → S4/S6 → S7/S8 → S9.
-**🎨 UI designed 2026-08-04:** [[his-lab-worklist-ui]] — 3 แท็บ รอรับ/รับเข้าแล้ว/ออกผลแล้ว, master–detail,
-mockup กดได้ที่ `HIS/ui/lab-worklist-mockup.html`. **ไม่มี Figma integration** — ส่งเป็น HTML แทน
-(เข้า Figma ผ่านปลั๊กอิน `html.to.design`). Tab 2 = list order เดิม. 3 จุดที่แต่งเอง: ด่วน · ราคา · ลำดับ Report LIS.
+## 🔨 งานเดิมที่ยังค้าง
+- **[[his-medical-record-report]]** — ชิปแล้ว 08-18 เหลือบั๊ก `{{prename_text}}` โชว์เป็น tag ดิบใน widget/แอปจริง
+  (ยังไม่ทดสอบวิธีแก้: deselect/reselect รายงานใน dropdown ของ widget)
+- **LAB Workbench** (build จริงอยู่นอก vault ที่ `~/Documents/codex-backup/`) เริ่มที่ [[his-lab-workbench-handoff]] ·
+  Biochemistry เป็น section เดียวที่ lifecycle ครบ · [[his-lab-center-specimen-hub]] ยังมีบั๊ก zero-row
+- **Clinic Master** [[his-clinic-master-handoff]] — ฟอร์มมี แต่ยังไม่มี logic/event, P0–P2 ค้าง
+- อื่น ๆ: drug-label printing · [[pis|PIS]] เริ่มแล้ว · [[open-design]] (โดเมนที่ 2) · [[report-latex]] พัก (server ไม่มี Tectonic/Sarabun)
 
-## ⚠ Blocking asks (18 in the plan; the live top 6)
-1. how orders reach the LIS today 2. **electronic test catalogues** (raw/ is OCR of photos —
-`I0` vs `IO` unreadable, gene/exon risky; **do not use as a master list**) 3. **requirement memos
-for ชีวโมเลกุล + ภูมิคุ้มกัน** (only ชีวเคมี has one) 4. composite codes = 1 charge or N?
-5. how many lab units total 6. price per [[his-insurance|สิทธิ]] source.
-
-## 🆕 [[pis|PIS]] has started + [[module-packages]]
-`module_packages` = App Factory registry making a form reachable ([[his-module-packages-backup]]).
-`pis_drug` "Drug & Stock" / *Pharmacy Back Office*, tab "Drug Items", unit `B001 เภสัชกรรม`,
-created 07-29. **Form body not exported — ask for `6a68f6cec91cb8030e26d75d`.**
-⚠ `app_assign_roles` + `tab_roles` = `null` on every module. **LAB has no module record yet.**
-
-## 🆕 Second domain — [[open-design]] (2026-08-04, unrelated to HIS)
-`nexu-io/open-design` v0.16.1 at `../open-design/` (zip unpack, **not git**). OSS Claude Design
-alt: ships no agent, drives the CLIs on your `PATH`. Pages: [[open-design-repo]] · [[design-md]] ·
-[[skill-md]] · [[od-plugin]]. Steal-worthy: `AGENTS.md` single entry · `CONTEXT.md` glossary with
-`_Avoid_:` · UI+CLI parity per PR · red-spec-first. ❓ **why it's here is unrecorded.**
-
-## 📦 Parked — เวชระเบียน OPD LaTeX ([[report-latex]])
-SQL + layout OK locally; server lacks Tectonic + Sarabun + `code128.sty`.
-
-## Key facts (carry forward)
-- [[his-data-model]]: `zdata_visit` → `zdata_person` ON `person._id = visit.pid.value`; assessment
-  via `vid.value`. Coded fields `{label,value}` → `.label`. HN/VN = `69`+5, **string**.
-- `his` db = **159.223.80.155** (78 coll.), ≠ the env-var `erp` server → inline read-only URI per
-  session. **No `zdata_lab_*` confirmed.** 🔐 root URI + license JWT were pasted in chat → rotate.
-- ⏸ Don't re-ask: flow labels IOT/coder/FA/CSOP/FDH; `zdata_section`→`zdata_service_type`.
+## 🎓 กฎแพลตฟอร์มที่ต้องจำ
+- 🔴 **SDForm import: canvas ว่างแต่ Tree View ขึ้นครบ = มี 4 สาเหตุ ต้องผ่านครบ**
+  (ก) `options` ครบชุดตามแม่แบบ · (ข) มี container ห่อ + ลูกอยู่ใน **`.fields` ไม่ใช่ `.widgetList`** ·
+  (ค) ห้ามใส่ `key` ให้ component ที่แม่แบบไม่เคยใส่ (`list-ui`) · (ง) **ห้ามแต่งค่า presentation เอง**
+  (`labelIconClass:"el-paperclip"` ทำให้ file-upload ไม่ render) แก้ได้เฉพาะค่าข้อมูล
+  **หลักการเดียว: ก๊อป widget จากฟอร์มที่ระบบ export มา แล้วแก้ให้น้อยที่สุด อย่าเติมให้ครบกว่าแม่แบบ**
+- 🔴 **การยืนยันว่า "ขึ้นแล้ว" ต้องเป็นภาพหลัง import ที่ไม่คลิกอะไรเลย** (Property = Form Setting) —
+  คลิก widget ทำให้ canvas re-render แล้วดูเหมือนหาย ⚠️ เคยสรุปผิดเพราะเรื่องนี้ 2 ครั้ง
+  📌 กฎเต็ม + validator: `~/Documents/codex-backup/SDFORM_JSON_RULES.md` · `check_sdform_json.py`
+  (exit 0 ก่อนส่งเสมอ) · **เคสค้าง `list-ui` ยัง render ไม่ได้ → `HANDOFF_SDFORM_LIST_UI.md`**
+- **SQL Factory เก็บ JOIN สองที่** — `sql_join` (แสดง) vs `sql_options.join` (ที่รันจริง) แก้ไม่ครบ = เงียบ 0 แถว
+- ใช้ได้: `CASE`/`IFNULL`/`CONVERT`/`SIZE_OF_ARRAY`/`CONCAT`/`ARRAY_ELEM_AT`/`PARSE_JSON` · **`RIGHT` พัง**
+- **บันทึกรายงาน ≠ ขึ้นจริง** — Report Factory → widget "Report Items" → **App Factory publish** → แอป
+- `zdata_person.legacy.*` = snapshot HOSXP เก่า มีเฉพาะคนไข้ ~94k คนก่อนขึ้นระบบใหม่
+- [[his-data-model]]: `zdata_visit`↔`zdata_person` ผ่าน `pid.value` (≡ `xparentx`) · ↔`zdata_visit_tran` ผ่าน `vid.value`
+- 🔐 ห้ามวาง DB URI/credential ในแชท (เคยหลุดมาแล้ว 2 ครั้ง) · `mongo-his` MCP ใช้งานได้จริง
+- MCP/extension ที่เพิ่งต่อ **ไม่โหลดเข้า session ที่รันอยู่** ต้อง restart ก่อน

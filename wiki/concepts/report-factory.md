@@ -2,9 +2,9 @@
 type: concept
 title: Report Factory (PDF/Excel/Word/LaTeX reports)
 created: 2026-07-17
-updated: 2026-07-19
-tags: [initcraft, report-factory, pdfmake, his]
-sources: ["[[report-factory-skill]]", "[[his-med-dispense-voucher-report]]"]
+updated: 2026-08-18
+tags: [initcraft, report-factory, pdfmake, his, deploy-pipeline]
+sources: ["[[report-factory-skill]]", "[[his-med-dispense-voucher-report]]", "[[his-medical-record-report]]"]
 ---
 
 # Report Factory (PDF/Excel/Word/LaTeX reports)
@@ -96,6 +96,22 @@ The `html` widget converts HTML via **html-to-pdfmake → pdfmake** (not a brows
 (`pdf_page_date`) · `pdf_watermark` (opacity 0.1, 45°) · `pdf_bg` (cover). Sharing: `pdf_share`
 (`public/private/assign` → `pdf_assign_roles`).
 
+## 🆕 Saving ≠ live — the publish chain (confirmed 2026-08-18)
+A report edit does **not** reach a real deployed app just by saving in Report Factory. Confirmed
+chain for [[his-medical-record-report]]'s report: **Report Factory (edit/preview)** → bound into a
+**ListView "Report Items" widget** inside a target **SDForm** (e.g. the Patient form) → published
+via **App Factory** → live in the deployed app (e.g. `QSNICH`, a separately-branded instance at
+its own subdomain). Evidence: Report Factory's own "Preview" button always reflected the latest
+saved field (`{{prename_text}}` resolved correctly there), but the *same* report previewed from
+inside the SDForm's "Report Items" widget — and the live deployed app — both showed the literal
+unresolved tag, even after a hard refresh (ruling out plain browser cache). Leading theory: the
+Report Items widget and/or the deployed app cache a compiled report template separately, frozen
+from before the field existed, and don't auto-resync when the underlying report/SQL changes.
+**Unresolved as of 2026-08-18** — untested fix: deselect/reselect the report in the widget's
+"Report" dropdown to force a resync. Any future report-field change should be checked at all
+three layers (Report Factory preview, the SDForm widget preview, the live app), not just the
+first.
+
 ## Gotchas (quick list)
 1. No `pdf_sql` → other tabs stay hidden + nothing binds.
 2. Wrong `{{field}}` name = silent blank.
@@ -103,8 +119,13 @@ The `html` widget converts HTML via **html-to-pdfmake → pdfmake** (not a brows
 4. `content_var` has no runtime effect.
 5. Excel skips non-table content.
 6. Editing `report-model.json` needs a **re-import** (builder reads options from the DB).
+7. **Saving in Report Factory ≠ live** — a "Report Items" widget bound to a form's ListView (and
+   the deployed app beyond it) can keep serving a stale cached template; see the publish-chain
+   section above. Preview inside Report Factory itself is not proof the live app matches.
 
 ## Related
 - Source of truth: [[report-factory-skill]] · LaTeX model: [[report-latex]].
 - Worked example: [[his-med-dispense-voucher-report]] · data: [[sql-factory]] / [[erp-mongodb]] (`his`).
 - Skill: `initcraft-report-factory` (+ `initcraft-build-report`). Platform: [[initcraft]].
+- Publish-chain + still-open template-cache bug, in practice: [[his-medical-record-report]].
+- App-level publish step: [[module-packages]] (App Factory registry).

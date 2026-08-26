@@ -11,14 +11,10 @@
             "id": "310a28e2616d3c27",
             "type": "leaf",
             "state": {
-              "type": "markdown",
-              "state": {
-                "file": "CLAUDE.md",
-                "mode": "source",
-                "source": false
-              },
-              "icon": "lucide-file",
-              "title": "CLAUDE"
+              "type": "graph",
+              "state": {},
+              "icon": "lucide-git-fork",
+              "title": "Graph view"
             }
           }
         ]
@@ -46,7 +42,7 @@
                 "searchQuery": ""
               },
               "icon": "lucide-folder-closed",
-              "title": "File explorer"
+              "title": "Files"
             }
           },
           {
@@ -173,29 +169,33 @@
   },
   "left-ribbon": {
     "hiddenItems": {
-      "switcher:เปิด quick switcher": false,
-      "graph:เปิดมุมมองกราฟ": false,
-      "canvas:สร้างผืนผ้าใบใหม่": false,
-      "daily-notes:เปิดโน้ตของวันนี้": false,
-      "templates:แทรกเทมเพลต": false,
-      "command-palette:เปิดกระดานคำสั่ง": false,
-      "bases:สร้างฐานใหม่": false
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "bases:Create new base": false
     }
   },
   "active": "310a28e2616d3c27",
   "lastOpenFiles": [
-    "hotcache.md.tmp.5428.d295e28aa8c6",
-    "index.md.tmp.5428.09e83a474244",
-    "index.md.tmp.5428.d4335abe9869",
+    "HIS/sdform_module/reference.json",
+    "HIS/sdform_module/refer",
+    "HIS/draw_design/lab_result_forms_relation.drawio",
+    "HIS/draw_design/_gen/gen_lab_forms.py",
+    "HIS/draw_design/_gen/drawio_kit.py",
+    "HIS/handoff/LAB_RESULT_3_FORM_SCHEMA_AND_UI.md",
+    "HIS/draw_design/_gen/render.py",
+    "HIS/draw_design/_gen/gen_lab.py",
+    "HIS/draw_design/_gen",
+    "HIS/draw_design/lab_result_receive_flow.drawio",
+    "HIS/draw_design/request_reciece_agents_flow.drawio",
+    "HIS/draw_design",
+    "HIS/sdform_module/Screenshot 2569-08-10 at 09.34.06.png",
+    "HIS/handoff/CLINIC_MASTER_HANDOFF.md",
+    "CLAUDE.md",
     "wiki/syntheses/his-lab-worklist-ui.md",
-    "wiki/syntheses/his-lab-worklist-ui.md.tmp.5428.84e32462b29b",
-    "HIS/ui/lab-worklist-mockup.html",
-    "HIS/ui/lab-worklist-mockup.html.tmp.5428.980274bf3b1a",
-    "HIS/ui",
-    "hotcache.md.tmp.5428.e7261982097d",
-    "index.md.tmp.5428.b49b6d98cf6e",
-    "index.md.tmp.5428.248ad8958608",
-    "index.md.tmp.5428.ec966ef22e54",
     "wiki/concepts/module-packages.md",
     "wiki/sources/his-module-packages-backup.md",
     "wiki/sources/his-lab-immuno-request-forms.md",
@@ -218,7 +218,6 @@
     "raw/assets/Screenshot 2026-07-17 151821.png",
     "raw/assets/Screenshot 2026-07-17 151757.png",
     "raw/assets/Screenshot 2026-07-17 151729.png",
-    "raw/assets/Screenshot 2026-07-17 151630.png",
     "raw/llm-wiki-idea.md",
     "wiki/entities/erp-mongodb.md",
     "wiki/concepts/form-model-json.md",
@@ -227,9 +226,6 @@
     "wiki/concepts/runprocess.md",
     "wiki/concepts/crudgetall.md",
     "wiki/concepts/sql-factory.md",
-    "wiki/concepts/api-factory.md",
-    "wiki/entities/his.md",
-    "wiki/sources/his-emr-form.md",
     "ยังไม่ได้ตั้งชื่อ.canvas",
     "ยังไม่ได้ตั้งชื่อ 1.canvas"
   ]

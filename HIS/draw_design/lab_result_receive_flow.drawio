@@ -1,0 +1,842 @@
+<mxfile host="app.diagrams.net" agent="claude-code" version="24.7.7" type="device">
+  <diagram id="labres-why" name="ทำไมต้อง 3 ฟอร์ม">
+    <mxGraphModel dx="1030" dy="570" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="2000" pageHeight="1300" math="0" shadow="0" adaptiveColors="auto">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="labres-why-n1" value="ทำไมต้อง 3 ฟอร์ม — ไม่ใช่ 3 หน้าจอ แต่เป็น 3 ชั้นข้อมูลที่มีอายุและเจ้าของต่างกัน" style="text;html=1;fontSize=24;fontStyle=1;align=left;verticalAlign=middle;fontColor=light-dark(#1a1a1a,#f0f0f0);" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-why-n2" value="เอกสาร result_lab.md · 25 ส.ค. 2569 · Draw.io ของ LIS ไม่ได้บังคับจำนวนฟอร์ม — การแยก 3 ชั้นเป็นการออกแบบ persistence ฝั่ง HIS เอง" style="text;html=1;fontSize=12;fontStyle=2;align=left;verticalAlign=middle;fontColor=light-dark(#777777,#999999);" vertex="1" parent="1">
+          <mxGeometry x="40" y="54" width="1920" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-why-n3" value="หนึ่งข้อความจาก Agent เดินผ่าน 3 ชั้น — แต่ละชั้นตอบคำถามคนละข้อ" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="100" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-why-n4" value="&lt;b&gt;ข้อความจาก Agent&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;1 callback = 1 &lt;b&gt;result_uid&lt;/b&gt;&lt;br&gt;&lt;br&gt;ผลของใบสั่งเดียวกันมาได้ &lt;b&gt;หลายครั้ง&lt;/b&gt; — preliminary → final → corrected · และอาจถูก retry ส่งซ้ำใบเดิม&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="150" width="280" height="210" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-why-n5" value="&lt;b&gt;① Lab_Result_Inbound_Receive&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;&lt;b&gt;ชั้นข้อความ&lt;/b&gt; — “ใบเสร็จรับของ” ทางเทคนิค&lt;br&gt;1 record ต่อ &lt;b&gt;result_uid&lt;/b&gt;&lt;br&gt;&lt;br&gt;🔴 &lt;b&gt;ไม่ Join Parent&lt;/b&gt; — จึงเก็บข้อความที่ unmatched / duplicate / error ได้&lt;br&gt;&lt;br&gt;raw payload · schema version · channel · receipt status · error message&lt;br&gt;= internal / read-only ห้ามเปิดให้ผู้ใช้แก้&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="400" y="150" width="320" height="210" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-why-n6" value="&lt;b&gt;② Result_Report_Manual_Entry&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;&lt;b&gt;ชั้นรายงาน&lt;/b&gt; — หัวรายงานของผล “หนึ่งชุด”&lt;br&gt;ผูกกับ Lab Work Item / LAB NO.&lt;br&gt;&lt;br&gt;ถือสถานะรวม &lt;b&gt;overall_status&lt;/b&gt;&lt;br&gt;in_progress = ออกผลบางส่วน · resulted = ครบ&lt;br&gt;&lt;br&gt;&lt;b&gt;source_mode = manual | lis | mixed&lt;/b&gt;&lt;br&gt;→ ทำให้ Manual กับ LIS ใช้หัวเดียวกันได้&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="800" y="150" width="320" height="210" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-why-n7" value="&lt;b&gt;③ Lab_Result_Item&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;&lt;b&gt;ชั้นผลรายรายการ&lt;/b&gt; — 1 record ต่อ result component (ราย test / OBS)&lt;br&gt;&lt;br&gt;ลูกของ Result Report&lt;br&gt;จับรายการด้วย &lt;b&gt;obs_code = his_code_id&lt;/b&gt;&lt;br&gt;&lt;br&gt;value · unit · ref range · critical · obx_status · result_version — ทุกค่าเป็นของ “ราย item” ไม่ใช่ของรายงาน&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="1200" y="150" width="320" height="210" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-why-n8" value="&lt;b&gt;หน้าดูผล (ListView)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;อ่านข้อมูลจาก &lt;b&gt;Lab_Result_Item&lt;/b&gt;&lt;br&gt;&lt;br&gt;ผล LIS และ Manual มาโผล่ที่เดียวกัน เพราะใช้ ② + ③ ชุดเดียวกัน&lt;br&gt;&lt;br&gt;⚠️ ต้องทดสอบใน App/View runtime จริง — Form Manage CRUD ไม่แสดง list-ui&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="1600" y="150" width="320" height="210" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-why-n9" value="callback" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);" edge="1" parent="1" source="labres-why-n4" target="labres-why-n5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-why-n10" value="N ข้อความ : 1 รายงาน" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);" edge="1" parent="1" source="labres-why-n5" target="labres-why-n6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-why-n11" value="1 รายงาน : N ผล" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);" edge="1" parent="1" source="labres-why-n6" target="labres-why-n7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-why-n12" value="แสดงผล" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);" edge="1" parent="1" source="labres-why-n7" target="labres-why-n8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-why-n13" value="&lt;i&gt;เทียบของจริง: “กล่องจดหมายขาเข้า” — ได้อะไรมาบ้าง&lt;/i&gt;" style="text;html=1;fontSize=10;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="1">
+          <mxGeometry x="400" y="366" width="320" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-why-n14" value="&lt;i&gt;เทียบของจริง: “ใบรายงานผล” — ใบนี้ของใคร เสร็จหรือยัง&lt;/i&gt;" style="text;html=1;fontSize=10;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="1">
+          <mxGeometry x="800" y="366" width="320" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-why-n15" value="&lt;i&gt;เทียบของจริง: “บรรทัดผลในใบ” — ค่าแต่ละตัวเป็นเท่าไร&lt;/i&gt;" style="text;html=1;fontSize=10;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="1">
+          <mxGeometry x="1200" y="366" width="320" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-why-n16" value="ทำไมยุบให้เหลือฟอร์มเดียวไม่ได้ — 3 เหตุผลที่แยกกันจริง ๆ" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="410" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-why-n17" value="&lt;b&gt;ยุบ ① เข้า ② ไม่ได้ — ข้อความที่ยังจับคู่ไม่ได้จะไม่มีที่อยู่&lt;/b&gt;&lt;br&gt;&lt;br&gt;② ต้องผูกกับ Lab Work Item เสมอ ถ้ามีแต่ ② ข้อความที่ &lt;b&gt;จับคู่ใบสั่งไม่สำเร็จ&lt;/b&gt; จะต้องถูกทิ้ง&lt;br&gt;→ สืบย้อนไม่ได้ว่าเคยได้รับผลนั้นมาแล้ว&lt;br&gt;&lt;br&gt;🔴 idempotency key &lt;b&gt;result_uid&lt;/b&gt; ต้องอยู่ชั้นนี้ ก่อน materialize ผล — ส่งซ้ำต้องได้ duplicate ไม่ใช่ข้อมูลซ้ำ" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=top;dashed=1;spacingLeft=8;spacingRight=8;spacingTop=6;fontColor=light-dark(#333333,#e0e0e0);fillColor=none;strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="40" y="460" width="600" height="175" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-why-n18" value="&lt;b&gt;ยุบ ② ทิ้งไม่ได้ — ต้องมีหัวให้ผลหลายตัวเกาะ&lt;/b&gt;&lt;br&gt;&lt;br&gt;1 Lab Work Item / LAB NO. = 1 รายงานที่มีหลาย test&lt;br&gt;สถานะรวม &lt;b&gt;in_progress / resulted&lt;/b&gt; เป็นของรายงาน ไม่ใช่ของ item เดี่ยว ๆ&lt;br&gt;&lt;br&gt;&lt;b&gt;source_mode&lt;/b&gt; อยู่ชั้นนี้ — เป็นจุดเดียวที่ทำให้ Manual Result กับผล LIS ไหลลงโครงเดียวกันและรวมกันในหน้าดูผลได้" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=top;dashed=1;spacingLeft=8;spacingRight=8;spacingTop=6;fontColor=light-dark(#333333,#e0e0e0);fillColor=none;strokeColor=light-dark(#d6b656,#d6b656);" vertex="1" parent="1">
+          <mxGeometry x="700" y="460" width="600" height="175" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-why-n19" value="&lt;b&gt;ยุบ ③ เข้า ② ไม่ได้ — ผลเป็น “รายการ” ไม่ใช่ “คอลัมน์”&lt;/b&gt;&lt;br&gt;&lt;br&gt;จำนวน test ต่อรายงาน&lt;b&gt;ไม่คงที่&lt;/b&gt; ยัดเป็นคอลัมน์ในหัวรายงานไม่ได้&lt;br&gt;&lt;br&gt;ต้อง upsert ราย item ด้วย stable key (report + result definition หรือ source result key) เพื่อให้ผลรอบที่สองอัปเดตแถวเดิม&lt;br&gt;🔴 ไม่ใช่สร้างแถวใหม่ทุกครั้งที่ callback มา" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=top;dashed=1;spacingLeft=8;spacingRight=8;spacingTop=6;fontColor=light-dark(#333333,#e0e0e0);fillColor=none;strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="1360" y="460" width="600" height="175" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-why-n20" value="ไม่ใช่ 5 ฟอร์ม — ไฟล์ JSON บางไฟล์เป็นแค่ “หน้าตา” ของฟอร์มเดิม" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="665" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-why-n21" value="&lt;b&gt;Lab_Result_Inbound_Receive_User_View_EMR_Person_v2.json&lt;/b&gt;&lt;br&gt;→ import ให้ฟอร์ม &lt;b&gt;Lab_Result_Inbound_Receive&lt;/b&gt;&lt;br&gt;เป็นหน้า &lt;b&gt;ดู&lt;/b&gt; receipt + รายการผล — &lt;b&gt;ไม่ใช่ endpoint รับข้อมูล&lt;/b&gt;&lt;br&gt;ListView ข้างในอ่านจาก Lab_Result_Item" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);" vertex="1" parent="1">
+          <mxGeometry x="40" y="715" width="600" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-why-n22" value="&lt;b&gt;Lab_Result_Item_Minimal_Widget_Critical.json&lt;/b&gt;&lt;br&gt;→ import ให้ฟอร์ม &lt;b&gt;Lab_Result_Item&lt;/b&gt;&lt;br&gt;&lt;br&gt;JSON UI = หน้าตา/schema ของฟอร์มเดิม ไม่ได้นับเป็นฟอร์มเพิ่ม" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);" vertex="1" parent="1">
+          <mxGeometry x="700" y="715" width="600" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-why-n23" value="&lt;b&gt;🔴 ห้าม import ไฟล์ …_User_View_EMR_Person_v2.json ทับ Lab_Result_Item&lt;/b&gt;&lt;br&gt;ListView ในไฟล์นี้ชี้ไปที่ &lt;b&gt;Form ID ของ Lab_Result_Item&lt;/b&gt; อยู่แล้ว&lt;br&gt;import ทับ = ฟอร์มอ้างรายการ&lt;b&gt;กลับมาหาตัวเอง&lt;/b&gt; (loop)" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="1360" y="715" width="600" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-why-n24" value="Draw.io ของ LIS ยืนยันอะไร และไม่ได้บอกอะไร" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="845" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-why-n25" value="&lt;b&gt;✅ Draw.io ยืนยันแล้ว&lt;/b&gt;&lt;br&gt;• Agent callback เข้า HIS ผ่าน &lt;b&gt;hl7_result_upsert&lt;/b&gt;&lt;br&gt;• กันข้อความซ้ำด้วย &lt;b&gt;result_uid&lt;/b&gt;&lt;br&gt;• จับคู่ด้วย &lt;b&gt;order_no + filler_order_no + visit_id&lt;/b&gt;&lt;br&gt;• &lt;b&gt;filler_order_no&lt;/b&gt; คือ LAB NO. ที่ HIS ส่งออกไปในชื่อ &lt;b&gt;labno&lt;/b&gt;&lt;br&gt;• Result Item จับด้วย &lt;b&gt;items[].obs_code = his_code_id&lt;/b&gt; (ตาม checkpoint ปัจจุบัน)&lt;br&gt;• เก็บ receipt / version แบบ &lt;b&gt;append-only&lt;/b&gt;&lt;br&gt;• in_progress = ผลบางส่วน · resulted = ผลครบ&lt;br&gt;• critical: HIS &lt;b&gt;เก็บและแสดง&lt;/b&gt; โดยไม่คำนวณ threshold ซ้ำ" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="895" width="940" height="195" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-why-n26" value="&lt;b&gt;❓ Draw.io ไม่ได้บอก&lt;/b&gt;&lt;br&gt;• &lt;b&gt;ไม่ระบุชื่อฟอร์ม&lt;/b&gt; และ &lt;b&gt;ไม่บังคับว่าต้องมี 3 ฟอร์ม&lt;/b&gt;&lt;br&gt;&lt;br&gt;&lt;b&gt;สรุปคำตอบของคำถาม “ทำไม 3 ฟอร์ม”&lt;/b&gt;&lt;br&gt;โครง 3 ฟอร์ม &lt;b&gt;สอดคล้อง&lt;/b&gt;กับ flow ใน Draw.io — แต่ &lt;b&gt;ไม่ได้คัดจำนวนฟอร์มมาจาก Draw.io โดยตรง&lt;/b&gt;&lt;br&gt;เป็นการออกแบบ persistence ฝั่ง HIS เพื่อรองรับ 4 อย่าง:&lt;br&gt;&amp;nbsp;&amp;nbsp;① idempotency &amp;nbsp;② audit ย้อนหลัง&lt;br&gt;&amp;nbsp;&amp;nbsp;③ รายงาน 1 ชุดที่มีหลายผล &amp;nbsp;④ ใช้โครงเดียวกันร่วมกับ Manual Result" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#fff2cc,#4a3d13);strokeColor=light-dark(#d6b656,#d6b656);" vertex="1" parent="1">
+          <mxGeometry x="1020" y="895" width="940" height="195" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-why-n27" value="LEGEND" style="rounded=0;html=1;fillColor=light-dark(#fafafa,#1c1c1c);strokeColor=light-dark(#8a8a8a,#9aa3ad);verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontSize=11;fontStyle=1;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="1">
+          <mxGeometry x="40" y="1120" width="1600" height="112" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-why-n28" value="" style="rounded=0;html=1;fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="labres-why-n27">
+          <mxGeometry x="10" y="30" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-why-n29" value="ของเดิม / มาจากฝั่ง Agent–LIS" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labres-why-n27">
+          <mxGeometry x="30" y="30" width="760" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-why-n30" value="" style="rounded=0;html=1;fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);" vertex="1" parent="labres-why-n27">
+          <mxGeometry x="810" y="30" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-why-n31" value="มีแล้วในระบบ (ฟอร์ม / JSON UI / schema)" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labres-why-n27">
+          <mxGeometry x="830" y="30" width="760" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-why-n32" value="" style="rounded=0;html=1;fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="labres-why-n27">
+          <mxGeometry x="10" y="56" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-why-n33" value="ทีม HIS ต้องเขียน Process หรือยืนยันด้วยข้อมูลจริง" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labres-why-n27">
+          <mxGeometry x="30" y="56" width="760" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-why-n34" value="" style="rounded=0;html=1;fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="labres-why-n27">
+          <mxGeometry x="810" y="56" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-why-n35" value="กฎห้ามพัง · ทางที่ต้องหยุด" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labres-why-n27">
+          <mxGeometry x="830" y="56" width="760" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-why-n36" value="" style="rounded=0;html=1;fillColor=light-dark(#fff2cc,#4a3d13);strokeColor=light-dark(#d6b656,#d6b656);" vertex="1" parent="labres-why-n27">
+          <mxGeometry x="10" y="82" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-why-n37" value="รอเคาะ / ยังไม่ยืนยัน end-to-end" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labres-why-n27">
+          <mxGeometry x="30" y="82" width="760" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-why-n38" value="" style="rounded=0;html=1;fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="labres-why-n27">
+          <mxGeometry x="810" y="82" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-why-n39" value="ข้อมูลอ้างอิง / บริบท" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labres-why-n27">
+          <mxGeometry x="830" y="82" width="760" height="16" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="labres-flow" name="Receive Flow">
+    <mxGraphModel dx="1030" dy="570" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="2000" pageHeight="2000" math="0" shadow="0" adaptiveColors="auto">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="labres-flow-n1" value="Flow รับผลจาก Agent — ขั้นตอนไหนเขียนลงฟอร์มไหน" style="text;html=1;fontSize=24;fontStyle=1;align=left;verticalAlign=middle;fontColor=light-dark(#1a1a1a,#f0f0f0);" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n2" value="คอลัมน์กลาง = Process ที่ต้องเขียน (เดินบนลงล่าง) · คอลัมน์ขวา = 3 ฟอร์มที่ถูกเขียน · เส้นประ = “เขียนลง” ไม่ใช่ลำดับเวลา" style="text;html=1;fontSize=12;fontStyle=2;align=left;verticalAlign=middle;fontColor=light-dark(#777777,#999999);" vertex="1" parent="1">
+          <mxGeometry x="40" y="54" width="1920" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n3" value="Agent / LISconnect" style="swimlane;html=1;horizontal=0;startSize=40;fillColor=none;strokeColor=light-dark(#000000,#ffffff);fontSize=12;fontStyle=1;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="1">
+          <mxGeometry x="40" y="100" width="340" height="1610" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n4" value="HIS · Process (ต้องเขียน)" style="swimlane;html=1;horizontal=0;startSize=40;fillColor=none;strokeColor=light-dark(#000000,#ffffff);fontSize=12;fontStyle=1;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="1">
+          <mxGeometry x="380" y="100" width="620" height="1610" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n5" value="HIS · ข้อมูลที่ถูกเขียน (3 ฟอร์ม)" style="swimlane;html=1;horizontal=0;startSize=40;fillColor=none;strokeColor=light-dark(#000000,#ffffff);fontSize=12;fontStyle=1;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="1">
+          <mxGeometry x="1000" y="100" width="600" height="1610" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n6" value="จอผู้ใช้" style="swimlane;html=1;horizontal=0;startSize=40;fillColor=none;strokeColor=light-dark(#000000,#ffffff);fontSize=12;fontStyle=1;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="1">
+          <mxGeometry x="1600" y="100" width="340" height="1610" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n7" value="&lt;b&gt;1 · Agent ส่ง Result callback&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;ผลของใบสั่งเดียวกันอาจมาหลายครั้ง และอาจ retry ส่งซ้ำ&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="labres-flow-n3">
+          <mxGeometry x="30" y="70" width="280" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n8" value="&lt;b&gt;2 · Process hl7_result_upsert&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;ตรวจ schema และชนิดข้อมูล · Agent เรียก &lt;b&gt;Process&lt;/b&gt; ไม่ได้เขียน ListView ตรง&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="labres-flow-n4">
+          <mxGeometry x="50" y="70" width="280" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n9" value="&lt;b&gt;เคยรับ result_uid นี้แล้ว?&lt;/b&gt;" style="rhombus;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#fff2cc,#4a3d13);strokeColor=light-dark(#d6b656,#d6b656);align=center;verticalAlign=middle;" vertex="1" parent="labres-flow-n4">
+          <mxGeometry x="35" y="200" width="310" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n10" value="&lt;b&gt;คืน duplicate แบบ idempotent&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;ไม่สร้าง receipt / report / item ซ้ำ · ส่งซ้ำต้องได้ผลเดิม&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="labres-flow-n4">
+          <mxGeometry x="350" y="205" width="250" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n11" value="&lt;b&gt;3 · สร้าง Technical Receipt&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;สร้างก่อน materialize ผล เพื่อให้ข้อความที่พังยังมีที่เก็บ&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="labres-flow-n4">
+          <mxGeometry x="50" y="360" width="280" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n12" value="&lt;b&gt;4 · จับคู่ Order&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;ใช้ร่วมกัน &lt;b&gt;order_no + filler_order_no + visit_id&lt;/b&gt;&lt;br&gt;🔴 ห้ามจับคู่ด้วย HN หรือ LAB NO. เพียงค่าเดียว — HN/VN ใช้แสดงบริบท ไม่ใช่ parent key&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="labres-flow-n4">
+          <mxGeometry x="50" y="500" width="280" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n13" value="&lt;b&gt;จับคู่ Lab Work Item ได้?&lt;/b&gt;" style="rhombus;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#fff2cc,#4a3d13);strokeColor=light-dark(#d6b656,#d6b656);align=center;verticalAlign=middle;" vertex="1" parent="labres-flow-n4">
+          <mxGeometry x="35" y="655" width="310" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n14" value="&lt;b&gt;receipt = unmatched / error&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;เก็บ raw message + error reason ไว้ตรวจย้อนหลัง · &lt;b&gt;ห้ามทิ้งข้อความ&lt;/b&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="labres-flow-n4">
+          <mxGeometry x="350" y="665" width="250" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n15" value="&lt;b&gt;5 · ค้นหรือสร้าง Result Report&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;ต้อง idempotent — ใบเดิมต้องไม่ได้รายงานใหม่ซ้ำ&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="labres-flow-n4">
+          <mxGeometry x="50" y="820" width="280" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n16" value="&lt;b&gt;6 · แตก items[] ของ Agent&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;จับ Result Definition / Result Item ด้วย &lt;b&gt;obs_code = his_code_id&lt;/b&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="labres-flow-n4">
+          <mxGeometry x="50" y="940" width="280" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n17" value="&lt;b&gt;7 · Upsert Lab_Result_Item เดิม&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;ไม่สร้างซ้ำ · เก็บ result, unit, ref range, critical และ source snapshot&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="labres-flow-n4">
+          <mxGeometry x="50" y="1075" width="280" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n18" value="&lt;b&gt;8 · คำนวณสถานะรายงานใหม่&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;append-only ห้ามทับของเดิม&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="labres-flow-n4">
+          <mxGeometry x="50" y="1220" width="280" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n19" value="&lt;b&gt;overall_status ?&lt;/b&gt;" style="rhombus;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#fff2cc,#4a3d13);strokeColor=light-dark(#d6b656,#d6b656);align=center;verticalAlign=middle;" vertex="1" parent="labres-flow-n4">
+          <mxGeometry x="35" y="1325" width="310" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n20" value="&lt;b&gt;① Lab_Result_Inbound_Receive&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;1 record ต่อ &lt;b&gt;result_uid&lt;/b&gt; · &lt;b&gt;ไม่ Join Parent&lt;/b&gt;&lt;br&gt;raw payload · schema version · channel · receipt status · error&lt;br&gt;= internal / read-only&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="labres-flow-n5">
+          <mxGeometry x="30" y="340" width="300" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n21" value="&lt;b&gt;② Result_Report_Manual_Entry&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;หัวรายงานของผลหนึ่งชุด · ผูก Lab Work Item / Order Status&lt;br&gt;&lt;b&gt;source_mode = manual | lis | mixed&lt;/b&gt;&lt;br&gt;⚠️ report_seq / stage ต้อง append-only — ห้ามเดา compound key ก่อนตรวจ API/DB จริง&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="labres-flow-n5">
+          <mxGeometry x="30" y="800" width="300" height="125" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n22" value="&lt;b&gt;③ Lab_Result_Item&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;1 record ต่อ result component&lt;br&gt;ลูกของ Result Report&lt;br&gt;upsert ด้วย stable key (report + result definition หรือ source result key)&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="labres-flow-n5">
+          <mxGeometry x="30" y="1060" width="300" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n23" value="&lt;b&gt;in_progress → ออกผลบางส่วน&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;รายการที่ยังไม่ออกต้องแสดง &lt;b&gt;pending&lt;/b&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="labres-flow-n6">
+          <mxGeometry x="30" y="1320" width="280" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n24" value="&lt;b&gt;resulted → ออกผลครบ&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;stamp เวลาตามกติกา&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="labres-flow-n6">
+          <mxGeometry x="30" y="1425" width="280" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n25" value="&lt;b&gt;หน้าดูผล (ListView)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;ListView อ่านจาก &lt;b&gt;Lab_Result_Item&lt;/b&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="labres-flow-n6">
+          <mxGeometry x="30" y="1515" width="280" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n26" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="labres-flow-n7" target="labres-flow-n8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n27" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="labres-flow-n8" target="labres-flow-n9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n28" value="เคยแล้ว" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="labres-flow-n9" target="labres-flow-n10">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n29" value="ยังไม่เคย" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="labres-flow-n9" target="labres-flow-n11">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n30" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="labres-flow-n11" target="labres-flow-n12">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n31" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="labres-flow-n12" target="labres-flow-n13">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n32" value="ไม่ได้" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="labres-flow-n13" target="labres-flow-n14">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n33" value="ได้" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="labres-flow-n13" target="labres-flow-n15">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n34" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="labres-flow-n15" target="labres-flow-n16">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n35" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="labres-flow-n16" target="labres-flow-n17">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n36" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="labres-flow-n17" target="labres-flow-n18">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n37" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="labres-flow-n18" target="labres-flow-n19">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n38" value="in_progress" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="labres-flow-n19" target="labres-flow-n23">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n39" value="resulted" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="labres-flow-n19" target="labres-flow-n24">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n40" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="labres-flow-n23" target="labres-flow-n25">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n41" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="labres-flow-n24" target="labres-flow-n25">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n42" value="เขียน 1 แถว / result_uid" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;dashed=1;dashPattern=6 4;" edge="1" parent="1" source="labres-flow-n11" target="labres-flow-n20">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n43" value="เก็บเป็น receipt ที่จับคู่ไม่ได้" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;dashed=1;dashPattern=6 4;" edge="1" parent="1" source="labres-flow-n14" target="labres-flow-n20">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n44" value="ค้น/สร้าง 1 หัวรายงาน" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;dashed=1;dashPattern=6 4;" edge="1" parent="1" source="labres-flow-n15" target="labres-flow-n21">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n45" value="upsert N แถว" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;dashed=1;dashPattern=6 4;" edge="1" parent="1" source="labres-flow-n17" target="labres-flow-n22">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n46" value="อ่าน" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.25;entryDx=0;entryDy=0;dashed=1;dashPattern=6 4;" edge="1" parent="1" source="labres-flow-n22" target="labres-flow-n25">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n47" value="กฎที่พลาดไม่ได้ในขารับผล" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1745" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n48" value="&lt;b&gt;result_uid = กุญแจกันซ้ำ ระดับข้อความ&lt;/b&gt;&lt;br&gt;&lt;br&gt;• ส่ง payload ใหม่ → สร้าง receipt &lt;b&gt;หนึ่ง&lt;/b&gt; record&lt;br&gt;• ส่ง result_uid เดิมซ้ำ → &lt;b&gt;ไม่&lt;/b&gt;สร้าง receipt / report / item ซ้ำ&lt;br&gt;• 🔴 &lt;b&gt;receipt_seq&lt;/b&gt; = ลำดับ/จำนวนครั้งที่รับ message &lt;b&gt;≠ result_version&lt;/b&gt; — ห้ามรวมสองค่า" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=top;dashed=1;spacingLeft=8;spacingRight=8;spacingTop=6;fontColor=light-dark(#333333,#e0e0e0);fillColor=none;strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="40" y="1795" width="620" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n49" value="&lt;b&gt;Correction ต้อง append ห้ามทับ&lt;/b&gt;&lt;br&gt;&lt;br&gt;• ผลแก้ → เพิ่ม &lt;b&gt;version / audit&lt;/b&gt; และ&lt;b&gt;เก็บค่าเดิมไว้&lt;/b&gt;&lt;br&gt;• ห้ามเขียนทับประวัติเดิมแบบสูญหาย&lt;br&gt;• Result Report ต้องรองรับ &lt;b&gt;report_seq / stage&lt;/b&gt; แบบ append-only" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=top;dashed=1;spacingLeft=8;spacingRight=8;spacingTop=6;fontColor=light-dark(#333333,#e0e0e0);fillColor=none;strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="700" y="1795" width="620" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-flow-n50" value="&lt;b&gt;Critical — HIS ไม่คำนวณซ้ำ&lt;/b&gt;&lt;br&gt;&lt;br&gt;• Agent ส่ง &lt;b&gt;critical_low_rule / critical_high_rule&lt;/b&gt; มาให้&lt;br&gt;• HIS &lt;b&gt;เก็บและแสดง&lt;/b&gt; Critical ตามที่ได้รับ&lt;br&gt;• 🔴 ห้ามคำนวณ threshold ซ้ำเอง" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=top;dashed=1;spacingLeft=8;spacingRight=8;spacingTop=6;fontColor=light-dark(#333333,#e0e0e0);fillColor=none;strokeColor=light-dark(#d6b656,#d6b656);" vertex="1" parent="1">
+          <mxGeometry x="1360" y="1795" width="600" height="150" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="labres-map" name="Field Mapping">
+    <mxGraphModel dx="1030" dy="570" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="2000" pageHeight="1080" math="0" shadow="0" adaptiveColors="auto">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="labres-map-n1" value="Field Mapping — Agent result → HIS" style="text;html=1;fontSize=24;fontStyle=1;align=left;verticalAlign=middle;fontColor=light-dark(#1a1a1a,#f0f0f0);" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n2" value="checkpoint ปัจจุบัน (result_lab.md §6) · ยังไม่ยืนยันด้วยข้อมูลจริง end-to-end" style="text;html=1;fontSize=12;fontStyle=2;align=left;verticalAlign=middle;fontColor=light-dark(#777777,#999999);" vertex="1" parent="1">
+          <mxGeometry x="40" y="54" width="1920" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n3" value="ระดับใบสั่ง — คีย์ที่ใช้จับคู่ (ต้องใช้ครบทั้งสามค่า)" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="100" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n4" value="&lt;b&gt;order_no&lt;/b&gt;&lt;br&gt;เลขใบสั่งฝั่ง HIS" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);" vertex="1" parent="1">
+          <mxGeometry x="40" y="150" width="600" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n5" value="&lt;b&gt;filler_order_no&lt;/b&gt;&lt;br&gt;= LAB NO. ที่ HIS ออกและส่งไปในชื่อ &lt;b&gt;labno&lt;/b&gt; — กุญแจดอกเดียวที่ผูกผลกลับใบสั่ง" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);" vertex="1" parent="1">
+          <mxGeometry x="680" y="150" width="600" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n6" value="&lt;b&gt;visit_id&lt;/b&gt;&lt;br&gt;การมารับบริการครั้งนั้น" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);" vertex="1" parent="1">
+          <mxGeometry x="1320" y="150" width="600" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n7" value="🔴 &lt;b&gt;ห้ามจับคู่ด้วย HN หรือ LAB NO. เพียงค่าเดียว&lt;/b&gt; — HN / VN ใช้แสดงบริบทผู้ป่วยและ cross-check เท่านั้น ไม่ใช่ parent key ของ Result Item" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="40" y="235" width="1920" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n8" value="ระดับรายการผล — items[] ของ Agent → Lab_Result_Item ของ HIS" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="300" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n9" value="&lt;b&gt;Agent result&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="350" width="560" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n10" value="&lt;b&gt;HIS Result Item&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="620" y="350" width="560" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n11" value="&lt;b&gt;หมายเหตุ&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1200" y="350" width="760" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n12" value="&lt;b&gt;items[].obs_code&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="382" width="560" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n13" value="&lt;b&gt;obs_code / ใช้หา Result Definition&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);" vertex="1" parent="1">
+          <mxGeometry x="620" y="382" width="560" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n14" value="🔑 คีย์จับคู่รายการ — ตรงกับ &lt;b&gt;his_code_id&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="1200" y="382" width="760" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n15" value="&lt;b&gt;items[].obs_name&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="424" width="560" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n16" value="&lt;b&gt;test_name (snapshot)&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);" vertex="1" parent="1">
+          <mxGeometry x="620" y="424" width="560" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n17" value="เก็บชื่อ ณ เวลานั้น ไม่อิง master ที่อาจเปลี่ยนภายหลัง" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="1200" y="424" width="760" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n18" value="&lt;b&gt;items[].value&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="466" width="560" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n19" value="&lt;b&gt;result_value&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);" vertex="1" parent="1">
+          <mxGeometry x="620" y="466" width="560" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n20" value="" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="1200" y="466" width="760" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n21" value="&lt;b&gt;items[].units&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="508" width="560" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n22" value="&lt;b&gt;unit_symbol_snapshot&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);" vertex="1" parent="1">
+          <mxGeometry x="620" y="508" width="560" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n23" value="อ้าง Unit Master เพิ่มเมื่อ map ได้ · Manual ฝั่ง Lab ปกติ &lt;b&gt;ห้ามแก้&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="1200" y="508" width="760" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n24" value="&lt;b&gt;items[].ref_range&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="550" width="560" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n25" value="&lt;b&gt;reference_range_snapshot&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);" vertex="1" parent="1">
+          <mxGeometry x="620" y="550" width="560" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n26" value="read-only จาก LIS / Definition" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="1200" y="550" width="760" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n27" value="&lt;b&gt;items[].obx_status&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="592" width="560" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n28" value="&lt;b&gt;obx_status&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);" vertex="1" parent="1">
+          <mxGeometry x="620" y="592" width="560" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n29" value="ค่าดิบจากแล็บ — ต้องรองรับค่าที่ไม่รู้จักโดยไม่ error" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="1200" y="592" width="760" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n30" value="&lt;b&gt;items[].change_kind&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="634" width="560" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n31" value="&lt;b&gt;change_kind&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);" vertex="1" parent="1">
+          <mxGeometry x="620" y="634" width="560" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n32" value="" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="1200" y="634" width="760" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n33" value="&lt;b&gt;items[].receipt_seq&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="676" width="560" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n34" value="&lt;b&gt;receipt_seq (raw string)&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);" vertex="1" parent="1">
+          <mxGeometry x="620" y="676" width="560" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n35" value="🔴 &lt;b&gt;≠ result_version&lt;/b&gt; — คือลำดับ/จำนวนครั้งที่รับ message ห้ามรวมสองค่า" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="1200" y="676" width="760" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n36" value="&lt;b&gt;items[].result_version&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="718" width="560" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n37" value="&lt;b&gt;result_version&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);" vertex="1" parent="1">
+          <mxGeometry x="620" y="718" width="560" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n38" value="correction → +1 และเก็บค่าเดิมไว้ ห้ามทับประวัติ" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="1200" y="718" width="760" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n39" value="&lt;b&gt;critical_low_rule / critical_high_rule&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="760" width="560" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n40" value="&lt;b&gt;critical snapshot / alert ตาม contract&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);" vertex="1" parent="1">
+          <mxGeometry x="620" y="760" width="560" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n41" value="HIS เก็บและแสดงตามที่ได้รับ — &lt;b&gt;ไม่คำนวณ threshold ซ้ำ&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="1200" y="760" width="760" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n42" value="ระดับรายงาน — สถานะรวม" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="832" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n43" value="&lt;b&gt;overall_status = in_progress&lt;/b&gt; → ออกผลบางส่วน&lt;br&gt;&lt;b&gt;overall_status = resulted&lt;/b&gt; → ออกผลครบ + stamp เวลาตามกติกา&lt;br&gt;รายการที่ยังไม่ออกผลต้องแสดงเป็น &lt;b&gt;pending&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);" vertex="1" parent="1">
+          <mxGeometry x="40" y="882" width="940" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-map-n44" value="&lt;b&gt;⏳ ยังต้องเคาะ:&lt;/b&gt; Completion rule ราย test — รายการใดถือเป็น &lt;b&gt;required_for_completion&lt;/b&gt; ต้องยืนยันกับผู้ใช้ห้องแล็บก่อน&lt;br&gt;&lt;br&gt;&lt;b&gt;⏳ ยังต้องเคาะ:&lt;/b&gt; implementation key สุดท้ายของ Result Report (report_seq / stage) — &lt;b&gt;ห้ามเดา compound key ก่อนตรวจ API/ฐานข้อมูลจริง&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#fff2cc,#4a3d13);strokeColor=light-dark(#d6b656,#d6b656);" vertex="1" parent="1">
+          <mxGeometry x="1020" y="882" width="940" height="110" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="labres-manual" name="Manual Result">
+    <mxGraphModel dx="1030" dy="570" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="2000" pageHeight="1010" math="0" shadow="0" adaptiveColors="auto">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="labres-manual-n1" value="Manual Result — ใช้ ② + ③ ร่วมกับผล LIS แต่ไม่แตะ ①" style="text;html=1;fontSize=24;fontStyle=1;align=left;verticalAlign=middle;fontColor=light-dark(#1a1a1a,#f0f0f0);" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n2" value="เป้าหมาย: ผล Manual กับผล LIS ต้องมาโผล่ในหน้าดูผลเดียวกัน จึงต้องลงโครงเดียวกัน" style="text;html=1;fontSize=12;fontStyle=2;align=left;verticalAlign=middle;fontColor=light-dark(#777777,#999999);" vertex="1" parent="1">
+          <mxGeometry x="40" y="54" width="1920" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n3" value="เส้นทางของ Manual เทียบกับเส้นทางของ LIS" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="100" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n4" value="&lt;b&gt;ผลจาก LIS (Agent callback)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;เข้าทาง Process hl7_result_upsert&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="155" width="300" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n5" value="&lt;b&gt;① Lab_Result_Inbound_Receive&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;technical receipt ของ&lt;b&gt;ข้อความ&lt;/b&gt;เท่านั้น&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="430" y="155" width="300" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n6" value="&lt;b&gt;ผลกรอกมือ (Manual)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;ผู้ใช้กรอกจากหน้าจอ HIS&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="320" width="300" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n7" value="&lt;b&gt;② Result_Report_Manual_Entry&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;&lt;b&gt;source_mode = manual | lis | mixed&lt;/b&gt;&lt;br&gt;หัวรายงานร่วมของทั้งสองทาง&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="820" y="235" width="300" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n8" value="&lt;b&gt;③ Lab_Result_Item&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;ผลราย test — โครงเดียวกันทั้ง Manual และ LIS&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="1210" y="235" width="300" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n9" value="&lt;b&gt;หน้าดูผลเดียวกัน&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;รวมผล Manual + LIS ได้เพราะใช้ ② และ ③ ชุดเดียวกัน&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);align=left;spacingLeft=8;spacingRight=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+          <mxGeometry x="1600" y="235" width="320" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n10" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="labres-manual-n4" target="labres-manual-n5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n11" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="labres-manual-n5" target="labres-manual-n7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n12" value="Manual ข้าม ① ไปเลย" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="labres-manual-n6" target="labres-manual-n7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n13" value="1 : N" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="labres-manual-n7" target="labres-manual-n8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n14" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="labres-manual-n8" target="labres-manual-n9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n15" value="🔴 &lt;b&gt;Manual ไม่เขียนเข้า ①&lt;/b&gt;&lt;br&gt;① มีไว้เก็บ&lt;b&gt;ข้อความขาเข้า&lt;/b&gt; — Manual ไม่มีข้อความ จึงไม่มี receipt" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="430" y="320" width="300" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n16" value="สิทธิ์การแก้ไขต่อกลุ่มงาน — กติกาล่าสุด" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="495" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n17" value="&lt;b&gt;กลุ่ม&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="545" width="420" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n18" value="&lt;b&gt;Result&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="460" y="545" width="375" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n19" value="&lt;b&gt;Unit&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="835" y="545" width="375" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n20" value="&lt;b&gt;Reference range&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1210" y="545" width="375" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n21" value="&lt;b&gt;Critical&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1585" y="545" width="375" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n22" value="&lt;b&gt;Lab ปกติ&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="40" y="577" width="420" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n23" value="Manual ได้เฉพาะกรณีที่อนุญาต" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#fff2cc,#4a3d13);strokeColor=light-dark(#d6b656,#d6b656);" vertex="1" parent="1">
+          <mxGeometry x="460" y="577" width="375" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n24" value="Read-only จาก LIS / Definition" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);" vertex="1" parent="1">
+          <mxGeometry x="835" y="577" width="375" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n25" value="Read-only จาก LIS / Definition" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);" vertex="1" parent="1">
+          <mxGeometry x="1210" y="577" width="375" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n26" value="Read-only จาก Agent / LIS" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);" vertex="1" parent="1">
+          <mxGeometry x="1585" y="577" width="375" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n27" value="&lt;b&gt;Micrology &lt;font style=&quot;font-size:10px&quot;&gt;(ตามชื่อที่ผู้ใช้ระบุ)&lt;/font&gt;&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="40" y="633" width="420" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n28" value="Manual" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="460" y="633" width="375" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n29" value="ไม่มี Unit / ไม่แสดง" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="835" y="633" width="375" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n30" value="แสดงเฉพาะเมื่อมีข้อมูล" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="1210" y="633" width="375" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n31" value="Manual พร้อม audit" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="1585" y="633" width="375" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n32" value="&lt;b&gt;Lab ปกติ — หน้ากรอก Manual&lt;/b&gt;&lt;br&gt;เปิดให้แก้ได้เฉพาะ &lt;b&gt;result_value&lt;/b&gt; และอาจมี &lt;b&gt;result_comment&lt;/b&gt;&lt;br&gt;🔴 Unit, Reference range และ Critical &lt;b&gt;ต้องไม่เปิดให้ผู้ใช้แก้&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="40" y="709" width="940" height="105" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n33" value="&lt;b&gt;⏳ ข้อยกเว้น Micrology — ยังห้าม implement&lt;/b&gt;&lt;br&gt;ต้องยืนยันก่อน: (1) ชื่อ/รหัส &lt;b&gt;lab_section&lt;/b&gt; จริง (2) รูปแบบการกรอก Critical — Boolean, interpretation code หรือข้อความ&lt;br&gt;&lt;b&gt;ห้ามเดา&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#fff2cc,#4a3d13);strokeColor=light-dark(#d6b656,#d6b656);" vertex="1" parent="1">
+          <mxGeometry x="1020" y="709" width="940" height="105" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n34" value="LEGEND" style="rounded=0;html=1;fillColor=light-dark(#fafafa,#1c1c1c);strokeColor=light-dark(#8a8a8a,#9aa3ad);verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontSize=11;fontStyle=1;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="1">
+          <mxGeometry x="40" y="839" width="1500" height="112" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n35" value="" style="rounded=0;html=1;fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="labres-manual-n34">
+          <mxGeometry x="10" y="30" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n36" value="ของเดิม / มาจากฝั่ง Agent–LIS" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labres-manual-n34">
+          <mxGeometry x="30" y="30" width="760" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n37" value="" style="rounded=0;html=1;fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);" vertex="1" parent="labres-manual-n34">
+          <mxGeometry x="810" y="30" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n38" value="มีแล้วในระบบ (ฟอร์ม / JSON UI / schema)" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labres-manual-n34">
+          <mxGeometry x="830" y="30" width="760" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n39" value="" style="rounded=0;html=1;fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="labres-manual-n34">
+          <mxGeometry x="10" y="56" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n40" value="ทีม HIS ต้องเขียน Process หรือยืนยันด้วยข้อมูลจริง" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labres-manual-n34">
+          <mxGeometry x="30" y="56" width="760" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n41" value="" style="rounded=0;html=1;fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="labres-manual-n34">
+          <mxGeometry x="810" y="56" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n42" value="กฎห้ามพัง · ทางที่ต้องหยุด" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labres-manual-n34">
+          <mxGeometry x="830" y="56" width="760" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n43" value="" style="rounded=0;html=1;fillColor=light-dark(#fff2cc,#4a3d13);strokeColor=light-dark(#d6b656,#d6b656);" vertex="1" parent="labres-manual-n34">
+          <mxGeometry x="10" y="82" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n44" value="รอเคาะ / ยังไม่ยืนยัน end-to-end" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labres-manual-n34">
+          <mxGeometry x="30" y="82" width="760" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n45" value="" style="rounded=0;html=1;fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="labres-manual-n34">
+          <mxGeometry x="810" y="82" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-manual-n46" value="ข้อมูลอ้างอิง / บริบท" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labres-manual-n34">
+          <mxGeometry x="830" y="82" width="760" height="16" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="labres-status" name="สถานะปัจจุบัน">
+    <mxGraphModel dx="1030" dy="570" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="2000" pageHeight="1080" math="0" shadow="0" adaptiveColors="auto">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="labres-status-n1" value="สถานะปัจจุบัน — มีอะไรแล้ว ยังขาดอะไร" style="text;html=1;fontSize=24;fontStyle=1;align=left;verticalAlign=middle;fontColor=light-dark(#1a1a1a,#f0f0f0);" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-status-n2" value="ณ 25 ส.ค. 2569 · ระบบยังไม่ production-ready" style="text;html=1;fontSize=12;fontStyle=2;align=left;verticalAlign=middle;fontColor=light-dark(#777777,#999999);" vertex="1" parent="1">
+          <mxGeometry x="40" y="54" width="1920" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-status-n3" value="ของที่มีแล้ว vs ของที่ยังไม่ยืนยัน end-to-end" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="100" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-status-n4" value="&lt;b&gt;✅ มีแล้ว&lt;/b&gt;&lt;br&gt;• JSON technical receipt (①)&lt;br&gt;• JSON UI สำหรับ inbound user view&lt;br&gt;• Result Report และ Result Item — schema/UI รุ่นทำงาน&lt;br&gt;• Agent result JSON Schema + diagram mapping&lt;br&gt;• static tests บางส่วนสำหรับ JSON / hierarchy / mapping" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="1">
+          <mxGeometry x="40" y="150" width="940" height="230" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-status-n5" value="&lt;b&gt;⏳ ยังไม่ยืนยัน end-to-end&lt;/b&gt;&lt;br&gt;• Process รับ callback จริงและสร้าง receipt&lt;br&gt;• การจับคู่ Work Item ด้วยข้อมูลจริง&lt;br&gt;• การสร้าง/ค้น Report แบบ idempotent&lt;br&gt;• การแตก items[] และ upsert Result Item&lt;br&gt;• Partial / complete status&lt;br&gt;• Correction / version history&lt;br&gt;• App runtime แสดง ListView และเปิดดูผล&lt;br&gt;• Manual submit / update / audit" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#fff2cc,#4a3d13);strokeColor=light-dark(#d6b656,#d6b656);" vertex="1" parent="1">
+          <mxGeometry x="1020" y="150" width="940" height="230" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-status-n6" value="🔴 &lt;b&gt;ระบบยังไม่ production-ready — ห้ามกล่าวว่า Agent flow หรือ Manual flow ใช้งานได้จริง จนกว่าจะผ่านการทดสอบทั้งหมด&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="40" y="395" width="1920" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-status-n7" value="ข้อจำกัดของ ListView — อย่าสรุปผิดจากหน้าจอที่ไม่ใช่ของจริง" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="470" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-status-n8" value="&lt;b&gt;สิ่งที่ยืนยันแล้ว&lt;/b&gt;&lt;br&gt;&lt;br&gt;• Preview &lt;b&gt;แสดงกรอบ ListView ได้แม้มี 0 รายการ&lt;/b&gt;&lt;br&gt;• Form Manage CRUD &lt;b&gt;ไม่แสดง list-ui&lt;/b&gt; แม้ใช้ไฟล์แม่แบบเดียวกันกับที่ Preview แสดงได้" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);" vertex="1" parent="1">
+          <mxGeometry x="40" y="520" width="620" height="175" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-status-n9" value="&lt;b&gt;สิ่งที่ต้องทำ&lt;/b&gt;&lt;br&gt;&lt;br&gt;• ทดสอบหน้าดูผลจริงใน &lt;b&gt;App / View runtime&lt;/b&gt; ที่รองรับ ListView&lt;br&gt;• 🔴 &lt;b&gt;ห้ามใช้ Form Manage CRUD เป็นหลักฐานว่า ListView เสีย&lt;/b&gt;&lt;br&gt;• 🔴 ยังห้ามกล่าวว่า App runtime ใช้งานได้จนกว่าจะทดสอบจริง" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="700" y="520" width="620" height="175" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-status-n10" value="&lt;b&gt;บทบาทของไฟล์ view&lt;/b&gt;&lt;br&gt;&lt;br&gt;&lt;b&gt;Lab_Result_Inbound_Receive_User_View_EMR_Person_v2.json&lt;/b&gt;&lt;br&gt;= หน้า&lt;b&gt;ดู&lt;/b&gt; receipt + รายการผล&lt;br&gt;🔴 ไม่ใช่ endpoint รับข้อมูล&lt;br&gt;ListView ข้างในอ่านจาก &lt;b&gt;Lab_Result_Item&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="1360" y="520" width="600" height="175" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-status-n11" value="แหล่งอ้างอิงที่เอกสารนี้ยึด" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="725" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-status-n12" value="&lt;b&gt;HIS_AGENT_Interface_Easy.drawio&lt;/b&gt;&lt;br&gt;หน้า Flow Overview และ Field Mapping" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="40" y="775" width="600" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-status-n13" value="&lt;b&gt;HIS_AGENT_Interface_Schema.md&lt;/b&gt;&lt;br&gt;schema ฝั่ง interface" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="680" y="775" width="600" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-status-n14" value="&lt;b&gt;schemas/agent-to-his-result.schema.json&lt;/b&gt;&lt;br&gt;JSON Schema ของผลจาก Agent" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="1320" y="775" width="600" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-status-n15" value="&lt;b&gt;LIS_HIS_INTEGRATION_HANDOFF.md&lt;/b&gt;&lt;br&gt;สัญญากับทีม LISconnect" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="40" y="835" width="600" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-status-n16" value="&lt;b&gt;LAB_MANUAL_RESULT_HANDOFF.md&lt;/b&gt;&lt;br&gt;กติกา Manual Result" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="680" y="835" width="600" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-status-n17" value="&lt;b&gt;Lab_Result_Inbound_Receive_Design.md&lt;/b&gt;&lt;br&gt;ดีไซน์ชั้นรับข้อความ" style="rounded=0;whiteSpace=wrap;html=1;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="1320" y="835" width="600" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-status-n18" value="LEGEND" style="rounded=0;html=1;fillColor=light-dark(#fafafa,#1c1c1c);strokeColor=light-dark(#8a8a8a,#9aa3ad);verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontSize=11;fontStyle=1;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="1">
+          <mxGeometry x="40" y="910" width="1500" height="112" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-status-n19" value="" style="rounded=0;html=1;fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="labres-status-n18">
+          <mxGeometry x="10" y="30" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-status-n20" value="ของเดิม / มาจากฝั่ง Agent–LIS" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labres-status-n18">
+          <mxGeometry x="30" y="30" width="760" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-status-n21" value="" style="rounded=0;html=1;fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);" vertex="1" parent="labres-status-n18">
+          <mxGeometry x="810" y="30" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-status-n22" value="มีแล้วในระบบ (ฟอร์ม / JSON UI / schema)" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labres-status-n18">
+          <mxGeometry x="830" y="30" width="760" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-status-n23" value="" style="rounded=0;html=1;fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="labres-status-n18">
+          <mxGeometry x="10" y="56" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-status-n24" value="ทีม HIS ต้องเขียน Process หรือยืนยันด้วยข้อมูลจริง" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labres-status-n18">
+          <mxGeometry x="30" y="56" width="760" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-status-n25" value="" style="rounded=0;html=1;fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="labres-status-n18">
+          <mxGeometry x="810" y="56" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-status-n26" value="กฎห้ามพัง · ทางที่ต้องหยุด" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labres-status-n18">
+          <mxGeometry x="830" y="56" width="760" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-status-n27" value="" style="rounded=0;html=1;fillColor=light-dark(#fff2cc,#4a3d13);strokeColor=light-dark(#d6b656,#d6b656);" vertex="1" parent="labres-status-n18">
+          <mxGeometry x="10" y="82" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-status-n28" value="รอเคาะ / ยังไม่ยืนยัน end-to-end" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labres-status-n18">
+          <mxGeometry x="30" y="82" width="760" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-status-n29" value="" style="rounded=0;html=1;fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="labres-status-n18">
+          <mxGeometry x="810" y="82" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-status-n30" value="ข้อมูลอ้างอิง / บริบท" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labres-status-n18">
+          <mxGeometry x="830" y="82" width="760" height="16" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="labres-test" name="Test Checklist">
+    <mxGraphModel dx="1030" dy="570" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="2000" pageHeight="1120" math="0" shadow="0" adaptiveColors="auto">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="labres-test-n1" value="Test checklist ก่อนปิดงาน · และจุดเริ่มต้นของ session ถัดไป" style="text;html=1;fontSize=24;fontStyle=1;align=left;verticalAlign=middle;fontColor=light-dark(#1a1a1a,#f0f0f0);" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n2" value="12 เคสนี้คือเงื่อนไขที่ทำให้พูดได้ว่า flow รับผลใช้งานได้จริง" style="text;html=1;fontSize=12;fontStyle=2;align=left;verticalAlign=middle;fontColor=light-dark(#777777,#999999);" vertex="1" parent="1">
+          <mxGeometry x="40" y="54" width="1920" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n3" value="12 เคสที่ต้องผ่าน" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="100" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n4" value="&lt;b&gt;1&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=13;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="40" y="150" width="50" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n5" value="ส่ง payload ใหม่ → สร้าง receipt &lt;b&gt;หนึ่ง&lt;/b&gt; record" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="95" y="150" width="875" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n6" value="&lt;b&gt;2&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=13;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="1010" y="150" width="50" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n7" value="ส่ง &lt;b&gt;result_uid เดิมซ้ำ&lt;/b&gt; → ไม่สร้าง receipt / report / item ซ้ำ" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="1065" y="150" width="875" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n8" value="&lt;b&gt;3&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=13;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="40" y="212" width="50" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n9" value="Order match สำเร็จด้วย &lt;b&gt;order_no + filler_order_no + visit_id&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="95" y="212" width="875" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n10" value="&lt;b&gt;4&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=13;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="1010" y="212" width="50" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n11" value="Order match ไม่สำเร็จ → เก็บ unmatched receipt + error reason" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="1065" y="212" width="875" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n12" value="&lt;b&gt;5&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=13;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="40" y="274" width="50" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n13" value="Payload หลาย items → สร้าง/อัปเดต Result Item ครบทุก item" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="95" y="274" width="875" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n14" value="&lt;b&gt;6&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=13;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="1010" y="274" width="50" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n15" value="ส่ง partial สองรอบ → &lt;b&gt;update item เดิม&lt;/b&gt; และสถานะออกผลบางส่วน" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="1065" y="274" width="875" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n16" value="&lt;b&gt;7&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=13;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="40" y="336" width="50" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n17" value="ส่ง completed → ออกผลครบ และ stamp เวลาตามกติกา" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="1">
+          <mxGeometry x="95" y="336" width="875" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n18" value="&lt;b&gt;8&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=13;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="1010" y="336" width="50" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n19" value="ส่ง corrected result → เก็บ version และ&lt;b&gt;ประวัติค่าเดิม&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="1065" y="336" width="875" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n20" value="&lt;b&gt;9&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=13;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="40" y="398" width="50" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n21" value="ส่ง critical → แสดง alert โดย&lt;b&gt;ไม่คำนวณ threshold ซ้ำ&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="95" y="398" width="875" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n22" value="&lt;b&gt;10&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=13;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="1010" y="398" width="50" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n23" value="เปิด App/View → เห็น ListView แม้ไม่มีข้อมูล และเห็น items เมื่อมีข้อมูล" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#fff2cc,#4a3d13);strokeColor=light-dark(#d6b656,#d6b656);" vertex="1" parent="1">
+          <mxGeometry x="1065" y="398" width="875" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n24" value="&lt;b&gt;11&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=13;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="40" y="460" width="50" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n25" value="Manual ปกติ → แก้ได้&lt;b&gt;เฉพาะผล / หมายเหตุ&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#fff2cc,#4a3d13);strokeColor=light-dark(#d6b656,#d6b656);" vertex="1" parent="1">
+          <mxGeometry x="95" y="460" width="875" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n26" value="&lt;b&gt;12&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=13;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="1010" y="460" width="50" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n27" value="Micrology → กรอกผลและ critical ได้โดยไม่มี Unit พร้อม audit" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#fff2cc,#4a3d13);strokeColor=light-dark(#d6b656,#d6b656);" vertex="1" parent="1">
+          <mxGeometry x="1065" y="460" width="875" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n28" value="จุดเริ่มต้นสำหรับ session ถัดไป" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="545" width="1920" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n29" value="&lt;b&gt;1&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="40" y="595" width="50" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n30" value="อ่าน &lt;b&gt;MEMORY.md&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);" vertex="1" parent="1">
+          <mxGeometry x="95" y="595" width="1865" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n31" value="&lt;b&gt;2&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="40" y="643" width="50" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n32" value="อ่าน &lt;b&gt;LIS_HIS_INTEGRATION_HANDOFF.md&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);" vertex="1" parent="1">
+          <mxGeometry x="95" y="643" width="1865" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n33" value="&lt;b&gt;3&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="40" y="691" width="50" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n34" value="อ่าน &lt;b&gt;LAB_MANUAL_RESULT_HANDOFF.md&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);" vertex="1" parent="1">
+          <mxGeometry x="95" y="691" width="1865" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n35" value="&lt;b&gt;4&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="40" y="739" width="50" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n36" value="อ่าน &lt;b&gt;SDFORM_JSON_RULES.md&lt;/b&gt; ก่อนแก้ SDForm JSON ทุกครั้ง" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);" vertex="1" parent="1">
+          <mxGeometry x="95" y="739" width="1865" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n37" value="&lt;b&gt;5&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="40" y="787" width="50" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n38" value="ตรวจว่าไฟล์ไหนคือ latest และสถานะ import / live เป็นอย่างไร ก่อนแก้" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);" vertex="1" parent="1">
+          <mxGeometry x="95" y="787" width="1865" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n39" value="&lt;b&gt;6&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="40" y="835" width="50" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n40" value="🔴 ห้ามแก้ JSON จนกว่าจะระบุชัดว่าจะทำ &lt;b&gt;receipt / report / result item / viewer UI&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="95" y="835" width="1865" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n41" value="&lt;b&gt;7&lt;/b&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="1">
+          <mxGeometry x="40" y="883" width="50" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n42" value="รัน validator + static tests และให้ผู้ใช้ยืนยัน Builder / Preview / App runtime ก่อน claim ว่าใช้งานได้" style="rounded=0;whiteSpace=wrap;html=1;fontSize=11;align=left;verticalAlign=middle;spacingLeft=8;spacingRight=8;spacingTop=4;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="1">
+          <mxGeometry x="95" y="883" width="1865" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n43" value="LEGEND" style="rounded=0;html=1;fillColor=light-dark(#fafafa,#1c1c1c);strokeColor=light-dark(#8a8a8a,#9aa3ad);verticalAlign=top;align=left;spacingLeft=10;spacingTop=6;fontSize=11;fontStyle=1;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="1">
+          <mxGeometry x="40" y="950" width="1500" height="112" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n44" value="" style="rounded=0;html=1;fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);" vertex="1" parent="labres-test-n43">
+          <mxGeometry x="10" y="30" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n45" value="ของเดิม / มาจากฝั่ง Agent–LIS" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labres-test-n43">
+          <mxGeometry x="30" y="30" width="760" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n46" value="" style="rounded=0;html=1;fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);" vertex="1" parent="labres-test-n43">
+          <mxGeometry x="810" y="30" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n47" value="มีแล้วในระบบ (ฟอร์ม / JSON UI / schema)" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labres-test-n43">
+          <mxGeometry x="830" y="30" width="760" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n48" value="" style="rounded=0;html=1;fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);" vertex="1" parent="labres-test-n43">
+          <mxGeometry x="10" y="56" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n49" value="ทีม HIS ต้องเขียน Process หรือยืนยันด้วยข้อมูลจริง" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labres-test-n43">
+          <mxGeometry x="30" y="56" width="760" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n50" value="" style="rounded=0;html=1;fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);" vertex="1" parent="labres-test-n43">
+          <mxGeometry x="810" y="56" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n51" value="กฎห้ามพัง · ทางที่ต้องหยุด" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labres-test-n43">
+          <mxGeometry x="830" y="56" width="760" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n52" value="" style="rounded=0;html=1;fillColor=light-dark(#fff2cc,#4a3d13);strokeColor=light-dark(#d6b656,#d6b656);" vertex="1" parent="labres-test-n43">
+          <mxGeometry x="10" y="82" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n53" value="รอเคาะ / ยังไม่ยืนยัน end-to-end" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labres-test-n43">
+          <mxGeometry x="30" y="82" width="760" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n54" value="" style="rounded=0;html=1;fillColor=light-dark(#f5f5f5,#252525);strokeColor=light-dark(#999999,#777777);" vertex="1" parent="labres-test-n43">
+          <mxGeometry x="810" y="82" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="labres-test-n55" value="ข้อมูลอ้างอิง / บริบท" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;fontColor=light-dark(#333333,#e0e0e0);" vertex="1" parent="labres-test-n43">
+          <mxGeometry x="830" y="82" width="760" height="16" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
