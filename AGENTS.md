@@ -77,6 +77,11 @@ Cache. Do not trigger a reset for a minor wording issue resolved immediately.
 - `Form-Builder/SDForm/backup/` is read-only reference storage. Never edit,
   delete, rename, move, reformat, or overwrite an existing snapshot. Copy a
   template to `Form-Builder/SDForm/form-factory/forms/` before working on it.
+- `Form-Builder/SDForm/best-practices/` contains proven, sanitized, immutable
+  reusable Form patterns. Promotion requires an explicit goal, static checks,
+  Builder/Preview or runtime evidence appropriate to that goal, and a matching
+  evidence sidecar. Keep unverified candidates in their working folder. Reuse a
+  best practice by copying it to `form-factory/forms/`; never edit it in place.
 - `Form-Builder/API/` contains JavaScript artifacts, preserving their original category paths.
 - `Form-Builder/API/backup/` is read-only reference storage. Never edit, delete,
   rename, move, reformat, or overwrite an existing snapshot. Copy a template to
@@ -120,6 +125,10 @@ patient/production data, stop and warn without exposing or ingesting the content
 - Add a file to either `backup/` folder only when the user explicitly requests a
   new backup/template snapshot. Use a new versioned filename; normal Form/API
   creation and editing must always occur outside `backup/`.
+- When a Form achieves a distinctive, reusable goal, evaluate it for best-practice
+  promotion under `Form-Builder/SDForm/best-practices/README.md`. Preserve the
+  working source, sanitize the promoted copy, record evidence and limitations,
+  use a new versioned pair, and update manifest/checksums/log/Hot Cache.
 - Before creating or editing SDForm JSON, read
   `02-initcraft/governance/from-codex-backup/SDFORM_JSON_RULES.md` and validate
   with `Form-Builder/seed/tests-tools/validators/check_sdform_json.py`. SDForm candidates

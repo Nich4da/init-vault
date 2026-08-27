@@ -6,7 +6,8 @@
 - `01-knowledge-base/` — ความรู้ที่สรุปแล้ว แยกเป็น concepts, entities, sources และ syntheses
 - `02-initcraft/` — active skills, platform governance และ manifest ของคลัง artifacts
 - `Form-Builder/` — ศูนย์รวม artifacts สำหรับสร้างและดูแลฟอร์ม
-  - `Form-Builder/SDForm/` — ไฟล์ JSON ทั้งหมด พร้อม `backup/` สำหรับเก็บต้นแบบ Form แบบมีเวอร์ชัน
+  - `Form-Builder/SDForm/` — ไฟล์ JSON ทั้งหมด พร้อม `backup/` สำหรับ snapshot และ
+    `best-practices/` สำหรับต้นแบบ Form ที่ผ่านการพิสูจน์ตามเป้าหมายแล้ว
   - `Form-Builder/API/` — ไฟล์ JavaScript ทั้งหมด พร้อม `backup/` สำหรับเก็บต้นแบบ API แบบมีเวอร์ชัน
   - `Form-Builder/seed/` — ไฟล์ Python ทั้งหมด แยก data builder, generator, maintenance และ validator
 - `02-his/` — ไฟล์สนับสนุนที่เหลือ เช่น Markdown, XLSX, ZIP, รูป และแผนภาพ

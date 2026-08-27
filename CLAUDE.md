@@ -49,6 +49,7 @@ immediately after Hot Cache and before this file.
 ├── Form-Builder/                # implementation artifacts grouped by file type
 │   ├── SDForm/                  # every migrated JSON artifact
 │   │   ├── backup/              # read-only, versioned Form reference snapshots
+│   │   ├── best-practices/      # proven, sanitized, immutable reusable Form patterns
 │   │   ├── form-factory/        # SDForm exports, JSON specifications/prototypes
 │   │   ├── sdform_module/       # earlier HIS form/module JSON exports
 │   │   ├── api-factory/         # JSON schemas and payload examples
@@ -106,6 +107,36 @@ immediately after Hot Cache and before this file.
 - Add a new backup snapshot only when the user explicitly requests an archive or
   template publication. Use a new versioned filename and preserve every existing
   snapshot unchanged.
+
+### SDForm best-practice promotion
+
+`Form-Builder/SDForm/best-practices/` is a curated library of forms that solved a
+specific user goal or established a distinctive reusable pattern. It is not a
+dump of successful-looking drafts and is separate from archival `backup/`.
+
+Promote a form only when all of these are true:
+
+1. The intended goal, reusable pattern, and boundaries are stated explicitly.
+2. The working source remains in its normal path; promotion creates a sanitized
+   copy and never moves or rewrites the working artifact.
+3. The JSON passes the required static checks. Static validation alone is not
+   proof: record Builder, Preview, or deployed-runtime evidence appropriate to
+   the goal. A visual goal needs Builder/Preview evidence; a data/workflow goal
+   needs runtime evidence. If the required environment is unavailable, keep the
+   form as a candidate in its working folder rather than calling it best practice.
+4. Credentials, database URIs, patient/production data, environment-specific IDs,
+   and unnecessary sample data are removed or replaced with obvious placeholders.
+5. The promoted artifact is stored as `<pattern>-vN.json` with a matching
+   `<pattern>-vN.md` evidence sidecar. The sidecar records goal, source path,
+   validation levels and dates, dependencies, reuse steps, known limitations,
+   and provenance commit.
+6. Add the pair to `best-practices/README.md`, update the manifest/checksums/log/
+   Hot Cache, and verify the copied JSON again.
+
+Promoted JSON and its evidence sidecar are immutable. Reuse one by copying it to
+`Form-Builder/SDForm/form-factory/forms/` and editing the copy. Improvements create
+a new version; never overwrite the earlier best practice. Deprecate an old version
+in the catalog without deleting it.
 
 ### Misplaced-file decision gate
 

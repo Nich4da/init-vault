@@ -14,24 +14,25 @@ updated: 2026-08-27
 and explicit separation of validated structure from unverified runtime behavior.
 **Vault:** `/Users/nichada/Documents/Initcraft skill` · **Cap:** 500 words.
 
-## Latest — OpenDesign skills
+## Latest — SDForm best-practice promotion
 
-- Installed four audited skills from `nexu-io/open-design` into
-  `~/.codex/skills/`: `design-brief`, `reference-design-contract`,
-  `frontend-design`, and `web-design-guidelines`.
-- Source matched commit `9881cff70e02be86c2a58130af512011ba23d4af`;
-  recursive diff passed.
-- They become discoverable from the next task/turn. For initCraft UI, combine
-  them with `element-plus-initcraft` and `feilds-init`; existing platform and
-  SDForm rules remain authoritative.
-- Skipped catalogue stubs, workflows requiring `od`/`agent-browser`, and
-  `taste-skill`, which excludes dashboards and forms.
+- Proven, distinctive Form patterns now belong in
+  `Form-Builder/SDForm/best-practices/`, separate from archival `backup/`.
+- Promotion preserves the working source and creates a sanitized immutable
+  `<pattern>-vN.json` plus matching evidence sidecar. Static validation alone is
+  insufficient: UI goals require Builder/Preview evidence; data/workflow goals
+  require runtime evidence. Unverified work remains a candidate in its working
+  folder.
+- Reuse by copying the JSON to `form-factory/forms/`; never edit a promoted pair.
+  Improvements create new versions and update the catalog, manifest, checksums,
+  log, and Hot Cache.
 
-## Recent artifact
+## Recent tools
 
-- draw.io is the user's diagram default, not Figma. Latest source and PNG:
-  `02-his/draw_design/agent_result_final_relation.{drawio,png}`. XML validation
-  and draw.io Desktop rendering passed; source JSON stayed unchanged.
+- OpenDesign skills installed: `design-brief`, `reference-design-contract`,
+  `frontend-design`, `web-design-guidelines`. For initCraft UI, combine them with
+  `element-plus-initcraft` and `feilds-init`.
+- draw.io, not Figma, is the user's diagram default.
 
 ## Active flag — internal development login
 
@@ -61,10 +62,9 @@ and explicit separation of validated structure from unverified runtime behavior.
 
 ## Context checkpoint
 
-- User explicitly authorized a full migration commit. All 293 recorded checksums
-  passed; `.env` remains ignored. Commit the named migration paths only and leave
-  unrelated `.obsidian` UI-state changes unstaged. Context remains low; start the
-  next design request in a new task and read this cache first.
+- Commit `8e173fe` was pushed to `origin/main`. Root
+  `.obsidian` UI state and misplaced `01-knowledge-base/.obsidian/` remain local.
+  Context remains low; the next task must read this cache first.
 
 ## Guardrails and routing
 

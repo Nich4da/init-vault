@@ -347,3 +347,10 @@ Append-only, chronological. Newest at the bottom. Each entry header is
 - ตรวจ `02-initcraft/checksums.sha256` ครบ 293 รายการและผ่านทั้งหมด
 - ยืนยันว่า root `.env` ถูก ignore และการสแกนไม่พบ credential จริงใน candidate paths
 - กำหนด stage เฉพาะ migration paths แบบระบุชื่อ; ไม่รวม `.obsidian/graph.json` และ `.obsidian/workspace.json` ซึ่งเป็น UI state
+
+## [2026-08-27] schema | Added SDForm best-practice promotion policy
+- เพิ่ม `Form-Builder/SDForm/best-practices/` สำหรับ Form ที่พิสูจน์แล้วว่าทำตามเป้าหมายเฉพาะและนำกลับมาใช้ซ้ำได้
+- แยก best practice ออกจาก `backup/`: เก็บ working source ไว้ที่เดิมและ promote เป็นสำเนาที่ sanitize แล้วพร้อม evidence sidecar
+- กำหนดว่า static validation อย่างเดียวไม่พอ; เป้าหมายด้าน UI ต้องมี Builder/Preview evidence และเป้าหมายด้าน data/workflow ต้องมี runtime evidence
+- ต้นแบบที่ promote แล้วเป็น immutable; การ reuse ต้อง copy ไป `form-factory/forms/` และ improvement ต้องสร้าง version ใหม่
+- อัปเดต CLAUDE, AGENTS, README, SDForm README, migration manifest และ Hot Cache ตามกฎใหม่

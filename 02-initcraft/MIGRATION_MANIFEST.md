@@ -22,6 +22,7 @@ non-destructive snapshot: original files remain in their source locations.
 | Form Builder library | `Form-Builder/` | JSON, JavaScript, and Python artifact roots |
 | JSON library | `Form-Builder/SDForm/` | 107 JSON files, categorized by original purpose |
 | Form template backups | `Form-Builder/SDForm/backup/` | Read-only, versioned SDForm JSON reference snapshots |
+| Form best practices | `Form-Builder/SDForm/best-practices/` | Proven, sanitized, immutable Form patterns plus evidence sidecars |
 | SDForm exports | `Form-Builder/SDForm/form-factory/forms/` | 73 JSON forms |
 | JavaScript library | `Form-Builder/API/` | 40 JavaScript files, categorized by original purpose |
 | API template backups | `Form-Builder/API/backup/` | Read-only, versioned API Factory JavaScript reference snapshots |
@@ -61,6 +62,14 @@ moved, reformatted, or overwritten. New Form and API work occurs outside
 `Form-Builder/API/api-factory/processes/`. A new backup snapshot is added only on
 an explicit user request, with a new version suffix, and must not contain
 credentials, database URIs, patient data, or other production data.
+
+`Form-Builder/SDForm/best-practices/` is a separate curated promotion layer for
+Forms that demonstrably meet a specific reusable objective. Promotion preserves
+the working source and adds a sanitized, immutable versioned JSON copy with a
+matching evidence sidecar. Static validation alone does not qualify a Form;
+Builder/Preview or runtime evidence must match the kind of goal being claimed.
+Future work copies a best practice back to `form-factory/forms/` rather than
+editing the promoted artifact in place.
 
 `skills-archive/initcraft-report-sql` is reference-only: its `SKILL.md` has text
 before the YAML delimiter and therefore fails normal skill discovery/validation.
