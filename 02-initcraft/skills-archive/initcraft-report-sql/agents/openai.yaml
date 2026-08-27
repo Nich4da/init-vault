@@ -1,0 +1,4 @@
+interface:
+  display_name: "initCraft Report + SQL"
+  short_description: "Build SQL-backed initCraft reports safely"
+  default_prompt: "Use $initcraft-report-sql to build or debug an initCraft SQL Factory provider and its Report Factory output."

@@ -1,0 +1,322 @@
+{
+  "schema_version": "1.0",
+  "name": "Lab Biochemistry Workflow",
+  "name_th": "งานชีวเคมี",
+  "purpose": "Workflow and UI configuration derived from Lab_Biochem.drawio and lab-che-workflow-demo-edit-order.html.",
+  "source_files": {
+    "flow": "/Users/nichada/Downloads/Lab_Biochem.drawio",
+    "ui_reference": "/Users/nichada/Downloads/lab-che-workflow-demo-edit-order.html"
+  },
+  "form_bindings": {
+    "center_lab_order": {
+      "form_id": "6a6c4d28265885c2377cc12e",
+      "collection": "zdata_center_lab_order",
+      "fields": [
+        "patient_hn",
+        "patient_name",
+        "patient_photo",
+        "selected_items_json",
+        "biochemistry_specimen_json"
+      ]
+    },
+    "lab_che_order": {
+      "form_id": "6a6c242c265885c2377cc127",
+      "collection": "zdata_6a6c242c265885c2377cc127",
+      "fields": [
+        "pid",
+        "order_priority",
+        "requested_at",
+        "ordering_doctor",
+        "ward_clinic",
+        "specimen_types",
+        "specimen_detail",
+        "lab_liver_lipid",
+        "lab_renal_diabetes",
+        "lab_chemistry_other",
+        "lab_tdm_hormone",
+        "lab_cardiac_special",
+        "lab_urine",
+        "clinical_note"
+      ]
+    }
+  },
+  "states": {
+    "waiting": {
+      "label": "รอรับ",
+      "description": "Order จากแพทย์ รอเจ้าหน้าที่ตรวจสอบและรับสิ่งส่งตรวจ",
+      "required_fields": [
+        "order_id",
+        "patient_hn",
+        "patient_name",
+        "ward_clinic",
+        "requested_at",
+        "specimen",
+        "orders"
+      ]
+    },
+    "received": {
+      "label": "รับเข้าแล้ว",
+      "description": "รับสิ่งส่งตรวจแล้ว มี LAB NO. และเวลารับ",
+      "required_fields": [
+        "lab_no",
+        "received_at",
+        "received_by"
+      ]
+    },
+    "resulted": {
+      "label": "ออกผลแล้ว",
+      "description": "ผ่านการตรวจสอบผลและ Comment แล้ว; ผลอาจครบหรือบางส่วน",
+      "result_statuses": [
+        "complete",
+        "partial"
+      ]
+    },
+    "rejected": {
+      "label": "ปฏิเสธสิ่งส่งตรวจ",
+      "description": "บันทึกเหตุผล ผู้ปฏิเสธ และเวลาปฏิเสธ"
+    }
+  },
+  "transitions": [
+    {
+      "from": "waiting",
+      "to": "received",
+      "action": "receive_specimen",
+      "label": "รับสิ่งส่งตรวจ",
+      "requirements": [
+        "ตรวจสอบข้อมูลผู้ป่วยและรายการตรวจ",
+        "ยืนยันหรือแก้ไข LAB NO.",
+        "บันทึกผู้รับและเวลารับเป็นเวลาปัจจุบัน"
+      ]
+    },
+    {
+      "from": "waiting",
+      "to": "rejected",
+      "action": "reject_specimen",
+      "label": "ปฏิเสธสิ่งส่งตรวจ",
+      "requirements": [
+        "rejection_reason",
+        "rejected_by",
+        "rejected_at"
+      ]
+    },
+    {
+      "from": "received",
+      "to": "received",
+      "action": "edit_orders",
+      "label": "แก้ไขรายการส่งตรวจ",
+      "requirements": [
+        "ต้องมีรายการเพิ่มหรือลบจริง",
+        "edit_reason",
+        "audit_history"
+      ]
+    },
+    {
+      "from": "received",
+      "to": "resulted",
+      "action": "receive_lis_result",
+      "label": "รับผลจาก LIS",
+      "requirements": [
+        "ตรวจสอบผลและ Comment",
+        "ตรวจสอบค่าวิกฤติ",
+        "คงรายการที่ยังไม่ออกผลเป็น pending เมื่อผลบางส่วน"
+      ]
+    },
+    {
+      "from": "received",
+      "to": "resulted",
+      "action": "manual_result",
+      "label": "ลงผล Manual",
+      "condition": "LIS ใช้งานไม่ได้",
+      "requirements": [
+        "ตรวจสอบผลและ Comment",
+        "แสดงผลบน HIS"
+      ]
+    }
+  ],
+  "ui": {
+    "layout": {
+      "desktop_sidebar": false,
+      "tabs": [
+        "waiting",
+        "received",
+        "resulted"
+      ]
+    },
+    "waiting": {
+      "title": "ผู้ป่วยรอรับสิ่งส่งตรวจ",
+      "search_fields": [
+        "patient_hn",
+        "patient_name",
+        "lab_no"
+      ],
+      "filters": [
+        "specimen"
+      ],
+      "columns": [
+        "patient_hn",
+        "lab_no",
+        "patient_name",
+        "ward_clinic",
+        "requested_at",
+        "specimen",
+        "order_count",
+        "actions"
+      ],
+      "row_actions": [
+        "receive_specimen",
+        "reject_specimen"
+      ]
+    },
+    "received": {
+      "layout": "patient_queue_and_order_detail",
+      "left_panel": {
+        "title": "ผู้ป่วยรับเข้าแล้ว",
+        "search_fields": [
+          "patient_hn",
+          "patient_name",
+          "lab_no"
+        ]
+      },
+      "right_panel": {
+        "title": "List Order",
+        "metadata": [
+          "patient_name",
+          "patient_hn",
+          "ward_clinic",
+          "lab_no",
+          "specimen",
+          "received_at",
+          "status",
+          "order_count"
+        ],
+        "actions": [
+          "reject_specimen",
+          "edit_orders",
+          "start_testing"
+        ],
+        "audit_history": {
+          "fields": [
+            "changed_at",
+            "changed_by",
+            "reason",
+            "added_orders",
+            "removed_orders"
+          ],
+          "added_style": "green",
+          "removed_style": "red"
+        }
+      }
+    },
+    "resulted": {
+      "title": "รายการที่ออกผลแล้ว",
+      "search_fields": [
+        "patient_hn",
+        "patient_name",
+        "lab_no"
+      ],
+      "filters": [
+        "result_status"
+      ],
+      "columns": [
+        "patient_hn",
+        "lab_no",
+        "patient_name",
+        "ward_clinic",
+        "resulted_at",
+        "specimen",
+        "result_status",
+        "actions"
+      ],
+      "row_actions": [
+        "view_result",
+        "print_result",
+        "export_excel"
+      ]
+    }
+  },
+  "order_edit": {
+    "modal_title": "แก้ไขรายการส่งตรวจ",
+    "catalog_source": "lab_che_order",
+    "baseline_label": "แพทย์สั่งเดิม",
+    "features": [
+      "search_order_code_or_name",
+      "filter_category",
+      "select_order",
+      "select_category",
+      "show_added_count",
+      "show_removed_count",
+      "require_reason",
+      "write_audit_history",
+      "refresh_selected_patient_order_list"
+    ]
+  },
+  "specimens": [
+    {
+      "code": "blood_clotted",
+      "label": "Blood: Clotted"
+    },
+    {
+      "code": "blood_ionized_calcium",
+      "label": "Blood: Ionized Calcium"
+    },
+    {
+      "code": "blood_lithium_heparin",
+      "label": "Blood: Lithium heparin"
+    },
+    {
+      "code": "blood_naf",
+      "label": "Blood: NaF"
+    },
+    {
+      "code": "blood_edta",
+      "label": "Blood: EDTA"
+    },
+    {
+      "code": "urine_spot",
+      "label": "Urine: spot"
+    },
+    {
+      "code": "urine_24hr",
+      "label": "Urine: 24 hr."
+    },
+    {
+      "code": "csf",
+      "label": "CSF"
+    },
+    {
+      "code": "body_fluid",
+      "label": "Body Fluid"
+    }
+  ],
+  "result_handling": {
+    "critical_value": {
+      "display_at": "lab_no",
+      "action": "critical_alert",
+      "threshold_source": "LIS_or_approved_lab_configuration"
+    },
+    "partial_result": {
+      "display_label": "ออกผลบางส่วน",
+      "unresulted_order_status": "pending"
+    },
+    "manual_result": {
+      "allowed_when": "LIS unavailable",
+      "must_display_on": "HIS"
+    },
+    "print_notice": "สำเนาพิมพ์ออนไลน์ใช้เพื่อดูแลรักษาเท่านั้น; ใช้ทางกฎหมายหรือส่งภายนอกต้องเป็นฉบับจริงมีลายเซ็นนักเทคนิคการแพทย์"
+  },
+  "implementation_placeholders": {
+    "lab_no_generation_process_id": null,
+    "receive_specimen_process_id": null,
+    "reject_specimen_process_id": null,
+    "edit_order_process_id": null,
+    "lis_result_receive_process_id": null,
+    "manual_result_process_id": null,
+    "critical_alert_process_id": null
+  },
+  "constraints": [
+    "Do not use requested_at as received_at.",
+    "Do not invent reference ranges, result units, prices, critical thresholds, tube colors, turnaround times, or LIS API details.",
+    "Use runtime user context for audit actors; do not hard-code a user name.",
+    "All production workflow writes must be implemented server-side with authorization and an audit trail."
+  ]
+}

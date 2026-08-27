@@ -1,0 +1,201 @@
+{
+  "fields": [
+    {
+      "name": "Text Input",
+      "component": "text-input",
+      "category": "basic_input",
+      "icon": "text-input",
+      "fieldType": "String",
+      "fieldLength": null,
+      "children": false,
+      "enable": true,
+      "formItemFlag": true,
+      "options": {
+        "name": "patient_display",
+        "label": "ผู้ป่วย",
+        "type": "text",
+        "defaultValue": "",
+        "placeholder": "HN และชื่อผู้ป่วย",
+        "columnSpan": 24,
+        "labelHidden": false,
+        "readonly": true,
+        "disabled": false,
+        "hidden": false,
+        "clearable": false,
+        "required": false,
+        "customClass": "",
+        "onCreated": "",
+        "onMounted": "",
+        "onUnmount": "",
+        "onInput": "",
+        "onChange": "",
+        "onFocus": "",
+        "onBlur": "",
+        "onValidate": ""
+      },
+      "id": "text-input-receive-patient-display"
+    },
+    {
+      "name": "Text Input",
+      "component": "text-input",
+      "category": "basic_input",
+      "icon": "text-input",
+      "fieldType": "String",
+      "fieldLength": null,
+      "children": false,
+      "enable": true,
+      "formItemFlag": true,
+      "options": {
+        "name": "lab_no",
+        "label": "LAB NO.",
+        "type": "text",
+        "defaultValue": "",
+        "placeholder": "ระบุเมื่อรับสิ่งส่งตรวจ",
+        "columnSpan": 24,
+        "labelHidden": false,
+        "readonly": false,
+        "disabled": false,
+        "hidden": false,
+        "clearable": true,
+        "required": false,
+        "customClass": "",
+        "onCreated": "",
+        "onMounted": "",
+        "onUnmount": "",
+        "onInput": "",
+        "onChange": "",
+        "onFocus": "",
+        "onBlur": "",
+        "onValidate": ""
+      },
+      "id": "text-input-receive-lab-no"
+    },
+    {
+      "name": "Textarea",
+      "component": "textarea-input",
+      "category": "basic_input",
+      "icon": "textarea-input",
+      "fieldType": "String",
+      "fieldLength": null,
+      "children": false,
+      "enable": true,
+      "formItemFlag": true,
+      "options": {
+        "name": "receive_note",
+        "label": "หมายเหตุการรับเข้า",
+        "defaultValue": "",
+        "placeholder": "ระบุรายละเอียด (ถ้ามี)",
+        "columnSpan": 24,
+        "labelHidden": false,
+        "readonly": false,
+        "disabled": false,
+        "hidden": false,
+        "clearable": true,
+        "autoSize": false,
+        "rows": 3,
+        "required": false,
+        "maxLength": 1000,
+        "showWordLimit": true,
+        "customClass": "",
+        "onCreated": "",
+        "onMounted": "",
+        "onUnmount": "",
+        "onInput": "",
+        "onChange": "",
+        "onFocus": "",
+        "onBlur": "",
+        "onValidate": ""
+      },
+      "id": "textarea-input-receive-note"
+    },
+    {
+      "name": "Text Input", "component": "text-input", "category": "basic_input", "icon": "text-input", "fieldType": "String", "fieldLength": null, "children": false, "enable": true, "formItemFlag": true,
+      "options": {"name": "source_order_id", "label": "Source Order ID", "type": "text", "defaultValue": "", "columnSpan": 4, "labelHidden": false, "readonly": false, "disabled": false, "hidden": true, "clearable": true, "required": false, "customClass": "", "onCreated": "", "onMounted": "", "onUnmount": "", "onInput": "", "onChange": "", "onFocus": "", "onBlur": "", "onValidate": ""},
+      "id": "text-input-receive-source-order"
+    },
+    {
+      "name": "Text Input", "component": "text-input", "category": "basic_input", "icon": "text-input", "fieldType": "String", "fieldLength": null, "children": false, "enable": true, "formItemFlag": true,
+      "options": {"name": "order_group_id", "label": "Order Group ID", "type": "text", "defaultValue": "", "columnSpan": 4, "labelHidden": false, "readonly": false, "disabled": false, "hidden": true, "clearable": true, "required": false, "customClass": "", "onCreated": "", "onMounted": "", "onUnmount": "", "onInput": "", "onChange": "", "onFocus": "", "onBlur": "", "onValidate": ""},
+      "id": "text-input-receive-order-group"
+    },
+    {
+      "name": "Text Input", "component": "text-input", "category": "basic_input", "icon": "text-input", "fieldType": "String", "fieldLength": null, "children": false, "enable": true, "formItemFlag": true,
+      "options": {"name": "patient_hn", "label": "HN", "type": "text", "defaultValue": "", "columnSpan": 4, "labelHidden": false, "readonly": true, "disabled": false, "hidden": true, "clearable": false, "required": false, "customClass": "", "onCreated": "", "onMounted": "", "onUnmount": "", "onInput": "", "onChange": "", "onFocus": "", "onBlur": "", "onValidate": ""},
+      "id": "text-input-receive-hn"
+    },
+    {
+      "name": "Text Input", "component": "text-input", "category": "basic_input", "icon": "text-input", "fieldType": "String", "fieldLength": null, "children": false, "enable": true, "formItemFlag": true,
+      "options": {"name": "patient_name", "label": "ชื่อผู้ป่วย", "type": "text", "defaultValue": "", "columnSpan": 4, "labelHidden": false, "readonly": true, "disabled": false, "hidden": true, "clearable": false, "required": false, "customClass": "", "onCreated": "", "onMounted": "", "onUnmount": "", "onInput": "", "onChange": "", "onFocus": "", "onBlur": "", "onValidate": ""},
+      "id": "text-input-receive-name"
+    },
+    {
+      "name": "Text Input", "component": "text-input", "category": "basic_input", "icon": "text-input", "fieldType": "String", "fieldLength": null, "children": false, "enable": true, "formItemFlag": true,
+      "options": {"name": "ward_clinic", "label": "Ward / Clinic", "type": "text", "defaultValue": "", "columnSpan": 4, "labelHidden": false, "readonly": true, "disabled": false, "hidden": true, "clearable": false, "required": false, "customClass": "", "onCreated": "", "onMounted": "", "onUnmount": "", "onInput": "", "onChange": "", "onFocus": "", "onBlur": "", "onValidate": ""},
+      "id": "text-input-receive-ward"
+    },
+    {
+      "name": "Text Input", "component": "text-input", "category": "basic_input", "icon": "text-input", "fieldType": "String", "fieldLength": null, "children": false, "enable": true, "formItemFlag": true,
+      "options": {"name": "lab_section", "label": "Lab Section", "type": "text", "defaultValue": "BC", "columnSpan": 4, "labelHidden": false, "readonly": false, "disabled": false, "hidden": true, "clearable": true, "required": false, "customClass": "", "onCreated": "", "onMounted": "", "onUnmount": "", "onInput": "", "onChange": "", "onFocus": "", "onBlur": "", "onValidate": ""},
+      "id": "text-input-receive-section"
+    },
+    {
+      "name": "Text Input", "component": "text-input", "category": "basic_input", "icon": "text-input", "fieldType": "String", "fieldLength": null, "children": false, "enable": true, "formItemFlag": true,
+      "options": {"name": "selected_items_json", "label": "Selected Items JSON", "type": "text", "defaultValue": "[]", "columnSpan": 4, "labelHidden": false, "readonly": false, "disabled": false, "hidden": true, "clearable": true, "required": false, "customClass": "", "onCreated": "", "onMounted": "", "onUnmount": "", "onInput": "", "onChange": "", "onFocus": "", "onBlur": "", "onValidate": ""},
+      "id": "text-input-receive-items"
+    },
+    {
+      "name": "Text Input", "component": "text-input", "category": "basic_input", "icon": "text-input", "fieldType": "String", "fieldLength": null, "children": false, "enable": true, "formItemFlag": true,
+      "options": {"name": "biochemistry_specimen_json", "label": "Biochemistry Specimen JSON", "type": "text", "defaultValue": "{}", "columnSpan": 4, "labelHidden": false, "readonly": false, "disabled": false, "hidden": true, "clearable": true, "required": false, "customClass": "", "onCreated": "", "onMounted": "", "onUnmount": "", "onInput": "", "onChange": "", "onFocus": "", "onBlur": "", "onValidate": ""},
+      "id": "text-input-receive-specimen"
+    },
+    {
+      "name": "Text Input", "component": "text-input", "category": "basic_input", "icon": "text-input", "fieldType": "String", "fieldLength": null, "children": false, "enable": true, "formItemFlag": true,
+      "options": {"name": "treatment_right", "label": "Treatment Right", "type": "text", "defaultValue": "", "columnSpan": 4, "labelHidden": false, "readonly": false, "disabled": false, "hidden": true, "clearable": true, "required": false, "customClass": "", "onCreated": "", "onMounted": "", "onUnmount": "", "onInput": "", "onChange": "", "onFocus": "", "onBlur": "", "onValidate": ""},
+      "id": "text-input-receive-right"
+    },
+    {
+      "name": "Text Input", "component": "text-input", "category": "basic_input", "icon": "text-input", "fieldType": "String", "fieldLength": null, "children": false, "enable": true, "formItemFlag": true,
+      "options": {"name": "payment_status", "label": "Payment Status", "type": "text", "defaultValue": "", "columnSpan": 4, "labelHidden": false, "readonly": false, "disabled": false, "hidden": true, "clearable": true, "required": false, "customClass": "", "onCreated": "", "onMounted": "", "onUnmount": "", "onInput": "", "onChange": "", "onFocus": "", "onBlur": "", "onValidate": ""},
+      "id": "text-input-receive-payment"
+    },
+    {
+      "name": "Text Input", "component": "text-input", "category": "basic_input", "icon": "text-input", "fieldType": "String", "fieldLength": null, "children": false, "enable": true, "formItemFlag": true,
+      "options": {"name": "revision_no", "label": "Revision No.", "type": "text", "defaultValue": "1", "columnSpan": 4, "labelHidden": false, "readonly": false, "disabled": false, "hidden": true, "clearable": true, "required": false, "customClass": "", "onCreated": "", "onMounted": "", "onUnmount": "", "onInput": "", "onChange": "", "onFocus": "", "onBlur": "", "onValidate": ""},
+      "id": "text-input-receive-revision"
+    },
+    {
+      "name": "Text Input", "component": "text-input", "category": "basic_input", "icon": "text-input", "fieldType": "String", "fieldLength": null, "children": false, "enable": true, "formItemFlag": true,
+      "options": {"name": "received_at", "label": "Received At", "type": "text", "defaultValue": "", "columnSpan": 4, "labelHidden": false, "readonly": false, "disabled": false, "hidden": true, "clearable": true, "required": false, "customClass": "", "onCreated": "", "onMounted": "", "onUnmount": "", "onInput": "", "onChange": "", "onFocus": "", "onBlur": "", "onValidate": ""},
+      "id": "text-input-receive-at"
+    },
+    {
+      "name": "Text Input", "component": "text-input", "category": "basic_input", "icon": "text-input", "fieldType": "String", "fieldLength": null, "children": false, "enable": true, "formItemFlag": true,
+      "options": {"name": "received_by", "label": "Received By", "type": "text", "defaultValue": "", "columnSpan": 4, "labelHidden": false, "readonly": false, "disabled": false, "hidden": true, "clearable": true, "required": false, "customClass": "", "onCreated": "", "onMounted": "", "onUnmount": "", "onInput": "", "onChange": "", "onFocus": "", "onBlur": "", "onValidate": ""},
+      "id": "text-input-receive-by"
+    },
+    {
+      "name": "Text Input", "component": "text-input", "category": "basic_input", "icon": "text-input", "fieldType": "String", "fieldLength": null, "children": false, "enable": true, "formItemFlag": true,
+      "options": {"name": "receive_status", "label": "Receive Status", "type": "text", "defaultValue": "received", "columnSpan": 4, "labelHidden": false, "readonly": false, "disabled": false, "hidden": true, "clearable": true, "required": false, "customClass": "", "onCreated": "", "onMounted": "", "onUnmount": "", "onInput": "", "onChange": "", "onFocus": "", "onBlur": "", "onValidate": ""},
+      "id": "text-input-receive-status"
+    }
+  ],
+  "formConfig": {
+    "modelName": "formData",
+    "refName": "sdForm",
+    "rulesName": "rules",
+    "labelWidth": 120,
+    "labelPosition": "top",
+    "size": "",
+    "labelAlign": "label-right-align",
+    "cssCode": "",
+    "customClass": [],
+    "functions": "",
+    "layoutType": "PC",
+    "jsonVersion": 3,
+    "onFormCreated": "",
+    "onFormMounted": "",
+    "onParentChange": "",
+    "onFormDataChange": "",
+    "onFormUnmounted": ""
+  }
+}

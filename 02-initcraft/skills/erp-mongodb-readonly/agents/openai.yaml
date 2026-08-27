@@ -1,0 +1,4 @@
+interface:
+  display_name: "ERP MongoDB Readonly"
+  short_description: "Read-only ERP MongoDB schema and collection lookup."
+  default_prompt: "Check ERP MongoDB collections and schemas in read-only mode."

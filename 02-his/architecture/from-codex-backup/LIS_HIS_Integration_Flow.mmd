@@ -1,0 +1,79 @@
+flowchart LR
+    subgraph his ["HIS"]
+        direction TB
+        hisCreate["1. ผู้ใช้สร้างใบสั่งตรวจ"]
+        hisIdentity["2. HIS สร้าง order_no และ labno"]
+        hisPayload["3. ประกอบข้อมูลผู้ป่วย Visit แพทย์ Clinic และ items"]
+        hisNew["บันทึกสถานะ new"]
+        hisQueued["อัปเดตสถานะ queued"]
+        hisOrderStatus["อัปเดตสถานะใบสั่งตรวจ"]
+        hisFix["แสดงเหตุผลให้ผู้ใช้แก้ข้อมูล"]
+        hisResultApi["รับผลผ่าน hl7_result_upsert"]
+        hisMatch["จับคู่ด้วย filler_order_no เท่ากับ labno และตรวจ order_no กับ visit_id"]
+        hisDuplicate{"result_uid ซ้ำหรือไม่"}
+        hisDuplicateAck["ตอบ created false และไม่สร้างผลซ้ำ"]
+        hisAppend["เพิ่มรายงานตาม report_seq และ stage โดยไม่ทับรายงานเดิม"]
+        hisCorrection{"เป็นผลแก้ไขหรือไม่"}
+        hisVersion["เพิ่ม result_version และเก็บประวัติค่าเดิม"]
+        hisComplete{"ผลที่จำเป็นครบหรือยัง"}
+        hisPartial["สถานะ ออกผลบางส่วน"]
+        hisFinal["สถานะ ออกผลครบ"]
+        hisDisplay["แสดงค่า หน่วย Reference Range Comment ผู้รายงาน และผู้รับรอง"]
+    end
+
+    subgraph connector ["LISconnect หรือ Integration Service"]
+        direction TB
+        connectorOrderApi["POST /api/orders พร้อม X-Agent-Key"]
+        connectorValidate{"Auth JSON labno items และ routing ถูกต้องหรือไม่"}
+        connectorReject["ตอบ 4xx หรือ 422 พร้อมเหตุผล"]
+        connectorDuplicate{"เคยรับ order_no นี้แล้วหรือไม่"}
+        connectorDuplicateAck["ตอบ 200 duplicate true"]
+        connectorQueue["Commit ลง Queue"]
+        connectorAccepted["ตอบ 202 Accepted พร้อม dispatch_id"]
+        connectorOrderMap["แปลง JSON เป็น HL7 ORM O01"]
+        connectorRequestFile["สร้างไฟล์ .req แบบ TIS-620"]
+        connectorStatus["เรียก hl7_order_status_sync"]
+        connectorReadResult["อ่านและ Parse ไฟล์ .res"]
+        connectorResultMap["แปลง HL7 Result เป็น JSON"]
+        connectorResultPost["POST ไปยัง HIS ด้วย Bearer JWT"]
+        connectorRetry["500 หรือ 503 เก็บสถานะ new และเข้าคิว Retry"]
+    end
+
+    subgraph lis ["LIS และห้องปฏิบัติการ"]
+        direction TB
+        lisReceive["รับไฟล์ .req"]
+        lisRegister["ลงทะเบียนรายการตรวจตาม labno"]
+        lisProcess["ตรวจตัวอย่างและบันทึกผล"]
+        lisResult["ออกผล Preliminary Partial Final หรือ Corrected"]
+        lisFile["สร้างไฟล์ .res"]
+    end
+
+    hisCreate --> hisIdentity --> hisPayload --> hisNew --> connectorOrderApi
+    connectorOrderApi --> connectorValidate
+    connectorValidate -->|"ไม่ผ่าน"| connectorReject --> hisFix
+    connectorValidate -->|"ผ่าน"| connectorDuplicate
+    connectorDuplicate -->|"ใช่"| connectorDuplicateAck --> hisQueued
+    connectorDuplicate -->|"ไม่ใช่"| connectorQueue --> connectorAccepted --> hisQueued
+    connectorQueue --> connectorOrderMap --> connectorRequestFile --> lisReceive
+    connectorQueue -.-> connectorStatus --> hisOrderStatus
+    connectorOrderApi -.->|"500 หรือ 503"| connectorRetry --> hisNew
+
+    lisReceive --> lisRegister --> lisProcess --> lisResult --> lisFile
+    lisFile --> connectorReadResult --> connectorResultMap --> connectorResultPost --> hisResultApi
+    hisResultApi --> hisMatch --> hisDuplicate
+    hisDuplicate -->|"ซ้ำ"| hisDuplicateAck --> hisDisplay
+    hisDuplicate -->|"ผลใหม่"| hisAppend --> hisCorrection
+    hisCorrection -->|"ใช่"| hisVersion --> hisComplete
+    hisCorrection -->|"ไม่ใช่"| hisComplete
+    hisComplete -->|"ยังไม่ครบ"| hisPartial --> hisDisplay
+    hisComplete -->|"ครบ"| hisFinal --> hisDisplay
+
+    classDef hisNode fill:#E8F3FF,stroke:#3B82F6,color:#163A5F,stroke-width:1px
+    classDef connectorNode fill:#FFF4DB,stroke:#F59E0B,color:#5B3A00,stroke-width:1px
+    classDef lisNode fill:#EAF8EE,stroke:#22A06B,color:#164B35,stroke-width:1px
+    classDef decisionNode fill:#FFF0F0,stroke:#DC4C64,color:#5B1C26,stroke-width:1px
+
+    class hisCreate,hisIdentity,hisPayload,hisNew,hisQueued,hisOrderStatus,hisFix,hisResultApi,hisMatch,hisDuplicateAck,hisAppend,hisVersion,hisPartial,hisFinal,hisDisplay hisNode
+    class connectorOrderApi,connectorReject,connectorDuplicateAck,connectorQueue,connectorAccepted,connectorOrderMap,connectorRequestFile,connectorStatus,connectorReadResult,connectorResultMap,connectorResultPost,connectorRetry connectorNode
+    class lisReceive,lisRegister,lisProcess,lisResult,lisFile lisNode
+    class connectorValidate,connectorDuplicate,hisDuplicate,hisCorrection,hisComplete decisionNode

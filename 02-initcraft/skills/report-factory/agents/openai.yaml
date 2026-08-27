@@ -1,0 +1,5 @@
+interface:
+  display_name: "Report Factory"
+  short_description: "Build and debug initCraft reports and exports."
+  default_prompt: "Use $report-factory to create, configure, or debug an initCraft Report Factory report."
+

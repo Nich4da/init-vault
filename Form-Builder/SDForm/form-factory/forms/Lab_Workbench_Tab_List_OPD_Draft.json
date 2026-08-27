@@ -1,0 +1,798 @@
+{
+  "fields": [
+    {
+      "key": 21552,
+      "name": "Components",
+      "component": "vue-ui",
+      "category": "display_ui",
+      "icon": "components-ui",
+      "fieldType": "None",
+      "fieldLength": null,
+      "children": false,
+      "enable": true,
+      "formItemFlag": false,
+      "options": {
+        "name": "lab_patient_opd_card",
+        "columnSpan": 4,
+        "hidden": false,
+        "content": "<div class=\"lab-patient-search-bar\">\n  <el-input v-model=\"patientSearch\" clearable placeholder=\"ค้นหาด้วย HN, CID หรือชื่อ-นามสกุล\" @keyup.enter=\"runPatientSearch('text')\" />\n  <el-input v-model=\"barcodeSearch\" clearable placeholder=\"สแกน HN / LAB NO. / Barcode\" @keyup.enter=\"runPatientSearch('barcode')\" />\n  <el-button type=\"primary\" @click=\"runPatientSearch('text')\">ค้นหา</el-button>\n  <el-button @click=\"clearPatientSearch\">ล้าง</el-button>\n</div><el-card class=\" card-container wcard-soft pcard pcard-bg plain card-nav\" shadow=\"always\">\n<div v-if=\"tran\" class=\"pcard-main\">\n     \n \n  <el-avatar shape=\"square\" :size=\"74\" fit=\"cover\" :src=\"picUrl()\" class=\"pcard-avatar mt-2\" style=\"background:var(--el-fill-color-light);border:1px solid var(--el-border-color);\"><svg viewBox=\"0 0 24 24\" style=\"width:62%;height:62%;fill:var(--el-text-color-secondary);\"><path d=\"M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2c-4.4 0-8 2.7-8 6v2h16v-2c0-3.3-3.6-6-8-6z\"/></svg></el-avatar>\n\n  <div class=\"pcard-identity\">\n    <div class=\"pcard-name-row\">\n      <span class=\"pcard-name\">{{ ptName() }}</span>\n      <span class=\"pcard-chip primary\">HN{{ pt().hn }}</span>\n      <span class=\"pcard-chip\">อายุ {{ pt().age }} ปี · {{ genderLabel() }}</span>\n      <span class=\"pcard-chip\">เลือด {{ aboLabel() }}</span>\n      <span v-for=\"(t, i) in (tran.pttype || [])\" :key=\"i\" class=\"pcard-chip success\">✓ {{ t }}</span>\n      \n    </div>\n\n    <div class=\"pcard-meta pcard-meta-sub\"><span class=\"pcard-chip warning\">VN{{ (tran.vid && tran.vid.vn) || '-' }}</span> <span class=\"pcard-chip\" v-if=\"serviceTypeLabel()\">{{ serviceTypeLabel() }}</span> มาตรวจ: {{ visitTime() }} · <span class=\"ic\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92Z\"></path></svg></span>{{ pt().p_phone || '-' }} <el-button class=\"pcard-mini-btn pcard-meta-edit\" icon=\"EditPen\" @click=\"openPatient()\"></el-button>\n</div>\n    <!-- น้ำหนัก/ส่วนสูง/BMI/BSA — ยังไม่มี source ใน visit tran, mock ไว้ก่อน -->\n    <div class=\"pcard-meta pcard-meta-body\"><span class=\"pcard-meta-text\">\n      <span v-if=\"bmiRec\">น้ำหนัก {{ bmiRec.weight || '-' }} กก. · ส่วนสูง {{ bmiRec.stature || '-' }} ซม.<span class=\"pcard-meta-calc\">BMI <b>{{ bmiRec.bmi || '-' }}</b> · BSA <b>{{ bmiRec.bsa || '-' }}</b> m²</span></span>\n      <span v-if=\"!bmiRec\" >ยังไม่มีข้อมูลน้ำหนัก/ส่วนสูง</span> \n      <el-button class=\"pcard-mini-btn\" icon=\"Plus\" @click=\"openBmi(null)\" style=\"margin-left: 10px;\"></el-button>\n      <el-button v-if=\"bmiRec\" class=\"pcard-mini-btn pcard-meta-edit\" icon=\"EditPen\" @click=\"openBmi(bmiRec._id)\"></el-button>\n      <span style=\"position:relative;display:inline-block;width:0;height:0;overflow:visible;vertical-align:middle;\">\n        <el-button class=\"pcard-mini-btn\" icon=\"TrendCharts\" title=\"กราฟแนวโน้ม BMI\" @click=\"openBmiChart()\" style=\"position:absolute;left:4px;top:50%;transform:translateY(-50%);\"></el-button>\n      </span>\n    </span></div>\n    \n  </div>\n\n  <div class=\"pcard-divider\"></div>\n\n  <!-- vitals — ยังไม่มี source, mock ไว้ก่อน -->\n  <div class=\"pcard-vitals\">\n  <div class=\"pcard-vital\" :class=\"bpClass()\">\n    <div class=\"pcard-vital-label\">BP</div>\n    <div class=\"pcard-vital-value\" v-if=\"vsRec\">{{ vsRec.bp_h || '-' }}/{{ vsRec.bp_l || '-' }}<span class=\"u\">mmHg</span></div>\n    <div class=\"pcard-vital-value\" v-if=\"!vsRec\">-</div>\n  </div>\n  <div class=\"pcard-vital\" :class=\"vsClass('pulse')\">\n    <div class=\"pcard-vital-label\">PR</div>\n    <div class=\"pcard-vital-value\" v-if=\"vsRec\">{{ vsRec.pulse || '-' }}<span class=\"u\">/นาที</span></div>\n    <div class=\"pcard-vital-value\" v-if=\"!vsRec\">-</div>\n  </div>\n  <div class=\"pcard-vital\" :class=\"vsClass('temp')\">\n    <div class=\"pcard-vital-label\">Temp</div>\n    <div class=\"pcard-vital-value\" v-if=\"vsRec\">{{ vsRec.temp || '-' }}<span class=\"u\">°C</span></div>\n    <div class=\"pcard-vital-value\" v-if=\"!vsRec\">-</div>\n  </div>\n  <div class=\"pcard-vital\" :class=\"vsClass('rr')\">\n    <div class=\"pcard-vital-label\">RR</div>\n    <div class=\"pcard-vital-value\" v-if=\"vsRec\">{{ vsRec.rr || '-' }}<span class=\"u\">/นาที</span></div>\n    <div class=\"pcard-vital-value\" v-if=\"!vsRec\">-</div>\n  </div>\n  <div class=\"pcard-vital-actions\">\n    <el-button class=\"pcard-mini-btn\" icon=\"Plus\" @click=\"openVs(null)\"></el-button>\n    <el-button v-if=\"vsRec\" class=\"pcard-mini-btn pcard-meta-edit\" icon=\"EditPen\" @click=\"openVs(vsRec._id)\" style=\"margin: 0px;\"></el-button>\n    <el-button class=\"pcard-mini-btn\" icon=\"TrendCharts\" title=\"กราฟแนวโน้ม Vital Sign\" @click=\"openVsChart()\" style=\"margin:0px;\"></el-button>\n  </div>\n</div>\n\n\n  <div class=\"pcard-actions\">\n    <div class=\"pcard-action-row\">\n      <el-button icon=\"Printer\"></el-button>\n      <el-button icon=\"Clock\" title=\"ประวัติ BMI / Vital Sign ตาม Visit\" @click=\"openHistory()\"></el-button>\n    </div>\n    <div class=\"pcard-timer\" title=\"เวลาที่ใช้ตรวจ\"><span class=\"dot\"></span><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"13\" r=\"8\"></circle><path d=\"M12 9v4l2.4 1.5\"></path><path d=\"M9 2.5h6\"></path><path d=\"M18.4 5.6 19.8 7\"></path></svg><span class=\"t\">{{ examClock }}</span></div>\n  </div>\n</div>\n\n<div v-if=\"tran && (tran.allergy_tags || []).length\" class=\"pcard-alert pcard-alert--danger\">\n  <span class=\"pcard-alert-label\">แพ้ยา</span>\n  <span v-for=\"(t, i) in tran.allergy_tags\" :key=\"i\" class=\"pcard-allergen\"><span class=\"pcard-allergen-name\">{{ t }}</span></span>\n  <span class=\"pcard-alert-note\">ตรวจสอบทุกครั้งก่อนสั่งยา</span>\n  \n</div>\n\n<el-empty v-if=\"!tran\" description=\"ยังไม่ได้เลือกคนไข้ — ค้นหา HN/ชื่อ หรือสแกน Barcode ด้านบน\" />\n\n<div v-if=\"historyVisible\" style=\"position:fixed;top:0;left:0;right:0;bottom:0;z-index:3000;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:20px;\">\n  <div style=\"background:var(--el-bg-color);border-radius:10px;width:520px;max-width:100%;max-height:82vh;overflow-y:auto;padding:20px;box-shadow:0 8px 30px rgba(0,0,0,0.35);\">\n    <div style=\"display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;\">\n      <b style=\"font-size:16px;color:var(--el-text-color-primary);\">ประวัติ BMI / Vital Sign</b>\n      <span style=\"cursor:pointer;font-size:18px;line-height:1;color:var(--el-text-color-secondary);padding:2px 6px;\" @click=\"closeHistory()\">✕</span>\n    </div>\n    <div v-if=\"vsHistory === null || bmiHistory === null\" style=\"text-align:center;padding:20px;color:var(--el-text-color-secondary);\">กำลังโหลด...</div>\n    <div v-if=\"vsHistory !== null && bmiHistory !== null && !historyByVisit().length\" style=\"text-align:center;padding:20px;color:var(--el-text-color-secondary);\">ยังไม่มีประวัติ</div>\n    <div v-for=\"g in historyByVisit()\" :key=\"g.visitId\" style=\"margin-bottom:10px;padding:10px 12px;border:1px solid var(--el-border-color-lighter);border-radius:8px;\">\n      <div style=\"display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;\">\n        <b style=\"font-size:13px;\">VN{{ g.vn }}</b>\n        <span style=\"font-size:12px;color:var(--el-text-color-secondary);\">{{ g.visitDate }}</span>\n      </div>\n      <div v-if=\"g.vs\" style=\"font-size:13px;color:var(--el-text-color-regular);margin-bottom:2px;\">\n        BP {{ g.vs.bp_h || '-' }}/{{ g.vs.bp_l || '-' }} mmHg · PR {{ g.vs.pulse || '-' }} /นาที · Temp {{ g.vs.temp || '-' }}°C · RR {{ g.vs.rr || '-' }} /นาที\n      </div>\n      <div v-if=\"g.bmi\" style=\"font-size:13px;color:var(--el-text-color-regular);\">\n        น้ำหนัก {{ g.bmi.weight || '-' }} กก. · ส่วนสูง {{ g.bmi.stature || '-' }} ซม. · BMI {{ g.bmi.bmi || '-' }} · BSA {{ g.bmi.bsa || '-' }} m²\n      </div>\n      <div v-if=\"!g.vs\" style=\"font-size:12px;color:var(--el-text-color-placeholder);\">ไม่มีบันทึก Vital Sign ใน visit นี้</div>\n      <div v-if=\"!g.bmi\" style=\"font-size:12px;color:var(--el-text-color-placeholder);\">ไม่มีบันทึก BMI ใน visit นี้</div>\n    </div>\n  </div>\n</div>\n\n<div v-if=\"bmiChartVisible\" tabindex=\"-1\" @vue:mounted=\"$event.el.focus()\" @keydown.esc=\"closeBmiChart()\" style=\"position:fixed;top:0;left:0;right:0;bottom:0;z-index:3000;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:16px;outline:none;\">\n  <div style=\"background:var(--el-bg-color);border-radius:10px;width:95vw;height:90vh;max-width:1400px;box-shadow:0 8px 30px rgba(0,0,0,0.35);display:flex;flex-direction:column;overflow:hidden;\">\n    <div style=\"flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border-bottom:1px solid var(--el-border-color-lighter);\">\n      <b style=\"font-size:16px;color:var(--el-text-color-primary);\">กราฟแนวโน้ม BMI</b>\n      <span style=\"cursor:pointer;font-size:18px;line-height:1;color:var(--el-text-color-secondary);padding:2px 6px;\" @click=\"closeBmiChart()\">✕</span>\n    </div>\n    <div style=\"flex:1 1 auto;overflow-y:auto;padding:16px 20px;\">\n      <div v-if=\"bmiHistory === null\" style=\"text-align:center;padding:20px;color:var(--el-text-color-secondary);\">กำลังโหลด...</div>\n      <div v-if=\"bmiHistory !== null && !bmiHistory.length\" style=\"text-align:center;padding:20px;color:var(--el-text-color-secondary);\">ยังไม่มีประวัติ</div>\n      <div v-if=\"bmiHistory && bmiHistory.length\">\n        <template v-if=\"isPediatricBmi()\">\n          <div style=\"font-size:12px;color:var(--el-text-color-secondary);margin-bottom:6px;\">BMI-for-age ({{ bmiSexKey() === 'girls' ? 'เด็กหญิง' : 'เด็กชาย' }} · เส้นอ้างอิง SD/Z-score ล้อตาม BMI Chart for Thai Children โดย TSPE · ลากในกราฟหรือใช้ปุ่มมุมขวาบนเพื่อซูม/เลื่อนดูรายละเอียด)</div>\n          <div :style=\"'background:' + (bmiSexKey() === 'girls' ? '#fbe4ee' : '#e1f0f8') + ';border:1px solid var(--el-border-color-lighter);border-radius:6px;padding:8px;position:relative;'\">\n            <div style=\"position:absolute;top:16px;left:16px;z-index:2;background:rgba(255,255,255,0.92);border:1px solid #cccccc;border-radius:4px;padding:6px 8px;font-size:11px;line-height:1.5;max-width:320px;pointer-events:none;color:#333333;\">\n              <div style=\"text-decoration:underline;font-weight:600;margin-bottom:2px;color:#333333;\">Definition</div>\n              <div v-for=\"(l, idx) in bmiDefinitionLines()\" :key=\"idx\" style=\"color:#333333;\">{{ l }}</div>\n            </div>\n            <div id=\"bmi_apex_chart_el\" style=\"width:100%;height:56vh;\" @vue:mounted=\"bmiChartElMounted($event)\" @vue:unmounted=\"bmiChartElUnmounted()\"></div>\n          </div>\n          <div style=\"font-size:9.5px;color:var(--el-text-color-secondary);margin-top:6px;\">{{ bmiSourceNote() }}</div>\n          <div v-if=\"bmiLatestZ()\" style=\"font-size:12.5px;color:var(--el-text-color-regular);margin-top:8px;padding-top:6px;border-top:1px dashed var(--el-border-color-lighter);\">\n            ค่าล่าสุด: BMI {{ bmiLatestZ().bmi }} kg/m² ที่อายุ {{ (bmiLatestZ().age/12).toFixed(1) }} ปี · z-score ≈ {{ bmiLatestZ().z.toFixed(2) }} SD\n          </div>\n          <div style=\"margin-top:14px;\">\n            <div style=\"font-size:12px;color:var(--el-text-color-secondary);margin-bottom:2px;\">น้ำหนัก (กก.)</div>\n            <div v-html=\"bmiHistoryChartWeight()\" style=\"margin-bottom:14px;\"></div>\n            <div style=\"font-size:12px;color:var(--el-text-color-secondary);margin-bottom:2px;\">ส่วนสูง (ซม.)</div>\n            <div v-html=\"bmiHistoryChartStature()\"></div>\n          </div>\n        </template>\n        <template v-else>\n          <div style=\"font-size:12px;color:var(--el-text-color-secondary);margin-bottom:2px;\">BMI</div>\n          <div v-html=\"bmiHistoryChartBmi()\" style=\"margin-bottom:14px;\"></div>\n          <div style=\"font-size:12px;color:var(--el-text-color-secondary);margin-bottom:2px;\">น้ำหนัก (กก.)</div>\n          <div v-html=\"bmiHistoryChartWeight()\" style=\"margin-bottom:14px;\"></div>\n          <div style=\"font-size:12px;color:var(--el-text-color-secondary);margin-bottom:2px;\">ส่วนสูง (ซม.)</div>\n          <div v-html=\"bmiHistoryChartStature()\"></div>\n        </template>\n      </div>\n    </div>\n  </div>\n</div>\n\n<div v-if=\"vsChartVisible\" tabindex=\"-1\" @vue:mounted=\"$event.el.focus()\" @keydown.esc=\"closeVsChart()\" style=\"position:fixed;top:0;left:0;right:0;bottom:0;z-index:3000;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:20px;outline:none;\">\n  <div style=\"background:var(--el-bg-color);border-radius:10px;width:90vw;max-width:1300px;max-height:85vh;overflow-y:auto;padding:20px;box-shadow:0 8px 30px rgba(0,0,0,0.35);\">\n    <div style=\"display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;\">\n      <b style=\"font-size:16px;color:var(--el-text-color-primary);\">ประวัติ Vital Sign</b>\n      <span style=\"cursor:pointer;font-size:18px;line-height:1;color:var(--el-text-color-secondary);padding:2px 6px;\" @click=\"closeVsChart()\">✕</span>\n    </div>\n    <div style=\"display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;\">\n      <el-button v-for=\"opt in vsFilterOptions\" :key=\"'m'+opt.value\" size=\"small\" :type=\"(vsFilterMode.type==='months' && vsFilterMode.value===opt.value) ? 'primary' : 'default'\" @click=\"setVsFilter('months', opt.value)\">{{ opt.label }}</el-button>\n      <span style=\"width:1px;background:var(--el-border-color-lighter);margin:2px 4px;\"></span>\n      <el-button v-for=\"opt in vsCountFilterOptions\" :key=\"'c'+opt.value\" size=\"small\" :type=\"(vsFilterMode.type==='count' && vsFilterMode.value===opt.value) ? 'primary' : 'default'\" @click=\"setVsFilter('count', opt.value)\">{{ opt.label }}</el-button>\n    </div>\n    <div v-if=\"vsHistory === null\" style=\"text-align:center;padding:20px;color:var(--el-text-color-secondary);\">กำลังโหลด...</div>\n    <div v-if=\"vsHistory !== null && !vsHistory.length\" style=\"text-align:center;padding:20px;color:var(--el-text-color-secondary);\">ยังไม่มีประวัติ</div>\n    <div v-if=\"vsHistory && vsHistory.length && !vsTableRows().length\" style=\"text-align:center;padding:20px;color:var(--el-text-color-secondary);\">ไม่มีข้อมูลในช่วงเวลาที่เลือก</div>\n    <div v-if=\"vsHistory && vsTableRows().length\" style=\"overflow-x:auto;\">\n      <table style=\"width:100%;border-collapse:collapse;font-size:13px;\">\n        <tbody>\n          <tr style=\"border-bottom:1px solid var(--el-border-color-lighter);\">\n            <th style=\"text-align:left;padding:6px 8px;white-space:nowrap;background:var(--el-fill-color-light);\">วันที่/เวลา</th>\n            <td v-for=\"row in vsTableRows()\" :key=\"row.rec._id\" style=\"padding:6px 8px;text-align:center;white-space:nowrap;\">{{ row.dateLabel }}</td>\n          </tr>\n          <tr style=\"border-bottom:1px solid var(--el-border-color-lighter);\">\n            <th style=\"text-align:left;padding:6px 8px;white-space:nowrap;background:var(--el-fill-color-light);\">VN</th>\n            <td v-for=\"row in vsTableRows()\" :key=\"row.rec._id\" style=\"padding:6px 8px;text-align:center;white-space:nowrap;color:var(--el-text-color-secondary);\">{{ row.vn }}</td>\n          </tr>\n          <tr style=\"border-bottom:1px solid var(--el-border-color-lighter);\">\n            <th style=\"text-align:left;padding:6px 8px;white-space:nowrap;background:var(--el-fill-color-light);\">BP (mmHg)</th>\n            <td v-for=\"row in vsTableRows()\" :key=\"row.rec._id\" :style=\"vsCellStyle(row.rec,'bp')\" style=\"padding:6px 8px;text-align:center;white-space:nowrap;\">{{ row.rec.bp_h != null ? row.rec.bp_h + '/' + row.rec.bp_l : '-' }}</td>\n          </tr>\n          <tr style=\"border-bottom:1px solid var(--el-border-color-lighter);\">\n            <th style=\"text-align:left;padding:6px 8px;white-space:nowrap;background:var(--el-fill-color-light);\">Pulse</th>\n            <td v-for=\"row in vsTableRows()\" :key=\"row.rec._id\" :style=\"vsCellStyle(row.rec,'pulse')\" style=\"padding:6px 8px;text-align:center;\">{{ row.rec.pulse != null ? row.rec.pulse : '-' }}</td>\n          </tr>\n          <tr style=\"border-bottom:1px solid var(--el-border-color-lighter);\">\n            <th style=\"text-align:left;padding:6px 8px;white-space:nowrap;background:var(--el-fill-color-light);\">Temp</th>\n            <td v-for=\"row in vsTableRows()\" :key=\"row.rec._id\" :style=\"vsCellStyle(row.rec,'temp')\" style=\"padding:6px 8px;text-align:center;\">{{ row.rec.temp != null ? row.rec.temp : '-' }}</td>\n          </tr>\n          <tr>\n            <th style=\"text-align:left;padding:6px 8px;white-space:nowrap;background:var(--el-fill-color-light);\">RR</th>\n            <td v-for=\"row in vsTableRows()\" :key=\"row.rec._id\" :style=\"vsCellStyle(row.rec,'rr')\" style=\"padding:6px 8px;text-align:center;\">{{ row.rec.rr != null ? row.rec.rr : '-' }}</td>\n          </tr>\n        </tbody>\n      </table>\n    </div>\n  </div>\n</div>\n\n </el-card>\n",
+        "customClass": [
+          "lab-shared-opd-card"
+        ],
+        "onCreated": "const s = this.vueState\nconst field = this\ns.tran = null   // visit tran ที่เลือกจากคิว — เซ็ตโดยปุ่ม EMR / onMounted\n\ns.pt = () => (s.tran && s.tran.vid && s.tran.vid.pid) || {}\ns.ptName = () => {\n  const p = s.pt()\n  return ((p.prename && p.prename.label) || '') + (p.p_fname || '') + ' ' + (p.p_lname || '')\n}\ns.picUrl = () => {\n  const p = s.pt()\n  return (Array.isArray(p.p_pic) && p.p_pic[0] && p.p_pic[0].url) || ''\n}\ns.initial = () => { const p = s.pt(); return p.p_fname ? p.p_fname.charAt(0) : '?' }\ns.genderLabel = () => ({ '1': 'ชาย', '2': 'หญิง' })[s.pt().p_gender] || '-'\ns.aboLabel = () => {\n  const m = { '1': 'A', '2': 'B', '3': 'AB', '4': 'O', '5': 'ไม่ทราบ', '9': 'ไม่ทราบ' }\n  const p = s.pt()\n  return m[p.p_abogroup] || p.p_abogroup || '-'\n}\n// ประเภทบริการ (visit_type บน Visit form) — ค่าจาก builder: 1=ตรวจสุขภาพ, 2=ตรวจตามนัด, 3=รับส่งต่อ, 4=ตรวจรักษา, 5=อื่นๆ\ns.visitTypeMap = { '1': 'ตรวจสุขภาพ', '2': 'ตรวจตามนัด', '3': 'รับส่งต่อ', '4': 'ตรวจรักษา', '5': 'อื่นๆ' }\ns.serviceTypeLabel = () => {\n  const v = s.tran && s.tran.vid && s.tran.vid.visit_type\n  return v ? (s.visitTypeMap[v] || v) : ''\n}\ns.visitTime = () => {\n  const t = s.tran && s.tran.checkin_at\n  if (!t) return '-'\n  const d = field.dayjs(t)\n  return d.format('DD/MM/') + (d.year() + 543) + d.format(' HH:mm')   // ค.ศ. → พ.ศ. (+543)\n}\n\n// เปิดฟอร์มผู้ป่วย (PERSON) — id ผู้ป่วยอยู่ที่ vid.xtbxlv1_xfx_id (= pid.value ของ visit)\ns.openPatient = () => {\n  const pidId = s.tran && s.tran.vid && s.tran.vid.xtbxlv1_xfx_id\n  if (!pidId) { field.alert('ไม่พบ id ผู้ป่วยใน visit นี้', 'warning'); return }\n  const form = field.getFormRef()\n  form.openForm('6a37d3bd4cfbfdbe257fc912', String(pidId), '', null, {\n    afterSaveCallback: (saved) => {\n      form.subFormClose()\n      if (!saved) return\n      const p = s.tran.vid.pid\n      if (p) {\n        ['hn', 'prename', 'p_fname', 'p_lname', 'p_gender', 'age', 'p_abogroup', 'birth_date', 'p_pic']\n          .forEach((k) => { if (k in saved) p[k] = saved[k] })\n      }\n      // sync allergy_tags ลง visit_tran จริง → ws เด้งจอคิว + เอา tags กลับมาอัปเดตการ์ด\n      form.userState.runProcess('6a50cc20e97c6d6bbf111ce0', { person_id: String(s.tran.vid.xtbxlv1_xfx_id), sync_allergy: true }, (res) => {\n        const d = res.data || {}\n        if (d.success && 'allergy_tags' in d) s.tran.allergy_tags = d.allergy_tags || []\n      }, (err) => field.alert('sync การแพ้ไม่สำเร็จ: ' + ((err && err.message) || err), 'error'))\n    }\n\n  })\n}\n\ns.bmiRec = null   // record BMI ล่าสุดของ visit นี้\n\ns.loadBmi = () => {\n  s.bmiRec = null\n  const visitId = s.tran && s.tran.vid && s.tran.vid.value\n  if (!visitId) return\n  field.getFormRef().userState.crudGetAll({\n    sdProvider: {\n      providerId: '6a4689ef39179670f85ba2a2',   // ฟอร์ม BMI\n      providerType: 'FORM',\n      params: { vid: String(visitId) },\n      options: {\n        where: \"`vid.value` = CONVERT(:vid, 'objectId')\",\n        orderBy: [{ column: 'created_at', sort: 'DESC' }],\n        limit: 1,\n        page: 1\n      }\n\n    },\n    totalEnable: false\n  }, (res) => { s.bmiRec = (res.data && res.data[0]) || null })\n}\n\n// เซ็ตคนไข้ + โหลด BMI — ให้ปุ่ม EMR / onMounted เรียกตัวนี้แทนเซ็ต tran ตรง\ns.setTran = (row) => {\n  s.tran = row; s.loadBmi(); s.loadVs(); s.tickExam()\n  // ยังไม่เลือกผู้ป่วย → ซ่อนโซน SOAP ทั้งแถบ (container hide แค่ซ่อน ไม่ล้างค่า field)\n  const box = field.getFieldRef('emr_box')\n  if (box) { row ? box.show() : box.hide() }\n  // เซ็ต visit id ลง field vid + refresh consult — หน่วง 1 tick กันเคส mount แรกที่ field ยังไม่ register\n    // เซ็ต visit id ลง field vid + refresh consult + registry — หน่วง 1 tick กันเคส mount แรกที่ field ยังไม่ register\n  setTimeout(() => {\n    const vidVal = (row && row.vid && row.vid.value) ? String(row.vid.value) : ''\n    const f = field.getFieldRef('vid')\n    if (f) f.setValue(vidVal)\n    const cs = field.getFieldRef('consult_box')\n    if (cs && cs.vueState && cs.vueState.load) cs.vueState.load(vidVal || null)\n\n      const cbn = field.getFieldRef('consult_banner')\n      if (cbn) {\n        if (cbn.vueState && cbn.vueState.load) cbn.vueState.load(row || null)\n        // ซ่อน field ทั้งอันถ้าไม่มี consult ฝั่งรับ (clinic===unit_to) — กันช่องว่าง\n        const ci = row && row.consult_info\n        const showBanner = !!(ci && ci.clinic && row.unit_to && String(ci.clinic) === String(row.unit_to.value))\n        showBanner ? cbn.show() : cbn.hide()\n      }\n\n\n    // refresh Disease Registry — person id อยู่ที่ vid.xtbxlv1_xfx_id (= pid.value ของ visit)\n    const rg = field.getFieldRef('registry_card')\n    if (rg && rg.vueState && rg.vueState.load) {\n      const personId = (row && row.vid && row.vid.xtbxlv1_xfx_id) ? String(row.vid.xtbxlv1_xfx_id) : null\n      rg.vueState.load(personId, (row && row.vid && row.vid.pid) || null, vidVal || null)\n    }\n\n    // ── วางต่อจากบล็อก registry_card ในตัว setTimeout เดิม ──────────────────\n    // refresh การ์ดใบสั่งยา — ส่ง tran ไปด้วย เพราะการ์ดใช้ประกอบ patient context ตอนเปิดจอสั่งยา\n    const oc = field.getFieldRef('order_card');\n    if (oc && oc.vueState && oc.vueState.ordLoad) {\n    \toc.vueState.ordLoad(vidVal || null, row || null);\n    }\n  }, 0)\n\n}\n\n\n\n// เปิดฟอร์ม BMI — dataId null = เพิ่มใหม่ (parent = visit), มีค่า = แก้ record เดิม\ns.openBmi = (dataId) => {\n  const visitId = s.tran && s.tran.vid && s.tran.vid.value\n  if (!visitId) { field.alert('ไม่พบ visit', 'warning'); return }\n  const form = field.getFormRef()\n  form.openForm('6a4689ef39179670f85ba2a2', dataId ? String(dataId) : null, String(visitId), null, {\n    afterSaveCallback: () => { form.subFormClose(); s.loadBmi() }\n  })\n}\n\ns.vsRec = null   // Vital Sign ล่าสุดของ visit นี้\n\n// เกณฑ์ปกติ (ผู้ใหญ่) — นอกช่วง min-max = เตือนเหลือง (is-warning), แตะ dMin/dMax = แดง (is-danger)\n// ปรับตัวเลขได้ที่นี่จุดเดียว\ns.vsRules = {\n  bp_h:  { min: 90, max: 140, dMin: 80, dMax: 180 },\n  bp_l:  { min: 60, max: 90,  dMax: 110 },\n  pulse: { min: 60, max: 100, dMin: 40, dMax: 130 },\n  temp:  { min: 36, max: 37.4, dMin: 35, dMax: 38.5 },\n  rr:    { min: 12, max: 20,  dMin: 8,  dMax: 30 }\n}\ns.vsClassForRec = (rec, name) => {\n  const r = s.vsRules[name]\n  const v = rec ? rec[name] : null\n  if (!r || v == null || v === '') return ''\n  if ((r.dMin != null && v <= r.dMin) || (r.dMax != null && v >= r.dMax)) return 'is-danger'\n  if (v < r.min || v > r.max) return 'is-warning'\n  return ''\n}\ns.vsClass = (name) => s.vsClassForRec(s.vsRec, name)\n// BP ใช้ระดับที่แย่กว่าระหว่างตัวบน/ตัวล่าง\ns.bpClassForRec = (rec) => {\n  const c = [s.vsClassForRec(rec, 'bp_h'), s.vsClassForRec(rec, 'bp_l')]\n  return c.indexOf('is-danger') >= 0 ? 'is-danger' : (c.indexOf('is-warning') >= 0 ? 'is-warning' : '')\n}\ns.bpClass = () => s.bpClassForRec(s.vsRec)\n// สีเซลล์ตาราง VS ตาม threshold เดียวกับการ์ดสรุป — inline style (ไม่พึ่ง CSS class ที่ไม่มีนิยามใน cssCode)\ns.vsCellStyle = (rec, name) => {\n  const cls = name === 'bp' ? s.bpClassForRec(rec) : s.vsClassForRec(rec, name)\n  if (cls === 'is-danger') return 'color:var(--el-color-danger);font-weight:600;'\n  if (cls === 'is-warning') return 'color:var(--el-color-warning);font-weight:600;'\n  return ''\n}\n\ns.loadVs = () => {\n  s.vsRec = null\n  const visitId = s.tran && s.tran.vid && s.tran.vid.value\n  if (!visitId) return\n  field.getFormRef().userState.crudGetAll({\n    sdProvider: {\n      providerId: '6a470b4939179670f85ba2d8',   // ฟอร์ม Vital Sign\n      providerType: 'FORM',\n      params: { vid: String(visitId) },\n      options: {\n        where: \"`vid.value` = CONVERT(:vid, 'objectId')\",\n        orderBy: [{ column: 'created_at', sort: 'DESC' }],\n        limit: 1,\n        page: 1\n      }\n    },\n    totalEnable: false\n  }, (res) => { s.vsRec = (res.data && res.data[0]) || null })\n}\n\n// เปิดฟอร์ม Vital Sign — dataId null = เพิ่มใหม่ (parent = visit), มีค่า = แก้ตัวล่าสุด\ns.openVs = (dataId) => {\n  const visitId = s.tran && s.tran.vid && s.tran.vid.value\n  if (!visitId) { field.alert('ไม่พบ visit', 'warning'); return }\n  const form = field.getFormRef()\n  form.openForm('6a470b4939179670f85ba2d8', dataId ? String(dataId) : null, String(visitId), null, {\n    afterSaveCallback: () => { form.subFormClose(); s.loadVs() }\n  })\n}\n\n// ---- ประวัติ Vital Sign — ข้าม visit ของคนไข้คนนี้ (กรองด้วย vid.xtbxlv1_xfx_id = person id) ----\ns.vsHistory = null\ns.vsFilterOptions = [\n  { label: '1 เดือน', type: 'months', value: 1 },\n  { label: '3 เดือน', type: 'months', value: 3 },\n  { label: '9 เดือน', type: 'months', value: 9 },\n  { label: '1 ปี', type: 'months', value: 12 },\n  { label: '2 ปี', type: 'months', value: 24 },\n  { label: '3 ปี', type: 'months', value: 36 }\n]\ns.vsCountFilterOptions = [\n  { label: '5 ครั้ง', type: 'count', value: 5 },\n  { label: '10 ครั้ง', type: 'count', value: 10 },\n  { label: '20 ครั้ง', type: 'count', value: 20 }\n]\ns.vsFilterMode = { type: 'months', value: 3 }\ns.setVsFilter = (type, value) => { s.vsFilterMode = { type: type, value: value } }\ns.loadVsHistory = () => {\n  const personId = s.tran && s.tran.vid && s.tran.vid.xtbxlv1_xfx_id\n  if (!personId) { field.alert('ไม่พบข้อมูลผู้ป่วย', 'warning'); return }\n  s.vsHistory = null\n  field.getFormRef().userState.crudGetAll({\n    sdProvider: {\n      providerId: '6a470b4939179670f85ba2d8',\n      providerType: 'FORM',\n      params: { pid: String(personId) },\n      options: {\n        where: \"`vid.xtbxlv1_xfx_id` = CONVERT(:pid, 'objectId')\",\n        orderBy: [{ column: 'created_at', sort: 'ASC' }],\n        limit: 200,\n        page: 1\n      }\n    },\n    totalEnable: false\n  }, (res) => { s.vsHistory = res.data || [] })\n}\n\n// ---- ประวัติ BMI — ข้าม visit ของคนไข้คนนี้ ----\ns.bmiHistory = null\ns.loadBmiHistory = () => {\n  const personId = s.tran && s.tran.vid && s.tran.vid.xtbxlv1_xfx_id\n  if (!personId) { field.alert('ไม่พบข้อมูลผู้ป่วย', 'warning'); return }\n  s.bmiHistory = null\n  field.getFormRef().userState.crudGetAll({\n    sdProvider: {\n      providerId: '6a4689ef39179670f85ba2a2',\n      providerType: 'FORM',\n      params: { pid: String(personId) },\n      options: {\n        where: \"`vid.xtbxlv1_xfx_id` = CONVERT(:pid, 'objectId')\",\n        orderBy: [{ column: 'created_at', sort: 'ASC' }],\n        limit: 30,\n        page: 1\n      }\n    },\n    totalEnable: false\n  }, (res) => { s.bmiHistory = res.data || [] })\n}\n\n// ---- รวมประวัติ Vital Sign + BMI เข้าด้วยกัน โดย group ตาม visit (vid.value) ----\ns.historyByVisit = () => {\n  try {\n    const map = {}\n    const addRec = (rec, kind) => {\n      if (!rec || !rec.vid || !rec.vid.value) return\n      const vid = String(rec.vid.value)\n      if (!map[vid]) {\n        map[vid] = {\n          visitId: vid,\n          visitDate: rec.vid.visit_date || (rec.created_at || '').slice(0, 10),\n          vn: rec.vid.vn || '-',\n          vs: null,\n          bmi: null,\n          ts: rec.created_at || ''\n        }\n      }\n      map[vid][kind] = rec\n      if (String(rec.created_at || '') > map[vid].ts) map[vid].ts = rec.created_at\n    }\n    ;(s.vsHistory || []).forEach((r) => addRec(r, 'vs'))\n    ;(s.bmiHistory || []).forEach((r) => addRec(r, 'bmi'))\n    return Object.values(map).sort((a, b) => String(b.ts).localeCompare(String(a.ts)))   // ใหม่สุดก่อน\n  } catch (e) {\n    console.error('[opd_card] historyByVisit failed:', e)\n    return []\n  }\n}\n\n// ---- History รวม (Vital Sign + BMI) — เปิดจากไอคอน TrendCharts ข้างดินสอ BMI/Vital Sign, โหลดทั้งคู่พร้อมกัน ----\ns.historyVisible = false\ns.openHistory = () => { s.historyVisible = true; s.loadVsHistory(); s.loadBmiHistory() }\ns.closeHistory = () => { s.historyVisible = false }   // เรียกจากปุ่ม ✕ ในกล่อง overlay เอง (เลิกใช้ el-dialog แล้ว กัน crash)\n\n// ---- กราฟแนวโน้มแยกราย metric — วาด SVG เอง (ไม่มี chart library ใน sandbox ของ vue-ui) ----\ns.svgLineChart = (series, labels, unit) => {\n  const W = 500, H = 130, padL = 34, padR = 10, padT = 10, padB = 20\n  const innerW = W - padL - padR, innerH = H - padT - padB\n  const vals = series.reduce((a, sr) => a.concat(sr.values.filter((v) => v != null)), [])\n  if (!vals.length) return '<div style=\"text-align:center;padding:16px;color:var(--el-text-color-secondary);font-size:13px;\">ยังไม่มีข้อมูล</div>'\n  let min = Math.min(...vals), max = Math.max(...vals)\n  if (min === max) { min -= 1; max += 1 }\n  const pad = (max - min) * 0.15\n  min -= pad; max += pad\n  const n = labels.length\n  const xAt = (i) => padL + (n <= 1 ? innerW / 2 : (innerW * i) / (n - 1))\n  const yAt = (v) => padT + innerH - ((v - min) / (max - min)) * innerH\n  let svg = '<svg viewBox=\"0 0 ' + W + ' ' + H + '\" style=\"width:100%;height:' + H + 'px;display:block;\">'\n  for (let g = 0; g < 3; g++) {\n    const gy = padT + (innerH * g) / 2\n    const gv = (max - ((max - min) * g) / 2).toFixed(1)\n    svg += '<line x1=\"' + padL + '\" y1=\"' + gy + '\" x2=\"' + (W - padR) + '\" y2=\"' + gy + '\" stroke=\"var(--el-border-color-lighter)\" stroke-width=\"1\"/>'\n    svg += '<text x=\"2\" y=\"' + (gy + 3) + '\" font-size=\"9\" fill=\"var(--el-text-color-secondary)\">' + gv + '</text>'\n  }\n  labels.forEach((lb, i) => {\n    if (n > 1 && i % Math.ceil(n / 6) !== 0 && i !== n - 1) return\n    svg += '<text x=\"' + xAt(i) + '\" y=\"' + (H - 4) + '\" font-size=\"9\" fill=\"var(--el-text-color-secondary)\" text-anchor=\"middle\">' + lb + '</text>'\n  })\n  series.forEach((sr) => {\n    const segs = []\n    let cur = []\n    sr.values.forEach((v, i) => {\n      if (v == null) { if (cur.length) { segs.push(cur); cur = [] } return }\n      cur.push(xAt(i) + ',' + yAt(v))\n    })\n    if (cur.length) segs.push(cur)\n    segs.forEach((seg) => { svg += '<polyline points=\"' + seg.join(' ') + '\" fill=\"none\" stroke=\"' + sr.color + '\" stroke-width=\"2\"/>' })\n    sr.values.forEach((v, i) => {\n      if (v == null) return\n      svg += '<circle cx=\"' + xAt(i) + '\" cy=\"' + yAt(v) + '\" r=\"3\" fill=\"' + sr.color + '\"><title>' + sr.name + ': ' + v + (unit || '') + '</title></circle>'\n    })\n  })\n  svg += '</svg>'\n  return svg\n}\ns.chartLegend = (series) => series.map((sr) => '<span style=\"display:inline-flex;align-items:center;gap:4px;margin-right:12px;font-size:12px;color:var(--el-text-color-regular);\"><span style=\"width:9px;height:9px;border-radius:50%;background:' + sr.color + ';display:inline-block;\"></span>' + sr.name + '</span>').join('')\n\n// ---- กราฟ BMI (weight/stature/BMI) — เปิดจากไอคอน TrendCharts ข้างดินสอ BMI ----\ns.bmiChartVisible = false\ns.bmiApexInstance = null\ns.bmiChartElNode = null\ns.openBmiChart = () => { s.bmiChartVisible = true; s.loadBmiHistory() }\ns.closeBmiChart = () => {\n  s.bmiChartVisible = false\n  if (s.bmiApexInstance) { s.bmiApexInstance.destroy(); s.bmiApexInstance = null }\n  s.bmiChartElNode = null\n}\ns.bmiChartElMounted = (vnode) => {\n  s.bmiChartElNode = (vnode && vnode.el) || null\n  s.bmiApexLoadTries = 0\n  s.mountBmiChart()\n}\ns.bmiChartElUnmounted = () => {\n  if (s.bmiApexInstance) { s.bmiApexInstance.destroy(); s.bmiApexInstance = null }\n  s.bmiChartElNode = null\n}\n\n// ---- WHO BMI-for-age LMS (0-19y, ชาย/หญิง) — ของจริงจาก WHO Child Growth Standards (0-5y) +\n// WHO Growth Reference (5-19y), ดึงจาก cdn.who.int แล้ว cross-check บิตต่อบิตกับ WHO GitHub source\n// (anthro/anthroplus) ไม่ใช่ตัวเลขประมาณ — sampled ทุก 1 ด. (0-24), 3 ด. (24-60), 6 ด. (60-228)\n// แต่ละแถว [age_months, L, M, S] ต่อจุด ใช้สูตร LMS มาตรฐานแปลงเป็นเส้น percentile ใดก็ได้\ns.WHO_BMI_LMS = {\n  boys: [[0,-0.3053,13.4069,0.0956],[1,0.2708,14.9441,0.09027],[2,0.1118,16.3195,0.08677],[3,0.0068,16.8987,0.08495],[4,-0.0727,17.1579,0.08378],[5,-0.137,17.2919,0.08296],[6,-0.1913,17.3422,0.08234],[7,-0.2385,17.3288,0.08183],[8,-0.2802,17.2647,0.0814],[9,-0.3176,17.1662,0.08102],[10,-0.3516,17.0488,0.08068],[11,-0.3828,16.9239,0.08037],[12,-0.4115,16.7981,0.08009],[13,-0.4382,16.6743,0.07982],[14,-0.463,16.5548,0.07958],[15,-0.4863,16.4409,0.07935],[16,-0.5082,16.3335,0.07913],[17,-0.5289,16.2329,0.07892],[18,-0.5484,16.1392,0.07873],[19,-0.5669,16.0528,0.07854],[20,-0.5846,15.9743,0.07836],[21,-0.6014,15.9039,0.07818],[22,-0.6174,15.8412,0.07802],[23,-0.6328,15.7852,0.07786],[24,-0.6187,16.0189,0.07785],[27,-0.5166,15.9036,0.07808],[30,-0.4274,15.7953,0.07841],[33,-0.3572,15.6934,0.07882],[36,-0.3101,15.5988,0.07931],[39,-0.2884,15.514,0.0799],[42,-0.2919,15.442,0.08061],[45,-0.3174,15.3827,0.08144],[48,-0.3622,15.3326,0.08238],[51,-0.4245,15.2891,0.08343],[54,-0.5019,15.2514,0.08457],[57,-0.5905,15.2188,0.08577],[60,-0.6892,15.1916,0.087],[66,-0.8554,15.2645,0.08516],[72,-0.9921,15.3062,0.08682],[78,-1.123,15.3825,0.08865],[84,-1.246,15.4832,0.09068],[90,-1.3596,15.6023,0.09289],[96,-1.4629,15.7368,0.09526],[102,-1.5542,15.8855,0.09778],[108,-1.6318,16.049,0.10038],[114,-1.6944,16.2333,0.10303],[120,-1.7407,16.4433,0.10566],[126,-1.771,16.6786,0.10823],[132,-1.7862,16.9392,0.1107],[138,-1.7873,17.2236,0.11304],[144,-1.7751,17.5334,0.11522],[150,-1.7511,17.8704,0.1172],[156,-1.7168,18.233,0.11898],[162,-1.6732,18.6148,0.12055],[168,-1.6211,19.005,0.12191],[174,-1.5615,19.3937,0.1231],[180,-1.4961,19.7744,0.12412],[186,-1.4263,20.1427,0.12501],[192,-1.3529,20.4951,0.12579],[198,-1.2762,20.8287,0.1265],[204,-1.1962,21.1423,0.12715],[210,-1.1129,21.4354,0.12777],[216,-1.026,21.7077,0.12836],[222,-0.9356,21.9585,0.12893],[228,-0.8419,22.1883,0.12948]],\n  girls: [[0,-0.0631,13.3363,0.09272],[1,0.3448,14.5679,0.09556],[2,0.1749,15.7679,0.09371],[3,0.0643,16.3574,0.09254],[4,-0.0191,16.6703,0.09166],[5,-0.0864,16.8386,0.09096],[6,-0.1429,16.9083,0.09036],[7,-0.1916,16.902,0.08984],[8,-0.2344,16.8404,0.08939],[9,-0.2725,16.7406,0.08898],[10,-0.3068,16.6184,0.08861],[11,-0.3381,16.4875,0.08828],[12,-0.3667,16.3568,0.08797],[13,-0.3932,16.2311,0.08768],[14,-0.4177,16.1128,0.08741],[15,-0.4407,16.0028,0.08716],[16,-0.4623,15.9017,0.08693],[17,-0.4825,15.8096,0.08671],[18,-0.5017,15.7263,0.0865],[19,-0.5199,15.6517,0.0863],[20,-0.5372,15.5855,0.08612],[21,-0.5537,15.5278,0.08594],[22,-0.5695,15.4787,0.08577],[23,-0.5846,15.438,0.0856],[24,-0.5684,15.6881,0.08454],[27,-0.5684,15.6037,0.08446],[30,-0.5684,15.5276,0.08444],[33,-0.5684,15.4572,0.08467],[36,-0.5684,15.3968,0.08535],[39,-0.5684,15.3493,0.08654],[42,-0.5684,15.3116,0.08813],[45,-0.5684,15.2814,0.08991],[48,-0.5684,15.2602,0.09168],[51,-0.5684,15.2503,0.09345],[54,-0.5684,15.2519,0.09515],[57,-0.5684,15.2612,0.09665],[60,-0.5684,15.2747,0.09789],[66,-0.978,15.2464,0.0992],[72,-1.0794,15.2697,0.10195],[78,-1.1728,15.32,0.10471],[84,-1.2565,15.4036,0.10746],[90,-1.3287,15.524,0.1102],[96,-1.388,15.681,0.11291],[102,-1.4336,15.8738,0.11557],[108,-1.465,16.0964,0.11816],[114,-1.4823,16.3425,0.12067],[120,-1.4864,16.6133,0.12307],[126,-1.4787,16.9136,0.12534],[132,-1.4606,17.2459,0.12748],[138,-1.4339,17.6088,0.12946],[144,-1.4006,17.9966,0.13129],[150,-1.3621,18.3986,0.13295],[156,-1.3195,18.8012,0.13445],[162,-1.2739,19.1931,0.1358],[168,-1.2266,19.5647,0.137],[174,-1.1788,19.907,0.13808],[180,-1.1311,20.2125,0.13904],[186,-1.0838,20.4769,0.13991],[192,-1.0368,20.7008,0.1407],[198,-0.9898,20.8863,0.14142],[204,-0.9423,21.0367,0.14208],[210,-0.8944,21.1586,0.14271],[216,-0.8462,21.2603,0.1433],[222,-0.798,21.348,0.14386],[228,-0.7496,21.4269,0.14441]]\n}\n\n// สูตร LMS มาตรฐาน (WHO) — X_p จาก z-score, และย้อนกลับ z-score จาก X ที่วัดได้จริง\ns.lmsToValue = (L, M, S, z) => (Math.abs(L) < 1e-8 ? M * Math.exp(S * z) : M * Math.pow(1 + L * S * z, 1 / L))\ns.lmsToZ = (L, M, S, x) => (Math.abs(L) < 1e-8 ? Math.log(x / M) / S : (Math.pow(x / M, L) - 1) / (L * S))\ns.BMI_SD_LINES = [-3, -2, -1.5, -1, 0, 1, 1.5, 2, 3]   // เส้น SD/Z-score ตาม BMI Chart for Thai Children by TSPE (thaipedendo.org)\n\n// LMS ที่อายุใดๆ (เดือน) — interpolate เชิงเส้นระหว่างจุดที่มีจริง (ตารางไม่ได้ละเอียดทุกเดือนช่วง 2 ปีขึ้นไป)\ns.lmsAt = (table, ageMo) => {\n  if (ageMo <= table[0][0]) return table[0]\n  const last = table[table.length - 1]\n  if (ageMo >= last[0]) return last\n  for (let i = 0; i < table.length - 1; i++) {\n    const a = table[i], b = table[i + 1]\n    if (ageMo >= a[0] && ageMo <= b[0]) {\n      const t = (b[0] === a[0]) ? 0 : (ageMo - a[0]) / (b[0] - a[0])\n      return [ageMo, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t, a[3] + (b[3] - a[3]) * t]\n    }\n  }\n  return last\n}\n\ns.ageMonthsBetween = (fromDate, toDate) => {\n  if (!fromDate || !toDate) return null\n  const a = field.dayjs(fromDate), b = field.dayjs(toDate)\n  if (!a.isValid() || !b.isValid()) return null\n  return b.diff(a, 'month', true)\n}\ns.currentAgeMonths = () => s.ageMonthsBetween(s.pt().birth_date, new Date())\ns.isPediatricBmi = () => { const m = s.currentAgeMonths(); return m != null && m <= 228 }   // <= 19 ปี\ns.bmiSexKey = () => (s.pt().p_gender === '2' ? 'girls' : 'boys')   // '2' = หญิง (genderLabel เดียวกับที่ใช้ทั้งไฟล์)\n\n// ช่วงอายุของ \"โปสเตอร์\" ที่จะโชว์ — ยึดจุดตัดข้อมูลจริงที่ 60 เดือน (WHO สลับ curve fit ตรงนี้พอดี)\n// เด็ก <5y เห็นกราฟ 0-5y, เด็ก >=5y เห็นกราฟ 5-19y (แบบเดียวกับโปสเตอร์จริงที่ TSPE ใช้แยกช่วงอายุ)\ns.bmiChartAgeRange = () => { const m = s.currentAgeMonths(); return (m != null && m >= 60) ? [60, 228] : [0, 60] }\n\n// เกณฑ์ overweight/obesity ของจริงจาก BMI Chart for Thai Children by TSPE (คนละเกณฑ์ระหว่างช่วงอายุ) —\n// แสดงเป็นข้อมูลอ้างอิงในกราฟเท่านั้น ไม่เอาไปตัดสิน/ติดป้ายผลของคนไข้อัตโนมัติ (เหตุผลเดิม: อ่าน log 2026-08-03)\ns.bmiDefinitionLines = () => {\n  const [lo] = s.bmiChartAgeRange()\n  return lo === 0\n    ? ['Overweight: BMI SDS > +2 to +3', 'Obesity: BMI SDS > +3']\n    : ['Overweight: BMI SDS > +1 to +2 or BMI ≥ 23-24.9 kg/m²', 'Obesity: BMI SDS > +2 or BMI ≥ 25 kg/m²']\n}\n// ความโปร่งใสเรื่อง data source: 0-5y ใช้ WHO ตรงกับที่ TSPE ใช้ แต่ 5-19y ต้นฉบับ TSPE ใช้ข้อมูลไทย\n// (National Growth Reference 2020) คนละชุดกับ WHO Growth Reference ที่กราฟนี้ใช้ — บอกตรงๆ ในกราฟเลย\ns.bmiSourceNote = () => {\n  const [lo] = s.bmiChartAgeRange()\n  return lo === 0\n    ? 'BMI-for-age อ้างอิง: WHO Child Growth Standards (2006) — แหล่งเดียวกับที่ TSPE ใช้ในช่วงอายุนี้ · รูปแบบ/สีออกแบบให้ล้อตาม BMI Chart for Thai Children โดย TSPE'\n    : 'BMI-for-age อ้างอิง: WHO Growth Reference (2007) — คำเตือน: กราฟต้นฉบับของ TSPE ช่วงอายุนี้ใช้ข้อมูล National Growth Reference 2020 (สำนักโภชนาการ) คนละชุดกับที่นี่ ตัวเลขอาจต่างเล็กน้อย'\n}\ns.bmiGrowthCurves = () => {\n  const [lo, hi] = s.bmiChartAgeRange()\n  return s.WHO_BMI_LMS[s.bmiSexKey()].filter((r) => r[0] >= lo && r[0] <= hi)\n}\n\n// จุด BMI จริงของเด็ก (อายุ ณ วันที่บันทึกแต่ละครั้ง, ไม่ใช่ index) — เฉพาะจุดที่อยู่ในช่วงโปสเตอร์ที่เลือก\ns.bmiPatientPoints = () => {\n  const [lo, hi] = s.bmiChartAgeRange()\n  const bd = s.pt().birth_date\n  return (s.bmiHistory || [])\n    .map((r) => {\n      const age = s.ageMonthsBetween(bd, r.created_at)\n      return (age == null || r.bmi == null) ? null : { age, bmi: Number(r.bmi) }\n    })\n    .filter((p) => p && p.age >= lo && p.age <= hi)\n    .sort((a, b) => a.age - b.age)\n}\n\n// วาดกราฟ BMI-for-age เอง — เส้นอ้างอิง P3/P15/P50/P85/P97 (จาก LMS จริงข้างบน) + เส้น BMI จริงของเด็กทับ\ns.bmiApexOptions = () => {\n  const curves = s.bmiGrowthCurves()\n  const [lo, hi] = s.bmiChartAgeRange()\n  const isGirl = s.bmiSexKey() === 'girls'\n  const bg = isGirl ? '#fbe4ee' : '#e1f0f8'\n  const gridColor = isGirl ? '#f2c2d9' : '#bfe0ef'\n\n  const sdLines = s.BMI_SD_LINES\n  const sdSeries = sdLines.map((z) => ({\n    name: (z > 0 ? '+' + z : String(z)) + ' SD',\n    data: curves.map((r) => ({ x: r[0], y: Math.round(s.lmsToValue(r[1], r[2], r[3], z) * 100) / 100 }))\n  }))\n  const ptPoints = s.bmiPatientPoints()\n  const patientSeries = {\n    name: 'BMI คนไข้',\n    data: ptPoints.map((p) => ({ x: p.age, y: p.bmi }))\n  }\n  const series = sdSeries.concat([patientSeries])\n\n  return {\n    chart: {\n      type: 'line',\n      height: '100%',\n      background: bg,\n      toolbar: { show: true, tools: { download: false } },\n      zoom: { enabled: true, type: 'x', autoScaleYaxis: true },\n      animations: { enabled: false }\n    },\n    colors: sdLines.map(() => '#222222').concat(['#626aef']),\n    stroke: {\n      width: sdLines.map((z) => (z === 0 ? 3 : 1.3)).concat([3]),\n      curve: 'straight'\n    },\n    markers: { size: sdLines.map(() => 0).concat([4]) },\n    dataLabels: { enabled: false },\n    grid: { borderColor: gridColor },\n    legend: { show: true, position: 'right', fontSize: '11px', offsetY: 10 },\n    tooltip: {\n      shared: false,\n      custom: function (opt) {\n        const ser = opt.w.config.series[opt.seriesIndex]\n        const pt = ser.data[opt.dataPointIndex]\n        const ageYears = (pt.x / 12).toFixed(1)\n        const color = (opt.w.config.colors && opt.w.config.colors[opt.seriesIndex]) || '#222222'\n        return '<div style=\"background:#ffffff;color:#222222;padding:6px 10px;border-radius:4px;font-size:12px;border:1px solid #cccccc;box-shadow:0 2px 6px rgba(0,0,0,0.25);white-space:nowrap;\">' +\n          '<div style=\"font-weight:600;margin-bottom:2px;\">' + ageYears + ' ปี</div>' +\n          '<div><span style=\"display:inline-block;width:8px;height:8px;border-radius:50%;background:' + color + ';margin-right:4px;\"></span>' + ser.name + ': ' + pt.y + '</div>' +\n          '</div>'\n      }\n    },\n    xaxis: {\n      type: 'numeric',\n      min: lo,\n      max: hi,\n      title: { text: 'อายุ (ปี)' },\n      labels: { formatter: (v) => (v / 12).toFixed(0) },\n      tooltip: { enabled: false }\n    },\n    yaxis: {\n      title: { text: 'BMI (kg/m²)' },\n      decimalsInFloat: 1\n    },\n    series: series\n  }\n}\n\ns.bmiApexLoadTries = 0\ns.mountBmiChart = () => {\n  if (!s.bmiChartVisible || !s.isPediatricBmi() || !s.bmiHistory || !s.bmiHistory.length) return\n  const el = s.bmiChartElNode\n  const hasLib = (typeof ApexCharts !== 'undefined')\n  if (s.bmiApexLoadTries === 0) {\n    console.log('[BMI chart] mount attempt: container=' + (el ? 'found' : 'MISSING') + ' ApexCharts=' + (hasLib ? 'ready' : 'MISSING'))\n  }\n  if (!el || !hasLib) {\n    s.bmiApexLoadTries++\n    if (s.bmiApexLoadTries > 120) {\n      const reason = !el ? 'ไม่พบ container element' : 'ApexCharts library ไม่พร้อมใช้งาน'\n      console.error('[BMI chart] gave up after ' + s.bmiApexLoadTries + ' tries — container=' + (el ? 'found' : 'MISSING') + ' ApexCharts=' + (hasLib ? 'ready' : 'MISSING'))\n      if (el) el.innerHTML = '<div style=\"padding:16px;color:#c0392b;font-size:12px;\">โหลดกราฟไม่สำเร็จ: ' + reason + '</div>'\n      return\n    }\n    setTimeout(s.mountBmiChart, 150)\n    return\n  }\n  s.bmiApexLoadTries = 0\n  if (s.bmiApexInstance) { s.bmiApexInstance.destroy(); s.bmiApexInstance = null }\n  try {\n    s.bmiApexInstance = new ApexCharts(el, s.bmiApexOptions())\n    s.bmiApexInstance.render()\n    console.log('[BMI chart] rendered ok')\n  } catch (e) {\n    el.innerHTML = '<div style=\"padding:16px;color:#c0392b;font-size:12px;\">วาดกราฟผิดพลาด: ' + (e && e.message ? e.message : String(e)) + '</div>'\n    console.error('[BMI chart] render error', e)\n  }\n}\n\ns.bmiLatestZ = () => {\n  const list = s.bmiHistory || []\n  const rec = list.length ? list[list.length - 1] : null   // loadBmiHistory เรียง created_at ASC\n  if (!rec || rec.bmi == null) return null\n  const age = s.ageMonthsBetween(s.pt().birth_date, rec.created_at)\n  if (age == null) return null\n  const [, L, M, S] = s.lmsAt(s.WHO_BMI_LMS[s.bmiSexKey()], age)\n  return { z: s.lmsToZ(L, M, S, Number(rec.bmi)), age, bmi: Number(rec.bmi) }\n}\n\ns.bmiHistoryLabels = () => (s.bmiHistory || []).map((r) => field.dayjs(r.created_at).format('DD/MM'))\ns.bmiHistoryChartBmi = () => s.svgLineChart([\n  { name: 'BMI', color: '#626aef', values: (s.bmiHistory || []).map((r) => (r.bmi == null ? null : Number(r.bmi))) }\n], s.bmiHistoryLabels(), '')\ns.bmiHistoryChartWeight = () => s.svgLineChart([\n  { name: 'น้ำหนัก', color: '#e6a23c', values: (s.bmiHistory || []).map((r) => (r.weight == null ? null : Number(r.weight))) }\n], s.bmiHistoryLabels(), ' กก.')\ns.bmiHistoryChartStature = () => s.svgLineChart([\n  { name: 'ส่วนสูง', color: '#67c23a', values: (s.bmiHistory || []).map((r) => (r.stature == null ? null : Number(r.stature))) }\n], s.bmiHistoryLabels(), ' ซม.')\n\n// ---- กราฟ Vital Sign (BP/Pulse/Temp/RR) — เปิดจากไอคอน TrendCharts ข้างดินสอ Vital Sign ----\ns.vsChartVisible = false\ns.openVsChart = () => { s.vsChartVisible = true; s.loadVsHistory() }\ns.closeVsChart = () => { s.vsChartVisible = false }\ns.vsTableRows = () => {\n  let list = (s.vsHistory || []).slice()\n  if (s.vsFilterMode.type === 'count') {\n    list = list.slice(-s.vsFilterMode.value)\n  } else {\n    list = list.filter((r) => field.dayjs().diff(field.dayjs(r.created_at), 'month', true) <= s.vsFilterMode.value)\n  }\n  return list.reverse().map((r) => {\n    const d = field.dayjs(r.created_at)\n    return {\n      rec: r,\n      dateLabel: d.format('DD/MM/') + (d.year() + 543) + d.format(' HH:mm'),\n      vn: (r.vid && r.vid.vn) || '-'\n    }\n  })\n}\n\n// ---- timer เวลาตรวจ — นับจาก start_at (stamp ตอนกดเริ่มตรวจ) เท่านั้น ----\n// ยังไม่เริ่มตรวจ = '--:--' (ไม่ fallback checkin_at — นั่นคือเวลารอ ไม่ใช่เวลาตรวจ)\ns.examClock = '--:--'\ns.tickExam = () => {\n  const t = s.tran && s.tran.start_at\n  if (!t) { s.examClock = '--:--'; return }\n  const sec = Math.max(0, Math.floor((new Date() - new Date(String(t).replace(' ', 'T'))) / 1000))\n  const h = Math.floor(sec / 3600)\n  const mm = String(Math.floor((sec % 3600) / 60)).padStart(2, '0')\n  const ss = String(sec % 60).padStart(2, '0')\n  s.examClock = h > 0 ? h + ':' + mm + ':' + ss : mm + ':' + ss\n}\n\n\n\n\n\n// Lab Workbench search adapter: query only the current laboratory section.\ns.patientSearch='';s.barcodeSearch='';s.labContextRow=null;\ns.labText=v=>{if(v==null)return '';if(typeof v==='object')return s.labText(v.value||v.code||v.label||v.name||v._id||'');return String(v).trim()};\ns.labUnitCode=()=>{const form=field.getFormRef&&field.getFormRef(),state=(form&&form.userState)||field.globalUserState||{},user=state.user||state,raw=user.unit||user.currentUnit||user.xunitx||state.unit||state.currentUnit||state.xunitx||{};return s.labText(raw)};\ns.labAllowedSections=()=>{const code=s.labUnitCode();return code==='20'?['20','22']:(code?[code]:[])};\ns.labRights=row=>{const raw=row&&(row.inscl_hos_json||row.treatment_right||row.insurance_right)||[];try{const list=Array.isArray(raw)?raw:(typeof raw==='string'&&raw.trim().charAt(0)==='['?JSON.parse(raw):[raw]);return list.map(x=>s.labText(x&&typeof x==='object'?(x.label||x.value||x.name):x)).filter(Boolean)}catch(e){return []}};\ns.rowToTran=row=>({checkin_at:row.received_at||row.ordered_at||row.created_at,start_at:row.processing_at||null,pttype:s.labRights(row),allergy_tags:Array.isArray(row.allergy_tags)?row.allergy_tags:[],vid:{value:s.labText(row.visit_id||row.visit_id_link),vn:s.labText(row.visit_vn||row.vn),visit_type:s.labText(row.visit_type),pid:{hn:s.labText(row.patient_hn||row.hn),p_fname:s.labText(row.patient_name),p_lname:'',p_gender:s.labText(row.patient_gender||row.gender),age:s.labText(row.patient_age||row.age),birth_date:row.patient_birth_date||row.birth_date||'',p_phone:s.labText(row.patient_phone||row.p_phone),p_abogroup:s.labText(row.patient_abogroup||row.p_abogroup),p_pic:row.patient_photo_url?[{url:row.patient_photo_url}]:[]}}});\ns.selectLabRow=row=>{s.labContextRow=row||null;s.setTran(row?s.rowToTran(row):null)};\ns.clearPatientSearch=()=>{s.patientSearch='';s.barcodeSearch='';s.selectLabRow(null)};\ns.runPatientSearch=mode=>{const q=s.labText(mode==='barcode'?s.barcodeSearch:s.patientSearch).toLowerCase(),sections=s.labAllowedSections(),form=field.getFormRef&&field.getFormRef(),api=(form&&form.userState)||field.globalUserState;if(!q){field.notify('กรุณาระบุ HN ชื่อ หรือสแกน Barcode','warning',2500);return}if(!sections.length){field.notify('ไม่พบห้อง Lab ของผู้ใช้ จึงไม่ค้นหาข้ามห้อง','warning',3000);return}if(!api||typeof api.crudGetAll!=='function'){field.notify('ไม่พบ Form connector','error',3000);return}const where='('+sections.map(x=>\"section_code = '\"+x+\"'\").join(' OR ')+')';api.crudGetAll({sdProvider:{providerId:'6a7daa3e8d398c11cf2fe869',providerType:'FORM',params:{},options:{where,limit:500,page:1,orderBy:[{column:'updated_at',sort:'DESC'}]}},totalEnable:true},out=>{const rows=(out&&out.data&&Array.isArray(out.data)?out.data:(out&&out.data&&Array.isArray(out.data.data)?out.data.data:[]));const matched=rows.filter(row=>[row.patient_hn,row.patient_name,row.order_number,row.lab_no,row.barcode].map(s.labText).join(' ').toLowerCase().includes(q));if(!matched.length){s.selectLabRow(null);field.notify('ไม่พบผู้ป่วย/รายการในห้อง Lab นี้','warning',3000);return}s.selectLabRow(matched[0]);if(matched.length>1)field.notify('พบ '+matched.length+' รายการ — แสดงรายการล่าสุดก่อน','info',2500)},err=>field.notify('ค้นหาไม่สำเร็จ: '+String((err&&err.message)||err||''),'error',3500))};",
+        "onMounted": "const form = this.getFormRef()\nif (form && form.$examTran) {\n  this.vueState.setTran(form.$examTran)\n} else {\n  // เปิดแท็บ EMR ตรงๆ โดยยังไม่กด EMR จากคิว → ซ่อนโซน SOAP\n  const box = this.getFieldRef('emr_box')\n  if (box) box.hide()\n}\n\n// เริ่มเดินนาฬิกา — กัน interval ซ้อนกรณี re-mount\nconst s = this.vueState\nif (s.examTimerId) clearInterval(s.examTimerId)\ns.tickExam()\ns.examTimerId = setInterval(s.tickExam, 1000)\n",
+        "label": "OPD Card",
+        "onUnmount": "// หยุดนาฬิกาตอน widget ถูกถอด (สลับแท็บ/ปิดฟอร์ม) — กัน interval รั่ว\nif (this.vueState.examTimerId) clearInterval(this.vueState.examTimerId)\n"
+      },
+      "id": "vue-ui-lab-patient-opd-card-draft"
+    },
+    {
+      "key": 81001,
+      "name": "Tab",
+      "component": "tab",
+      "category": "container",
+      "icon": "tab",
+      "fieldType": "None",
+      "fieldLength": null,
+      "children": false,
+      "enable": true,
+      "formItemFlag": false,
+      "tabs": [
+        {
+          "key": 81010,
+          "name": "Tab Pane",
+          "component": "tab-pane",
+          "category": "container",
+          "icon": "tab-pane",
+          "fieldType": "None",
+          "fieldLength": null,
+          "children": true,
+          "enable": true,
+          "formItemFlag": false,
+          "fields": [
+            {
+              "key": 81304,
+              "name": "List View",
+              "component": "list-ui",
+              "category": "display_ui",
+              "icon": "list-ui",
+              "fieldType": "Array",
+              "fieldLength": null,
+              "children": false,
+              "enable": true,
+              "formItemFlag": false,
+              "options": {
+                "name": "lab_waiting_list",
+                "label": "List View",
+                "customClass": [
+                  "lab-workbench-list"
+                ],
+                "columnSpan": 24,
+                "hidden": false,
+                "formId": "6a7daa3e8d398c11cf2fe869",
+                "parentId": "",
+                "params": null,
+                "titleEnable": true,
+                "titleName": "รอรับสิ่งส่งตรวจ",
+                "where": "(section_code = :xunit_codex OR (:xunit_codex = '20' AND section_code = '22')) AND specimen_status = 'sent' AND (work_status = 'waiting_receive' OR work_status IS NULL)",
+                "orderBy": [
+                  {
+                    "column": "updated_at",
+                    "sort": "DESC"
+                  }
+                ],
+                "searchField": [
+                  "patient_hn",
+                  "patient_name",
+                  "order_number",
+                  "lab_no"
+                ],
+                "limitRow": 50,
+                "actionEnable": false,
+                "addBtnEnable": false,
+                "delBtnEnable": false,
+                "viewBtnEnable": false,
+                "reloadBtnEnable": true,
+                "updateBtnEnable": false,
+                "height": "560px",
+                "providerType": "FORM",
+                "buttonsRow": [],
+                "defaultFilterParent": false,
+                "parentPath": "_id",
+                "showWhenParent": false,
+                "enableWs": true,
+                "listType": "listview",
+                "iconWigth": 48,
+                "iconField": null,
+                "titleContent": "",
+                "titleField": null,
+                "detailContent": "<div class=\"lab-wb-row\">\n  <div class=\"lab-wb-avatar\">{{patientInitial}}</div>\n  <div class=\"lab-wb-patient\"><b>{{patient_name}}</b><span>{{patientHnLabel}}</span><strong>LAB NO. {{labNoLabel}}</strong></div>\n  <div class=\"lab-wb-cell\"><label>คลินิก/หน่วยส่ง</label><span>{{sourceUnitLabel}}</span></div>\n  <div class=\"lab-wb-cell\"><label>ผู้สั่งตรวจ</label><span>{{doctorLabel}}</span></div>\n  <div class=\"lab-wb-cell\"><label>รายการตรวจ</label><span>{{orderCountLabel}}</span></div>\n  <div class=\"lab-wb-cell\"><label>Specimen</label><span>{{specimenLabel}}</span></div>\n  <div class=\"lab-wb-cell\"><label>สถานะ / เวลา</label><b>{{statusLabel}}</b><small>{{eventTimeLabel}}</small></div>\n</div>",
+                "statusContent": "",
+                "statusField": null,
+                "colorField": null,
+                "groupField": null,
+                "disableNoMore": false,
+                "scrollDistance": 1,
+                "listColumn": 1,
+                "detailMaxRow": 8,
+                "totalEnable": true,
+                "noMoreLabel": "หมดรายการ",
+                "searchPlaceholder": "ค้นหา HN, ชื่อผู้ป่วย หรือ LAB NO.",
+                "clickEvent": "",
+                "customValue": [
+                  {
+                    "fieldName": "patientInitial",
+                    "expressions": "(function(){var x=String(row.patient_name||row.patient_hn||'?').trim();return x?x.charAt(0).toUpperCase():'?'})()"
+                  },
+                  {
+                    "fieldName": "patientHnLabel",
+                    "expressions": "'HN '+String(row.patient_hn||row.hn||'-')"
+                  },
+                  {
+                    "fieldName": "labNoLabel",
+                    "expressions": "String(row.order_number||row.lab_no||'-')"
+                  },
+                  {
+                    "fieldName": "sourceUnitLabel",
+                    "expressions": "String(row.source_unit_name||row.ward_clinic||row.sender_unit_name||'-')"
+                  },
+                  {
+                    "fieldName": "doctorLabel",
+                    "expressions": "String(row.ordering_provider_name||row.doctor_name||row.ordered_by_name||'-')"
+                  },
+                  {
+                    "fieldName": "specimenLabel",
+                    "expressions": "(function(){var x=row.specimens||row.specimen_json||[];try{x=typeof x==='string'?JSON.parse(x||'[]'):x}catch(e){x=[]}return(Array.isArray(x)?x:[]).map(function(v){return String((v&&v.label)||(v&&v.specimen_name)||(v&&v.specimen_code)||'')}).filter(Boolean).join(' · ')||'-'})()"
+                  },
+                  {
+                    "fieldName": "orderCountLabel",
+                    "expressions": "(function(){var x=row.selected_items||row.selected_items_json||[];try{x=typeof x==='string'?JSON.parse(x||'[]'):x}catch(e){x=[]}return(Array.isArray(x)?x.length:0)+' รายการ'})()"
+                  },
+                  {
+                    "fieldName": "statusLabel",
+                    "expressions": "(function(){var s=String(row.work_status||row.order_status||'').toLowerCase();var m={waiting_receive:'รอรับ',received:'รับเข้าแล้ว',processing:'กำลังตรวจ',resulted:'ออกผลบางส่วน',completed:'ออกผลครบ',rejected:'ยกเลิกรายการ',cancelled:'ยกเลิกรายการ'};return m[s]||s||'-'})()"
+                  },
+                  {
+                    "fieldName": "eventTimeLabel",
+                    "expressions": "(function(){var v=row.received_at||row.processing_at||row.resulted_at||row.rejected_at||row.updated_at||row.created_at;if(!v)return '-';try{return new Date(v).toLocaleString('th-TH')}catch(e){return String(v)}})()"
+                  }
+                ],
+                "onCreated": "",
+                "onMounted": "",
+                "onUnmount": ""
+              },
+              "id": "list-ui-lab-waiting-draft"
+            }
+          ],
+          "options": {
+            "name": "lab_waiting",
+            "label": "รอรับ",
+            "hidden": false,
+            "active": true,
+            "disabled": false,
+            "customClass": "",
+            "onCreated": ""
+          },
+          "id": "tab-pane-lab-waiting-draft"
+        },
+        {
+          "key": 81010,
+          "name": "Tab Pane",
+          "component": "tab-pane",
+          "category": "container",
+          "icon": "tab-pane",
+          "fieldType": "None",
+          "fieldLength": null,
+          "children": true,
+          "enable": true,
+          "formItemFlag": false,
+          "fields": [
+            {
+              "key": 81304,
+              "name": "List View",
+              "component": "list-ui",
+              "category": "display_ui",
+              "icon": "list-ui",
+              "fieldType": "Array",
+              "fieldLength": null,
+              "children": false,
+              "enable": true,
+              "formItemFlag": false,
+              "options": {
+                "name": "lab_received_processing_list",
+                "label": "List View",
+                "customClass": [
+                  "lab-workbench-list"
+                ],
+                "columnSpan": 24,
+                "hidden": false,
+                "formId": "6a7daa3e8d398c11cf2fe869",
+                "parentId": "",
+                "params": null,
+                "titleEnable": true,
+                "titleName": "รับเข้าแล้ว / รอตรวจ",
+                "where": "(section_code = :xunit_codex OR (:xunit_codex = '20' AND section_code = '22')) AND work_status IN ('received', 'processing')",
+                "orderBy": [
+                  {
+                    "column": "updated_at",
+                    "sort": "DESC"
+                  }
+                ],
+                "searchField": [
+                  "patient_hn",
+                  "patient_name",
+                  "order_number",
+                  "lab_no"
+                ],
+                "limitRow": 50,
+                "actionEnable": false,
+                "addBtnEnable": false,
+                "delBtnEnable": false,
+                "viewBtnEnable": false,
+                "reloadBtnEnable": true,
+                "updateBtnEnable": false,
+                "height": "560px",
+                "providerType": "FORM",
+                "buttonsRow": [],
+                "defaultFilterParent": false,
+                "parentPath": "_id",
+                "showWhenParent": false,
+                "enableWs": true,
+                "listType": "listview",
+                "iconWigth": 48,
+                "iconField": null,
+                "titleContent": "",
+                "titleField": null,
+                "detailContent": "<div class=\"lab-wb-row\">\n  <div class=\"lab-wb-avatar\">{{patientInitial}}</div>\n  <div class=\"lab-wb-patient\"><b>{{patient_name}}</b><span>{{patientHnLabel}}</span><strong>LAB NO. {{labNoLabel}}</strong></div>\n  <div class=\"lab-wb-cell\"><label>คลินิก/หน่วยส่ง</label><span>{{sourceUnitLabel}}</span></div>\n  <div class=\"lab-wb-cell\"><label>ผู้สั่งตรวจ</label><span>{{doctorLabel}}</span></div>\n  <div class=\"lab-wb-cell\"><label>รายการตรวจ</label><span>{{orderCountLabel}}</span></div>\n  <div class=\"lab-wb-cell\"><label>Specimen</label><span>{{specimenLabel}}</span></div>\n  <div class=\"lab-wb-cell\"><label>สถานะ / เวลา</label><b>{{statusLabel}}</b><small>{{eventTimeLabel}}</small></div>\n</div>",
+                "statusContent": "",
+                "statusField": null,
+                "colorField": null,
+                "groupField": null,
+                "disableNoMore": false,
+                "scrollDistance": 1,
+                "listColumn": 1,
+                "detailMaxRow": 8,
+                "totalEnable": true,
+                "noMoreLabel": "หมดรายการ",
+                "searchPlaceholder": "ค้นหา HN, ชื่อผู้ป่วย หรือ LAB NO.",
+                "clickEvent": "",
+                "customValue": [
+                  {
+                    "fieldName": "patientInitial",
+                    "expressions": "(function(){var x=String(row.patient_name||row.patient_hn||'?').trim();return x?x.charAt(0).toUpperCase():'?'})()"
+                  },
+                  {
+                    "fieldName": "patientHnLabel",
+                    "expressions": "'HN '+String(row.patient_hn||row.hn||'-')"
+                  },
+                  {
+                    "fieldName": "labNoLabel",
+                    "expressions": "String(row.order_number||row.lab_no||'-')"
+                  },
+                  {
+                    "fieldName": "sourceUnitLabel",
+                    "expressions": "String(row.source_unit_name||row.ward_clinic||row.sender_unit_name||'-')"
+                  },
+                  {
+                    "fieldName": "doctorLabel",
+                    "expressions": "String(row.ordering_provider_name||row.doctor_name||row.ordered_by_name||'-')"
+                  },
+                  {
+                    "fieldName": "specimenLabel",
+                    "expressions": "(function(){var x=row.specimens||row.specimen_json||[];try{x=typeof x==='string'?JSON.parse(x||'[]'):x}catch(e){x=[]}return(Array.isArray(x)?x:[]).map(function(v){return String((v&&v.label)||(v&&v.specimen_name)||(v&&v.specimen_code)||'')}).filter(Boolean).join(' · ')||'-'})()"
+                  },
+                  {
+                    "fieldName": "orderCountLabel",
+                    "expressions": "(function(){var x=row.selected_items||row.selected_items_json||[];try{x=typeof x==='string'?JSON.parse(x||'[]'):x}catch(e){x=[]}return(Array.isArray(x)?x.length:0)+' รายการ'})()"
+                  },
+                  {
+                    "fieldName": "statusLabel",
+                    "expressions": "(function(){var s=String(row.work_status||row.order_status||'').toLowerCase();var m={waiting_receive:'รอรับ',received:'รับเข้าแล้ว',processing:'กำลังตรวจ',resulted:'ออกผลบางส่วน',completed:'ออกผลครบ',rejected:'ยกเลิกรายการ',cancelled:'ยกเลิกรายการ'};return m[s]||s||'-'})()"
+                  },
+                  {
+                    "fieldName": "eventTimeLabel",
+                    "expressions": "(function(){var v=row.received_at||row.processing_at||row.resulted_at||row.rejected_at||row.updated_at||row.created_at;if(!v)return '-';try{return new Date(v).toLocaleString('th-TH')}catch(e){return String(v)}})()"
+                  }
+                ],
+                "onCreated": "",
+                "onMounted": "",
+                "onUnmount": ""
+              },
+              "id": "list-ui-lab-received-processing-draft"
+            }
+          ],
+          "options": {
+            "name": "lab_received_processing",
+            "label": "รับเข้าแล้ว / รอตรวจ",
+            "hidden": false,
+            "active": false,
+            "disabled": false,
+            "customClass": "",
+            "onCreated": ""
+          },
+          "id": "tab-pane-lab-received-processing-draft"
+        },
+        {
+          "key": 81010,
+          "name": "Tab Pane",
+          "component": "tab-pane",
+          "category": "container",
+          "icon": "tab-pane",
+          "fieldType": "None",
+          "fieldLength": null,
+          "children": true,
+          "enable": true,
+          "formItemFlag": false,
+          "fields": [
+            {
+              "key": 69632,
+              "name": "Layout",
+              "component": "grid",
+              "category": "container",
+              "icon": "grid",
+              "fieldType": "None",
+              "fieldLength": null,
+              "children": false,
+              "enable": true,
+              "cols": [
+                {
+                  "key": 44168,
+                  "name": "Grid Col",
+                  "component": "grid-col",
+                  "category": "container",
+                  "icon": "grid-col",
+                  "fieldType": "None",
+                  "fieldLength": null,
+                  "children": true,
+                  "enable": true,
+                  "fields": [
+                    {
+                      "key": 81304,
+                      "name": "List View",
+                      "component": "list-ui",
+                      "category": "display_ui",
+                      "icon": "list-ui",
+                      "fieldType": "Array",
+                      "fieldLength": null,
+                      "children": false,
+                      "enable": true,
+                      "formItemFlag": false,
+                      "options": {
+                        "name": "lab_result_reports_list",
+                        "label": "List View",
+                        "customClass": [
+                          "lab-workbench-list"
+                        ],
+                        "columnSpan": 24,
+                        "hidden": false,
+                        "formId": "6a8478abf851000f28e44a16",
+                        "parentId": "",
+                        "params": null,
+                        "titleEnable": true,
+                        "titleName": "LAB NO. / รายงานผล",
+                        "where": "(lab_section = :xunit_codex OR (:xunit_codex = '20' AND lab_section = '22'))",
+                        "orderBy": [
+                          {
+                            "column": "updated_at",
+                            "sort": "DESC"
+                          }
+                        ],
+                        "searchField": [
+                          "lab_no",
+                          "order_no",
+                          "patient_hn",
+                          "patient_name"
+                        ],
+                        "limitRow": 50,
+                        "actionEnable": false,
+                        "addBtnEnable": false,
+                        "delBtnEnable": false,
+                        "viewBtnEnable": false,
+                        "reloadBtnEnable": true,
+                        "updateBtnEnable": false,
+                        "height": "610px",
+                        "providerType": "FORM",
+                        "buttonsRow": [],
+                        "defaultFilterParent": false,
+                        "parentPath": "_id",
+                        "showWhenParent": false,
+                        "enableWs": true,
+                        "listType": "listview",
+                        "iconWigth": 48,
+                        "iconField": null,
+                        "titleContent": "",
+                        "titleField": null,
+                        "detailContent": "<div class=\"lab-result-report-row\"><b>LAB NO. {{reportLabNo}}</b><span>{{reportPatient}}</span><div><em>{{reportStatus}}</em><strong>{{reportCount}} ผล</strong></div><small>{{reportTime}}</small></div>",
+                        "statusContent": "",
+                        "statusField": null,
+                        "colorField": null,
+                        "groupField": null,
+                        "disableNoMore": false,
+                        "scrollDistance": 1,
+                        "listColumn": 1,
+                        "detailMaxRow": 8,
+                        "totalEnable": true,
+                        "noMoreLabel": "หมดรายการ",
+                        "searchPlaceholder": "ค้นหา HN, ชื่อผู้ป่วย หรือ LAB NO.",
+                        "clickEvent": "const form=this.getFormRef&&this.getFormRef();\nif(!form)return;\nconst reportId=String((row&&(row._id||row.id||row.dataid))||'');\nform.$labSelectedResultReportId=reportId;\nconst itemRef=form.getFieldRef&&form.getFieldRef('lab_result_items_list');\nif(itemRef&&typeof itemRef.setFieldOption==='function')itemRef.setFieldOption('where',\"result_report_id = '\"+reportId.replace(/'/g,\"''\")+\"'\");\nconst editor=itemRef&&itemRef.getFieldEditor&&itemRef.getFieldEditor();\nif(editor&&editor.dpFormData&&editor.dpFormData.options)editor.dpFormData.options.where=\"result_report_id = '\"+reportId.replace(/'/g,\"''\")+\"'\";\nif(editor&&editor.handleRefresh)editor.handleRefresh();\nconst card=form.getFieldRef&&form.getFieldRef('lab_patient_opd_card');\nif(card&&card.vueState&&typeof card.vueState.selectLabRow==='function')card.vueState.selectLabRow(row);",
+                        "customValue": [
+                          {
+                            "fieldName": "reportLabNo",
+                            "expressions": "String(row.lab_no||row.order_no||'-')"
+                          },
+                          {
+                            "fieldName": "reportPatient",
+                            "expressions": "[row.patient_hn,row.patient_name].filter(Boolean).join(' · ')||'-'"
+                          },
+                          {
+                            "fieldName": "reportStatus",
+                            "expressions": "String(row.overall_status||'-')"
+                          },
+                          {
+                            "fieldName": "reportCount",
+                            "expressions": "String(row.resulted_count||0)+' / '+String(row.expected_count||0)"
+                          },
+                          {
+                            "fieldName": "reportTime",
+                            "expressions": "(function(){var v=row.verified_at||row.reported_at||row.updated_at;if(!v)return '-';try{return new Date(v).toLocaleString('th-TH')}catch(e){return String(v)}})()"
+                          }
+                        ],
+                        "onCreated": "",
+                        "onMounted": "",
+                        "onUnmount": ""
+                      },
+                      "id": "list-ui-lab-result-reports-draft"
+                    }
+                  ],
+                  "options": {
+                    "name": "grid_col_lab_result_reports_draft",
+                    "hidden": false,
+                    "span": 9,
+                    "offset": 0,
+                    "push": 0,
+                    "pull": 0,
+                    "responsive": true,
+                    "md": 24,
+                    "sm": 24,
+                    "xs": 24,
+                    "bgColor": null,
+                    "customClass": ""
+                  },
+                  "id": "grid-col-lab-result-reports-draft"
+                },
+                {
+                  "key": 44168,
+                  "name": "Grid Col",
+                  "component": "grid-col",
+                  "category": "container",
+                  "icon": "grid-col",
+                  "fieldType": "None",
+                  "fieldLength": null,
+                  "children": true,
+                  "enable": true,
+                  "fields": [
+                    {
+                      "key": 81304,
+                      "name": "List View",
+                      "component": "list-ui",
+                      "category": "display_ui",
+                      "icon": "list-ui",
+                      "fieldType": "Array",
+                      "fieldLength": null,
+                      "children": false,
+                      "enable": true,
+                      "formItemFlag": false,
+                      "options": {
+                        "name": "lab_result_items_list",
+                        "label": "List View",
+                        "customClass": [
+                          "lab-workbench-list"
+                        ],
+                        "columnSpan": 24,
+                        "hidden": false,
+                        "formId": "6a7aa641935ed08882467374",
+                        "parentId": "",
+                        "params": null,
+                        "titleEnable": true,
+                        "titleName": "รายการสั่งตรวจและผล",
+                        "where": "result_report_id = '__select_report__'",
+                        "orderBy": [
+                          {
+                            "column": "updated_at",
+                            "sort": "DESC"
+                          }
+                        ],
+                        "searchField": [
+                          "test_code",
+                          "test_name",
+                          "result_value"
+                        ],
+                        "limitRow": 50,
+                        "actionEnable": false,
+                        "addBtnEnable": false,
+                        "delBtnEnable": false,
+                        "viewBtnEnable": false,
+                        "reloadBtnEnable": true,
+                        "updateBtnEnable": false,
+                        "height": "610px",
+                        "providerType": "FORM",
+                        "buttonsRow": [],
+                        "defaultFilterParent": false,
+                        "parentPath": "_id",
+                        "showWhenParent": false,
+                        "enableWs": true,
+                        "listType": "listview",
+                        "iconWigth": 48,
+                        "iconField": null,
+                        "titleContent": "",
+                        "titleField": null,
+                        "detailContent": "<div class=\"lab-result-item-row\">\n    <div class=\"lab-result-test\"><b>{{orderedItemLabel}}</b><small>{{test_code}}</small></div>\n    <div class=\"lab-result-value\"><label>ผล</label><strong>{{resultValueLabel}}</strong><span>{{unitLabel}}</span></div>\n    <div class=\"lab-result-ref\"><label>ค่าปกติ</label><span>{{referenceLabel}}</span></div>\n    <div class=\"lab-result-critical {{criticalClass}}\"><label>Critical</label><b>{{criticalLabel}}</b></div>\n    <div class=\"lab-result-person\"><label>ผู้ลงผล</label><span>{{reportedByLabel}}</span><label>ผู้รับรอง</label><span>{{verifiedByLabel}}</span></div>\n  </div>",
+                        "statusContent": "",
+                        "statusField": null,
+                        "colorField": null,
+                        "groupField": "source_item_id",
+                        "disableNoMore": false,
+                        "scrollDistance": 1,
+                        "listColumn": 1,
+                        "detailMaxRow": 8,
+                        "totalEnable": true,
+                        "noMoreLabel": "หมดรายการ",
+                        "searchPlaceholder": "ค้นหา HN, ชื่อผู้ป่วย หรือ LAB NO.",
+                        "clickEvent": "",
+                        "customValue": [
+                          {
+                            "fieldName": "orderedItemLabel",
+                            "expressions": "String(row.source_item_name||row.ordered_item_name||row.test_name||'-')"
+                          },
+                          {
+                            "fieldName": "resultValueLabel",
+                            "expressions": "String(row.result_value==null||row.result_value===''?'-':row.result_value)"
+                          },
+                          {
+                            "fieldName": "unitLabel",
+                            "expressions": "String(row.unit_symbol_snapshot||row.unit_symbol||'-')"
+                          },
+                          {
+                            "fieldName": "referenceLabel",
+                            "expressions": "String(row.reference_range_snapshot||'-')"
+                          },
+                          {
+                            "fieldName": "criticalLabel",
+                            "expressions": "(row.is_critical===true||String(row.interpretation_code||'').toUpperCase()==='CRITICAL')?'Critical':'ปกติ'"
+                          },
+                          {
+                            "fieldName": "criticalClass",
+                            "expressions": "(row.is_critical===true||String(row.interpretation_code||'').toUpperCase()==='CRITICAL')?'is-critical':'is-normal'"
+                          },
+                          {
+                            "fieldName": "reportedByLabel",
+                            "expressions": "String(row.reported_by_name||row.reported_by_source_name||row.entered_by_name||'-')"
+                          },
+                          {
+                            "fieldName": "verifiedByLabel",
+                            "expressions": "String(row.verified_by_name||row.verified_by_source_name||'-')"
+                          }
+                        ],
+                        "onCreated": "",
+                        "onMounted": "",
+                        "onUnmount": ""
+                      },
+                      "id": "list-ui-lab-result-items-draft"
+                    }
+                  ],
+                  "options": {
+                    "name": "grid_col_lab_result_items_draft",
+                    "hidden": false,
+                    "span": 15,
+                    "offset": 0,
+                    "push": 0,
+                    "pull": 0,
+                    "responsive": true,
+                    "md": 24,
+                    "sm": 24,
+                    "xs": 24,
+                    "bgColor": null,
+                    "customClass": ""
+                  },
+                  "id": "grid-col-lab-result-items-draft"
+                }
+              ],
+              "options": {
+                "name": "lab_result_split_grid",
+                "hidden": false,
+                "gutter": 16,
+                "colHeight": null,
+                "customClass": "lab-result-split-grid"
+              },
+              "id": "grid-lab-result-split-draft"
+            }
+          ],
+          "options": {
+            "name": "lab_results",
+            "label": "ผลแลป",
+            "hidden": false,
+            "active": false,
+            "disabled": false,
+            "customClass": "",
+            "onCreated": ""
+          },
+          "id": "tab-pane-lab-results-draft"
+        },
+        {
+          "key": 81010,
+          "name": "Tab Pane",
+          "component": "tab-pane",
+          "category": "container",
+          "icon": "tab-pane",
+          "fieldType": "None",
+          "fieldLength": null,
+          "children": true,
+          "enable": true,
+          "formItemFlag": false,
+          "fields": [
+            {
+              "key": 81304,
+              "name": "List View",
+              "component": "list-ui",
+              "category": "display_ui",
+              "icon": "list-ui",
+              "fieldType": "Array",
+              "fieldLength": null,
+              "children": false,
+              "enable": true,
+              "formItemFlag": false,
+              "options": {
+                "name": "lab_cancelled_list",
+                "label": "List View",
+                "customClass": [
+                  "lab-workbench-list"
+                ],
+                "columnSpan": 24,
+                "hidden": false,
+                "formId": "6a7daa3e8d398c11cf2fe869",
+                "parentId": "",
+                "params": null,
+                "titleEnable": true,
+                "titleName": "ยกเลิกรายการ",
+                "where": "(section_code = :xunit_codex OR (:xunit_codex = '20' AND section_code = '22')) AND work_status IN ('rejected', 'cancelled')",
+                "orderBy": [
+                  {
+                    "column": "updated_at",
+                    "sort": "DESC"
+                  }
+                ],
+                "searchField": [
+                  "patient_hn",
+                  "patient_name",
+                  "order_number",
+                  "lab_no"
+                ],
+                "limitRow": 50,
+                "actionEnable": false,
+                "addBtnEnable": false,
+                "delBtnEnable": false,
+                "viewBtnEnable": false,
+                "reloadBtnEnable": true,
+                "updateBtnEnable": false,
+                "height": "560px",
+                "providerType": "FORM",
+                "buttonsRow": [],
+                "defaultFilterParent": false,
+                "parentPath": "_id",
+                "showWhenParent": false,
+                "enableWs": true,
+                "listType": "listview",
+                "iconWigth": 48,
+                "iconField": null,
+                "titleContent": "",
+                "titleField": null,
+                "detailContent": "<div class=\"lab-wb-row lab-wb-row-cancelled\">\n  <div class=\"lab-wb-avatar\">{{patientInitial}}</div>\n  <div class=\"lab-wb-patient\"><b>{{patient_name}}</b><span>{{patientHnLabel}}</span><strong>LAB NO. {{labNoLabel}}</strong></div>\n  <div class=\"lab-wb-cell\"><label>คลินิก/หน่วยส่ง</label><span>{{sourceUnitLabel}}</span></div>\n  <div class=\"lab-wb-cell\"><label>รายการตรวจ</label><span>{{orderCountLabel}}</span></div>\n  <div class=\"lab-wb-cell lab-wb-wide\"><label>เหตุผลยกเลิก</label><span>{{rejectReasonLabel}}</span></div>\n  <div class=\"lab-wb-cell\"><label>ผู้ยกเลิก / เวลา</label><span>{{rejectByLabel}}</span><small>{{eventTimeLabel}}</small></div>\n</div>",
+                "statusContent": "",
+                "statusField": null,
+                "colorField": null,
+                "groupField": null,
+                "disableNoMore": false,
+                "scrollDistance": 1,
+                "listColumn": 1,
+                "detailMaxRow": 8,
+                "totalEnable": true,
+                "noMoreLabel": "หมดรายการ",
+                "searchPlaceholder": "ค้นหา HN, ชื่อผู้ป่วย หรือ LAB NO.",
+                "clickEvent": "",
+                "customValue": [
+                  {
+                    "fieldName": "patientInitial",
+                    "expressions": "(function(){var x=String(row.patient_name||row.patient_hn||'?').trim();return x?x.charAt(0).toUpperCase():'?'})()"
+                  },
+                  {
+                    "fieldName": "patientHnLabel",
+                    "expressions": "'HN '+String(row.patient_hn||row.hn||'-')"
+                  },
+                  {
+                    "fieldName": "labNoLabel",
+                    "expressions": "String(row.order_number||row.lab_no||'-')"
+                  },
+                  {
+                    "fieldName": "sourceUnitLabel",
+                    "expressions": "String(row.source_unit_name||row.ward_clinic||row.sender_unit_name||'-')"
+                  },
+                  {
+                    "fieldName": "doctorLabel",
+                    "expressions": "String(row.ordering_provider_name||row.doctor_name||row.ordered_by_name||'-')"
+                  },
+                  {
+                    "fieldName": "specimenLabel",
+                    "expressions": "(function(){var x=row.specimens||row.specimen_json||[];try{x=typeof x==='string'?JSON.parse(x||'[]'):x}catch(e){x=[]}return(Array.isArray(x)?x:[]).map(function(v){return String((v&&v.label)||(v&&v.specimen_name)||(v&&v.specimen_code)||'')}).filter(Boolean).join(' · ')||'-'})()"
+                  },
+                  {
+                    "fieldName": "orderCountLabel",
+                    "expressions": "(function(){var x=row.selected_items||row.selected_items_json||[];try{x=typeof x==='string'?JSON.parse(x||'[]'):x}catch(e){x=[]}return(Array.isArray(x)?x.length:0)+' รายการ'})()"
+                  },
+                  {
+                    "fieldName": "statusLabel",
+                    "expressions": "(function(){var s=String(row.work_status||row.order_status||'').toLowerCase();var m={waiting_receive:'รอรับ',received:'รับเข้าแล้ว',processing:'กำลังตรวจ',resulted:'ออกผลบางส่วน',completed:'ออกผลครบ',rejected:'ยกเลิกรายการ',cancelled:'ยกเลิกรายการ'};return m[s]||s||'-'})()"
+                  },
+                  {
+                    "fieldName": "eventTimeLabel",
+                    "expressions": "(function(){var v=row.received_at||row.processing_at||row.resulted_at||row.rejected_at||row.updated_at||row.created_at;if(!v)return '-';try{return new Date(v).toLocaleString('th-TH')}catch(e){return String(v)}})()"
+                  },
+                  {
+                    "fieldName": "rejectReasonLabel",
+                    "expressions": "String(row.rejection_reason||row.reject_reason||row.cancel_reason||'-')"
+                  },
+                  {
+                    "fieldName": "rejectByLabel",
+                    "expressions": "String(row.rejected_by_name||row.cancelled_by_name||'-')"
+                  }
+                ],
+                "onCreated": "",
+                "onMounted": "",
+                "onUnmount": ""
+              },
+              "id": "list-ui-lab-cancelled-draft"
+            }
+          ],
+          "options": {
+            "name": "lab_cancelled",
+            "label": "ยกเลิกรายการ",
+            "hidden": false,
+            "active": false,
+            "disabled": false,
+            "customClass": "",
+            "onCreated": ""
+          },
+          "id": "tab-pane-lab-cancelled-draft"
+        }
+      ],
+      "options": {
+        "name": "lab_workbench_tabs",
+        "hidden": false,
+        "displayType": "border-card",
+        "tabPosition": "top",
+        "lazy": false,
+        "customClass": "lab-workbench-tabs",
+        "onCreated": ""
+      },
+      "id": "tab-lab-workbench-draft"
+    }
+  ],
+  "formConfig": {
+    "modelName": "formData",
+    "refName": "sdForm",
+    "rulesName": "rules",
+    "labelWidth": 120,
+    "labelPosition": "top",
+    "size": "",
+    "labelAlign": "label-right-align",
+    "cssCode": ".lab-screen{font-family:\"IBM Plex Sans Thai\",\"Noto Sans Thai\",Tahoma,sans-serif;color:#111827;font-size:14px}.lab-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:18px}.lab-metric{padding:15px 16px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;color:#6b7280;font-size:12px}.lab-metric b{display:block;margin-top:4px;font-size:25px}.lab-metric small{font-size:12px;font-weight:400;color:#9ca3af}.blue{color:#2563eb}.red{color:#dc2626}.amber{color:#d97706}.green{color:#059669}.lab-toolbar{align-items:center;gap:10px;margin-bottom:16px}.lab-toolbar-filter{display:grid;grid-template-columns:minmax(280px,460px) 210px;justify-content:start}.lab-toolbar-received{display:grid;grid-template-columns:minmax(280px,460px) max-content;justify-content:start}.lab-toolbar-result{display:grid;grid-template-columns:minmax(280px,460px) 210px minmax(0,1fr) max-content}.lab-search-wrap{position:relative;width:100%;min-width:0}.lab-search-wrap:before{content:\"⌕\";position:absolute;z-index:2;left:12px;top:7px;color:#6b7280;font-size:20px;pointer-events:none}.lab-search{display:block!important;width:100%!important;height:40px!important;border:1px solid #d1d5db!important;border-radius:8px!important;background:#fff!important;color:#111827!important;padding:0 12px 0 36px!important;outline:none!important;box-sizing:border-box!important}.lab-select{display:block!important;width:210px!important;height:40px!important;border:1px solid #d1d5db!important;border-radius:8px!important;background:#fff!important;color:#111827!important;padding:0 12px!important;box-sizing:border-box!important;min-width:0!important}.lab-search:focus,.lab-select:focus{border-color:#93c5fd!important;box-shadow:0 0 0 3px #eff6ff}.lab-button{height:40px;padding:0 15px;border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#374151;font-weight:600;cursor:pointer;white-space:nowrap}.lab-button:hover{background:#f9fafb}.lab-panel,.lab-queue{border:1px solid #e5e7eb;border-radius:8px;background:#fff;overflow:hidden}.lab-panel-head,.lab-queue-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 16px;border-bottom:1px solid #e5e7eb}.lab-panel-head h2,.lab-queue-head h2{margin:0;font-size:16px}.lab-panel-head p,.lab-queue-head p,.lab-panel-head span,.lab-muted{margin:3px 0 0;color:#6b7280;font-size:12px}.lab-table-wrap{overflow-x:auto}.lab-table{width:100%;border-collapse:collapse;min-width:820px}.lab-table th{height:40px;padding:0 14px;text-align:left;background:#f9fafb;color:#6b7280;border-bottom:1px solid #e5e7eb;font-size:11px;font-weight:600}.lab-table td{padding:12px 14px;border-bottom:1px solid #e5e7eb}.lab-empty{padding:64px 20px;text-align:center;color:#6b7280;line-height:1.7}.lab-empty strong,.lab-detail-empty b{color:#374151}.lab-split{display:grid;grid-template-columns:360px minmax(0,1fr);gap:14px;min-height:590px}.lab-detail-empty{display:grid;place-items:center;border:1px dashed #d1d5db;border-radius:8px;background:#fff;color:#6b7280;text-align:center;line-height:1.8}.lab-flow{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:14px;padding:12px 14px;border-left:4px solid #2563eb;border-radius:4px;background:#eff6ff;color:#4b5563;font-size:12px}.lab-flow b{color:#1d4ed8;margin-right:4px}.lab-flow i{font-style:normal;color:#2563eb}.lab-spacer{min-width:0}@media(max-width:900px){.lab-metrics{grid-template-columns:1fr}.lab-toolbar-filter,.lab-toolbar-received,.lab-toolbar-result{display:grid;grid-template-columns:1fr;justify-content:stretch}.lab-select{width:100%!important}.lab-toolbar-result .lab-spacer{display:none}.lab-toolbar-result .lab-button{justify-self:start}.lab-split{grid-template-columns:1fr}.lab-queue{min-height:200px}.lab-detail-empty{min-height:240px}}\n.bio-root{display:flex;flex-direction:column;gap:16px}.bio-specimen,.bio-summary{border:1px solid var(--el-border-color-lighter);border-radius:12px;padding:16px;background:var(--el-fill-color-blank)}.bio-specimen h3{margin:0 0 12px;font-size:15px}.bio-specimen-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:20px}.bio-sub{display:flex;flex-wrap:wrap;margin:10px 0 0 24px}.bio-specimen-fields{display:grid;gap:10px}.bio-toolbar{display:flex;align-items:center;gap:16px}.bio-toolbar>.el-input{max-width:520px}.bio-count{margin-left:auto;white-space:nowrap;text-align:right;color:var(--el-text-color-secondary)}.bio-count b,.bio-count strong,.bio-total strong{color:var(--el-color-primary)}.bio-groups{column-width:300px;column-gap:16px}.bio-group{break-inside:avoid;border:1px solid var(--el-border-color-lighter);border-radius:10px;overflow:hidden;margin:0 0 16px;background:#fff}.bio-group-title{display:flex;gap:8px;align-items:center;padding:11px 12px;background:var(--el-fill-color-light)}.bio-group-title b,.bio-name{flex:1}.bio-group-title span{font-size:11px;color:var(--el-text-color-secondary)}.bio-item{display:flex;align-items:center;gap:8px;padding:7px 12px;border-top:1px solid var(--el-border-color-lighter);font-size:13px}.bio-code{min-width:48px;color:var(--el-color-primary);font-weight:700}.bio-price{min-width:72px;text-align:right;color:var(--el-text-color-secondary);font-variant-numeric:tabular-nums}.bio-minute{width:92px}.bio-summary-head,.bio-total{display:flex;justify-content:space-between;align-items:center}.bio-none{padding:12px 0;color:var(--el-text-color-placeholder)}.bio-selected{display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--el-border-color-lighter)}.bio-selected>span:nth-child(2){flex:1}.bio-selected small{color:var(--el-text-color-secondary)}.bio-total{padding-top:12px;font-size:15px}.bio-send{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 16px;border:1px solid var(--el-color-primary-light-7);border-radius:12px;background:var(--el-color-primary-light-9)}.bio-send b{display:block;color:var(--el-text-color-primary)}.bio-send span{display:block;margin-top:3px;font-size:12px;color:var(--el-text-color-secondary)}@media(max-width:700px){.bio-specimen-grid{grid-template-columns:1fr}.bio-toolbar{align-items:stretch;flex-direction:column}.bio-toolbar>.el-input{max-width:none}.bio-count{margin-left:0;text-align:left}.bio-groups{column-width:auto}.bio-sub{margin-left:0}.bio-send{align-items:stretch;flex-direction:column}}\n.bio-create-bar{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:18px 20px;border:1px solid var(--el-color-primary-light-7);border-radius:14px;background:var(--el-color-primary-light-9);margin-bottom:18px}.bio-create-title{font-size:17px;font-weight:700;color:var(--el-text-color-primary)}.bio-create-sub{font-size:13px;color:var(--el-text-color-secondary);margin-top:3px}@media(max-width:640px){.bio-create-bar{align-items:flex-start;flex-direction:column}}\n.lab-order-list{display:flex;flex-direction:column;gap:3px;min-width:190px;max-width:330px}.lab-order-list div{display:flex;gap:7px;line-height:1.35}.lab-order-list b{min-width:45px;color:var(--el-color-primary);font-size:12px}.lab-order-list span{color:var(--el-text-color-regular);font-size:12px}.lab-order-list small{color:var(--el-text-color-placeholder)}.lab-status-tag{display:inline-block;padding:5px 12px;border-radius:999px;background:#eff6ff;color:#2563eb;font-size:12px;font-weight:700;white-space:nowrap}.lab-action-cell{white-space:nowrap}.lab-link{border:0!important;background:transparent!important;padding:2px!important;font:inherit!important;font-weight:700!important;cursor:pointer}.lab-link.receive{color:#2563eb}.lab-link.reject{color:#dc2626}.lab-action-cell>span{margin:0 4px;color:#9ca3af}.lab-waiting-listview .lab-waiting-receive,.lab-waiting-listview .lab-waiting-receive .el-button,.lab-waiting-receive.el-button{background:#635bff!important;border-color:#635bff!important;color:#fff!important;font-weight:700!important}.lab-waiting-listview .lab-waiting-receive:hover,.lab-waiting-listview .lab-waiting-receive:hover .el-button,.lab-waiting-receive.el-button:hover{background:#5348dc!important;border-color:#5348dc!important;color:#fff!important}\n\n\n\n\n\n\n\n\n\n\n\n/* Responsive Lab Workbench list rows — compact typography/tags aligned to EMR. */\n.lab-worklist-row{box-sizing:border-box;display:grid;grid-template-columns:56px minmax(205px,.75fr) minmax(190px,.85fr) minmax(105px,.38fr) minmax(120px,.48fr) minmax(115px,.42fr) minmax(96px,.34fr);gap:14px;align-items:center;width:100%;min-width:0;padding:10px 168px 10px 8px;font-size:13px}\n.lab-patient-avatar{width:52px;height:52px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#e6f0ff,#cfe2ff);color:#2768dd;font-weight:800;font-size:18px;overflow:hidden}\n.lab-patient-summary,.lab-worklist-cell{min-width:0}.lab-lab-no{font-size:14px;font-weight:800;color:#1e293b;line-height:1.3}.lab-hn{margin-top:2px;color:#64748b;font-size:12px;font-weight:700;line-height:1.3}.lab-patient-name{margin-top:1px;color:#334155;font-size:13px;line-height:1.35;white-space:normal;overflow-wrap:anywhere}.lab-context-badges{display:flex;flex-wrap:wrap;align-content:center;gap:6px;min-width:0}.lab-worklist-meta{display:contents}.lab-worklist-cell{display:flex;align-self:stretch;min-height:46px;flex-direction:column;justify-content:flex-start;gap:4px;padding-top:8px;box-sizing:border-box}.lab-worklist-cell label{height:13px;color:#94a3b8;font-size:11px;font-weight:500;line-height:13px}.lab-worklist-cell span,.lab-worklist-cell b{color:#334155;font-size:13px;line-height:1.35;white-space:normal;overflow-wrap:anywhere}.lab-context-badge,.lab-benefit-badge{display:inline-block;padding:4px 8px;border-radius:4px!important;font-size:12px!important;font-weight:700!important;line-height:1.25;white-space:nowrap!important}.lab-context-badge{background:#edf6ff;color:#409eff!important;border:1px solid #cfe7ff}.lab-benefit-badge{background:#eff9e9;color:#67c23a!important;border:1px solid #d8f1ca}.lab-order-pill{display:inline-block;align-self:flex-start;padding:4px 8px!important;border:1px solid #cbd5e1!important;border-radius:4px!important;background:transparent!important;background-color:transparent!important;box-shadow:none!important;color:#64748b!important;font-size:12px!important;font-weight:700!important;line-height:1.25!important;white-space:nowrap}.lab-status-pill{display:inline-block;align-self:flex-start;padding:4px 8px;border-radius:4px!important;font-size:12px!important;font-weight:700;line-height:1.25;white-space:nowrap}.lab-status-pill.is-waiting{background:#f1f2f4;color:#6b7280!important}.lab-status-pill.is-received{background:#eeeafd;color:#6747de!important}.lab-status-pill.is-progress{background:#fff3d8;color:#e29a05!important}.lab-status-pill.is-partial{background:#fff0df;color:#ef7d1a!important}.lab-status-pill.is-completed{background:#e7f9eb;color:#16aa45!important}.lab-status-pill.is-cancelled{background:#fde8e7;color:#df3933!important}.lab-status-pill.is-default{background:#f1f2f4;color:#6b7280!important}\n@media(max-width:1280px){.lab-worklist-row{grid-template-columns:56px minmax(175px,.75fr) minmax(170px,.85fr) minmax(100px,.38fr) minmax(105px,.48fr) minmax(108px,.42fr) minmax(88px,.34fr);padding-right:18px}.lab-worklist-meta{display:contents}.lab-worklist-cell{min-height:42px}}\n@media(max-width:820px){.lab-worklist-row{grid-template-columns:50px minmax(0,1fr);gap:10px;padding:10px}.lab-patient-avatar{width:46px;height:46px;border-radius:12px;font-size:18px}.lab-lab-no{font-size:15px}.lab-context-badges{grid-column:1/-1;padding-left:56px}.lab-worklist-meta{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));padding-left:0;gap:8px 14px}.lab-worklist-cell{min-height:38px}.lab-worklist-cell label{font-size:11px}.lab-worklist-cell span,.lab-worklist-cell b{font-size:13px}}\n/* Received tab: single-patient workspace, patterned after EMR */\n.lab-received-toolbar{display:flex;justify-content:flex-end;align-items:center;gap:12px;margin-bottom:14px}.lab-received-toolbar .lab-muted{margin-right:auto}.lab-received-detail{display:flex;flex-direction:column;gap:14px}.lab-patient-card{display:grid;grid-template-columns:76px minmax(260px,1.4fr) minmax(105px,.45fr) minmax(120px,.55fr) minmax(100px,.42fr) max-content;gap:14px;align-items:center;padding:16px;border:1px solid #cfe2ff;border-radius:12px;background:linear-gradient(100deg,#edf6ff,#f8fbff)}.lab-patient-photo{width:72px;height:72px;border-radius:14px;background:#dbeafe center/cover no-repeat;color:#2563eb;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;overflow:hidden}.lab-patient-card-main{min-width:0}.lab-patient-card-name{font-size:20px;font-weight:800;color:#1e293b;line-height:1.25}.lab-patient-card-hn{display:inline-block;margin-top:5px;color:#3b82f6;font-size:14px;font-weight:800}.lab-patient-card-meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}.lab-card-blue,.lab-card-green{display:inline-block;padding:4px 8px;border-radius:7px;font-size:12px;font-weight:700}.lab-card-blue{color:#409eff;background:#edf6ff;border:1px solid #cfe7ff}.lab-card-green{color:#67c23a;background:#eff9e9;border:1px solid #d8f1ca}.lab-patient-card-sub{margin-top:7px;color:#64748b;font-size:12px;line-height:1.4}.lab-patient-card-info{display:flex;flex-direction:column;gap:4px;min-width:0}.lab-patient-card-info label{color:#94a3b8;font-size:11px}.lab-patient-card-info b{color:#334155;font-size:13px;word-break:break-word}.lab-patient-card-count{align-self:start;padding:7px 12px;border-radius:999px;background:#eff6ff;color:#2563eb;font-size:13px;font-weight:800;white-space:nowrap}.lab-received-order-card{overflow:hidden;border:1px solid #e5e7eb;border-radius:12px;background:#fff}.lab-received-order-head{padding:15px 16px;border-bottom:1px solid #e5e7eb}.lab-received-order-head h2{margin:0;color:#111827;font-size:18px}.lab-received-order-head p{margin:4px 0 0;color:#94a3b8;font-size:12px}.lab-received-table{width:calc(100% - 32px);margin:0 16px 16px}.lab-received-history{padding:0 16px 16px}.lab-history-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:4px 0 9px}.lab-history-head h3{margin:0;font-size:15px}.lab-history-head select{height:30px;padding:0 28px 0 9px;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#374151;font-size:12px}.lab-history-entry{margin-bottom:10px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden}.lab-history-time{padding:8px 12px;color:#374151;font-size:12px;font-weight:700}.lab-history-add,.lab-history-remove{padding:8px 12px;font-weight:700}.lab-history-add{background:#ecfdf5;color:#166534}.lab-history-remove{background:#fef2f2;color:#dc2626}.lab-history-add span,.lab-history-remove span{font-weight:500}.lab-received-actions{display:flex;justify-content:flex-end;gap:10px;padding:14px 16px;border-top:1px solid #e5e7eb}.lab-primary-button,.lab-secondary-button{height:38px;padding:0 14px;border-radius:7px;font-weight:700;cursor:pointer}.lab-primary-button{border:1px solid #2563eb;background:#2563eb;color:#fff}.lab-secondary-button{border:1px solid #d1d5db;background:#fff;color:#374151}@media(max-width:1000px){.lab-patient-card{grid-template-columns:72px minmax(0,1fr) max-content}.lab-patient-card-info{grid-column:auto}.lab-patient-card-count{grid-column:3;grid-row:1}}@media(max-width:680px){.lab-patient-card{grid-template-columns:60px minmax(0,1fr);padding:12px;gap:10px}.lab-patient-photo{width:56px;height:56px;border-radius:12px;font-size:20px}.lab-patient-card-name{font-size:17px}.lab-patient-card-info{grid-column:1/-1;display:grid;grid-template-columns:110px 1fr;align-items:center}.lab-patient-card-count{grid-column:1/-1;grid-row:auto;justify-self:start}.lab-received-actions{flex-wrap:wrap}.lab-received-actions button{flex:1}}\n\n/* Lab adapter for the shared EMR opd_card / pcard visual system. */\n.lab-opd-card{margin-bottom:14px}.lab-opd-card .el-card__body{padding:16px}.lab-opd-card .pcard-main{min-width:0}.lab-opd-vitals{margin-left:auto}.lab-opd-vitals .pcard-vital b{display:block;min-height:20px}.lab-opd-card .pcard-alert-chip{margin-right:7px}@media(max-width:900px){.lab-opd-card .pcard-main{flex-wrap:wrap}.lab-opd-card .pcard-divider{display:none}.lab-opd-vitals{width:100%;margin-left:0;padding-top:10px;border-top:1px solid var(--el-border-color-lighter)}}@media(max-width:620px){.lab-opd-card .pcard-name{font-size:18px}.lab-opd-card .pcard-vitals{grid-template-columns:repeat(2,minmax(0,1fr))}}\n\n.bio-center-listview .el-list-view-item{padding:0!important}.bio-list-row{display:grid;grid-template-columns:48px minmax(180px,1.1fr) minmax(140px,.85fr) minmax(180px,1fr) 100px 130px;gap:14px;align-items:center;padding:12px 132px 12px 10px}.bio-list-avatar{display:flex;align-items:center;justify-content:center;width:46px;height:46px;border-radius:9px;background:#e8f2ff;color:#337ee8;font-size:17px;font-weight:800}.bio-list-patient,.bio-list-cell{display:flex;min-width:0;flex-direction:column;gap:3px}.bio-list-patient b{font-size:14px;color:#1e293b}.bio-list-patient span,.bio-list-cell label{color:#94a3b8;font-size:11px}.bio-list-patient strong,.bio-list-cell span{color:#334155;font-size:12px;overflow-wrap:anywhere}.bio-list-order{display:inline-block;width:max-content;padding:4px 9px;border-radius:999px;background:#eaf2ff;color:#337ee8;font-size:12px}.bio-list-status{display:inline-block;width:max-content;padding:4px 9px;border-radius:999px;font-size:12px;font-weight:700}.bio-list-status.is-waiting{background:#fff3d8;color:#b66d00}.bio-list-status.is-sent,.bio-list-status.is-received{background:#e7f9eb;color:#16833b}.bio-list-status.is-progress{background:#eaf2ff;color:#337ee8}.bio-list-status.is-completed{background:#eef7ee;color:#2d7a3f}.bio-list-status.is-cancelled{background:#fdebec;color:#d14343}@media(max-width:1100px){.bio-list-row{grid-template-columns:48px minmax(0,1fr) minmax(160px,1fr) 100px;padding-right:16px}.bio-list-cell:nth-of-type(1),.bio-list-cell:nth-of-type(4){display:none}}\n\n/* Waiting queue: actions exist only for eligible rows and appear on hover. */\n.lab-hover-actions{width:190px;white-space:nowrap;text-align:right}\n.lab-hover-action-group{display:flex;justify-content:flex-end;gap:6px;min-width:170px;opacity:0;pointer-events:none;transition:opacity .12s ease}\n.lab-table tbody tr:hover .lab-hover-action-group,.lab-hover-action-group:focus-within{opacity:1;pointer-events:auto}\n\n/* Lab received OPD snapshot card v2 */\n.lab-opd-card-v2{overflow:hidden;margin-bottom:14px;border:1px solid #cfe2ff;border-radius:12px;background:linear-gradient(112deg,#eaf4ff 0%,#f9fbff 78%);color:#253044}.lab-opd-main-v2{display:flex;align-items:flex-start;gap:16px;padding:18px 20px}.lab-opd-avatar-v2{display:grid;flex:0 0 74px;width:74px;height:74px;place-items:center;overflow:hidden;border:1px solid #d7dce5;border-radius:14px;background:#f4f6f8}.lab-opd-avatar-v2 img{width:100%;height:100%;object-fit:cover}.lab-opd-avatar-v2 svg{width:54px;height:54px;fill:#a0a8b5}.lab-opd-identity-v2{min-width:0;flex:1}.lab-opd-name-row-v2{display:flex;align-items:center;gap:8px;flex-wrap:wrap;line-height:1.25}.lab-opd-name-v2{margin-right:3px;font-size:24px;color:#2f3745}.lab-opd-chip-v2{display:inline-block;padding:7px 12px;border-radius:9px;background:#f3f4f6;color:#737986;font-size:13px;font-weight:700;line-height:1}.lab-opd-chip-v2.primary{background:#eaf4ff;color:#4090ee}.lab-opd-chip-v2.success{background:#eef8e9;color:#67bd31}.lab-opd-meta-v2{margin-top:10px;color:#7e8795;font-size:15px;line-height:1.45}.lab-opd-meta-v2 b{color:#4b5565}.lab-opd-meta-v2.muted{margin-top:7px;color:#9ba3af}.lab-opd-receipt-v2{display:flex;flex:0 0 auto;gap:16px;padding:3px 0 0 14px}.lab-opd-receipt-v2 div{display:flex;min-width:78px;flex-direction:column;gap:4px}.lab-opd-receipt-v2 small,.lab-opd-vital-v2 small{font-size:11px;color:#a0a8b5}.lab-opd-receipt-v2 b{font-size:13px;color:#3f4857;word-break:break-word}.lab-opd-vitals-v2{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;padding:15px 20px 18px;border-top:1px solid #dcecff;background:rgba(226,240,255,.56)}.lab-opd-vital-v2{min-height:54px;padding:8px 12px}.lab-opd-vital-v2 small{display:block;margin-bottom:3px;font-size:14px;font-weight:700}.lab-opd-vital-v2 b{font-size:25px;line-height:1;color:#303846;white-space:nowrap}.lab-opd-vital-v2 em{font-size:14px;font-style:normal;color:#97a1ae}.lab-opd-vital-v2.temperature{border:1px solid #f3ddba;border-radius:15px;background:#fff7ea}.lab-opd-vital-v2.temperature b{color:#e99a24}.lab-opd-vital-v2.order{border-left:1px solid #d6e6f8}.lab-opd-vital-v2.order b{font-size:18px;color:#357fe0}.lab-opd-allergy-v2{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:12px 20px;border-top:1px solid #ffd8d8;background:#fff1f1;color:#ee6a6d}.lab-opd-allergy-v2 strong{font-size:16px}.lab-opd-allergy-v2 span{padding:5px 12px;border:1px solid #ffd2d2;border-radius:999px;background:#fff;color:#c94c50;font-size:13px;font-weight:700}.lab-opd-allergy-v2 b{margin-left:auto;font-size:13px}.lab-received-order-head{display:flex;align-items:center;justify-content:space-between}.lab-received-order-head>span{color:#357fe0;font-size:17px;font-weight:800}@media(max-width:1150px){.lab-opd-main-v2{flex-wrap:wrap}.lab-opd-receipt-v2{width:100%;padding:12px 0 0;border-top:1px solid #dcecff}.lab-opd-vitals-v2{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:680px){.lab-opd-main-v2{padding:14px}.lab-opd-avatar-v2{width:58px;height:58px;flex-basis:58px}.lab-opd-name-v2{font-size:19px}.lab-opd-chip-v2{padding:5px 8px;font-size:12px}.lab-opd-meta-v2{font-size:13px}.lab-opd-vitals-v2{grid-template-columns:repeat(2,minmax(0,1fr));padding:10px}.lab-opd-vital-v2 b{font-size:20px}.lab-opd-receipt-v2{gap:10px;flex-wrap:wrap}.lab-opd-allergy-v2{padding:10px 14px}.lab-opd-allergy-v2 b{width:100%;margin-left:0}}\n/* Received card: same visual hierarchy as the EMR OPD card. */\n.lab-opd-card-v2{border:0;border-radius:8px;background:linear-gradient(105deg,#e4f1ff 0%,#e8f4ff 68%,#f8f2de 100%);box-shadow:0 2px 8px rgba(49,100,145,.12)}\n.lab-opd-main-v2{align-items:center;gap:22px;padding:24px 30px}\n.lab-opd-avatar-v2{width:126px;height:126px;flex-basis:126px;border-radius:18px;background:#f8fafc}\n.lab-opd-avatar-v2 svg{width:76px;height:76px}\n.lab-opd-identity-v2{align-self:center}\n.lab-opd-name-row-v2{gap:10px}.lab-opd-name-v2{font-size:29px}.lab-opd-chip-v2{padding:7px 12px;border-radius:9px;font-size:14px}.lab-opd-chip-v2.warning{background:#fff2dc;color:#e99a24}.lab-opd-rights-v2{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.lab-opd-meta-v2{font-size:16px}.lab-opd-visit-v2{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;color:#98a1ae}.lab-opd-phone-v2{white-space:nowrap}.lab-opd-body-v2{margin-top:8px;color:#8e98a6}.lab-opd-divider-v2{width:1px;align-self:stretch;background:#d2e1f0}.lab-opd-vitals-v2{display:grid;grid-template-columns:repeat(4,minmax(86px,1fr));gap:22px;flex:0 0 430px;padding:0;border:0;background:transparent}.lab-opd-vital-v2{min-height:0;padding:0}.lab-opd-vital-v2 small{font-size:14px}.lab-opd-vital-v2 b{font-size:22px}.lab-opd-vital-v2 em{display:none}.lab-opd-vital-v2.temperature,.lab-opd-vital-v2.order{border:0;border-radius:0;background:transparent}.lab-opd-vital-v2.temperature b{color:#303846}\n@media(max-width:1260px){.lab-opd-main-v2{flex-wrap:wrap}.lab-opd-divider-v2{display:none}.lab-opd-vitals-v2{width:100%;flex-basis:100%;padding-top:12px;border-top:1px solid #d2e1f0}.lab-opd-avatar-v2{width:92px;height:92px;flex-basis:92px}.lab-opd-avatar-v2 svg{width:60px;height:60px}}\n@media(max-width:720px){.lab-opd-main-v2{padding:16px;gap:14px}.lab-opd-avatar-v2{width:64px;height:64px;flex-basis:64px;border-radius:12px}.lab-opd-avatar-v2 svg{width:42px;height:42px}.lab-opd-name-v2{font-size:21px}.lab-opd-vitals-v2{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.lab-opd-meta-v2{font-size:13px}}\n\n/* Lab waiting list v2 */\n.lab-waiting-panel{overflow:hidden}.lab-waiting-toolbar{padding:14px 16px}.lab-waiting-list{display:grid;gap:0;border-top:1px solid #e7ebf1}.lab-waiting-columns{display:grid;grid-template-columns:minmax(290px,1.22fr) minmax(165px,.68fr) minmax(500px,1.52fr);align-items:center;gap:14px;padding:12px 20px;border-bottom:1px solid #e7ebf1;background:#f8fafc;color:#667085;font-size:12px;font-weight:700}.lab-waiting-order-head{display:grid;grid-template-columns:minmax(80px,1.05fr) minmax(82px,1.05fr) 58px 58px 78px minmax(100px,1.25fr);gap:8px;min-width:0}.lab-waiting-order-head span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lab-waiting-row{position:relative;display:grid;grid-template-columns:minmax(290px,1.22fr) minmax(165px,.68fr) minmax(500px,1.52fr);align-items:center;gap:14px;min-width:0;padding:13px 20px;border-bottom:1px solid #e7ebf1;background:#fff;outline:none;transition:background .12s ease,box-shadow .12s ease}.lab-waiting-row:hover,.lab-waiting-row:focus-within{background:#f0f7ff;box-shadow:inset 3px 0 #4090ee}.lab-waiting-patient{display:flex;align-items:center;gap:12px;min-width:0}.lab-waiting-avatar{display:grid;flex:0 0 58px;width:58px;height:58px;place-items:center;overflow:hidden;border:1px solid #d7dce5;border-radius:9px;background:#f3f5f8}.lab-waiting-avatar img{width:100%;height:100%;object-fit:cover}.lab-waiting-avatar svg{width:42px;height:42px;fill:#9ca3af}.lab-waiting-identity{display:grid;min-width:0;line-height:1.24}.lab-waiting-labno{overflow:hidden;color:#1f2937;font-size:17px;text-overflow:ellipsis;white-space:nowrap}.lab-waiting-identity small{overflow:hidden;color:#6b7280;font-size:12px;text-overflow:ellipsis;white-space:nowrap}.lab-waiting-identity strong{display:flex;align-items:center;gap:5px;min-width:0;color:#374151;font-size:14px}.lab-waiting-patient-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lab-waiting-sex{display:inline-block;flex:none;margin-left:0;padding:2px 7px;border-radius:10px;background:#e9f8df;color:#4fa62a;font-size:11px}.lab-waiting-context{display:flex;align-content:center;align-items:center;gap:5px;min-width:0;flex-wrap:wrap}.lab-context-chip{display:inline-block;max-width:100%;padding:4px 8px;overflow:hidden;border-radius:0;font-size:12px;font-weight:700;line-height:1.15;text-overflow:ellipsis;white-space:nowrap}.lab-context-chip.source{background:#eef6ff;color:#3b82f6}.lab-context-chip.paid{background:#e9f8df;color:#4fa62a}.lab-context-chip.right{background:#fff3d5;color:#a16207}.lab-waiting-order{display:grid;grid-template-columns:minmax(80px,1.05fr) minmax(82px,1.05fr) 58px 58px 78px minmax(100px,1.25fr);gap:8px;min-width:0}.lab-waiting-order>div{display:flex;align-items:center;min-width:0}.lab-waiting-order small{overflow:hidden;color:#8a94a3;font-size:11px;text-overflow:ellipsis;white-space:nowrap}.lab-waiting-order b,.lab-waiting-order>div>span{overflow:hidden;color:#505966;font-size:13px;text-overflow:ellipsis;white-space:nowrap}.lab-waiting-order .lab-status-tag{justify-self:start;max-width:100%;font-size:12px}.lab-waiting-actions{position:absolute;top:10px;right:12px;z-index:5;display:flex;justify-content:flex-end;min-width:0}.lab-hover-action-group{display:flex;justify-content:flex-end;gap:6px;width:max-content;white-space:nowrap;opacity:0;pointer-events:none;visibility:hidden;transition:opacity .12s ease}.lab-waiting-row:hover .lab-hover-action-group,.lab-waiting-row:focus-within .lab-hover-action-group,.lab-hover-action-group:focus-within{opacity:1;pointer-events:auto;visibility:visible}@media(max-width:1380px){.lab-waiting-columns{grid-template-columns:minmax(250px,1.15fr) minmax(150px,.65fr) minmax(430px,1.25fr);gap:10px;padding:11px 14px}.lab-waiting-order-head{grid-template-columns:1fr 1fr 54px 54px 70px;gap:6px}.lab-waiting-order-head span:last-child{display:none}.lab-waiting-row{grid-template-columns:minmax(250px,1.15fr) minmax(150px,.65fr) minmax(430px,1.25fr);gap:10px;padding:12px 14px}.lab-waiting-order{grid-template-columns:1fr 1fr 54px 54px 70px;gap:6px}.lab-waiting-order>div:last-child{display:none}.lab-hover-action-group{min-width:160px}}@media(max-width:1040px){.lab-waiting-columns{grid-template-columns:minmax(250px,1fr) minmax(190px,.84fr)}.lab-waiting-order-head{grid-column:1 / -1;grid-row:2}.lab-waiting-row{grid-template-columns:minmax(250px,1fr) minmax(190px,.84fr)}.lab-waiting-order{grid-column:1 / -1;grid-row:2}.lab-waiting-actions{top:10px;right:12px}}@media(max-width:720px){.lab-waiting-columns{display:none}.lab-waiting-row{grid-template-columns:minmax(0,1fr);gap:10px;padding:13px}.lab-waiting-context,.lab-waiting-order,.lab-waiting-actions{grid-column:auto;grid-row:auto}.lab-waiting-order{grid-template-columns:repeat(2,minmax(0,1fr))}.lab-waiting-actions{top:8px;right:10px}.lab-hover-action-group{opacity:1;pointer-events:auto;visibility:visible}}\n.lab-resulted-columns,.lab-resulted-row{grid-template-columns:minmax(290px,1.22fr) minmax(165px,.68fr) minmax(560px,1.75fr)}.lab-resulted-order-head,.lab-resulted-order{display:grid;grid-template-columns:minmax(80px,1.1fr) minmax(82px,1.05fr) 54px 54px 76px minmax(82px,1fr) 58px;gap:8px;min-width:0;align-items:center}.lab-resulted-order-head span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lab-resulted-order>div{display:flex!important;align-items:center;min-width:0}.lab-resulted-order>div:last-child{display:flex!important}@media(max-width:1380px){.lab-resulted-columns,.lab-resulted-row{grid-template-columns:minmax(250px,1.15fr) minmax(150px,.65fr) minmax(500px,1.5fr)}.lab-resulted-order-head,.lab-resulted-order{grid-template-columns:minmax(72px,1fr) minmax(75px,1fr) 48px 48px 64px minmax(72px,1fr) 50px;gap:6px}.lab-resulted-order-head span:last-child{display:block}}@media(max-width:1040px){.lab-resulted-columns,.lab-resulted-row{grid-template-columns:minmax(250px,1fr) minmax(190px,.84fr)}.lab-resulted-order-head,.lab-resulted-order{grid-column:1 / -1;grid-row:2}}@media(max-width:720px){.lab-resulted-order{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px}}.lab-waiting-columns:not(.lab-resulted-columns),.lab-waiting-row:not(.lab-resulted-row){grid-template-columns:minmax(300px,340px) minmax(190px,260px) minmax(500px,1fr)}.lab-waiting-labno{font-size:15px}.lab-waiting-identity small{font-size:11px;line-height:1.3}.lab-waiting-identity strong{font-size:13px;font-weight:600}.lab-waiting-order>div>b,.lab-waiting-order>div>span:not(.lab-status-tag){font-size:13px;line-height:1.35}.lab-waiting-order>div:first-child{align-items:flex-start}.lab-waiting-order>div:first-child>span{overflow:visible;text-overflow:clip;white-space:normal;overflow-wrap:anywhere;word-break:normal}.lab-table tbody td:nth-child(4),.lab-table tbody td:nth-child(5),.lab-table tbody td:nth-child(6){font-size:13px;line-height:1.35}@media(max-width:1380px){.lab-waiting-columns:not(.lab-resulted-columns),.lab-waiting-row:not(.lab-resulted-row){grid-template-columns:minmax(250px,300px) minmax(160px,220px) minmax(430px,1fr)}}@media(max-width:1040px){.lab-waiting-columns:not(.lab-resulted-columns),.lab-waiting-row:not(.lab-resulted-row){grid-template-columns:minmax(250px,300px) minmax(190px,1fr)}}@media(max-width:720px){.lab-waiting-row:not(.lab-resulted-row){grid-template-columns:minmax(0,1fr)}}.lab-cancelled-split-row{grid-template-columns:56px 220px 210px 90px 90px 115px 125px 135px 75px;gap:5px;padding-right:8px}.lab-cancelled-split-row .lab-cancelled-datetime{line-height:1.4;white-space:normal}.lab-cancelled-split-row .lab-status-pill,.lab-cancelled-split-row .lab-status-tag{align-self:flex-start;padding:4px 8px;border:0!important;border-radius:0!important;box-shadow:none!important;font-size:12px;line-height:1.25;white-space:nowrap!important}.lab-cancelled-split-row .lab-status-tag{background:#eff6ff;color:#2563eb!important}.lab-cancelled-split-row .lab-status-cell{overflow:visible}.lab-cancelled-split-row .lab-context-badge,.lab-cancelled-split-row .lab-benefit-badge{border:0!important;border-radius:0!important;box-shadow:none!important}.lab-cancelled-patient-name{display:flex;align-items:center;gap:5px;min-width:0}.lab-cancelled-patient-name>span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lab-gender-pill{display:inline-block;flex:none;padding:2px 7px;border-radius:10px;background:#e9f8df;color:#4fa62a!important;font-size:11px!important;font-weight:700;line-height:1.35;white-space:nowrap}.lab-rights-badge{background:#fff3d5!important;color:#a16207!important;border-color:transparent!important}@media(max-width:1280px){.lab-cancelled-split-row{grid-template-columns:50px minmax(165px,205px) minmax(145px,180px) 82px 82px 100px 105px 130px 72px;gap:4px;padding-right:6px}}@media(max-width:820px){.lab-cancelled-split-row{grid-template-columns:50px minmax(0,1fr);gap:10px;padding:10px}.lab-cancelled-split-row .lab-status-pill,.lab-cancelled-split-row .lab-status-tag{white-space:normal!important}}\n\n/* Lab Workbench widget draft — EMR/person visual hierarchy */\n.lab-patient-search-bar{display:grid;grid-template-columns:minmax(280px,1.35fr) minmax(240px,1fr) auto auto;gap:10px;align-items:center;margin:0 0 12px;padding:14px 16px;border:1px solid var(--el-border-color-lighter);border-radius:8px;background:var(--el-bg-color)}\n.lab-shared-opd-card{margin-bottom:14px}.lab-workbench-tabs{margin-top:4px}.lab-workbench-list .el-list-view-item{padding:0!important}\n.lab-wb-row{display:grid;grid-template-columns:48px minmax(190px,1.1fr) minmax(145px,.8fr) minmax(145px,.8fr) minmax(100px,.5fr) minmax(130px,.7fr) minmax(135px,.72fr);gap:13px;align-items:center;padding:12px 14px;min-width:0}\n.lab-wb-avatar{display:grid;width:44px;height:44px;place-items:center;border-radius:10px;background:#eaf3ff;color:#337ee8;font-weight:800}.lab-wb-patient,.lab-wb-cell{display:flex;min-width:0;flex-direction:column;gap:2px}.lab-wb-patient b,.lab-wb-cell span{overflow-wrap:anywhere}.lab-wb-patient span,.lab-wb-cell label,.lab-wb-cell small{color:#9098a5;font-size:11px}.lab-wb-patient strong{color:#337ee8;font-size:12px}.lab-wb-cell b{color:#4f5968}.lab-wb-row-cancelled{background:#fffafa}\n.lab-result-split-grid{align-items:stretch}.lab-result-report-row{display:grid;gap:5px;padding:12px}.lab-result-report-row>b{color:#337ee8}.lab-result-report-row>span,.lab-result-report-row>small{color:#7f8794;font-size:12px}.lab-result-report-row>div{display:flex;justify-content:space-between;gap:8px}.lab-result-report-row em{font-style:normal;color:#e59a1d}.lab-result-item-row{display:grid;grid-template-columns:minmax(180px,1.15fr) minmax(130px,.75fr) minmax(125px,.7fr) minmax(90px,.5fr) minmax(150px,.8fr);gap:12px;align-items:center;padding:12px 14px}.lab-result-test,.lab-result-value,.lab-result-ref,.lab-result-critical,.lab-result-person{display:flex;min-width:0;flex-direction:column;gap:2px}.lab-result-item-row label,.lab-result-test small{color:#969eaa;font-size:11px}.lab-result-value strong{font-size:18px;color:#273142}.lab-result-value span,.lab-result-ref span,.lab-result-person span{font-size:12px;color:#596273}.lab-result-critical{padding:6px 8px;border-radius:6px}.lab-result-critical.is-critical{background:#fff0f0;color:#d83b3b}.lab-result-critical.is-normal{background:#eef9eb;color:#55a934}\n@media(max-width:980px){.lab-patient-search-bar{grid-template-columns:1fr 1fr}.lab-wb-row{grid-template-columns:48px minmax(180px,1fr) repeat(2,minmax(130px,.7fr))}.lab-wb-cell:nth-of-type(3),.lab-wb-cell:nth-of-type(4){display:none}.lab-result-item-row{grid-template-columns:1fr 1fr}.lab-result-person{grid-column:1/-1}}\n@media(max-width:640px){.lab-patient-search-bar{grid-template-columns:1fr}.lab-wb-row{grid-template-columns:44px 1fr}.lab-wb-cell{grid-column:1/-1}.lab-result-item-row{grid-template-columns:1fr}}\n",
+    "customClass": [],
+    "functions": "",
+    "layoutType": "PC",
+    "jsonVersion": 3,
+    "onFormCreated": "",
+    "onFormMounted": "",
+    "onParentChange": "",
+    "onFormDataChange": "",
+    "onFormUnmounted": ""
+  }
+}

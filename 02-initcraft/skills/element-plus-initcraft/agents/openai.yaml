@@ -1,0 +1,4 @@
+interface:
+  display_name: "Element Plus initCraft"
+  short_description: "Element Plus patterns for initCraft"
+  default_prompt: "Use $element-plus-initcraft to build an initCraft vue-ui with Element Plus pagination."

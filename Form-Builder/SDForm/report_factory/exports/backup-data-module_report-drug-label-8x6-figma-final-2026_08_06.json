@@ -1,0 +1,245 @@
+[
+  {
+    "_id": {
+      "$oid": "6a734f21c26bf53d1bac3c10"
+    },
+    "xparentx": {
+      "$oid": "6a734f21c26bf53d1bac3c10"
+    },
+    "xsitex": {
+      "code": "0000",
+      "name": "0000"
+    },
+    "xunitx": {
+      "code": "A103",
+      "name": "คลินิกทันตกรรม"
+    },
+    "xrstatx": 1,
+    "xversionx": "v1",
+    "xerrorx": null,
+    "updated_by": {
+      "id": {
+        "$oid": "6a58678ad448dfc9d33e2ba8"
+      },
+      "name": "Nichada Patcharasumransuk (marnichacha27@gmail.com)"
+    },
+    "updated_at": "2026-08-06 13:30:00",
+    "created_by": {
+      "id": {
+        "$oid": "6a58678ad448dfc9d33e2ba8"
+      },
+      "name": "Nichada Patcharasumransuk (marnichacha27@gmail.com)"
+    },
+    "created_at": "2026-08-06 13:30:00",
+    "dataid": "6a734f21c26bf53d1bac3c10",
+    "pdf_assign_roles": null,
+    "pdf_bg": null,
+    "pdf_category": null,
+    "pdf_column": [],
+    "pdf_content": [
+      {
+        "content_widget": "html",
+        "content_var": "patient_hn",
+        "content_align": "left",
+        "content_decoration": "",
+        "content_linestyle": "dotted",
+        "content_bold": false,
+        "content_italics": false,
+        "content_color": "#000000",
+        "content_bgcolor": null,
+        "content_fontsize": 8,
+        "content_ml": 12.75,
+        "content_mt": 34.5,
+        "content_mr": 12.75,
+        "content_mb": 0,
+        "content_width": null,
+        "content_height": null,
+        "content_value": "<table style=\"width:100%;border-collapse:collapse;border:none;margin:0;padding:0;\"><tbody><tr><td style=\"padding:0;border:none;font-size:8px;line-height:9px;white-space:nowrap;\">{{patient_name}}</td><td style=\"width:73px;padding:0;border:none;font-size:8px;line-height:9px;text-align:right;white-space:nowrap;\">HN: {{hn}}</td></tr></tbody></table>"
+      },
+      {
+        "content_widget": "html",
+        "content_var": "drug_name",
+        "content_align": "left",
+        "content_decoration": "",
+        "content_linestyle": "dotted",
+        "content_bold": false,
+        "content_italics": false,
+        "content_color": "#000000",
+        "content_bgcolor": null,
+        "content_fontsize": 9,
+        "content_ml": 12.75,
+        "content_mt": 8.25,
+        "content_mr": 12.75,
+        "content_mb": 0,
+        "content_width": null,
+        "content_height": null,
+        "content_value": "<div style=\"font-size:9px;font-weight:bold;line-height:10px;\">{{item_name}} {{special_symbol}}</div>"
+      },
+      {
+        "content_widget": "html",
+        "content_var": "generic_name",
+        "content_align": "left",
+        "content_decoration": "",
+        "content_linestyle": "dotted",
+        "content_bold": false,
+        "content_italics": false,
+        "content_color": "#000000",
+        "content_bgcolor": null,
+        "content_fontsize": 8,
+        "content_ml": 12.75,
+        "content_mt": 2,
+        "content_mr": 12.75,
+        "content_mb": 0,
+        "content_width": null,
+        "content_height": null,
+        "content_value": "<div style=\"font-size:8px;line-height:9px;\">({{generic_name}})</div>"
+      },
+      {
+        "content_widget": "html",
+        "content_var": "sig_label_th",
+        "content_align": "left",
+        "content_decoration": "",
+        "content_linestyle": "dotted",
+        "content_bold": false,
+        "content_italics": false,
+        "content_color": "#000000",
+        "content_bgcolor": null,
+        "content_fontsize": 8,
+        "content_ml": 12.75,
+        "content_mt": 5.75,
+        "content_mr": 32.25,
+        "content_mb": 0,
+        "content_width": null,
+        "content_height": null,
+        "content_value": "<div style=\"font-size:8px;line-height:9px;\">{{sig_label_th}}</div>"
+      },
+      {
+        "content_widget": "html",
+        "content_var": "sig_label1",
+        "content_align": "left",
+        "content_decoration": "",
+        "content_linestyle": "dotted",
+        "content_bold": false,
+        "content_italics": false,
+        "content_color": "#000000",
+        "content_bgcolor": null,
+        "content_fontsize": 8,
+        "content_ml": 12.75,
+        "content_mt": 2,
+        "content_mr": 32.25,
+        "content_mb": 0,
+        "content_width": null,
+        "content_height": null,
+        "content_value": "<div style=\"font-size:8px;line-height:9px;\">{{sig_label1}}</div>"
+      },
+      {
+        "content_widget": "html",
+        "content_var": "sig_label2",
+        "content_align": "left",
+        "content_decoration": "",
+        "content_linestyle": "dotted",
+        "content_bold": false,
+        "content_italics": false,
+        "content_color": "#000000",
+        "content_bgcolor": null,
+        "content_fontsize": 8,
+        "content_ml": 12.75,
+        "content_mt": 0,
+        "content_mr": 32.25,
+        "content_mb": 0,
+        "content_width": null,
+        "content_height": null,
+        "content_value": "<div style=\"font-size:8px;line-height:9px;\">{{sig_label2}}</div>"
+      },
+      {
+        "content_widget": "html",
+        "content_var": "sig_indication",
+        "content_align": "left",
+        "content_decoration": "",
+        "content_linestyle": "dotted",
+        "content_bold": false,
+        "content_italics": false,
+        "content_color": "#000000",
+        "content_bgcolor": null,
+        "content_fontsize": 8,
+        "content_ml": 12.75,
+        "content_mt": 0,
+        "content_mr": 32.25,
+        "content_mb": 0,
+        "content_width": null,
+        "content_height": null,
+        "content_value": "<div style=\"font-size:8px;line-height:9px;\">{{sig_indication}}</div>"
+      },
+      {
+        "content_widget": "html",
+        "content_var": "sig_note",
+        "content_align": "left",
+        "content_decoration": "",
+        "content_linestyle": "dotted",
+        "content_bold": false,
+        "content_italics": false,
+        "content_color": "#000000",
+        "content_bgcolor": null,
+        "content_fontsize": 8,
+        "content_ml": 12.75,
+        "content_mt": 28,
+        "content_mr": 32.25,
+        "content_mb": 0,
+        "content_width": null,
+        "content_height": null,
+        "content_value": "<div style=\"font-size:8px;line-height:9px;\">{{sig_note}}</div>"
+      }
+    ],
+    "pdf_custom_size": {
+      "width": 227,
+      "height": 170
+    },
+    "pdf_desc": "ตำแหน่งข้อความตาม Figma node 2439:4; อัปโหลด PNG ที่ Setting > Background",
+    "pdf_fontsize": 8,
+    "pdf_form_id": "6a5fb732a608039c539ebb4f",
+    "pdf_from": "zdata_pis_drug_trade",
+    "pdf_latex": null,
+    "pdf_mb": 0,
+    "pdf_ml": 0,
+    "pdf_mr": 0,
+    "pdf_mt": 0,
+    "pdf_name": "ฉลากยา 8x6 cm - Figma Final",
+    "pdf_note": null,
+    "pdf_orientation": "landscape",
+    "pdf_page_date": false,
+    "pdf_page_num": false,
+    "pdf_page_size": "custom",
+    "pdf_params": [
+      {
+        "param_var": "drug_id",
+        "param_label": "รหัสยา",
+        "param_default": "6a72f53774be9b0d6e2dcb6a",
+        "param_required": true,
+        "param_type": "text",
+        "param_sform": null,
+        "param_svalue": null,
+        "param_slabel": null
+      }
+    ],
+    "pdf_share": "public",
+    "pdf_showheader": "firstPage",
+    "pdf_sql": {
+      "value": {
+        "$oid": "6a730b17c26bf53d1bac3b21"
+      },
+      "label": "Trade Drug"
+    },
+    "pdf_tags": [
+      "drug-label",
+      "8x6",
+      "pdf-preview"
+    ],
+    "pdf_tb_header": [],
+    "pdf_tb_layout": "",
+    "pdf_temp": null,
+    "pdf_title": null,
+    "pdf_type": "report",
+    "pdf_watermark": null,
+    "tool_license": "6a3113a619ee74c8f82854a0"
+  }
+]

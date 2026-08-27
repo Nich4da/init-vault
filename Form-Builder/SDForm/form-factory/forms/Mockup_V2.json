@@ -1,0 +1,515 @@
+{
+  "fields": [
+    {
+      "name": "Components",
+      "component": "vue-ui",
+      "category": "display_ui",
+      "icon": "vue-ui",
+      "fieldType": "None",
+      "fieldLength": null,
+      "children": false,
+      "enable": true,
+      "formItemFlag": false,
+      "options": {
+        "name": "create_biochemistry_order",
+        "label": "Create Biochemistry Order",
+        "columnSpan": 24,
+        "hidden": false,
+        "content": "<div class=\"bio-create-bar\"><div><div class=\"bio-create-title\">รายการตรวจ Biochemistry</div><div class=\"bio-create-sub\">เลือกผู้ป่วย ระบุสิ่งส่งตรวจ และเลือกรายการตรวจจากฟอร์มเดียวกัน</div></div><el-button type=\"primary\" size=\"large\" @click=\"createNewBioOrder\">สร้างรายการใหม่</el-button></div>",
+        "customClass": "",
+        "onCreated": "const s=this.vueState;const field=this;s.createNewBioOrder=()=>{const f=field.getFormRef();if(!f)return;f.openForm('6a771f20cc7d0a8451130339',null,null,{}, {params:{from:'lab-biochemistry-dashboard'},popupType:'dialog',backdrop:false,afterSaveCallback:()=>{const waiting=field.refField('lab_waiting_orders');if(waiting&&waiting.vueState&&waiting.vueState.loadWaitingOrders)waiting.vueState.loadWaitingOrders();const list=field.refField('lab_waiting_listview');const editor=list&&list.getFieldEditor&&list.getFieldEditor();if(editor&&editor.handleRefresh)editor.handleRefresh()}})};",
+        "onMounted": "",
+        "onUnmount": ""
+      },
+      "id": "vue-ui-create-biochemistry-order"
+    },
+    {
+      "key": 81001,
+      "name": "Tab",
+      "component": "tab",
+      "category": "container",
+      "icon": "tab",
+      "fieldType": "None",
+      "fieldLength": null,
+      "children": false,
+      "enable": true,
+      "formItemFlag": false,
+      "tabs": [
+        {
+          "key": 81011,
+          "name": "Tab Pane",
+          "component": "tab-pane",
+          "category": "container",
+          "icon": "tab-pane",
+          "fieldType": "None",
+          "fieldLength": null,
+          "children": true,
+          "enable": true,
+          "formItemFlag": false,
+          "fields": [
+            {
+              "key": 81102,
+              "name": "Components",
+              "component": "vue-ui",
+              "category": "display_ui",
+              "icon": "components-ui",
+              "fieldType": "None",
+              "fieldLength": null,
+              "children": false,
+              "enable": true,
+              "formItemFlag": false,
+              "options": {
+                "name": "lab_waiting_orders",
+                "columnSpan": 4,
+                "hidden": true,
+                "label": "Components",
+                "customClass": "",
+                "content": "<div class=\"lab-screen\"><div class=\"lab-metrics\"><div class=\"lab-metric\"><div>รอรับทั้งหมด</div><b class=\"blue\">{{ waitingCount() }} <small>รายการ</small></b></div><div class=\"lab-metric\"><div>รายการตรวจ</div><b class=\"blue\">{{ waitingOrderCount() }} <small>รายการ</small></b></div><div class=\"lab-metric\"><div>สิ่งส่งตรวจหลายประเภท</div><b class=\"amber\">{{ waitingSpecimenCount() }} <small>ประเภท</small></b></div></div></div>",
+                "onCreated": "const s=this.vueState;const field=this;const TARGET_PROVIDER={providerId:'6a771f20cc7d0a8451130339',providerType:'FORM',params:{},options:{}};const REJECTION_FORM_ID='6a7713fdcc7d0a8451130331';const REJECTION_PROVIDER={providerId:REJECTION_FORM_ID,providerType:'FORM',params:{},options:{}};const RECEIVE_PROCESS_ID='6a789afecc7d0a845113039e';const REJECT_PROCESS_ID='6a79ff46d5218a5b6a26bebc';s.bioLabWaitingRows=[];s.bioLabWaitingSearch='';s.bioLabLoadInfo='';s.extractRows=out=>{const picks=[out,out&&out.data,out&&out.rows,out&&out.data&&out.data.data,out&&out.data&&out.data.rows,out&&out.reply&&out.reply.data];for(let i=0;i<picks.length;i++){if(Array.isArray(picks[i]))return picks[i]}return []};s.setWaitingSearch=v=>{s.bioLabWaitingSearch=v||''};s.safeJson=v=>{try{return typeof v==='string'?JSON.parse(v||'{}'):(v||{})}catch(e){return {}}};s.waitingItems=row=>{const x=s.safeJson(row.selected_items_json);return Array.isArray(x)?x:[]};s.waitingItemCount=row=>s.waitingItems(row).length;s.waitingSpecimenLabel=row=>{const x=s.safeJson(row.biochemistry_specimen_json);const labels={clotted:'Clotted blood',ionized_calcium:'Ionized Calcium',lithium_heparin:'Lithium heparin',naf:'NaF',edta:'EDTA',urine_spot:'Urine spot',urine_24hr:'Urine 24 hr.',csf:'CSF',body_fluid:'Body Fluid'};return labels[x.bloodType]||labels[x.urineType]||labels[x.type]||'-'};s.waitingSpecimenTypeLabel=row=>String(row.specimen_code||'-');s.waitingCoverageLabel=row=>{const v=row.treatment_right||row.insurance_right||row.inscl_code||row.inscl_name||row.inscl_hos||'';if(Array.isArray(v))return v.map(x=>typeof x==='object'?((x.label||x.value||x.inscl_item_main&&x.inscl_item_main.value||'')):x).filter(Boolean).join(', ')||'-';return typeof v==='object'?String(v.label||v.value||'-'):String(v||'-')};s.waitingPaymentLabel=row=>String(row.payment_status||'-');s.receiveOrder=async row=>{const id=String(row._id||row.id||'');if(!id){field.notify('ไม่พบรหัสใบสั่งตรวจ','error',3000);return}try{const form=field.getFormRef();const api=(form&&form.userState)||field.globalUserState;if(!api||typeof api.runProcess!=='function')throw new Error('ไม่พบ API Process connector');s.bioLabLoadInfo='กำลังรับเข้า...';await api.runProcess(RECEIVE_PROCESS_ID,{source_order_id:id});field.notify('รับเข้าสิ่งส่งตรวจแล้ว','success',3000);setTimeout(()=>{s.loadWaitingOrders();const received=field.refField('lab_received_component');if(received&&received.vueState&&typeof received.vueState.load==='function')received.vueState.load()},700)}catch(e){s.bioLabLoadInfo='';field.notify('รับเข้าสิ่งส่งตรวจไม่สำเร็จ: '+(e&&e.message?e.message:'ไม่ทราบสาเหตุ'),'error',4500)}};s.rejectOrder=row=>{const f=field.getFormRef();if(!f||typeof f.openForm!=='function'){field.notify('ไม่พบตัวเปิดฟอร์มปฏิเสธ','error',3000);return}const hn=String(row.patient_hn||'').trim();const name=String(row.patient_name||'').trim();const initData={source_order_id:row._id||row.id||'',order_group_id:row.order_group_id||'',patient_hn:hn,patient_name:name,patient_display:[hn,name].filter(Boolean).join(' — '),ward_clinic:row.ward_clinic||'',lab_section:row.lab_section||'BC',selected_items_json:row.selected_items_json||'[]',biochemistry_specimen_json:row.biochemistry_specimen_json||'{}',treatment_right:s.waitingCoverageLabel(row)==='-'?'':s.waitingCoverageLabel(row),payment_status:row.payment_status||'',revision_no:String(row.revision_no||1)};f.openForm(REJECTION_FORM_ID,null,null,initData,{params:{from:'lab-biochemistry-dashboard',source_order_id:initData.source_order_id},popupType:'dialog',backdrop:false,afterSaveCallback:()=>{const refresh=()=>{s.loadWaitingOrders();const cancelled=field.refField('lab_cancelled_orders');if(cancelled&&cancelled.vueState&&cancelled.vueState.load)cancelled.vueState.load()};const api=(f&&f.userState)||field.globalUserState;if(!api||typeof api.runProcess!=='function'){field.notify('บันทึกเหตุผลแล้ว แต่ไม่พบ API สำหรับย้ายสถานะ','error',4000);refresh();return}api.runProcess(REJECT_PROCESS_ID,{source_order_id:initData.source_order_id},out=>{const body=(out&&out.data)||out||{};if(body.success===false)field.notify(body.message||'ย้ายรายการไม่สำเร็จ','error',4000);else field.notify('ยกเลิกรายการแล้ว','success',2200);refresh()},err=>{field.notify('บันทึกเหตุผลแล้ว แต่ย้ายสถานะไม่สำเร็จ: '+((err&&err.message)||'ตรวจสอบ API'),'error',4500);refresh()})}})};s.formatWaitingTime=v=>{if(!v)return '-';try{return new Date(v).toLocaleString('th-TH',{dateStyle:'short',timeStyle:'short'})}catch(e){return String(v)}};s.filteredWaitingOrders=()=>{const q=s.bioLabWaitingSearch.trim().toLowerCase();return !q?s.bioLabWaitingRows:s.bioLabWaitingRows.filter(r=>[r.patient_hn,r.patient_name,r.ward_clinic].join(' ').toLowerCase().includes(q))};s.waitingCount=()=>s.bioLabWaitingRows.length;s.waitingOrderCount=()=>s.bioLabWaitingRows.reduce((n,r)=>n+s.waitingItemCount(r),0);s.waitingSpecimenCount=()=>new Set(s.bioLabWaitingRows.map(s.waitingSpecimenLabel).filter(x=>x&&x!=='-')).size;s.applyWaitingResult=(out,rejectionsOut)=>{const denied=!!(out&&(out.permissionDenied||(out.data&&out.data.permissionDenied)));const message=(out&&(out.message||(out.data&&out.data.message)))||'';const rows=s.extractRows(out);const rejectedIds=new Set(s.extractRows(rejectionsOut).map(r=>String(r.source_order_id||'')).filter(Boolean));s.bioLabWaitingRows=rows.filter(r=>{const status=r.order_status||'waiting_receive';const isBio=r.lab_section==='BC'||(!r.lab_section&&!!r.selected_items_json);const id=String(r._id||r.id||'');return isBio&&['waiting_receive','waiting'].includes(status)&&!rejectedIds.has(id)});s.bioLabLoadInfo=denied?'ไม่มีสิทธิ์อ่าน Lab_Bio_Order':(message&&rows.length===0?message:('อ่าน '+rows.length+' ใบ · รอรับ '+s.bioLabWaitingRows.length+' ใบ'));console.log('[Lab Bio] order provider result',out)};s.loadWaitingOrders=()=>{try{s.bioLabLoadInfo='กำลังโหลด...';const api=field.globalUserState||((field.getFormRef&&field.getFormRef())||{}).userState;if(!api||typeof api.crudGetAll!=='function')throw new Error('ไม่พบ API connector ของฟอร์ม');api.crudGetAll({sdProvider:TARGET_PROVIDER,totalEnable:true},out=>{api.crudGetAll({sdProvider:REJECTION_PROVIDER,totalEnable:true},rejectionsOut=>s.applyWaitingResult(out,rejectionsOut),()=>s.applyWaitingResult(out,{data:[]}))},e=>{throw e||new Error('อ่านข้อมูลไม่สำเร็จ')})}catch(e){s.bioLabLoadInfo='โหลดไม่สำเร็จ';field.notify('โหลดรายการรอรับไม่สำเร็จ: '+(e&&e.message?e.message:'ตรวจสอบสิทธิ์และ Form ID'),'error',4000)}};s.loadWaitingOrders();",
+                "onMounted": "",
+                "onUnmount": ""
+              },
+              "id": "vue-ui-lab-waiting-orders"
+            },
+            {
+              "key": 81011,
+              "name": "List View",
+              "component": "list-ui",
+              "category": "display_ui",
+              "icon": "list-view",
+              "fieldType": "Array",
+              "fieldLength": null,
+              "children": false,
+              "enable": true,
+              "formItemFlag": false,
+              "options": {
+                "name": "lab_waiting_listview",
+                "label": "ผู้ป่วยรอรับสิ่งส่งตรวจ",
+                "customClass": [
+                  "lab-waiting-listview"
+                ],
+                "columnSpan": 4,
+                "hidden": false,
+                "formId": "6a771f20cc7d0a8451130339",
+                "parentId": "",
+                "params": null,
+                "titleEnable": true,
+                "titleName": "ผู้ป่วยรอรับสิ่งส่งตรวจ",
+                "where": "order_status = 'waiting_receive'",
+                "orderBy": [
+                  {
+                    "column": "ordered_at",
+                    "sort": "DESC"
+                  }
+                ],
+                "searchField": [
+                  "patient_hn",
+                  "patient_name",
+                  "ward_clinic",
+                  "order_group_id"
+                ],
+                "limitRow": 50,
+                "actionEnable": true,
+                "addBtnEnable": false,
+                "delBtnEnable": false,
+                "viewBtnEnable": false,
+                "reloadBtnEnable": true,
+                "updateBtnEnable": false,
+                "height": "620px",
+                "providerType": "FORM",
+                "buttonsRow": [
+                  {
+                    "label": "รับ specimen",
+                    "type": "primary",
+                    "plain": false,
+                    "confirm": false,
+                    "customClass": "lab-waiting-receive",
+                    "onClick": "const host=this.getFormRef();const api=(host&&host.userState)||this.globalUserState;const id=String(dataRow._id||dataRow.id||'');if(!id||!api||typeof api.runProcess!=='function'){this.alert('ไม่พบ API connector สำหรับรับเข้า','error');return}api.runProcess('6a789afecc7d0a845113039e',{source_order_id:id},res=>{const d=(res&&res.data)||res||{};if(d.success===false){this.alert(d.message||'รับเข้าสิ่งส่งตรวจไม่สำเร็จ','error');return}this.alert(d.message||'รับเข้าสิ่งส่งตรวจแล้ว','success');const refresh=()=>{const ed=this.getFieldEditor();if(ed&&ed.handleRefresh)ed.handleRefresh();const header=host.getFieldRef('lab_waiting_orders');if(header&&header.vueState&&header.vueState.loadWaitingOrders)header.vueState.loadWaitingOrders();const received=host.getFieldRef('lab_received_component');if(received&&received.vueState&&received.vueState.load)received.vueState.load()};setTimeout(refresh,350);setTimeout(refresh,1000)},err=>this.alert(String((err&&err.message)||err||'รับเข้าสิ่งส่งตรวจไม่สำเร็จ'),'error'));"
+                  },
+                  {
+                    "label": "ปฏิเสธ",
+                    "type": "danger",
+                    "plain": true,
+                    "confirm": false,
+                    "onClick": "const host=this.getFormRef();const listField=this;if(!host||typeof host.openForm!=='function'){listField.alert('ไม่พบตัวเปิดฟอร์มปฏิเสธ','error');return}const hn=String(dataRow.patient_hn||'').trim(),name=String(dataRow.patient_name||'').trim();const initData={source_order_id:dataRow._id||dataRow.id||'',order_group_id:dataRow.order_group_id||'',patient_hn:hn,patient_name:name,patient_display:[hn,name].filter(Boolean).join(' — '),ward_clinic:dataRow.ward_clinic||'',lab_section:'BC',selected_items_json:dataRow.selected_items_json||'[]',biochemistry_specimen_json:dataRow.biochemistry_specimen_json||'{}',treatment_right:dataRow.treatment_right||'',payment_status:dataRow.payment_status||'',revision_no:String(dataRow.revision_no||1)};const refresh=()=>{const ed=listField.getFieldEditor&&listField.getFieldEditor();if(ed&&ed.handleRefresh)ed.handleRefresh();const header=host.getFieldRef('lab_waiting_orders');if(header&&header.vueState&&typeof header.vueState.loadWaitingOrders==='function')header.vueState.loadWaitingOrders();const cancelled=host.getFieldRef&&host.getFieldRef('lab_cancelled_orders');if(cancelled&&cancelled.vueState&&typeof cancelled.vueState.load==='function')cancelled.vueState.load()};host.openForm('6a7713fdcc7d0a8451130331','', '',initData,{params:Object.assign({},host.formParams||{},{from:'lab-biochemistry-dashboard',source_order_id:initData.source_order_id}),popupType:'dialog',backdrop:false,afterSaveCallback:()=>{const api=(host&&host.userState)||listField.globalUserState;const run=api&&typeof api.runProcess==='function'?api.runProcess.bind(api):null;const done=()=>{setTimeout(refresh,350);setTimeout(refresh,1000)};if(!run){listField.alert('บันทึกเหตุผลแล้ว แต่ไม่พบ API สำหรับย้ายสถานะ','error');done();return}run('6a79ff46d5218a5b6a26bebc',{source_order_id:initData.source_order_id},out=>{const body=(out&&out.data)||out||{};if(body.success===false)listField.alert(body.message||'ย้ายรายการไม่สำเร็จ','error');else listField.notify('ยกเลิกรายการแล้ว','success',2200);done()},err=>{listField.alert('บันทึกเหตุผลแล้ว แต่ย้ายสถานะไม่สำเร็จ: '+((err&&err.message)||'ตรวจสอบ API'),'error');done()})}});"
+                  }
+                ],
+                "reportList": null,
+                "defaultFilterParent": false,
+                "parentPath": "_id",
+                "showWhenParent": false,
+                "enableWs": true,
+                "listType": "listview",
+                "iconWigth": 48,
+                "iconField": null,
+                "titleContent": "",
+                "titleField": null,
+                "detailContent": "<div style='display:grid;grid-template-columns:175px minmax(180px,1.15fr) minmax(130px,.8fr) 130px minmax(145px,.9fr) 115px 115px 104px;align-items:start;gap:14px;width:100%;min-width:0;padding:4px 170px 4px 4px;white-space:normal;box-sizing:border-box;'><div style='display:flex;flex-direction:column;justify-content:flex-start;min-height:66px;line-height:1.35;min-width:0;'><div style='height:17px;font-size:11px;font-weight:700;color:var(--el-text-color-secondary);margin:0 0 6px;white-space:nowrap;'>HN / LAB NO.</div><b style='font-size:16px;color:var(--el-text-color-primary);white-space:nowrap;'>{{patient_hn}}</b><span style='font-size:12px;color:var(--el-text-color-primary);white-space:nowrap;'>LAB NO. รอกำหนด</span></div><div style='display:flex;flex-direction:column;justify-content:flex-start;min-height:66px;line-height:1.35;min-width:0;'><div style='height:17px;font-size:11px;font-weight:700;color:var(--el-text-color-secondary);margin:0 0 6px;white-space:nowrap;'>ชื่อผู้ป่วย</div><b style='font-size:15px;color:var(--el-text-color-primary);'>{{patient_name}}</b></div><div style='display:flex;flex-direction:column;justify-content:flex-start;min-height:66px;line-height:1.35;min-width:0;'><div style='height:17px;font-size:11px;font-weight:700;color:var(--el-text-color-secondary);margin:0 0 6px;white-space:nowrap;'>Ward / Clinic</div><span style='color:var(--el-text-color-primary);'>{{wardLabel}}</span></div><div style='display:flex;flex-direction:column;justify-content:flex-start;min-height:66px;line-height:1.35;min-width:0;'><div style='height:17px;font-size:11px;font-weight:700;color:var(--el-text-color-secondary);margin:0 0 6px;white-space:nowrap;'>เวลาส่ง</div><span style='color:var(--el-text-color-primary);'>{{orderedDateLabel}}</span><small style='color:var(--el-text-color-primary);font-size:13px;'>{{orderedTimeLabel}}</small></div><div style='display:flex;flex-direction:column;justify-content:flex-start;min-height:66px;line-height:1.35;min-width:0;'><div style='height:17px;font-size:11px;font-weight:700;color:var(--el-text-color-secondary);margin:0 0 6px;white-space:nowrap;'>Specimen</div><span style='color:var(--el-text-color-primary);'>{{specimenLabel}}</span></div><div style='display:flex;flex-direction:column;justify-content:flex-start;min-height:66px;line-height:1.35;min-width:0;'><div style='height:17px;font-size:11px;font-weight:700;color:var(--el-text-color-secondary);margin:0 0 6px;white-space:nowrap;'>สิทธิ์การรักษา</div><span style='color:var(--el-text-color-primary);'>{{coverageLabel}}</span></div><div style='display:flex;flex-direction:column;justify-content:flex-start;min-height:66px;line-height:1.35;min-width:0;'><div style='height:17px;font-size:11px;font-weight:700;color:var(--el-text-color-secondary);margin:0 0 6px;white-space:nowrap;'>การชำระเงิน</div><span style='color:var(--el-text-color-primary);'>{{paymentLabel}}</span></div><div style='display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;min-height:66px;line-height:1.35;min-width:0;'><div style='height:17px;font-size:11px;font-weight:700;color:var(--el-text-color-secondary);margin:0 0 6px;white-space:nowrap;'>Order</div><span style='display:inline-flex;align-self:flex-start;width:auto;align-items:center;justify-content:center;box-sizing:border-box;height:32px;padding:0 14px;border:0;border-radius:999px;background:#eff6ff;color:#2563eb;font-size:14px;font-weight:700;white-space:nowrap;'>{{orderCountLabel}}</span></div></div>",
+                "statusContent": "",
+                "statusField": null,
+                "colorField": null,
+                "groupField": null,
+                "disableNoMore": false,
+                "scrollDistance": 1,
+                "listColumn": 1,
+                "detailMaxRow": 3,
+                "totalEnable": true,
+                "noMoreLabel": "หมดรายการ",
+                "searchPlaceholder": "ค้นหา HN, ชื่อผู้ป่วย หรือ Ward / Clinic",
+                "clickEvent": "",
+                "customValue": [
+                  {
+                    "labelWidth": 150,
+                    "align": "left",
+                    "fieldName": "orderedDateLabel",
+                    "expressions": "(function(){var v=row.ordered_at||row.requested_at;if(!v)return '-';var d=new Date(v);if(isNaN(d))return String(v);return d.toLocaleDateString('th-TH',{day:'2-digit',month:'2-digit',year:'2-digit'});})()"
+                  },
+                  {
+                    "fieldName": "orderedTimeLabel",
+                    "expressions": "(function(){var v=row.ordered_at||row.requested_at;if(!v)return '';var d=new Date(v);if(isNaN(d))return '';return d.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});})()"
+                  },
+                  {
+                    "labelWidth": 150,
+                    "align": "left",
+                    "fieldName": "wardLabel",
+                    "expressions": "row.ward_clinic||'-'"
+                  },
+                  {
+                    "labelWidth": 150,
+                    "align": "left",
+                    "fieldName": "specimenLabel",
+                    "expressions": "(function(){var x={};try{x=typeof row.biochemistry_specimen_json==='string'?JSON.parse(row.biochemistry_specimen_json||'{}'):(row.biochemistry_specimen_json||{})}catch(e){}var m={clotted:'Clotted blood',ionized_calcium:'Ionized Calcium',lithium_heparin:'Lithium heparin',naf:'NaF',edta:'EDTA',urine_spot:'Urine spot',urine_24hr:'Urine 24 hr.',csf:'CSF',body_fluid:'Body Fluid'};return m[x.bloodType]||m[x.urineType]||m[x.type]||'-';})()"
+                  },
+                  {
+                    "labelWidth": 150,
+                    "align": "left",
+                    "fieldName": "coverageLabel",
+                    "expressions": "row.treatment_right||row.insurance_right||row.inscl_code||row.inscl_name||'-'"
+                  },
+                  {
+                    "labelWidth": 150,
+                    "align": "left",
+                    "fieldName": "paymentLabel",
+                    "expressions": "row.payment_status||'-'"
+                  },
+                  {
+                    "labelWidth": 150,
+                    "align": "left",
+                    "fieldName": "orderCountLabel",
+                    "expressions": "(function(){try{var x=typeof row.selected_items_json==='string'?JSON.parse(row.selected_items_json||'[]'):(row.selected_items_json||[]);return(Array.isArray(x)?x.length:0)+' รายการ'}catch(e){return(row.order_count||0)+' รายการ'}})()"
+                  }
+                ],
+                "onCreated": "",
+                "onMounted": "",
+                "onUnmount": ""
+              },
+              "id": "list-ui-lab-waiting"
+            }
+          ],
+          "options": {
+            "name": "lab_waiting",
+            "label": "รอรับ",
+            "hidden": false,
+            "active": true,
+            "disabled": false,
+            "customClass": ""
+          },
+          "id": "tab-pane-lab-waiting"
+        },
+        {
+          "key": 81012,
+          "name": "Tab Pane",
+          "component": "tab-pane",
+          "category": "container",
+          "icon": "tab-pane",
+          "fieldType": "None",
+          "fieldLength": null,
+          "children": true,
+          "enable": true,
+          "formItemFlag": false,
+          "fields": [
+            {
+              "name": "Components",
+              "component": "vue-ui",
+              "category": "display_ui",
+              "icon": "components-ui",
+              "fieldType": "None",
+              "fieldLength": null,
+              "children": false,
+              "enable": true,
+              "formItemFlag": false,
+              "options": {
+                "name": "lab_received_styles",
+                "columnSpan": 4,
+                "hidden": false,
+                "label": "Received Styles",
+                "customClass": "",
+                "onCreated": "",
+                "onMounted": "",
+                "onUnmount": "",
+                "content": "<style>.lab-toolbar-received{display:grid!important;grid-template-columns:minmax(280px,460px) minmax(0,1fr) max-content!important;align-items:center!important;gap:10px!important}.lab-queue,.lab-detail{border:1px solid #e5e7eb!important;border-radius:8px!important;background:#fff!important;overflow:hidden!important}.lab-received-row{display:grid!important;width:100%!important;grid-template-columns:1fr!important;gap:3px!important;padding:13px 16px!important;border:0!important;border-bottom:1px solid #e5e7eb!important;background:#fff!important;color:#111827!important;text-align:left!important;cursor:pointer!important}.lab-received-row:hover{background:#f8fafc!important}.lab-received-row.active{background:#eff6ff!important;box-shadow:inset 3px 0 #2563eb!important}.lab-received-row b{font-size:14px!important}.lab-received-row span{color:#374151!important}.lab-received-row small{color:#6b7280!important}.lab-detail-head{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;padding:15px 16px!important;border-bottom:1px solid #e5e7eb!important}.lab-detail-head h2{margin:0!important;font-size:16px!important}.lab-detail-head p{margin:3px 0 0!important;color:#6b7280!important;font-size:12px!important}.lab-detail-grid{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:10px!important;padding:14px 16px!important;border-bottom:1px solid #e5e7eb!important}.lab-detail-grid span{display:flex!important;flex-direction:column!important;gap:3px!important;color:#6b7280!important;font-size:12px!important}.lab-detail-grid b{color:#111827!important;font-size:13px!important;word-break:break-word!important}.lab-detail h3{margin:16px 16px 9px!important;font-size:14px!important}.lab-detail-table{width:calc(100% - 32px)!important;margin:0 16px 16px!important;border-collapse:collapse!important}.lab-detail-table th,.lab-detail-table td{padding:10px!important;border-bottom:1px solid #e5e7eb!important;text-align:left!important}.lab-detail-table th{color:#6b7280!important;background:#f9fafb!important;font-size:12px!important}.lab-detail-table td:nth-child(3){text-align:right!important}.lab-received-tag{display:inline-block!important;padding:3px 8px!important;border-radius:999px!important;background:#ecfdf5!important;color:#047857!important;font-size:11px!important;font-weight:700!important}@media(max-width:900px){.lab-toolbar-received{grid-template-columns:1fr!important}.lab-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}}</style>"
+              },
+              "id": "vue-ui-lab-received-styles"
+            },
+            {
+              "key": 81201,
+              "name": "Components",
+              "component": "vue-ui",
+              "category": "display_ui",
+              "icon": "components-ui",
+              "fieldType": "None",
+              "fieldLength": null,
+              "children": false,
+              "enable": true,
+              "formItemFlag": false,
+              "options": {
+                "name": "lab_received_component",
+                "columnSpan": 4,
+                "hidden": false,
+                "label": "Components",
+                "customClass": "",
+                "onCreated": "const s=this.vueState;const field=this;const PROVIDER={providerId:'6a771f20cc7d0a8451130339',providerType:'FORM',params:{},options:{}};s.rows=[];s.search='';s.info='';s.selectedId='';s.historyFilter='all';s.extract=out=>{const p=[out,out&&out.data,out&&out.rows,out&&out.data&&out.data.data,out&&out.reply&&out.reply.data];for(let i=0;i<p.length;i++){if(Array.isArray(p[i]))return p[i]}return []};s.safeJson=v=>{try{return typeof v==='string'?JSON.parse(v||'{}'):(v||{})}catch(e){return {}}};s.items=row=>{const x=s.safeJson(row&&row.selected_items_json);return Array.isArray(x)?x:[]};s.itemCount=row=>s.items(row).length;s.history=row=>{const x=s.safeJson(row&&row.order_change_history_json);return Array.isArray(x)?x:[]};s.setHistoryFilter=v=>{s.historyFilter=v||'all'};s.filteredHistory=row=>{const filter=s.historyFilter||'all';return s.history(row).filter(entry=>filter==='all'||(filter==='added'&&Array.isArray(entry.added)&&entry.added.length)||(filter==='removed'&&Array.isArray(entry.removed)&&entry.removed.length))};s.historyTime=v=>{if(!v)return '-';try{return new Date(v).toLocaleString('th-TH',{dateStyle:'short',timeStyle:'medium'})}catch(e){return String(v)}};s.specimen=row=>{const x=s.safeJson(row&&row.biochemistry_specimen_json);const m={clotted:'Clotted blood',ionized_calcium:'Ionized Calcium',lithium_heparin:'Lithium heparin',naf:'NaF',edta:'EDTA',urine_spot:'Urine spot',urine_24hr:'Urine 24 hr.',csf:'CSF',body_fluid:'Body Fluid'};return m[x.bloodType]||m[x.urineType]||m[x.type]||'-'};s.time=v=>{if(!v)return '-';try{return new Date(v).toLocaleString('th-TH',{dateStyle:'short',timeStyle:'short'})}catch(e){return String(v)}};s.money=v=>Number(v||0).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2});s.setSearch=v=>{s.search=v||''};s.filtered=()=>{const q=s.search.trim().toLowerCase();return !q?s.rows:s.rows.filter(r=>[r.patient_hn,r.patient_name,r.ward_clinic,r.lab_no].join(' ').toLowerCase().includes(q))};s.selected=()=>s.rows.find(r=>String(r._id||r.id)===String(s.selectedId))||null;s.select=row=>{s.selectedId=String(row._id||row.id||'')};s.editOrder=()=>{const row=s.selected();const form=field.getFormRef();const id=row&&String(row._id||row.id||'');if(!id){field.notify('กรุณาเลือกรายการก่อน','warning',3000);return}if(!form||typeof form.openForm!=='function'){field.notify('ไม่พบตัวเปิดฟอร์มใบสั่งตรวจ','error',3000);return}form.openForm('6a771f20cc7d0a8451130339',id,null,{}, {popupType:'dialog',backdrop:false,afterSaveCallback:()=>{s.load();const waiting=field.refField('lab_waiting_orders');if(waiting&&waiting.vueState&&typeof waiting.vueState.loadWaitingOrders==='function')waiting.vueState.loadWaitingOrders()}})};s.startProcess=()=>{const row=s.selected();if(!row){field.notify('กรุณาเลือกรายการก่อน','warning',3000);return}field.notify('เตรียมเริ่มดำเนินการสำหรับ HN '+(row.patient_hn||'-'),'info',3000)};s.load=()=>{try{s.info='กำลังโหลด...';const api=field.globalUserState||((field.getFormRef&&field.getFormRef())||{}).userState;if(!api||typeof api.crudGetAll!=='function')throw Error('ไม่พบ API connector ของฟอร์ม');api.crudGetAll({sdProvider:PROVIDER,totalEnable:true},out=>{const all=s.extract(out);s.rows=all.filter(r=>{const status=String(r.order_status||'');const isBio=r.lab_section==='BC'||(!r.lab_section&&!!r.selected_items_json);return isBio&&status==='received'});if(!s.selectedId||!s.rows.some(r=>String(r._id||r.id)===String(s.selectedId)))s.selectedId=s.rows[0]?String(s.rows[0]._id||s.rows[0].id):'';s.info='รับเข้าแล้ว '+s.rows.length+' ใบ'},e=>{throw e||Error('อ่านข้อมูลไม่สำเร็จ')})}catch(e){s.info='โหลดไม่สำเร็จ';field.notify('โหลดรายการรับเข้าแล้วไม่สำเร็จ','error',4000)}};s.load();",
+                "onMounted": "this.vueState.load()",
+                "onUnmount": "",
+                "content": "<div class=\"lab-screen\"><div style=\"display:grid;grid-template-columns:minmax(280px,460px) minmax(0,1fr) max-content;align-items:center;gap:10px;margin-bottom:16px\"><div class=\"lab-search-wrap\"><input class=\"lab-search\" :value=\"search\" @input=\"setSearch($event.target.value)\" placeholder=\"ค้นหาผู้ป่วยที่รับเข้าแล้ว\" /></div><span class=\"lab-muted\">{{ info || 'เลือกผู้ป่วยเพื่อเปิด List Order' }}</span><button class=\"lab-button\" type=\"button\" @click=\"load\">โหลดใหม่</button></div><div style=\"display:grid;grid-template-columns:360px minmax(0,1fr);gap:14px;min-height:590px\"><div style=\"border:1px solid #e5e7eb;border-radius:8px;background:#fff;overflow:hidden\"><div style=\"display:flex;align-items:center;justify-content:space-between;padding:15px 16px;border-bottom:1px solid #e5e7eb\"><div><h2 style=\"margin:0;font-size:16px\">ผู้ป่วยรับเข้าแล้ว</h2><p style=\"margin:3px 0 0;color:#6b7280;font-size:12px\">กำลังดำเนินการ {{ filtered().length }} ราย</p></div></div><button v-for=\"row in filtered()\" :key=\"row._id\" type=\"button\" @click=\"select(row)\" style=\"display:grid;width:100%;grid-template-columns:1fr;gap:3px;padding:13px 16px;border:0;border-bottom:1px solid #e5e7eb;color:#111827;text-align:left;cursor:pointer\" :style=\"{background:String(selectedId)===String(row._id||row.id)?'#eff6ff':'#fff',boxShadow:String(selectedId)===String(row._id||row.id)?'inset 3px 0 #2563eb':'none'}\"><b style=\"font-size:14px\">{{ row.patient_hn || '-' }}</b><span style=\"color:#374151\">{{ row.patient_name || '-' }}</span><small style=\"color:#6b7280\">{{ specimen(row) }} · รับเข้า {{ time(row.received_at) }}</small></button><div v-if=\"filtered().length===0\" class=\"lab-empty\"><strong>ไม่พบผู้ป่วย</strong><br/>รายการจะแสดงหลังยืนยันการรับสิ่งส่งตรวจ</div></div><div v-if=\"selected()\" style=\"border:1px solid #e5e7eb;border-radius:8px;background:#fff;overflow:hidden\"><div style=\"display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 16px;border-bottom:1px solid #e5e7eb\"><div><h2 style=\"margin:0;font-size:16px\">{{ selected().patient_hn || '-' }} — {{ selected().patient_name || '-' }}</h2><p style=\"margin:3px 0 0;color:#6b7280;font-size:12px\">LAB NO. {{ selected().lab_no || 'รอกำหนด' }} · {{ specimen(selected()) }} · รับเข้า {{ time(selected().received_at) }}</p></div><span class=\"lab-status-tag\">{{ itemCount(selected()) }} รายการ</span></div><div style=\"display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:14px 16px;border-bottom:1px solid #e5e7eb\"><span style=\"display:flex;flex-direction:column;gap:3px;color:#6b7280;font-size:12px\">Ward / Clinic<b style=\"color:#111827;font-size:13px\">{{ selected().ward_clinic || '-' }}</b></span><span style=\"display:flex;flex-direction:column;gap:3px;color:#6b7280;font-size:12px\">ผู้รับเข้า<b style=\"color:#111827;font-size:13px\">{{ selected().received_by || '-' }}</b></span><span style=\"display:flex;flex-direction:column;gap:3px;color:#6b7280;font-size:12px\">Specimen<b style=\"color:#111827;font-size:13px\">{{ selected().specimen_code || '-' }}</b></span><span style=\"display:flex;flex-direction:column;gap:3px;color:#6b7280;font-size:12px\">การชำระเงิน<b style=\"color:#111827;font-size:13px\">{{ selected().payment_status || '-' }}</b></span></div><h3 style=\"margin:16px 16px 9px;font-size:14px\">List Order</h3><table style=\"width:calc(100% - 32px);margin:0 16px 16px;border-collapse:collapse\"><thead><tr><th style=\"padding:10px;text-align:left;color:#6b7280;background:#f9fafb;font-size:12px\">รหัส</th><th style=\"padding:10px;text-align:left;color:#6b7280;background:#f9fafb;font-size:12px\">รายการตรวจ</th><th style=\"padding:10px;text-align:right;color:#6b7280;background:#f9fafb;font-size:12px\">ราคา</th><th style=\"padding:10px;text-align:left;color:#6b7280;background:#f9fafb;font-size:12px\">สถานะ</th></tr></thead><tbody><tr v-for=\"item in items(selected())\" :key=\"item.id||item.code\"><td style=\"padding:10px;border-bottom:1px solid #e5e7eb\"><b>{{ item.code || '-' }}</b></td><td style=\"padding:10px;border-bottom:1px solid #e5e7eb\">{{ item.name || '-' }}</td><td style=\"padding:10px;border-bottom:1px solid #e5e7eb;text-align:right\">{{ money(item.effective_price!=null?item.effective_price:item.sale_price) }}</td><td style=\"padding:10px;border-bottom:1px solid #e5e7eb\"><span style=\"display:inline-block;padding:3px 8px;border-radius:999px;background:#eff6ff;color:#2563eb;font-size:11px;font-weight:700\">รอตรวจ</span></td></tr></tbody></table><div v-if=\"history(selected()).length\" style=\"padding:0 16px 16px\"><div style=\"display:flex;align-items:center;justify-content:space-between;gap:10px;margin:4px 0 9px\"><h3 style=\"margin:0;font-size:14px\">ประวัติการแก้ไขรายการส่งตรวจ</h3><select :value=\"historyFilter\" @change=\"setHistoryFilter($event.target.value)\" style=\"height:30px;padding:0 28px 0 9px;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#374151;font-size:12px;cursor:pointer\"><option value=\"all\">ทั้งหมด</option><option value=\"added\">รายการที่เพิ่ม</option><option value=\"removed\">รายการที่ลด</option></select></div><div v-for=\"(entry,index) in filteredHistory(selected())\" :key=\"entry.changed_at||index\" style=\"margin-bottom:10px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden\"><div style=\"padding:8px 12px;color:#374151;font-size:12px;font-weight:700\">{{ historyTime(entry.changed_at) }}<span v-if=\"entry.changed_by\"> · {{ entry.changed_by }}</span></div><div v-if=\"historyFilter==='all'||historyFilter==='added'\" v-for=\"item in (entry.added||[])\" :key=\"'add-'+item.code\" style=\"padding:8px 12px;background:#ecfdf5;color:#166534;font-weight:700\">＋ {{ item.code }} <span style=\"font-weight:500\">{{ item.name }}</span></div><div v-if=\"historyFilter==='all'||historyFilter==='removed'\" v-for=\"item in (entry.removed||[])\" :key=\"'remove-'+item.code\" style=\"padding:8px 12px;background:#fef2f2;color:#dc2626;font-weight:700\">− {{ item.code }} <span style=\"font-weight:500\">{{ item.name }}</span></div></div></div><div style=\"display:flex;justify-content:flex-end;gap:10px;padding:14px 16px;border-top:1px solid #e5e7eb;background:#fff\"><button type=\"button\" @click=\"editOrder\" style=\"height:38px;padding:0 14px;border:1px solid #d1d5db;border-radius:7px;background:#fff;color:#374151;font-weight:700;cursor:pointer\">แก้ไขรายการส่งตรวจ</button><button type=\"button\" @click=\"startProcess\" style=\"height:38px;padding:0 14px;border:1px solid #2563eb;border-radius:7px;background:#2563eb;color:#fff;font-weight:700;cursor:pointer\">เริ่มดำเนินการ</button></div></div><div v-else class=\"lab-detail-empty\"><div><b>List Order</b><br/><span>เลือกผู้ป่วยจากรายการด้านซ้ายเพื่อดูรายละเอียด<br/>สิ่งส่งตรวจ, LAB NO., ผลตรวจ, Comment และสถานะ</span></div></div></div></div>"
+              },
+              "id": "vue-ui-lab-received"
+            }
+          ],
+          "options": {
+            "name": "lab_received",
+            "label": "รับเข้าแล้ว",
+            "hidden": false,
+            "active": false,
+            "disabled": false,
+            "customClass": ""
+          },
+          "id": "tab-pane-lab-received"
+        },
+        {
+          "key": 81013,
+          "name": "Tab Pane",
+          "component": "tab-pane",
+          "category": "container",
+          "icon": "tab-pane",
+          "fieldType": "None",
+          "fieldLength": null,
+          "children": true,
+          "enable": true,
+          "formItemFlag": false,
+          "fields": [
+            {
+              "key": 81301,
+              "name": "Components",
+              "component": "vue-ui",
+              "category": "display_ui",
+              "icon": "components-ui",
+              "fieldType": "None",
+              "fieldLength": null,
+              "children": false,
+              "enable": true,
+              "formItemFlag": false,
+              "options": {
+                "name": "lab_resulted_component",
+                "columnSpan": 4,
+                "hidden": false,
+                "label": "Components",
+                "customClass": "",
+                "onCreated": "",
+                "onMounted": "",
+                "onUnmount": "",
+                "content": "<div class=\"lab-screen\"><div class=\"lab-metrics\"><div class=\"lab-metric\"><div>ออกผลทั้งหมด</div><b class=\"green\">0 <small>LAB NO.</small></b></div><div class=\"lab-metric\"><div>ออกผลครบ</div><b class=\"green\">0 <small>รายการ</small></b></div><div class=\"lab-metric\"><div>ออกผลบางส่วน</div><b class=\"amber\">0 <small>รายการ</small></b></div></div><div class=\"lab-toolbar lab-toolbar-result\"><div class=\"lab-search-wrap\"><input class=\"lab-search\" placeholder=\"ค้นหา HN, ชื่อผู้ป่วย หรือ LAB NO.\" /></div><select class=\"lab-select\"><option>สถานะผลทั้งหมด</option><option>ออกผลครบ</option><option>ออกผลบางส่วน</option></select><span class=\"lab-spacer\"></span><button class=\"lab-button\" type=\"button\">Export CSV</button></div><div class=\"lab-panel\"><div class=\"lab-panel-head\"><div><h2>รายการที่ออกผลแล้ว</h2><p>ดูผลหรือพิมพ์รายงานตาม LAB NO.</p></div></div><div class=\"lab-table-wrap\"><table class=\"lab-table\"><thead><tr><th>HN / LAB NO.</th><th>ชื่อผู้ป่วย</th><th>Ward / Clinic</th><th>เวลาออกผล</th><th>สิ่งส่งตรวจ</th><th>สถานะผล</th><th></th></tr></thead><tbody><tr><td colspan=\"7\"><div class=\"lab-empty\"><strong>ไม่พบรายการออกผล</strong><br/>ผลที่ออกแล้วจะแสดงในหน้านี้</div></td></tr></tbody></table></div></div></div>"
+              },
+              "id": "vue-ui-lab-resulted"
+            }
+          ],
+          "options": {
+            "name": "lab_resulted",
+            "label": "ออกผลแล้ว",
+            "hidden": false,
+            "active": false,
+            "disabled": false,
+            "customClass": ""
+          },
+          "id": "tab-pane-lab-resulted"
+        },
+        {
+          "key": 81014,
+          "name": "Tab Pane",
+          "component": "tab-pane",
+          "category": "container",
+          "icon": "tab-pane",
+          "fieldType": "None",
+          "fieldLength": null,
+          "children": true,
+          "enable": true,
+          "formItemFlag": false,
+          "fields": [
+            {
+              "key": 81304,
+              "name": "List View",
+              "component": "list-ui",
+              "category": "display_ui",
+              "icon": "list-view",
+              "fieldType": "Array",
+              "fieldLength": null,
+              "children": false,
+              "enable": true,
+              "formItemFlag": false,
+              "options": {
+                "name": "lab_cancelled_listview_final",
+                "label": "ผู้ป่วยยกเลิกรายการ",
+                "customClass": [
+                  "lab-waiting-listview"
+                ],
+                "columnSpan": 4,
+                "hidden": false,
+                "formId": "6a771f20cc7d0a8451130339",
+                "parentId": "",
+                "params": null,
+                "titleEnable": true,
+                "titleName": "ผู้ป่วยยกเลิกรายการ",
+                "where": "order_status = 'rejected'",
+                "orderBy": [
+                  {
+                    "column": "rejected_at",
+                    "sort": "DESC"
+                  }
+                ],
+                "searchField": [
+                  "patient_hn",
+                  "patient_name",
+                  "ward_clinic",
+                  "order_group_id"
+                ],
+                "limitRow": 50,
+                "actionEnable": true,
+                "addBtnEnable": false,
+                "delBtnEnable": false,
+                "viewBtnEnable": false,
+                "reloadBtnEnable": true,
+                "updateBtnEnable": false,
+                "height": "620px",
+                "providerType": "FORM",
+                "buttonsRow": [
+                  {
+                    "label": "ตรวจใหม่",
+                    "type": "primary",
+                    "plain": false,
+                    "confirm": false,
+                    "onClick": "const host=this.getFormRef();const api=(host&&host.userState)||this.globalUserState;const id=String(dataRow._id||dataRow.id||'');if(!id||!api||typeof api.runProcess!=='function'){this.alert('ไม่พบ API connector สำหรับย้ายรายการ','error');return}api.runProcess('6a79ff46d5218a5b6a26bebc',{source_order_id:id,action:'recheck'},res=>{const body=(res&&res.data)||res||{};if(body.success===false){this.alert(body.message||'ย้ายรายการไม่สำเร็จ','error');return}this.notify(body.message||'ย้ายรายการไปหน้ารับเข้าแล้ว','success',2500);const ed=this.getFieldEditor&&this.getFieldEditor();if(ed&&ed.handleRefresh)ed.handleRefresh();const received=host&&host.getFieldRef&&host.getFieldRef('lab_received_component');if(received&&received.vueState&&typeof received.vueState.load==='function')setTimeout(()=>received.vueState.load(),400)},err=>this.alert(String((err&&err.message)||err||'ย้ายรายการไม่สำเร็จ'),'error'))"
+                  }
+                ],
+                "defaultFilterParent": false,
+                "parentPath": "_id",
+                "showWhenParent": false,
+                "enableWs": true,
+                "listType": "listview",
+                "iconWigth": 48,
+                "iconField": null,
+                "titleContent": "",
+                "titleField": null,
+                "detailContent": "<div style='display:grid;grid-template-columns:175px minmax(180px,1.15fr) minmax(130px,.8fr) 130px minmax(145px,.9fr) 115px 115px 104px;align-items:start;gap:14px;width:100%;min-width:0;padding:4px 170px 4px 4px;white-space:normal;box-sizing:border-box;'><div style='display:flex;flex-direction:column;justify-content:flex-start;min-height:66px;line-height:1.35;min-width:0;'><div style='height:17px;font-size:11px;font-weight:700;color:var(--el-text-color-secondary);margin:0 0 6px;white-space:nowrap;'>HN / LAB NO.</div><b style='font-size:16px;color:var(--el-text-color-primary);white-space:nowrap;'>{{patient_hn}}</b><span style='font-size:12px;color:var(--el-text-color-primary);white-space:nowrap;'>LAB NO. รอกำหนด</span></div><div style='display:flex;flex-direction:column;justify-content:flex-start;min-height:66px;line-height:1.35;min-width:0;'><div style='height:17px;font-size:11px;font-weight:700;color:var(--el-text-color-secondary);margin:0 0 6px;white-space:nowrap;'>ชื่อผู้ป่วย</div><b style='font-size:15px;color:var(--el-text-color-primary);'>{{patient_name}}</b></div><div style='display:flex;flex-direction:column;justify-content:flex-start;min-height:66px;line-height:1.35;min-width:0;'><div style='height:17px;font-size:11px;font-weight:700;color:var(--el-text-color-secondary);margin:0 0 6px;white-space:nowrap;'>Ward / Clinic</div><span style='color:var(--el-text-color-primary);'>{{wardLabel}}</span></div><div style='display:flex;flex-direction:column;justify-content:flex-start;min-height:66px;line-height:1.35;min-width:0;'><div style='height:17px;font-size:11px;font-weight:700;color:var(--el-text-color-secondary);margin:0 0 6px;white-space:nowrap;'>เวลาส่ง</div><span style='color:var(--el-text-color-primary);'>{{orderedDateLabel}}</span><small style='color:var(--el-text-color-primary);font-size:13px;'>{{orderedTimeLabel}}</small></div><div style='display:flex;flex-direction:column;justify-content:flex-start;min-height:66px;line-height:1.35;min-width:0;'><div style='height:17px;font-size:11px;font-weight:700;color:var(--el-text-color-secondary);margin:0 0 6px;white-space:nowrap;'>Specimen</div><span style='color:var(--el-text-color-primary);'>{{specimenLabel}}</span></div><div style='display:flex;flex-direction:column;justify-content:flex-start;min-height:66px;line-height:1.35;min-width:0;'><div style='height:17px;font-size:11px;font-weight:700;color:var(--el-text-color-secondary);margin:0 0 6px;white-space:nowrap;'>สิทธิ์การรักษา</div><span style='color:var(--el-text-color-primary);'>{{coverageLabel}}</span></div><div style='display:flex;flex-direction:column;justify-content:flex-start;min-height:66px;line-height:1.35;min-width:0;'><div style='height:17px;font-size:11px;font-weight:700;color:var(--el-text-color-secondary);margin:0 0 6px;white-space:nowrap;'>การชำระเงิน</div><span style='color:var(--el-text-color-primary);'>{{paymentLabel}}</span></div><div style='display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;min-height:66px;line-height:1.35;min-width:0;'><div style='height:17px;font-size:11px;font-weight:700;color:var(--el-text-color-secondary);margin:0 0 6px;white-space:nowrap;'>Order</div><span style='display:inline-flex;align-self:flex-start;width:auto;align-items:center;justify-content:center;box-sizing:border-box;height:32px;padding:0 14px;border:0;border-radius:999px;background:#eff6ff;color:#2563eb;font-size:14px;font-weight:700;white-space:nowrap;'>{{orderCountLabel}}</span></div></div>",
+                "statusContent": "",
+                "statusField": null,
+                "colorField": null,
+                "groupField": null,
+                "disableNoMore": false,
+                "scrollDistance": 1,
+                "listColumn": 1,
+                "detailMaxRow": 3,
+                "totalEnable": true,
+                "noMoreLabel": "หมดรายการ",
+                "searchPlaceholder": "ค้นหา HN, ชื่อผู้ป่วย หรือ Ward / Clinic",
+                "clickEvent": "",
+                "customValue": [
+                  {
+                    "labelWidth": 150,
+                    "align": "left",
+                    "fieldName": "orderedDateLabel",
+                    "expressions": "(function(){var v=row.ordered_at||row.requested_at;if(!v)return '-';var d=new Date(v);if(isNaN(d))return String(v);return d.toLocaleDateString('th-TH',{day:'2-digit',month:'2-digit',year:'2-digit'});})()"
+                  },
+                  {
+                    "fieldName": "orderedTimeLabel",
+                    "expressions": "(function(){var v=row.ordered_at||row.requested_at;if(!v)return '';var d=new Date(v);if(isNaN(d))return '';return d.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});})()"
+                  },
+                  {
+                    "labelWidth": 150,
+                    "align": "left",
+                    "fieldName": "wardLabel",
+                    "expressions": "row.ward_clinic||'-'"
+                  },
+                  {
+                    "labelWidth": 150,
+                    "align": "left",
+                    "fieldName": "specimenLabel",
+                    "expressions": "(function(){var x={};try{x=typeof row.biochemistry_specimen_json==='string'?JSON.parse(row.biochemistry_specimen_json||'{}'):(row.biochemistry_specimen_json||{})}catch(e){}var m={clotted:'Clotted blood',ionized_calcium:'Ionized Calcium',lithium_heparin:'Lithium heparin',naf:'NaF',edta:'EDTA',urine_spot:'Urine spot',urine_24hr:'Urine 24 hr.',csf:'CSF',body_fluid:'Body Fluid'};return m[x.bloodType]||m[x.urineType]||m[x.type]||'-';})()"
+                  },
+                  {
+                    "labelWidth": 150,
+                    "align": "left",
+                    "fieldName": "coverageLabel",
+                    "expressions": "row.treatment_right||row.insurance_right||row.inscl_code||row.inscl_name||'-'"
+                  },
+                  {
+                    "labelWidth": 150,
+                    "align": "left",
+                    "fieldName": "paymentLabel",
+                    "expressions": "row.payment_status||'-'"
+                  },
+                  {
+                    "labelWidth": 150,
+                    "align": "left",
+                    "fieldName": "orderCountLabel",
+                    "expressions": "(function(){try{var x=typeof row.selected_items_json==='string'?JSON.parse(row.selected_items_json||'[]'):(row.selected_items_json||[]);return(Array.isArray(x)?x.length:0)+' รายการ'}catch(e){return(row.order_count||0)+' รายการ'}})()"
+                  }
+                ],
+                "onCreated": "",
+                "onMounted": "",
+                "onUnmount": ""
+              },
+              "id": "list-ui-lab-cancelled-final"
+            }
+          ],
+          "options": {
+            "name": "lab_cancelled",
+            "label": "ยกเลิกรายการ",
+            "hidden": false,
+            "active": false,
+            "disabled": false,
+            "customClass": ""
+          },
+          "id": "tab-pane-lab-cancelled"
+        }
+      ],
+      "options": {
+        "name": "lab_biochem_tabs",
+        "hidden": false,
+        "displayType": "card",
+        "tabPosition": "top",
+        "lazy": true,
+        "customClass": ""
+      },
+      "id": "tab-lab-biochem"
+    }
+  ],
+  "formConfig": {
+    "modelName": "formData",
+    "refName": "sdForm",
+    "rulesName": "rules",
+    "labelWidth": 120,
+    "labelPosition": "top",
+    "size": "",
+    "labelAlign": "label-right-align",
+    "cssCode": ".lab-screen{font-family:\"IBM Plex Sans Thai\",\"Noto Sans Thai\",Tahoma,sans-serif;color:#111827;font-size:14px}.lab-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:18px}.lab-metric{padding:15px 16px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;color:#6b7280;font-size:12px}.lab-metric b{display:block;margin-top:4px;font-size:25px}.lab-metric small{font-size:12px;font-weight:400;color:#9ca3af}.blue{color:#2563eb}.red{color:#dc2626}.amber{color:#d97706}.green{color:#059669}.lab-toolbar{align-items:center;gap:10px;margin-bottom:16px}.lab-toolbar-filter{display:grid;grid-template-columns:minmax(280px,460px) 210px;justify-content:start}.lab-toolbar-received{display:grid;grid-template-columns:minmax(280px,460px) max-content;justify-content:start}.lab-toolbar-result{display:grid;grid-template-columns:minmax(280px,460px) 210px minmax(0,1fr) max-content}.lab-search-wrap{position:relative;width:100%;min-width:0}.lab-search-wrap:before{content:\"⌕\";position:absolute;z-index:2;left:12px;top:7px;color:#6b7280;font-size:20px;pointer-events:none}.lab-search{display:block!important;width:100%!important;height:40px!important;border:1px solid #d1d5db!important;border-radius:8px!important;background:#fff!important;color:#111827!important;padding:0 12px 0 36px!important;outline:none!important;box-sizing:border-box!important}.lab-select{display:block!important;width:210px!important;height:40px!important;border:1px solid #d1d5db!important;border-radius:8px!important;background:#fff!important;color:#111827!important;padding:0 12px!important;box-sizing:border-box!important;min-width:0!important}.lab-search:focus,.lab-select:focus{border-color:#93c5fd!important;box-shadow:0 0 0 3px #eff6ff}.lab-button{height:40px;padding:0 15px;border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#374151;font-weight:600;cursor:pointer;white-space:nowrap}.lab-button:hover{background:#f9fafb}.lab-panel,.lab-queue{border:1px solid #e5e7eb;border-radius:8px;background:#fff;overflow:hidden}.lab-panel-head,.lab-queue-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 16px;border-bottom:1px solid #e5e7eb}.lab-panel-head h2,.lab-queue-head h2{margin:0;font-size:16px}.lab-panel-head p,.lab-queue-head p,.lab-panel-head span,.lab-muted{margin:3px 0 0;color:#6b7280;font-size:12px}.lab-table-wrap{overflow-x:auto}.lab-table{width:100%;border-collapse:collapse;min-width:820px}.lab-table th{height:40px;padding:0 14px;text-align:left;background:#f9fafb;color:#6b7280;border-bottom:1px solid #e5e7eb;font-size:11px;font-weight:600}.lab-table td{padding:12px 14px;border-bottom:1px solid #e5e7eb}.lab-empty{padding:64px 20px;text-align:center;color:#6b7280;line-height:1.7}.lab-empty strong,.lab-detail-empty b{color:#374151}.lab-split{display:grid;grid-template-columns:360px minmax(0,1fr);gap:14px;min-height:590px}.lab-detail-empty{display:grid;place-items:center;border:1px dashed #d1d5db;border-radius:8px;background:#fff;color:#6b7280;text-align:center;line-height:1.8}.lab-flow{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:14px;padding:12px 14px;border-left:4px solid #2563eb;border-radius:4px;background:#eff6ff;color:#4b5563;font-size:12px}.lab-flow b{color:#1d4ed8;margin-right:4px}.lab-flow i{font-style:normal;color:#2563eb}.lab-spacer{min-width:0}@media(max-width:900px){.lab-metrics{grid-template-columns:1fr}.lab-toolbar-filter,.lab-toolbar-received,.lab-toolbar-result{display:grid;grid-template-columns:1fr;justify-content:stretch}.lab-select{width:100%!important}.lab-toolbar-result .lab-spacer{display:none}.lab-toolbar-result .lab-button{justify-self:start}.lab-split{grid-template-columns:1fr}.lab-queue{min-height:200px}.lab-detail-empty{min-height:240px}}\n.bio-root{display:flex;flex-direction:column;gap:16px}.bio-specimen,.bio-summary{border:1px solid var(--el-border-color-lighter);border-radius:12px;padding:16px;background:var(--el-fill-color-blank)}.bio-specimen h3{margin:0 0 12px;font-size:15px}.bio-specimen-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:20px}.bio-sub{display:flex;flex-wrap:wrap;margin:10px 0 0 24px}.bio-specimen-fields{display:grid;gap:10px}.bio-toolbar{display:flex;align-items:center;gap:16px}.bio-toolbar>.el-input{max-width:520px}.bio-count{margin-left:auto;white-space:nowrap;text-align:right;color:var(--el-text-color-secondary)}.bio-count b,.bio-count strong,.bio-total strong{color:var(--el-color-primary)}.bio-groups{column-width:300px;column-gap:16px}.bio-group{break-inside:avoid;border:1px solid var(--el-border-color-lighter);border-radius:10px;overflow:hidden;margin:0 0 16px;background:#fff}.bio-group-title{display:flex;gap:8px;align-items:center;padding:11px 12px;background:var(--el-fill-color-light)}.bio-group-title b,.bio-name{flex:1}.bio-group-title span{font-size:11px;color:var(--el-text-color-secondary)}.bio-item{display:flex;align-items:center;gap:8px;padding:7px 12px;border-top:1px solid var(--el-border-color-lighter);font-size:13px}.bio-code{min-width:48px;color:var(--el-color-primary);font-weight:700}.bio-price{min-width:72px;text-align:right;color:var(--el-text-color-secondary);font-variant-numeric:tabular-nums}.bio-minute{width:92px}.bio-summary-head,.bio-total{display:flex;justify-content:space-between;align-items:center}.bio-none{padding:12px 0;color:var(--el-text-color-placeholder)}.bio-selected{display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--el-border-color-lighter)}.bio-selected>span:nth-child(2){flex:1}.bio-selected small{color:var(--el-text-color-secondary)}.bio-total{padding-top:12px;font-size:15px}.bio-send{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 16px;border:1px solid var(--el-color-primary-light-7);border-radius:12px;background:var(--el-color-primary-light-9)}.bio-send b{display:block;color:var(--el-text-color-primary)}.bio-send span{display:block;margin-top:3px;font-size:12px;color:var(--el-text-color-secondary)}@media(max-width:700px){.bio-specimen-grid{grid-template-columns:1fr}.bio-toolbar{align-items:stretch;flex-direction:column}.bio-toolbar>.el-input{max-width:none}.bio-count{margin-left:0;text-align:left}.bio-groups{column-width:auto}.bio-sub{margin-left:0}.bio-send{align-items:stretch;flex-direction:column}}\n.bio-create-bar{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:18px 20px;border:1px solid var(--el-color-primary-light-7);border-radius:14px;background:var(--el-color-primary-light-9);margin-bottom:18px}.bio-create-title{font-size:17px;font-weight:700;color:var(--el-text-color-primary)}.bio-create-sub{font-size:13px;color:var(--el-text-color-secondary);margin-top:3px}@media(max-width:640px){.bio-create-bar{align-items:flex-start;flex-direction:column}}\n.lab-order-list{display:flex;flex-direction:column;gap:3px;min-width:190px;max-width:330px}.lab-order-list div{display:flex;gap:7px;line-height:1.35}.lab-order-list b{min-width:45px;color:var(--el-color-primary);font-size:12px}.lab-order-list span{color:var(--el-text-color-regular);font-size:12px}.lab-order-list small{color:var(--el-text-color-placeholder)}.lab-status-tag{display:inline-block;padding:5px 12px;border-radius:999px;background:#eff6ff;color:#2563eb;font-size:12px;font-weight:700;white-space:nowrap}.lab-action-cell{white-space:nowrap}.lab-link{border:0!important;background:transparent!important;padding:2px!important;font:inherit!important;font-weight:700!important;cursor:pointer}.lab-link.receive{color:#2563eb}.lab-link.reject{color:#dc2626}.lab-action-cell>span{margin:0 4px;color:#9ca3af}.lab-waiting-listview .lab-waiting-receive,.lab-waiting-listview .lab-waiting-receive .el-button,.lab-waiting-receive.el-button{background:#635bff!important;border-color:#635bff!important;color:#fff!important;font-weight:700!important}.lab-waiting-listview .lab-waiting-receive:hover,.lab-waiting-listview .lab-waiting-receive:hover .el-button,.lab-waiting-receive.el-button:hover{background:#5348dc!important;border-color:#5348dc!important;color:#fff!important}",
+    "customClass": [],
+    "functions": "",
+    "layoutType": "PC",
+    "jsonVersion": 3,
+    "onFormCreated": "",
+    "onFormMounted": "",
+    "onParentChange": "",
+    "onFormDataChange": "",
+    "onFormUnmounted": ""
+  }
+}

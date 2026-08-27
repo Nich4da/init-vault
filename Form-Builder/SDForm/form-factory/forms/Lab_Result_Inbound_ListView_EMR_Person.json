@@ -1,0 +1,182 @@
+{
+  "fields": [
+    {
+      "key": 69632,
+      "name": "Layout",
+      "component": "grid",
+      "category": "container",
+      "icon": "grid",
+      "fieldType": "None",
+      "fieldLength": null,
+      "children": false,
+      "enable": true,
+      "options": {
+        "name": "lab_inbound_result_list_root",
+        "hidden": false,
+        "gutter": 16,
+        "colHeight": null,
+        "customClass": ""
+      },
+      "id": "grid83003",
+      "cols": [
+        {
+          "key": 44168,
+          "name": "Grid Col",
+          "component": "grid-col",
+          "category": "container",
+          "icon": "grid-col",
+          "fieldType": "None",
+          "fieldLength": null,
+          "children": true,
+          "enable": true,
+          "options": {
+            "name": "lab_inbound_result_list_col",
+            "hidden": false,
+            "span": 24,
+            "offset": 0,
+            "push": 0,
+            "pull": 0,
+            "responsive": false,
+            "md": 12,
+            "sm": 24,
+            "xs": 24,
+            "bgColor": null,
+            "customClass": ""
+          },
+          "id": "grid-col-83002",
+          "fields": [
+            {
+              "name": "List View",
+              "component": "list-ui",
+              "category": "display_ui",
+              "icon": "list-ui",
+              "fieldType": "None",
+              "fieldLength": null,
+              "children": false,
+              "enable": true,
+              "formItemFlag": false,
+              "options": {
+                "name": "lab_inbound_result_list",
+                "columnSpan": 24,
+                "hidden": false,
+                "formId": "6a8b1c03f851000f28e501ef",
+                "parentId": "",
+                "params": null,
+                "titleEnable": true,
+                "titleName": "ผลแลปจาก LIS / Agent",
+                "iconName": "",
+                "initData": null,
+                "subformWidth": 600,
+                "where": "xrstatx NOT IN(0,3)",
+                "orderBy": [
+                  {
+                    "column": "reported_at",
+                    "sort": "DESC"
+                  },
+                  {
+                    "column": "received_at",
+                    "sort": "DESC"
+                  }
+                ],
+                "searchField": [
+                  "hn",
+                  "filler_order_no",
+                  "order_no"
+                ],
+                "limitRow": 50,
+                "actionEnable": true,
+                "addBtnEnable": false,
+                "delBtnEnable": false,
+                "viewBtnEnable": false,
+                "reloadBtnEnable": true,
+                "updateBtnEnable": false,
+                "height": "680px",
+                "providerType": "FORM",
+                "allowDeleteFunc": "",
+                "buttonsRow": [
+                  {
+                    "prefixIcon": "el-view",
+                    "label": "ดูผล",
+                    "type": "primary",
+                    "suffixIcon": "",
+                    "color": "",
+                    "disabled": false,
+                    "plain": true,
+                    "circle": false,
+                    "round": false,
+                    "loading": false,
+                    "confirm": false,
+                    "confirmTitle": "",
+                    "badge": 0,
+                    "badgeMax": 99,
+                    "tag": "button",
+                    "href": "",
+                    "blank": false,
+                    "onClick": "const form=this.getFormRef();\nconst raw=dataRow&&(dataRow._id||dataRow.dataid||dataRow.id);\nconst id=typeof raw==='object'?String(raw.$oid||raw.value||''):String(raw||'');\nif(!/^[a-f0-9]{24}$/i.test(id)){this.notify('ไม่พบ Receipt ID ที่ถูกต้อง','warning',3000);return}\nform.openForm('6a8b1c03f851000f28e501ef',id,null,{}, {readonly:true,popupType:'dialog',backdrop:false});"
+                  }
+                ],
+                "reportList": null,
+                "defaultFilterParent": false,
+                "parentPath": "_id",
+                "showWhenParent": false,
+                "enableWs": false,
+                "listType": "listview",
+                "iconWigth": 48,
+                "iconField": null,
+                "titleContent": "",
+                "titleField": null,
+                "detailContent": "<div style=\"display:grid;grid-template-columns:minmax(210px,1.25fr) minmax(120px,.65fr) 90px 105px minmax(130px,.75fr);gap:16px;align-items:center;width:100%;padding-right:96px;box-sizing:border-box;\">\n  <div><div style=\"font-size:15px;font-weight:750;color:#303947;\">LAB NO. {{filler_order_no}}</div><div style=\"margin-top:3px;color:#5f6876;\">HN {{hn}}</div><div style=\"margin-top:3px;color:#98a0ac;font-size:11px;\">Order {{order_no}}</div></div>\n  <div><div style=\"color:#98a0ac;font-size:11px;\">Stage</div><div style=\"font-weight:650;\">{{stage}}</div></div>\n  <div><div style=\"color:#98a0ac;font-size:11px;\">จำนวนผล</div><div style=\"font-weight:650;\">{{item_count}}</div></div>\n  <div><div style=\"color:#98a0ac;font-size:11px;\">สถานะ</div><div style=\"font-weight:650;color:#e6a23c;\">{{receipt_status}}</div></div>\n  <div><div style=\"color:#98a0ac;font-size:11px;\">เวลารายงาน</div><div>{{reported_at}}</div></div>\n</div>",
+                "statusContent": "",
+                "statusField": null,
+                "colorField": null,
+                "groupField": null,
+                "disableNoMore": false,
+                "scrollDistance": 1,
+                "listColumn": 1,
+                "detailMaxRow": 8,
+                "totalEnable": true,
+                "noMoreLabel": "หมดรายการ",
+                "searchPlaceholder": "ค้นหา HN, LAB NO. หรือ Order No.",
+                "clickEvent": null,
+                "customValue": [],
+                "customClass": "",
+                "onCreated": "",
+                "onMounted": "",
+                "onUnmount": "",
+                "onInsertBefore": "",
+                "onUpdateBefore": "",
+                "onViewBefore": "",
+                "onBeforeSave": "",
+                "onAfterDelete": "",
+                "onselect": "",
+                "onunselect": "",
+                "label": "List View",
+                "wsRefresh": false
+              },
+              "id": "list-ui83001"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "formConfig": {
+    "modelName": "formData",
+    "refName": "sdForm",
+    "rulesName": "rules",
+    "labelWidth": 120,
+    "labelPosition": "top",
+    "size": "",
+    "labelAlign": "label-right-align",
+    "cssCode": "",
+    "customClass": [],
+    "functions": "",
+    "layoutType": "PC",
+    "jsonVersion": 3,
+    "onFormCreated": "",
+    "onFormMounted": "",
+    "onParentChange": "",
+    "onFormDataChange": "",
+    "onFormUnmounted": ""
+  }
+}

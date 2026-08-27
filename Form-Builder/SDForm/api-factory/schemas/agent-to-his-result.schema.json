@@ -1,0 +1,211 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qsnich.example/schemas/agent-to-his-result.schema.json",
+  "title": "Agent to HIS Lab Result",
+  "description": "Canonical result callback received by the HIS hl7_result_upsert process. Scope starts at the Agent boundary.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "order_no",
+    "filler_order_no",
+    "hn",
+    "visit_id",
+    "result_uid",
+    "report_seq",
+    "stage",
+    "overall_status",
+    "reported_at",
+    "reported_by",
+    "items"
+  ],
+  "properties": {
+    "order_no": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "filler_order_no": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "description": "Confirmed correlation value: the labno originally issued and sent by HIS."
+    },
+    "hn": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "visit_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "result_uid": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Inbound message idempotency key. The same result_uid must not create a second receipt."
+    },
+    "report_seq": {
+      "$ref": "#/$defs/sequenceString"
+    },
+    "stage": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "overall_status": {
+      "type": "string",
+      "enum": ["in_progress", "resulted", "corrected", "cancelled"],
+      "description": "Current active values are in_progress and resulted. corrected and cancelled are reserved for forward compatibility."
+    },
+    "reported_at": {
+      "$ref": "#/$defs/thailandDateTime"
+    },
+    "reported_by": {
+      "$ref": "#/$defs/sourceIdentity"
+    },
+    "verified_at": {
+      "$ref": "#/$defs/thailandDateTime"
+    },
+    "verified_by": {
+      "$ref": "#/$defs/sourceIdentity"
+    },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/resultItem"
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "overall_status": {
+            "const": "resulted"
+          }
+        },
+        "required": ["overall_status"]
+      },
+      "then": {
+        "required": ["verified_at", "verified_by"]
+      }
+    }
+  ],
+  "$defs": {
+    "sequenceString": {
+      "type": "string",
+      "pattern": "^[0-9]+$",
+      "description": "Confirmed wire type: numeric content encoded as a JSON string."
+    },
+    "thailandDateTime": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?\\+07:00$"
+    },
+    "sourceIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id", "source_name"],
+      "properties": {
+        "source_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "source_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        }
+      }
+    },
+    "resultItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "obs_code",
+        "obs_name",
+        "value",
+        "obx_status",
+        "change_kind",
+        "receipt_seq",
+        "result_version"
+      ],
+      "properties": {
+        "obs_code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Confirmed contract: equals the outbound test_code and therefore his_code_id."
+        },
+        "obs_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "value": {
+          "type": "string",
+          "description": "Always text on the wire because a result may be numeric or qualitative."
+        },
+        "units": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "ref_range": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "obx_status": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20,
+          "description": "Preserve the raw status value, including values not yet known to HIS."
+        },
+        "change_kind": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "previous_value": {
+          "type": "string"
+        },
+        "receipt_seq": {
+          "$ref": "#/$defs/sequenceString"
+        },
+        "result_version": {
+          "$ref": "#/$defs/sequenceString"
+        },
+        "critical_low_rule": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Project decision: presence marks this received result as critical. HIS stores the raw rule and does not evaluate the threshold."
+        },
+        "critical_high_rule": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Project decision: presence marks this received result as critical. HIS stores the raw rule and does not evaluate the threshold."
+        },
+        "panel_code": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "panel_name": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "group_role": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "organism": {
+          "type": "string",
+          "maxLength": 300
+        }
+      }
+    }
+  }
+}

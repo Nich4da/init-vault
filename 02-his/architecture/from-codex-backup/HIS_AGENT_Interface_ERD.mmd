@@ -1,0 +1,79 @@
+erDiagram
+    direction LR
+
+    LAB_WORK_ITEM ||--o| OUTBOUND_ORDER : creates
+    OUTBOUND_ORDER ||--|{ OUTBOUND_ORDER_ITEM : contains
+    OUTBOUND_ORDER ||--o{ INBOUND_RESULT_MESSAGE : correlates
+    INBOUND_RESULT_MESSAGE ||--|{ INBOUND_RESULT_ITEM : contains
+    OUTBOUND_ORDER_ITEM ||--o{ INBOUND_RESULT_ITEM : matches
+    LAB_WORK_ITEM ||--o| RESULT_REPORT : owns
+    RESULT_REPORT ||--o{ RESULT_ITEM : contains
+    OUTBOUND_ORDER_ITEM ||--o| RESULT_ITEM : materializes
+    RESULT_ITEM ||--o{ INBOUND_RESULT_ITEM : histories
+
+    LAB_WORK_ITEM {
+        string id PK
+        string sourceOrderNo
+        string labNo UK
+        string visitId
+        string receivedAt
+        string receivedBy
+        string workStatus
+    }
+
+    OUTBOUND_ORDER {
+        string orderNo PK
+        string workItemId FK
+        string labNo UK
+        string dispatchId
+        string agentStatus
+        string sentAt
+        string lastError
+    }
+
+    OUTBOUND_ORDER_ITEM {
+        string id PK
+        string orderNo FK
+        int seq
+        string hisCodeId
+        string specimenCode
+        string collectedAt
+        string receivedAt
+    }
+
+    INBOUND_RESULT_MESSAGE {
+        string resultUid PK
+        string orderNo FK
+        string fillerOrderNo
+        string reportSeq
+        string stage
+        string overallStatus
+        string receivedAt
+    }
+
+    INBOUND_RESULT_ITEM {
+        string id PK
+        string resultUid FK
+        string hisCodeId FK
+        string receiptSeq
+        string resultVersion
+        string obxStatus
+        string changeKind
+    }
+
+    RESULT_REPORT {
+        string id PK
+        string workItemId FK
+        string sourceMode
+        string overallStatus
+        string resultedAt
+    }
+
+    RESULT_ITEM {
+        string id PK
+        string resultReportId FK
+        string hisCodeId
+        string resultValue
+        string resultStatus
+        bool isCritical
+    }

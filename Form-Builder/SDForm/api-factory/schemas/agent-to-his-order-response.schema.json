@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qsnich.example/schemas/agent-to-his-order-response.schema.json",
+  "title": "Agent to HIS Order Response",
+  "description": "Response body returned by POST {AGENT_URL}/api/orders. HTTP status remains authoritative for response handling.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/success"
+    },
+    {
+      "$ref": "#/$defs/error"
+    }
+  ],
+  "$defs": {
+    "success": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["ok", "order_no", "duplicate"],
+      "properties": {
+        "ok": {
+          "const": true
+        },
+        "order_no": {
+          "type": "string",
+          "minLength": 1
+        },
+        "order_ref": {
+          "type": ["string", "null"]
+        },
+        "duplicate": {
+          "type": "boolean"
+        },
+        "routed_to": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dispatch_id": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "error": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["error"],
+      "properties": {
+        "ok": {
+          "const": false
+        },
+        "error": {
+          "type": "string",
+          "enum": [
+            "invalid_json",
+            "unauthorized",
+            "forbidden",
+            "payload_too_large",
+            "unsupported_media_type",
+            "mapping_failed",
+            "order_rejected",
+            "not_configured",
+            "draining",
+            "internal"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "detail": {}
+      }
+    }
+  }
+}

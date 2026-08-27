@@ -1,0 +1,34 @@
+flowchart LR
+    subgraph outbound ["HIS ส่งคำสั่งตรวจไป LIS"]
+        direction TB
+        createOrder["สร้างใบสั่งตรวจ"]
+        createKeys["HIS สร้าง order_no และ labno"]
+        sendOrder["ส่ง JSON Order และ Items"]
+        validateOrder{"ข้อมูลถูกต้องหรือไม่"}
+        fixOrder["แจ้งเหตุผลให้แก้ข้อมูล"]
+        queueOrder["LISconnect เข้าคิวและสร้างไฟล์ .req"]
+        lisWork["LIS รับรายการและตรวจตัวอย่าง"]
+
+        createOrder --> createKeys --> sendOrder --> validateOrder
+        validateOrder -->|"ไม่ถูกต้อง"| fixOrder
+        validateOrder -->|"ถูกต้อง"| queueOrder --> lisWork
+    end
+
+    subgraph inbound ["LIS ส่งผลกลับ HIS"]
+        direction TB
+        lisResult["LIS ออกผลและสร้างไฟล์ .res"]
+        convertResult["LISconnect แปลงผลเป็น JSON"]
+        sendResult["ส่งผลเข้า HIS"]
+        matchResult["จับคู่ Lab No. และตรวจ result_uid ซ้ำ"]
+        saveResult["บันทึกผลโดยไม่ทับประวัติเดิม"]
+        resultComplete{"ผลครบหรือยัง"}
+        partialResult["ออกผลบางส่วน"]
+        finalResult["ออกผลครบ"]
+        showResult["แสดงผลในหน้าห้อง Lab และ HIS"]
+
+        lisResult --> convertResult --> sendResult --> matchResult --> saveResult --> resultComplete
+        resultComplete -->|"ยังไม่ครบ"| partialResult --> showResult
+        resultComplete -->|"ครบ"| finalResult --> showResult
+    end
+
+    lisWork -.->|"เมื่อมีผล"| lisResult

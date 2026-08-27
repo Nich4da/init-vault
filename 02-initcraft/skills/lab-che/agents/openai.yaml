@@ -1,0 +1,4 @@
+interface:
+  display_name: "Lab CHE and LIS"
+  short_description: "CHE workflows and HIS-LIS integration"
+  default_prompt: "Use $lab-che to analyze a laboratory workflow or HIS-LIS integration requirement against the verified source documents."

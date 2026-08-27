@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qsnich.example/schemas/agent-to-his-result-v2.schema.json",
+  "title": "Agent to HIS Lab Result v2",
+  "description": "Agent result callback. One message creates one immutable receipt and one stage report. filler_order_no/labno/lab_no is the LAB NO. originally issued by HIS.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "order_no",
+    "hn",
+    "visit_id",
+    "result_uid",
+    "report_seq",
+    "stage",
+    "overall_status",
+    "reported_at",
+    "reported_by",
+    "items"
+  ],
+  "anyOf": [
+    { "required": ["filler_order_no"] },
+    { "required": ["labno"] },
+    { "required": ["lab_no"] }
+  ],
+  "properties": {
+    "order_no": { "$ref": "#/$defs/nonEmpty100" },
+    "filler_order_no": { "$ref": "#/$defs/labNo" },
+    "labno": { "$ref": "#/$defs/labNo" },
+    "lab_no": { "$ref": "#/$defs/labNo" },
+    "hn": { "$ref": "#/$defs/nonEmpty100" },
+    "visit_id": { "$ref": "#/$defs/nonEmpty100" },
+    "result_uid": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Idempotency key for exactly one inbound Agent message."
+    },
+    "report_seq": { "$ref": "#/$defs/sequenceString" },
+    "stage": {
+      "type": "string",
+      "enum": ["partial", "preliminary", "final", "corrected", "cancelled"]
+    },
+    "overall_status": {
+      "type": "string",
+      "enum": ["in_progress", "resulted", "corrected", "cancelled"]
+    },
+    "reported_at": { "$ref": "#/$defs/thailandDateTime" },
+    "reported_by": { "$ref": "#/$defs/sourceIdentity" },
+    "verified_at": { "$ref": "#/$defs/thailandDateTime" },
+    "verified_by": { "$ref": "#/$defs/sourceIdentity" },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/resultItem" }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "overall_status": { "const": "in_progress" } }, "required": ["overall_status"] },
+      "then": { "properties": { "stage": { "enum": ["partial", "preliminary"] } } }
+    },
+    {
+      "if": { "properties": { "overall_status": { "const": "resulted" } }, "required": ["overall_status"] },
+      "then": {
+        "required": ["verified_at", "verified_by"],
+        "properties": { "stage": { "const": "final" } }
+      }
+    },
+    {
+      "if": { "properties": { "overall_status": { "const": "corrected" } }, "required": ["overall_status"] },
+      "then": { "properties": { "stage": { "const": "corrected" } } }
+    },
+    {
+      "if": { "properties": { "overall_status": { "const": "cancelled" } }, "required": ["overall_status"] },
+      "then": { "properties": { "stage": { "const": "cancelled" } } }
+    }
+  ],
+  "$defs": {
+    "nonEmpty100": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "labNo": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "description": "LAB NO. echoed from the HIS outbound order. All supplied aliases must contain the same value."
+    },
+    "sequenceString": {
+      "type": "string",
+      "pattern": "^[0-9]+$",
+      "description": "Numeric sequence encoded as a JSON string."
+    },
+    "thailandDateTime": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?\\+07:00$"
+    },
+    "sourceIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id", "source_name"],
+      "properties": {
+        "source_id": { "$ref": "#/$defs/nonEmpty100" },
+        "source_name": { "type": "string", "minLength": 1, "maxLength": 300 }
+      }
+    },
+    "resultItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "obs_code",
+        "obs_name",
+        "value",
+        "obx_status",
+        "change_kind",
+        "receipt_seq",
+        "result_version"
+      ],
+      "properties": {
+        "obs_code": {
+          "$ref": "#/$defs/nonEmpty100",
+          "description": "Must equal the outbound ordered test code/his_code_id."
+        },
+        "obs_name": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "value": { "type": "string", "description": "Always text; results may be numeric or qualitative." },
+        "units": { "type": "string", "maxLength": 100 },
+        "ref_range": { "type": "string", "maxLength": 500 },
+        "obx_status": { "type": "string", "minLength": 1, "maxLength": 20 },
+        "change_kind": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "previous_value": { "type": "string" },
+        "receipt_seq": { "$ref": "#/$defs/sequenceString" },
+        "result_version": { "$ref": "#/$defs/sequenceString" },
+        "interpretation_code": {
+          "type": "string",
+          "enum": ["N", "L", "H", "LL", "HH", "AA"],
+          "description": "Explicit interpretation. LL/HH/AA are treated as critical."
+        },
+        "is_critical": {
+          "type": "boolean",
+          "description": "Explicit critical decision from LIS/Agent. Threshold rule presence alone is not a critical result."
+        },
+        "critical_low_rule": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Rule snapshot only; it does not by itself mean this result is critical."
+        },
+        "critical_high_rule": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Rule snapshot only; it does not by itself mean this result is critical."
+        },
+        "panel_code": { "type": "string", "maxLength": 100 },
+        "panel_name": { "type": "string", "maxLength": 300 },
+        "group_role": { "type": "string", "maxLength": 100 },
+        "organism": { "type": "string", "maxLength": 300 }
+      }
+    }
+  }
+}

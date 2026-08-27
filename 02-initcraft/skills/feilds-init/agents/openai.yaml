@@ -1,0 +1,4 @@
+interface:
+  display_name: "Feilds Init"
+  short_description: "initCraft form builder field settings guide"
+  default_prompt: "Use $feilds-init to configure initCraft form builder fields and event settings."

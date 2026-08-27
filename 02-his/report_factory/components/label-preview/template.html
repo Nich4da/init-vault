@@ -1,0 +1,317 @@
+<div style="padding:8px">
+  <el-empty
+    v-if="!getSigs().length"
+    description="ยังไม่มีข้อมูลวิธีใช้ยาจาก Generic Drug"
+    :image-size="60"
+  />
+
+  <div
+    v-for="(sig, index) in getSigs()"
+    :key="index"
+    style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap"
+  >
+    <!-- ด้านนอกแสดงเพียงกล่องรายการ -->
+    <div
+      style="
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        width:302px;
+        height:88px;
+        padding:10px;
+        overflow:hidden;
+        box-sizing:border-box;
+        border:1px solid #dcdfe6;
+        border-radius:8px;
+        background:#ffffff;
+        color:#909399;
+        font-family:Sarabun, Tahoma, sans-serif;
+        font-size:12px;
+      "
+    >
+      ฉลากวิธีใช้รายการที่ {{ index + 1 }}
+    </div>
+
+    <el-button
+      size="small"
+      type="primary"
+      plain
+      v-on:click="openPreview(sig, index)"
+    >
+      แสดงตัวอย่าง
+    </el-button>
+  </div>
+
+  <!-- Modal Preview -->
+  <div
+    v-if="previewVisible"
+    v-on:click.self="closePreview"
+    style="
+      position:fixed;
+      inset:0;
+      z-index:99999;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:20px;
+      box-sizing:border-box;
+      background:rgba(0,0,0,0.55);
+    "
+  >
+    <div
+      style="
+        width:620px;
+        max-width:94vw;
+        max-height:94vh;
+        overflow:auto;
+        padding:16px;
+        box-sizing:border-box;
+        border-radius:12px;
+        background:#ffffff;
+        box-shadow:0 12px 36px rgba(0,0,0,0.28);
+      "
+    >
+      <div
+        style="
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+          gap:12px;
+          margin-bottom:14px;
+        "
+      >
+        <div style="font-size:18px;font-weight:700;color:#303133">
+          ตัวอย่างฉลากยาขนาดจริง 8 × 6 ซม.
+        </div>
+
+        <el-button circle size="small" v-on:click="closePreview">
+          ×
+        </el-button>
+      </div>
+
+      <div
+        style="
+          display:flex;
+          justify-content:center;
+          padding:20px;
+          overflow:auto;
+          border-radius:10px;
+          background:#222222;
+        "
+      >
+        <!-- ฉลากจริง 302 × 227 px -->
+        <div
+          style="
+            position:relative;
+            width:302px;
+            height:227px;
+            min-width:302px;
+            min-height:227px;
+            max-width:302px;
+            max-height:227px;
+            overflow:hidden;
+            box-sizing:border-box;
+            border-radius:8px;
+            background:#ffffff;
+            color:#000000;
+            font-family:Sarabun, Tahoma, sans-serif;
+            font-size:10px;
+            line-height:13px;
+          "
+        >
+          <!-- ขอบสีม่วง -->
+          <div
+            style="
+              position:absolute;
+              top:3px;
+              right:4px;
+              bottom:3px;
+              left:4px;
+              z-index:0;
+              pointer-events:none;
+              box-sizing:border-box;
+              border:1px solid #b186b8;
+              border-radius:8px;
+            "
+          ></div>
+
+          <div
+            style="
+              position:relative;
+              z-index:1;
+              width:100%;
+              height:100%;
+              padding:10px;
+              overflow:hidden;
+              overflow-wrap:anywhere;
+              word-break:break-word;
+              box-sizing:border-box;
+              font-size:10px;
+              line-height:13px;
+            "
+          >
+            <!-- Header -->
+            <div
+              style="
+                display:grid;
+                grid-template-columns:20px minmax(0,1fr) auto;
+                align-items:center;
+                column-gap:3px;
+                min-height:24px;
+                margin-bottom:4px;
+              "
+            >
+              <img
+                v-if="logoReady"
+                :src="logoUrl"
+                alt="ตราสถาบันสุขภาพเด็กแห่งชาติมหาราชินี"
+                v-on:error="hideBrokenLogo"
+                style="
+                  display:block;
+                  width:20px;
+                  height:23px;
+                  object-fit:contain;
+                  justify-self:start;
+                "
+              />
+
+              <div
+                v-else
+                style="
+                  display:flex;
+                  align-items:center;
+                  justify-content:center;
+                  width:20px;
+                  height:20px;
+                  box-sizing:border-box;
+                  border:1px solid #b186b8;
+                  border-radius:50%;
+                  color:#b186b8;
+                  font-size:7px;
+                "
+              >
+                ตรา
+              </div>
+
+              <div
+                style="
+                  min-width:0;
+                  overflow:hidden;
+                  color:#b186b8;
+                  font-size:10px;
+                  font-weight:700;
+                  line-height:11px;
+                  white-space:nowrap;
+                "
+              >
+                สถาบันสุขภาพเด็กแห่งชาติมหาราชินี
+              </div>
+
+              <div
+                style="
+                  color:#b186b8;
+                  font-size:8px;
+                  font-weight:700;
+                  line-height:9px;
+                  white-space:nowrap;
+                "
+              >
+                โทร. 1415 ต่อ2206
+              </div>
+            </div>
+
+            <!-- ผู้ป่วยจำลอง -->
+            <div
+              style="
+                display:grid;
+                grid-template-columns:minmax(0,1fr) auto;
+                align-items:center;
+                column-gap:8px;
+                margin-bottom:2px;
+                font-size:10px;
+                line-height:13px;
+              "
+            >
+              <div
+                style="
+                  min-width:0;
+                  overflow:hidden;
+                  white-space:nowrap;
+                  text-overflow:ellipsis;
+                "
+              >
+                {{ patient.name || '-' }}
+              </div>
+
+              <div style="white-space:nowrap">
+                HN: {{ patient.hn || '-' }}
+              </div>
+            </div>
+
+            <!-- ชื่อยา -->
+            <div
+              style="
+                overflow-wrap:anywhere;
+                word-break:break-word;
+                font-size:12px;
+                font-weight:700;
+                line-height:15px;
+              "
+            >
+              {{ drugName() || '-' }}
+            </div>
+
+            <!-- Generic name -->
+            <div
+              v-if="genericName()"
+              style="overflow-wrap:anywhere;word-break:break-word;font-size:10px;line-height:13px"
+            >
+              ({{ genericName() }})
+            </div>
+
+            <div
+              v-if="currentSig && currentSig.sig_label_th"
+              style="overflow-wrap:anywhere;word-break:break-word"
+            >
+              {{ currentSig.sig_label_th }}
+            </div>
+
+            <div
+              v-if="currentSig && currentSig.sig_label1"
+              style="overflow-wrap:anywhere;word-break:break-word"
+            >
+              {{ currentSig.sig_label1 }}
+            </div>
+
+            <div
+              v-if="currentSig && currentSig.sig_label2"
+              style="overflow-wrap:anywhere;word-break:break-word"
+            >
+              {{ currentSig.sig_label2 }}
+            </div>
+
+            <div
+              v-if="currentSig && currentSig.sig_indication"
+              style="overflow-wrap:anywhere;word-break:break-word"
+            >
+              {{ currentSig.sig_indication }}
+            </div>
+
+            <div
+              v-if="currentSig && currentSig.sig_note"
+              style="margin-top:4px;overflow-wrap:anywhere;word-break:break-word"
+            >
+              {{ currentSig.sig_note }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;margin-top:14px">
+        <el-button v-on:click="closePreview">
+          ปิด
+        </el-button>
+      </div>
+    </div>
+  </div>
+</div>

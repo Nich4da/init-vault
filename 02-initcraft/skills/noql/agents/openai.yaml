@@ -1,0 +1,4 @@
+interface:
+  display_name: "NoQL"
+  short_description: "Write SQL that compiles to MongoDB queries"
+  default_prompt: "Use $noql to write a NoQL SQL statement and explain the resulting MongoDB query shape."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "initCraft Reference"
+  short_description: "Reference snapshot for initCraft SDForm, APIs, SQL, and widgets."
+  default_prompt: "Use this skill to answer initCraft SDForm/API/SQL questions from the stored reference."

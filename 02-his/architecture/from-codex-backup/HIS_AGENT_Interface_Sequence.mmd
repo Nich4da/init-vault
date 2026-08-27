@@ -1,0 +1,23 @@
+sequenceDiagram
+    title HIS and Agent Lab interface
+    participant LabUser
+    participant HISUI
+    participant HISAPI
+    participant HISDatabase
+    participant Agent
+
+    LabUser->>HISUI: Receive specimen
+    HISUI->>HISAPI: mark_received_once
+    HISAPI->>HISDatabase: Save receive timestamps
+    HISAPI->>Agent: POST /api/orders
+    Agent-->>HISAPI: 202 queued or 200 duplicate
+    HISAPI->>HISDatabase: Save dispatch status
+    HISAPI-->>HISUI: Receive and send status
+    Agent->>HISAPI: POST hl7_order_status_sync
+    HISAPI->>HISDatabase: Update agent status
+    Agent->>HISAPI: POST hl7_result_upsert
+    HISAPI->>HISDatabase: Dedupe result_uid
+    HISAPI->>HISDatabase: Match order and obs_code
+    HISAPI->>HISDatabase: Append receipt and upsert result
+    HISAPI->>HISDatabase: Map partial or completed
+    HISAPI-->>Agent: created true or false

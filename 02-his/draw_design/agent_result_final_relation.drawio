@@ -1,0 +1,76 @@
+<mxfile host="app.diagrams.net" agent="codex" version="31.3.2" type="device">
+  <diagram id="agent-result-relation" name="Agent Result Final Relation">
+    <mxGraphModel dx="1200" dy="720" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1700" pageHeight="1050" math="0" shadow="0" adaptiveColors="auto">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="title" value="Agent Result Final — Payload to Receipt, Report and Result Items" style="text;html=1;fontSize=24;fontStyle=1;align=left;verticalAlign=middle;fontColor=light-dark(#1a1a1a,#f0f0f0);" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="1620" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" value="Schema-only relation from Form-Builder/SDForm/api-factory/examples/agent_result_final.json · no patient identifiers or result values shown" style="text;html=1;fontSize=12;fontStyle=2;align=left;verticalAlign=middle;fontColor=light-dark(#777777,#999999);" vertex="1" parent="1">
+          <mxGeometry x="40" y="58" width="1620" height="24" as="geometry" />
+        </mxCell>
+
+        <mxCell id="bandPayload" value="1 · INBOUND PAYLOAD" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="40" y="100" width="360" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="payloadHeader" value="&lt;b&gt;Root header&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;&lt;br&gt;&lt;b&gt;Order context&lt;/b&gt;&lt;br&gt;order_no&lt;br&gt;filler_order_no = LAB NO.&lt;br&gt;hn · visit_id&lt;br&gt;&lt;br&gt;&lt;b&gt;Report envelope&lt;/b&gt;&lt;br&gt;result_uid · report_seq · stage&lt;br&gt;overall_status · reported_at · verified_at&lt;br&gt;&lt;br&gt;&lt;b&gt;Source identities&lt;/b&gt;&lt;br&gt;reported_by · verified_by&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);align=left;spacingLeft=12;spacingRight=10;verticalAlign=top;spacingTop=10;" vertex="1" parent="1">
+          <mxGeometry x="40" y="150" width="360" height="300" as="geometry" />
+        </mxCell>
+        <mxCell id="payloadItems" value="&lt;b&gt;items[] — one payload to many components&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;&lt;br&gt;panel_code · panel_name&lt;br&gt;obs_code · obs_name&lt;br&gt;value · units · ref_range&lt;br&gt;obx_status · interpretation_code&lt;br&gt;is_critical · change_kind · previous_value&lt;br&gt;result_version · receipt_seq&lt;br&gt;&lt;br&gt;&lt;b&gt;Snapshot:&lt;/b&gt; 2 item objects; values are intentionally hidden&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#d5e8d4,#1e3a1c);strokeColor=light-dark(#82b366,#82b366);align=left;spacingLeft=12;spacingRight=10;verticalAlign=top;spacingTop=10;" vertex="1" parent="1">
+          <mxGeometry x="40" y="480" width="360" height="245" as="geometry" />
+        </mxCell>
+
+        <mxCell id="bandProcess" value="2 · MATCH, DEDUPLICATE, NORMALIZE" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="470" y="100" width="360" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="upsertProcess" value="&lt;b&gt;hl7_result_upsert_api&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;&lt;br&gt;1. Validate payload and items[]&lt;br&gt;2. Match filler_order_no to LAB NO.&lt;br&gt;3. Cross-check order_no and visit_id&lt;br&gt;4. Deduplicate message by result_uid&lt;br&gt;5. Preserve reported/verified identities&lt;br&gt;6. Append report_seq and stage&lt;br&gt;7. Materialize result items by component/version&lt;br&gt;8. Recalculate partial or complete status&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=13;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);align=left;spacingLeft=12;spacingRight=10;verticalAlign=top;spacingTop=10;" vertex="1" parent="1">
+          <mxGeometry x="470" y="250" width="360" height="300" as="geometry" />
+        </mxCell>
+
+        <mxCell id="bandPersistence" value="3 · PERSISTENCE RELATION" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="900" y="100" width="700" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="receipt" value="&lt;b&gt;Technical Receipt&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;&lt;br&gt;&lt;b&gt;1 record = 1 inbound message&lt;/b&gt;&lt;br&gt;Idempotency: result_uid&lt;br&gt;Keeps technical receipt/audit state&lt;br&gt;Can exist even if normalization fails&lt;/font&gt;" style="shape=cylinder;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;fontSize=13;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#e1d5e7,#33254a);strokeColor=light-dark(#9673a6,#9673a6);align=left;spacingLeft=12;spacingRight=10;verticalAlign=top;spacingTop=14;" vertex="1" parent="1">
+          <mxGeometry x="900" y="160" width="320" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="report" value="&lt;b&gt;Result Report&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;&lt;br&gt;&lt;b&gt;1 record = one stable LAB result work&lt;/b&gt;&lt;br&gt;Match: LAB NO. + order + visit&lt;br&gt;Append: report_seq + stage&lt;br&gt;Header status and source identities&lt;br&gt;&lt;br&gt;result_uid is not the sole Report identity&lt;/font&gt;" style="shape=cylinder;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;fontSize=13;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);align=left;spacingLeft=12;spacingRight=10;verticalAlign=top;spacingTop=14;" vertex="1" parent="1">
+          <mxGeometry x="900" y="430" width="320" height="225" as="geometry" />
+        </mxCell>
+        <mxCell id="resultItems" value="&lt;b&gt;Result Items&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;&lt;br&gt;&lt;b&gt;1 Report : N Result Items&lt;/b&gt;&lt;br&gt;One row per reportable component/version&lt;br&gt;Key context: Report id + obs_code + version&lt;br&gt;Keeps value, units, range, status, correction&lt;br&gt;Uses explicit is_critical from integration&lt;/font&gt;" style="shape=cylinder;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;fontSize=13;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#dae8fc,#16334d);strokeColor=light-dark(#6c8ebf,#6c8ebf);align=left;spacingLeft=12;spacingRight=10;verticalAlign=top;spacingTop=14;" vertex="1" parent="1">
+          <mxGeometry x="1280" y="430" width="320" height="225" as="geometry" />
+        </mxCell>
+
+        <mxCell id="edgeHeaderProcess" value="header context" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=1;exitY=0.55;exitDx=0;exitDy=0;entryX=0;entryY=0.35;entryDx=0;entryDy=0;" edge="1" parent="1" source="payloadHeader" target="upsertProcess">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edgeItemsProcess" value="items[] 1:N" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=1;exitY=0.45;exitDx=0;exitDy=0;entryX=0;entryY=0.75;entryDx=0;entryDy=0;" edge="1" parent="1" source="payloadItems" target="upsertProcess">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edgeProcessReceipt" value="append by result_uid" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="upsertProcess" target="receipt">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edgeProcessReport" value="upsert stable report" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#555555,#b9c2cd);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=1;exitY=0.65;exitDx=0;exitDy=0;entryX=0;entryY=0.45;entryDx=0;entryDy=0;" edge="1" parent="1" source="upsertProcess" target="report">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edgeReceiptReport" value="logical message reference" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=10;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#9673a6,#9673a6);labelBackgroundColor=light-dark(#ffffff,#121212);dashed=1;dashPattern=6 4;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="receipt" target="report">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edgeReportItems" value="upsert items · 1 : N" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;fontStyle=1;fontColor=light-dark(#333333,#e0e0e0);strokeColor=light-dark(#6c8ebf,#6c8ebf);labelBackgroundColor=light-dark(#ffffff,#121212);exitX=1;exitY=0.65;exitDx=0;exitDy=0;entryX=0;entryY=0.65;entryDx=0;entryDy=0;" edge="1" parent="1" source="report" target="resultItems">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="rulesBand" value="RELATION RULES — confirmed structure vs. implementation guardrails" style="rounded=0;html=1;fillColor=light-dark(#647687,#2f3b47);strokeColor=light-dark(#314354,#46586a);fontColor=light-dark(#ffffff,#dfe6ee);fontStyle=1;fontSize=13;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="40" y="770" width="1560" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="rules" value="&lt;b&gt;Confirmed from this JSON snapshot&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;Root payload contains one report envelope and an items[] array with 2 objects. Both result_version and receipt_seq are represented as strings in this sample.&lt;/font&gt;&lt;br&gt;&lt;br&gt;&lt;b&gt;Do not merge these meanings&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;result_uid = inbound-message idempotency · report_seq/stage = report snapshot progression · result_version = correction version per item · receipt_seq = message receipt count, not result version.&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#fff2cc,#4a3d13);strokeColor=light-dark(#d6b656,#d6b656);align=left;spacingLeft=12;spacingRight=12;verticalAlign=top;spacingTop=10;" vertex="1" parent="1">
+          <mxGeometry x="40" y="820" width="760" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="guardrails" value="&lt;b&gt;Clinical and integration guardrails&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;Match filler_order_no to LAB NO. and cross-check order_no + visit_id. Preserve source identities and prior correction history. Use explicit is_critical from the integration; do not infer criticality from range text. Do not assume obs_code equals an outbound order code or HIS master code without a confirmed contract.&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;fontColor=light-dark(#333333,#e0e0e0);fillColor=light-dark(#f8cecc,#4a1f1e);strokeColor=light-dark(#b85450,#b85450);align=left;spacingLeft=12;spacingRight=12;verticalAlign=top;spacingTop=10;" vertex="1" parent="1">
+          <mxGeometry x="840" y="820" width="760" height="170" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -1,0 +1,53 @@
+{
+  "order_no": "ORDER-TEST-001",
+  "filler_order_no": "LAB-TEST-001",
+  "hn": "HN-TEST-001",
+  "visit_id": "VN-TEST-001",
+  "result_uid": "RESULT-TEST-FINAL-002",
+  "report_seq": "2",
+  "stage": "final",
+  "overall_status": "resulted",
+  "reported_at": "2026-08-25T10:15:00+07:00",
+  "reported_by": {
+    "source_id": "LIS-TECH-TEST",
+    "source_name": "LIS Test Technician"
+  },
+  "verified_at": "2026-08-25T10:16:00+07:00",
+  "verified_by": {
+    "source_id": "LIS-VERIFY-TEST",
+    "source_name": "LIS Test Verifier"
+  },
+  "items": [
+    {
+      "obs_code": "NA",
+      "obs_name": "Sodium",
+      "value": "136",
+      "units": "mmol/L",
+      "ref_range": "135-145",
+      "obx_status": "F",
+      "change_kind": "updated",
+      "previous_value": "128",
+      "receipt_seq": "2",
+      "result_version": "2",
+      "interpretation_code": "N",
+      "is_critical": false,
+      "panel_code": "ELEC",
+      "panel_name": "Electrolyte"
+    },
+    {
+      "obs_code": "K",
+      "obs_name": "Potassium",
+      "value": "4.2",
+      "units": "mmol/L",
+      "ref_range": "3.5-5.1",
+      "obx_status": "F",
+      "change_kind": "new",
+      "receipt_seq": "2",
+      "result_version": "1",
+      "interpretation_code": "N",
+      "is_critical": false,
+      "panel_code": "ELEC",
+      "panel_name": "Electrolyte"
+    }
+  ]
+}

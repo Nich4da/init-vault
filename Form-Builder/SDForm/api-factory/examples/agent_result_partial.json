@@ -1,0 +1,33 @@
+{
+  "order_no": "ORDER-TEST-001",
+  "filler_order_no": "LAB-TEST-001",
+  "hn": "HN-TEST-001",
+  "visit_id": "VN-TEST-001",
+  "result_uid": "RESULT-TEST-PARTIAL-001",
+  "report_seq": "1",
+  "stage": "partial",
+  "overall_status": "in_progress",
+  "reported_at": "2026-08-25T10:00:00+07:00",
+  "reported_by": {
+    "source_id": "LIS-TECH-TEST",
+    "source_name": "LIS Test Technician"
+  },
+  "items": [
+    {
+      "obs_code": "NA",
+      "obs_name": "Sodium",
+      "value": "128",
+      "units": "mmol/L",
+      "ref_range": "135-145",
+      "obx_status": "P",
+      "change_kind": "new",
+      "receipt_seq": "1",
+      "result_version": "1",
+      "interpretation_code": "LL",
+      "is_critical": true,
+      "critical_low_rule": "below LIS critical threshold",
+      "panel_code": "ELEC",
+      "panel_name": "Electrolyte"
+    }
+  ]
+}

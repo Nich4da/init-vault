@@ -1,0 +1,4 @@
+interface:
+  display_name: "initCraft Basic Training"
+  short_description: "Guided initCraft Form, SQL, and API Factory lessons."
+  default_prompt: "Use initCraft Basic Training to guide me step by step through Form Factory, SQL Factory, or API Factory."

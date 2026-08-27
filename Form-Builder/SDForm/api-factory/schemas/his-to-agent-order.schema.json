@@ -1,0 +1,194 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qsnich.example/schemas/his-to-agent-order.schema.json",
+  "title": "HIS to Agent Lab Order",
+  "description": "Canonical HIS payload sent to POST {AGENT_URL}/api/orders after the Lab user receives the specimen. Scope ends at the Agent boundary.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "order_no",
+    "labno",
+    "hn",
+    "ordered_at",
+    "priority",
+    "items"
+  ],
+  "properties": {
+    "order_no": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "description": "HIS order identifier and outbound idempotency key."
+    },
+    "labno": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "description": "LAB NO. issued by HIS before transmission."
+    },
+    "hn": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "visit_id": {
+      "type": "string",
+      "maxLength": 100
+    },
+    "ordered_at": {
+      "$ref": "#/$defs/thailandDateTime"
+    },
+    "requested_at": {
+      "$ref": "#/$defs/thailandDateTime"
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["S", "A", "R"]
+    },
+    "note": {
+      "type": ["string", "null"]
+    },
+    "patient_prefix": {
+      "type": "string",
+      "maxLength": 100
+    },
+    "patient_first_name": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "patient_last_name": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "birth_date": {
+      "type": "string",
+      "pattern": "^[0-9]{8}([0-9]{6})?$",
+      "description": "YYYYMMDD or YYYYMMDDHHmmss."
+    },
+    "sex": {
+      "type": "string",
+      "maxLength": 20
+    },
+    "visit_type": {
+      "type": "string",
+      "maxLength": 50
+    },
+    "doctor_code": {
+      "type": "string",
+      "maxLength": 100
+    },
+    "doctor_title": {
+      "type": "string",
+      "maxLength": 100
+    },
+    "doctor_name": {
+      "type": "string",
+      "maxLength": 300
+    },
+    "clinic_code": {
+      "type": "string",
+      "maxLength": 100
+    },
+    "clinic_name": {
+      "type": "string",
+      "maxLength": 300
+    },
+    "station": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "station_seq": {
+      "type": "string",
+      "maxLength": 100
+    },
+    "mongo_form_id": {
+      "type": "string",
+      "maxLength": 100
+    },
+    "mongo_data_id": {
+      "type": "string",
+      "maxLength": 100
+    },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/orderItem"
+      }
+    }
+  },
+  "$defs": {
+    "thailandDateTime": {
+      "type": "string",
+      "anyOf": [
+        {
+          "pattern": "^[0-9]{14}$"
+        },
+        {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?\\+07:00$"
+        }
+      ],
+      "description": "Thailand local time as YYYYMMDDHHmmss or ISO-8601 with +07:00."
+    },
+    "orderItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "seq",
+        "test_code",
+        "test_name",
+        "specimen_code",
+        "collected_at",
+        "received_at",
+        "receiver"
+      ],
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Outbound item sequence. The current order sample and transport specification use a number."
+        },
+        "test_code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Confirmed contract: value is his_code_id and equals the inbound obs_code for the same ordered test."
+        },
+        "test_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "specimen_code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "specimen_name": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "collector_code": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "collector_name": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "collected_at": {
+          "$ref": "#/$defs/thailandDateTime"
+        },
+        "received_at": {
+          "$ref": "#/$defs/thailandDateTime"
+        },
+        "receiver": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "HIS identity/code of the user who received the specimen."
+        }
+      }
+    }
+  }
+}
