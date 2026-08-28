@@ -1,0 +1,2116 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#ffffff">
+  <title>ห้องปฏิบัติการแลป — Worklist Mockup</title>
+  <style>
+    :root {
+      --primary:#409eff;
+      --primary-50:#ecf5ff;
+      --success:#67c23a;
+      --success-50:#f0f9eb;
+      --success-200:#b3e19d;
+      --warning:#e6a23c;
+      --warning-50:#fdf6ec;
+      --warning-200:#f3d19e;
+      --danger:#f56c6c;
+      --danger-50:#fef0f0;
+      --danger-200:#fab6b6;
+      --info:#909399;
+      --ink:#303133;
+      --text:#606266;
+      --muted:#909399;
+      --placeholder:#a8abb2;
+      --border:#dcdfe6;
+      --border-light:#e4e7ed;
+      --border-lighter:#ebeef5;
+      --fill:#f5f7fa;
+      --fill-soft:#fafafa;
+      --white:#ffffff;
+      --shadow:0 12px 32px rgba(31,35,41,.14);
+      --font:"Leelawadee UI","Noto Sans Thai","Tahoma","Segoe UI",sans-serif;
+      --mono:"SFMono-Regular","Roboto Mono",Consolas,monospace;
+      color-scheme:light;
+    }
+
+    * { box-sizing:border-box; }
+    html { background:var(--white); }
+    body {
+      margin:0;
+      min-width:320px;
+      background:var(--white);
+      color:var(--text);
+      font-family:var(--font);
+      font-size:14px;
+      line-height:1.45;
+      -webkit-font-smoothing:antialiased;
+      -webkit-tap-highlight-color:rgba(64,158,255,.14);
+    }
+    button,input,select,textarea { font:inherit; }
+    button,select { touch-action:manipulation; }
+    button { cursor:pointer; }
+    button:disabled { cursor:not-allowed; opacity:.55; }
+    .btn:disabled:hover {
+      border-color:var(--border);
+      background:var(--white);
+      color:var(--text);
+      transform:none;
+    }
+    [hidden] { display:none !important; }
+    .sr-only {
+      position:absolute;
+      width:1px;
+      height:1px;
+      padding:0;
+      margin:-1px;
+      overflow:hidden;
+      clip:rect(0,0,0,0);
+      white-space:nowrap;
+      border:0;
+    }
+    .mono {
+      font-family:var(--mono);
+      font-variant-numeric:tabular-nums;
+      letter-spacing:-.02em;
+    }
+    .skip-link {
+      position:fixed;
+      left:12px;
+      top:10px;
+      z-index:100;
+      transform:translateY(-150%);
+      padding:8px 12px;
+      border-radius:5px;
+      background:var(--ink);
+      color:var(--white);
+    }
+    .skip-link:focus { transform:translateY(0); }
+    :focus-visible {
+      outline:2px solid rgba(64,158,255,.55);
+      outline-offset:2px;
+    }
+    h1,h2,h3 { text-wrap:balance; }
+
+    .page {
+      width:100%;
+      padding:24px clamp(16px,2.5vw,40px) 48px;
+    }
+    .page-head {
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      gap:16px;
+      margin-bottom:20px;
+    }
+    .title-wrap { min-width:0; }
+    .title-wrap h1 {
+      margin:0;
+      color:var(--ink);
+      font-size:25px;
+      line-height:1.25;
+      font-weight:700;
+    }
+    .title-wrap p {
+      margin:4px 0 0;
+      color:var(--muted);
+      font-size:12px;
+    }
+
+    .toolbar {
+      display:grid;
+      grid-template-columns:minmax(230px,310px) minmax(250px,310px) auto auto minmax(24px,1fr) auto;
+      align-items:center;
+      gap:10px;
+      margin-bottom:18px;
+    }
+    .control,
+    .btn {
+      height:36px;
+      border:1px solid var(--border);
+      border-radius:5px;
+      background:var(--white);
+      color:var(--text);
+      transition:border-color .15s ease,background-color .15s ease,color .15s ease,box-shadow .15s ease,transform .12s ease;
+    }
+    .control:hover,
+    .btn:hover { border-color:#a0cfff; }
+    .control:focus,
+    .control:focus-within { border-color:var(--primary); box-shadow:0 0 0 2px rgba(64,158,255,.12); }
+    .btn {
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:7px;
+      padding:0 14px;
+      font-weight:600;
+      white-space:nowrap;
+    }
+    .btn:hover { color:var(--primary); background:var(--primary-50); }
+    .btn:active { transform:translateY(1px); }
+    .btn-primary { border-color:var(--primary); background:var(--primary); color:var(--white); }
+    .btn-primary:hover { border-color:#66b1ff; background:#66b1ff; color:var(--white); }
+    .btn-success { border-color:var(--success-200); background:var(--success-50); color:#529b2e; }
+    .btn-success:hover { border-color:var(--success); background:#e1f3d8; color:#3f7f22; }
+    .btn-danger { border-color:var(--danger-200); background:var(--danger-50); color:#c45656; }
+    .btn-danger:hover { border-color:var(--danger); background:#fde2e2; color:#b64242; }
+    .btn-warning { border-color:var(--warning-200); background:var(--warning-50); color:#b88230; }
+    .btn-plain { background:transparent; }
+    .btn-sm { height:30px; padding:0 11px; font-size:12px; }
+    .btn-icon { width:34px; padding:0; }
+    .btn svg,
+    .input-icon {
+      width:16px;
+      height:16px;
+      flex:none;
+      fill:none;
+      stroke:currentColor;
+      stroke-linecap:round;
+      stroke-linejoin:round;
+      stroke-width:1.8;
+    }
+
+    .search-field { position:relative; min-width:0; }
+    .search-field .input-icon {
+      position:absolute;
+      left:11px;
+      top:10px;
+      z-index:1;
+      color:var(--placeholder);
+      pointer-events:none;
+    }
+    .search-field input {
+      width:100%;
+      padding:0 34px 0 35px;
+    }
+    .clear-search {
+      position:absolute;
+      right:7px;
+      top:7px;
+      width:22px;
+      height:22px;
+      padding:0;
+      border:0;
+      border-radius:50%;
+      background:transparent;
+      color:var(--placeholder);
+      font-size:17px;
+      line-height:1;
+    }
+    .clear-search:hover { background:var(--fill); color:var(--text); }
+
+    .date-range { position:relative; min-width:0; }
+    .date-trigger {
+      width:100%;
+      display:flex;
+      align-items:center;
+      gap:9px;
+      padding:0 10px;
+      text-align:left;
+      font-weight:400;
+    }
+    .date-trigger .date-value {
+      min-width:0;
+      flex:1;
+      overflow:hidden;
+      color:var(--placeholder);
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .date-trigger.has-value .date-value { color:var(--ink); }
+    .date-clear {
+      position:absolute;
+      right:31px;
+      top:8px;
+      z-index:2;
+      width:20px;
+      height:20px;
+      padding:0;
+      border:0;
+      border-radius:50%;
+      background:transparent;
+      color:var(--placeholder);
+      line-height:18px;
+    }
+    .date-clear:hover { background:var(--fill); color:var(--text); }
+    .date-popover {
+      position:absolute;
+      top:42px;
+      left:0;
+      z-index:30;
+      width:min(620px,calc(100vw - 32px));
+      padding:14px;
+      border:1px solid var(--border-light);
+      border-radius:7px;
+      background:var(--white);
+      box-shadow:var(--shadow);
+    }
+    .calendar-head {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:12px;
+    }
+    .calendar-head-copy { min-width:0; text-align:center; }
+    .calendar-head-copy strong,
+    .calendar-head-copy span { display:block; }
+    .calendar-nav {
+      width:30px;
+      height:30px;
+      flex:none;
+      padding:0;
+      border:1px solid var(--border-light);
+      border-radius:4px;
+      background:var(--white);
+      color:var(--text);
+      font-size:19px;
+      line-height:1;
+    }
+    .calendar-nav:hover { border-color:#a0cfff; background:var(--primary-50); color:var(--primary); }
+    .calendar-head strong { color:var(--ink); }
+    .calendar-head span { color:var(--muted); font-size:12px; }
+    .calendars {
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:18px;
+    }
+    .calendar + .calendar { border-left:1px solid var(--border-lighter); padding-left:18px; }
+    .calendar-title {
+      margin:0 0 8px;
+      color:var(--ink);
+      font-size:13px;
+      text-align:center;
+    }
+    .calendar-grid {
+      display:grid;
+      grid-template-columns:repeat(7,1fr);
+      gap:3px;
+    }
+    .weekday {
+      padding:4px 0;
+      color:var(--muted);
+      font-size:10px;
+      text-align:center;
+    }
+    .day {
+      min-width:30px;
+      height:30px;
+      padding:0;
+      border:0;
+      border-radius:4px;
+      background:transparent;
+      color:var(--text);
+      font-size:11px;
+    }
+    .day:hover { background:var(--primary-50); color:var(--primary); }
+    .day.outside { color:#c8c9cc; }
+    .day.in-range { border-radius:0; background:var(--primary-50); color:#337ecc; }
+    .day.selected { border-radius:4px; background:var(--primary); color:var(--white); }
+    .calendar-foot {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-top:12px;
+      padding-top:11px;
+      border-top:1px solid var(--border-lighter);
+      color:var(--muted);
+      font-size:12px;
+    }
+
+    .status-strip {
+      display:flex;
+      align-items:center;
+      gap:8px;
+      margin-bottom:18px;
+      overflow-x:auto;
+      scrollbar-width:thin;
+    }
+    .status-chip {
+      --chip-color:var(--primary);
+      --chip-border:#a0cfff;
+      --chip-bg:var(--primary-50);
+      flex:0 0 auto;
+      display:flex;
+      align-items:baseline;
+      justify-content:center;
+      gap:6px;
+      padding:6px 12px;
+      border:1px solid var(--border-light);
+      border-radius:6px;
+      background:var(--fill);
+      color:var(--muted);
+      font-weight:600;
+      white-space:nowrap;
+      transition:border-color .15s ease,background-color .15s ease,color .15s ease,box-shadow .15s ease;
+    }
+    .status-chip strong { color:var(--chip-color); font-size:18px; line-height:1; }
+    .status-chip span { color:var(--muted); font-size:12px; font-weight:500; }
+    .status-chip[data-status="waiting"] { --chip-color:#b88230; --chip-border:var(--warning-200); --chip-bg:var(--warning-50); }
+    .status-chip[data-status="received"] { --chip-color:var(--info); --chip-border:#909399; --chip-bg:#f4f4f5; }
+    .status-chip[data-status="resulted"] { --chip-color:#529b2e; --chip-border:var(--success-200); --chip-bg:var(--success-50); }
+    .status-chip[data-status="cancelled"] { --chip-color:#c45656; --chip-border:var(--danger-200); --chip-bg:var(--danger-50); }
+    .status-chip:hover { border-color:var(--chip-border); background:var(--fill); }
+    .status-chip.active {
+      border-color:var(--chip-border);
+      background:var(--fill);
+      box-shadow:none;
+    }
+
+    .worklist-shell {
+      overflow-x:auto;
+      border-top:1px solid var(--border);
+      border-bottom:1px solid var(--border);
+      scrollbar-width:thin;
+    }
+    .worklist {
+      min-width:1260px;
+      background:var(--white);
+    }
+    .patient-block {
+      position:relative;
+      border-bottom:1px solid var(--border);
+      content-visibility:auto;
+      contain-intrinsic-size:84px;
+    }
+    .patient-block.dropdown-open {
+      z-index:60;
+      content-visibility:visible;
+    }
+    .patient-block:last-child { border-bottom:0; }
+    .patient-row {
+      display:grid;
+      grid-template-columns:34px minmax(205px,1.55fr) minmax(170px,1.18fr) 92px 100px 112px 112px minmax(140px,1fr) 92px 62px 62px;
+      gap:10px;
+      align-items:center;
+      min-height:84px;
+      padding:10px 12px;
+      background:var(--white);
+      transition:background-color .15s ease;
+    }
+    .patient-row:hover { background:var(--fill-soft); }
+    .patient-block.is-open > .patient-row { background:#fcfcfd; }
+    .expand-button {
+      width:28px;
+      height:30px;
+      display:grid;
+      place-items:center;
+      padding:0;
+      border:0;
+      border-radius:4px;
+      background:transparent;
+      color:var(--text);
+    }
+    .expand-button:hover { background:var(--fill); color:var(--primary); }
+    .expand-button svg {
+      width:15px;
+      height:15px;
+      fill:none;
+      stroke:currentColor;
+      stroke-width:2;
+      transition:transform .16s ease;
+    }
+    .patient-block.is-open .expand-button svg { transform:rotate(90deg); }
+    .patient-summary,
+    .context-tags,
+    .metric,
+    .doctor-cell { min-width:0; }
+    .patient-hn {
+      display:flex;
+      align-items:center;
+      gap:6px;
+      min-width:0;
+      color:var(--ink);
+      font-weight:700;
+    }
+    .patient-hn span:first-child {
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .patient-name {
+      margin-top:2px;
+      overflow:hidden;
+      color:var(--ink);
+      font-weight:650;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .patient-demographic {
+      display:flex;
+      align-items:center;
+      gap:6px;
+      margin-top:1px;
+      color:var(--muted);
+      font-size:11px;
+    }
+    .inline-tag,
+    .state-tag {
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:22px;
+      padding:1px 7px;
+      border:1px solid;
+      border-radius:4px;
+      font-size:11px;
+      font-weight:650;
+      white-space:nowrap;
+    }
+    .tag-danger { border-color:var(--danger-200); background:var(--danger-50); color:#c45656; }
+    .tag-warning { border-color:var(--warning-200); background:var(--warning-50); color:#b88230; }
+    .tag-success { border-color:var(--success-200); background:var(--success-50); color:#529b2e; }
+    .tag-info { border-color:#c8c9cc; background:#f4f4f5; color:#73767a; }
+    .tag-primary { border-color:#a0cfff; background:var(--primary-50); color:#337ecc; }
+    .urgent-tag { min-height:18px; padding:0 5px; font-size:9px; }
+    .meta-pill {
+      min-height:23px;
+      padding:1px 9px;
+      border-color:#c8c9cc;
+      border-radius:999px;
+      background:var(--white);
+      color:#606266;
+      font-weight:600;
+    }
+    .gender-pill {
+      min-height:18px;
+      padding:0 7px;
+      border-color:#c8c9cc;
+      border-radius:999px;
+      background:var(--white);
+      color:#606266;
+      font-size:9px;
+    }
+    .context-top {
+      display:flex;
+      align-items:center;
+      gap:6px;
+      margin-bottom:5px;
+    }
+    .context-top .inline-tag { background:var(--white); color:var(--text); }
+    .context-top .meta-pill:first-child {
+      border-color:#a0cfff;
+      background:var(--primary-50);
+      color:#337ecc;
+    }
+    .context-top .meta-pill:last-child {
+      border-color:var(--success-200);
+      background:var(--success-50);
+      color:#529b2e;
+    }
+    .context-tags > .meta-pill {
+      border-color:var(--warning-200);
+      background:var(--warning-50);
+      color:#b88230;
+    }
+    .field-label {
+      display:block;
+      margin-bottom:5px;
+      color:var(--muted);
+      font-size:10px;
+      font-weight:650;
+      letter-spacing:.015em;
+    }
+    .field-value {
+      display:block;
+      min-width:0;
+      overflow:hidden;
+      color:var(--ink);
+      font-size:12px;
+      font-weight:650;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .time-value { line-height:1.25; }
+    .time-value span { display:block; }
+    .row-status {
+      min-height:22px;
+      width:auto;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      justify-self:start;
+      padding:1px 7px;
+      border:1px solid;
+      border-radius:4px;
+      font-size:11px;
+      font-weight:650;
+      white-space:nowrap;
+    }
+    .status-waiting { border-color:var(--warning-200); background:var(--warning-50); color:#b88230; }
+    .status-received,.status-resulted,.status-result-complete { border-color:var(--success-200); background:var(--success-50); color:#529b2e; }
+    .status-result-partial { border-color:var(--warning-200); background:var(--warning-50); color:#b88230; }
+    .status-cancelled { border-color:var(--danger-200); background:var(--danger-50); color:#c45656; }
+    .status-mixed { border-color:#c8c9cc; background:#f4f4f5; color:#73767a; }
+    .plain-action {
+      width:100%;
+      height:30px;
+      padding:0 7px;
+      border-color:var(--border);
+      background:var(--white);
+      font-size:11px;
+      font-weight:600;
+    }
+
+    .detail-panel {
+      padding:0 16px 18px 46px;
+      background:var(--fill-soft);
+      border-top:1px solid var(--border-lighter);
+    }
+    .detail-top {
+      min-height:48px;
+      display:flex;
+      align-items:flex-end;
+      gap:20px;
+      border-bottom:1px solid var(--border-light);
+    }
+    .detail-tab {
+      height:48px;
+      padding:0;
+      border:0;
+      border-bottom:2px solid transparent;
+      background:transparent;
+      color:var(--muted);
+      font-weight:650;
+    }
+    .detail-tab:hover { color:var(--ink); }
+    .detail-tab.active { border-bottom-color:var(--primary); color:var(--primary); }
+    .bulk-actions {
+      display:flex;
+      align-items:center;
+      gap:8px;
+      margin-left:auto;
+      padding-bottom:8px;
+    }
+    .detail-summary {
+      display:flex;
+      align-items:center;
+      gap:20px;
+      min-height:46px;
+      color:var(--muted);
+      font-size:12px;
+    }
+    .detail-summary strong {
+      margin-right:4px;
+      color:var(--ink);
+      font-size:18px;
+      font-weight:700;
+      font-variant-numeric:tabular-nums;
+    }
+    .detail-table-wrap { overflow:visible; }
+    .detail-table {
+      width:100%;
+      min-width:990px;
+      border-collapse:collapse;
+      table-layout:fixed;
+      background:transparent;
+    }
+    .detail-table th {
+      height:36px;
+      padding:6px 10px;
+      border-bottom:1px solid var(--border);
+      color:var(--muted);
+      font-size:11px;
+      font-weight:650;
+      text-align:left;
+      text-transform:none;
+    }
+    .detail-table td {
+      height:52px;
+      padding:7px 10px;
+      border-bottom:1px dashed var(--border-lighter);
+      color:var(--text);
+      vertical-align:middle;
+    }
+    .detail-table tr:last-child td { border-bottom:0; }
+    .detail-table tbody tr:hover { background:rgba(255,255,255,.78); }
+    .test-name { color:var(--ink); font-weight:700; }
+    .specimen-combobox {
+      position:relative;
+      width:100%;
+      max-width:170px;
+    }
+    .specimen-search {
+      width:100%;
+      padding:0 31px 0 10px;
+      background-color:var(--white);
+      color:var(--text);
+    }
+    .specimen-toggle {
+      position:absolute;
+      right:1px;
+      top:1px;
+      width:30px;
+      height:34px;
+      display:grid;
+      place-items:center;
+      padding:0;
+      border:0;
+      border-left:1px solid var(--border-lighter);
+      border-radius:0 4px 4px 0;
+      background:transparent;
+      color:var(--muted);
+    }
+    .specimen-toggle:hover { background:var(--fill); color:var(--primary); }
+    .specimen-toggle svg { width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:1.8; }
+    .specimen-menu {
+      position:absolute;
+      top:40px;
+      left:0;
+      z-index:120;
+      width:100%;
+      padding:4px;
+      border:1px solid var(--border-light);
+      border-radius:6px;
+      background:var(--white);
+      box-shadow:0 8px 22px rgba(31,35,41,.14);
+    }
+    .specimen-option {
+      width:100%;
+      min-height:30px;
+      padding:4px 8px;
+      border:0;
+      border-radius:4px;
+      background:transparent;
+      color:var(--text);
+      text-align:left;
+    }
+    .specimen-option:hover,
+    .specimen-option[aria-selected="true"] { background:var(--primary-50); color:var(--primary); }
+    .specimen-empty { padding:8px; color:var(--muted); font-size:11px; text-align:center; }
+    .item-actions {
+      display:flex;
+      align-items:center;
+      gap:6px;
+      white-space:nowrap;
+    }
+    .item-actions .btn { min-width:64px; }
+    .result-action-group {
+      display:flex;
+      align-items:center;
+      gap:6px;
+      flex-wrap:wrap;
+    }
+    .critical-state {
+      display:inline-flex;
+      align-items:center;
+      gap:7px;
+      min-width:0;
+    }
+    .signal-dot {
+      width:10px;
+      height:10px;
+      flex:none;
+      border:1px solid;
+      border-radius:50%;
+    }
+    .signal-dot.critical { border-color:#d46a6a; background:#b84d4d; box-shadow:0 0 0 3px rgba(245,108,108,.12); }
+    .signal-dot.normal { border-color:#4e9631; background:#2f761e; box-shadow:0 0 0 3px rgba(103,194,58,.1); }
+
+    .empty-state {
+      padding:44px 20px;
+      color:var(--muted);
+      text-align:center;
+    }
+    .empty-state strong { display:block; margin-bottom:4px; color:var(--ink); }
+
+    dialog {
+      width:min(1040px,calc(100vw - 32px));
+      max-height:calc(100vh - 40px);
+      padding:0;
+      overflow:hidden;
+      border:1px solid var(--border);
+      border-radius:10px;
+      background:var(--white);
+      color:var(--text);
+      box-shadow:0 22px 55px rgba(31,35,41,.22);
+      overscroll-behavior:contain;
+    }
+    dialog::backdrop { background:rgba(31,35,41,.48); }
+    body.modal-open { overflow:hidden; }
+    body.modal-open::before {
+      content:"";
+      position:fixed;
+      inset:0;
+      z-index:89;
+      background:rgba(31,35,41,.48);
+    }
+    dialog.dialog-fallback[open] {
+      position:fixed;
+      inset:50% auto auto 50%;
+      z-index:90;
+      display:block;
+      margin:0;
+      transform:translate(-50%,-50%);
+    }
+    .modal-head {
+      display:flex;
+      align-items:center;
+      gap:14px;
+      padding:15px 18px;
+      border-bottom:1px solid var(--border-lighter);
+    }
+    .modal-head h2 {
+      margin:0;
+      color:var(--ink);
+      font-size:17px;
+    }
+    .modal-title-row {
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    .edit-result-button {
+      width:28px;
+      height:28px;
+      display:grid;
+      place-items:center;
+      padding:0;
+      border:1px solid transparent;
+      border-radius:5px;
+      background:transparent;
+      color:var(--muted);
+    }
+    .edit-result-button:hover { border-color:#a0cfff; background:var(--primary-50); color:var(--primary); }
+    .edit-result-button[aria-pressed="true"] { border-color:var(--primary); background:var(--primary-50); color:var(--primary); }
+    .edit-result-button svg { width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:1.8; }
+    .mode-badge {
+      display:inline-flex;
+      align-items:center;
+      min-height:20px;
+      margin-left:4px;
+      padding:0 7px;
+      border:1px solid var(--border);
+      border-radius:999px;
+      background:var(--fill-soft);
+      color:var(--muted);
+      font-size:10px;
+      font-weight:650;
+    }
+    .mode-badge.editing { border-color:#a0cfff; background:var(--primary-50); color:#337ecc; }
+    .modal-meta { margin-top:2px; color:var(--muted); font-size:11px; }
+    .modal-close {
+      width:32px;
+      height:32px;
+      margin-left:auto;
+      padding:0;
+      border:0;
+      border-radius:5px;
+      background:transparent;
+      color:var(--muted);
+      font-size:22px;
+    }
+    .modal-close:hover { background:var(--fill); color:var(--ink); }
+    .modal-body {
+      max-height:calc(100vh - 160px);
+      padding:18px;
+      overflow:auto;
+      overscroll-behavior:contain;
+    }
+    .result-table-wrap {
+      overflow-x:auto;
+      border:1px solid var(--border);
+      border-radius:7px;
+    }
+    .result-table {
+      width:100%;
+      min-width:940px;
+      border-collapse:collapse;
+      table-layout:fixed;
+    }
+    .result-table thead th {
+      height:42px;
+      padding:7px 10px;
+      border-bottom:1px solid var(--border);
+      background:var(--fill-soft);
+      color:var(--muted);
+      font-size:11px;
+      text-align:left;
+    }
+    .result-table td {
+      min-height:46px;
+      padding:10px;
+      border-bottom:1px solid var(--border-lighter);
+      color:var(--text);
+      vertical-align:top;
+    }
+    .result-table tr:last-child td { border-bottom:0; }
+    .profile-row th {
+      height:40px;
+      padding:5px 10px;
+      border-top:1px solid var(--border);
+      border-bottom:1px solid var(--border);
+      background:var(--fill);
+    }
+    .profile-row:first-child th { border-top:0; }
+    .profile-head {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      color:var(--ink);
+      font-size:13px;
+      text-align:left;
+    }
+    .previous-value { color:var(--muted); }
+    .result-value {
+      display:block;
+      min-width:0;
+      color:var(--ink);
+      font-weight:700;
+      overflow-wrap:anywhere;
+      white-space:pre-wrap;
+    }
+    .pending-result-row td { background:#fffaf2; vertical-align:middle; }
+    .pending-result-message {
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-height:34px;
+      color:var(--muted);
+    }
+    .result-editor {
+      width:100%;
+      min-height:32px;
+      padding:6px 8px;
+      border:1px solid var(--primary);
+      border-radius:4px;
+      background:var(--white);
+      color:var(--ink);
+      resize:vertical;
+    }
+    .modal-foot {
+      display:flex;
+      justify-content:flex-end;
+      gap:8px;
+      padding:12px 18px;
+      border-top:1px solid var(--border-lighter);
+      background:var(--fill-soft);
+    }
+
+    .cancel-detail-grid {
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:14px;
+    }
+    .cancel-detail {
+      min-width:0;
+      padding:13px 14px;
+      border:1px solid var(--border-lighter);
+      border-radius:6px;
+      background:var(--fill-soft);
+    }
+    .cancel-detail.reason { grid-column:1/-1; }
+    .cancel-detail .field-value {
+      margin-top:5px;
+      white-space:normal;
+      overflow-wrap:anywhere;
+    }
+    .confirm-copy { margin:0; color:var(--ink); }
+
+    .implementation-remarks {
+      margin-top:18px;
+      padding:14px 16px;
+      border:1px solid var(--warning-200);
+      border-left:3px solid var(--warning);
+      border-radius:6px;
+      background:var(--warning-50);
+      color:var(--text);
+    }
+    .implementation-remarks h2 {
+      margin:0 0 7px;
+      color:#8a5b16;
+      font-size:13px;
+    }
+    .implementation-remarks ul { margin:0; padding-left:20px; }
+    .implementation-remarks li + li { margin-top:5px; }
+
+    .toast {
+      position:fixed;
+      left:50%;
+      bottom:24px;
+      z-index:80;
+      max-width:min(560px,calc(100vw - 32px));
+      padding:10px 14px;
+      border:1px solid #b3e19d;
+      border-radius:6px;
+      background:var(--success-50);
+      color:#3f7f22;
+      box-shadow:0 10px 28px rgba(31,35,41,.16);
+      opacity:0;
+      transform:translate(-50%,16px);
+      transition:opacity .18s ease,transform .18s ease;
+      pointer-events:none;
+    }
+    .toast.show { opacity:1; transform:translate(-50%,0); }
+
+    @media (max-width:980px) {
+      .toolbar {
+        grid-template-columns:1fr 1fr auto auto;
+      }
+      .toolbar-spacer { display:none; }
+      .create-button { grid-column:1/-1; justify-self:end; }
+    }
+    @media (max-width:680px) {
+      .page { padding:18px 12px 36px; }
+      .page-head { align-items:flex-start; }
+      .title-wrap h1 { font-size:22px; }
+      .toolbar { grid-template-columns:1fr 1fr; }
+      .search-field,.date-range { grid-column:1/-1; }
+      .create-button { width:100%; justify-self:stretch; }
+      .status-strip { grid-template-columns:repeat(5,150px); }
+      .calendars { grid-template-columns:1fr; }
+      .calendar + .calendar { display:none; }
+      .detail-panel { padding-left:16px; }
+      .bulk-actions { width:100%; margin:0 0 8px; order:3; }
+      .detail-top { flex-wrap:wrap; }
+      .modal-body { padding:10px; }
+      .cancel-detail-grid { grid-template-columns:1fr; }
+      .cancel-detail.reason { grid-column:auto; }
+    }
+    @media (prefers-reduced-motion:reduce) {
+      *,*::before,*::after {
+        scroll-behavior:auto !important;
+        transition-duration:.001ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#labWorklist">ข้ามไปยังรายการตรวจ</a>
+  <main class="page">
+    <header class="page-head">
+      <div class="title-wrap">
+        <h1>ห้องปฏิบัติการแลป</h1>
+        <p>จัดการรายการสั่งตรวจ การรับสิ่งส่งตรวจ และผลตรวจในหน้าเดียว</p>
+      </div>
+    </header>
+
+    <section aria-label="ค้นหาและกรองรายการ">
+      <div class="toolbar">
+        <label class="search-field">
+          <span class="sr-only">ค้นหา HN, VN, LN หรือชื่อผู้ป่วย</span>
+          <svg class="input-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m16.5 16.5 4 4"></path></svg>
+          <input id="searchInput" class="control" name="lab-search" type="search" placeholder="ค้นหา HN / VN / LN / ชื่อผู้ป่วย…" autocomplete="off" aria-label="ค้นหา HN, VN, LN หรือชื่อผู้ป่วย">
+          <button id="clearSearch" class="clear-search" type="button" aria-label="ล้างคำค้น" hidden>×</button>
+        </label>
+
+        <div class="date-range">
+          <button id="dateTrigger" class="control date-trigger" type="button" aria-haspopup="dialog" aria-expanded="false">
+            <svg class="input-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3v3m12-3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v14H4V6a1 1 0 0 1 1-1Z"></path></svg>
+            <span id="dateValue" class="date-value">Date Range</span>
+            <svg class="input-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 10 4 4 4-4"></path></svg>
+          </button>
+          <button id="dateClear" class="date-clear" type="button" aria-label="ล้างช่วงวันที่" hidden>×</button>
+          <div id="datePopover" class="date-popover" role="dialog" aria-label="เลือกช่วงวันที่ตามเวลาของสถานะ" hidden>
+            <div class="calendar-head">
+              <button id="previousMonth" class="calendar-nav" type="button" aria-label="เดือนก่อนหน้า">‹</button>
+              <div class="calendar-head-copy"><strong>เลือก Date Range</strong><span>กรองตามเวลาของสถานะรายการ</span></div>
+              <button id="nextMonth" class="calendar-nav" type="button" aria-label="เดือนถัดไป">›</button>
+            </div>
+            <div id="calendarMonths" class="calendars"></div>
+            <div class="calendar-foot">
+              <span id="calendarHint">ยังไม่ได้เลือกวันที่</span>
+              <button id="closeCalendar" class="btn btn-sm" type="button">ปิด</button>
+            </div>
+          </div>
+        </div>
+
+        <button id="searchButton" class="btn" type="button">Search</button>
+        <button class="btn" type="button" data-toast="รอเชื่อมกับ Report Factory">Report</button>
+        <span class="toolbar-spacer" aria-hidden="true"></span>
+        <button class="btn btn-primary create-button" type="button" data-toast="รอเชื่อมกับฟอร์มสร้างรายการ">สร้างรายการใหม่</button>
+      </div>
+
+      <div class="status-strip" role="group" aria-label="กรองรายการตามสถานะ">
+        <button class="status-chip active" type="button" data-status="" aria-pressed="true"><strong>21</strong><span>ทั้งหมด</span></button>
+        <button class="status-chip" type="button" data-status="waiting" aria-pressed="false"><strong>10</strong><span>รอรับ</span></button>
+        <button class="status-chip" type="button" data-status="received" aria-pressed="false"><strong>4</strong><span>รับแล้ว / รอตรวจ</span></button>
+        <button class="status-chip" type="button" data-status="resulted" aria-pressed="false"><strong>3</strong><span>ออกผลแล้ว</span></button>
+        <button class="status-chip" type="button" data-status="cancelled" aria-pressed="false"><strong>4</strong><span>ปฏิเสธ</span></button>
+      </div>
+    </section>
+
+    <section id="labWorklist" class="worklist-shell" aria-label="รายการผู้ป่วย">
+      <div class="worklist">
+        <article class="patient-block is-open" data-patient-id="hn00000001" data-hn="hn00000001" data-order-id="ord-waiting-0001" data-status="waiting" data-request-time="2026-08-28T12:02:32+07:00" data-search="hn00000001 vn00000001 ln1069000000 ln1069000002 ด.ช. สมมติ ทดสอบ c1 c2 c3">
+          <div class="patient-row">
+            <button class="expand-button" type="button" aria-label="ย่อรายละเอียด HN00000001" aria-expanded="true">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"></path></svg>
+            </button>
+            <div class="patient-summary">
+              <div class="patient-hn"><span class="mono" translate="no">HN00000001</span><span class="inline-tag tag-danger urgent-tag">เร่งด่วน</span></div>
+              <div class="patient-name">ด.ช. สมมติ ทดสอบ</div>
+              <div class="patient-demographic"><span class="inline-tag gender-pill">ชาย</span><span>อายุ 3 ปี 3 เดือน 3 วัน</span></div>
+            </div>
+            <div class="context-tags">
+              <div class="context-top"><span class="inline-tag meta-pill">ห้องที่ส่ง</span><span class="inline-tag meta-pill">ชำระเงินแล้ว</span></div>
+              <span class="inline-tag meta-pill">UC</span>
+            </div>
+            <div class="metric"><span class="field-label">รายการ</span><span class="field-value">3 orders</span></div>
+            <div class="metric"><span class="field-label">specimen</span><span class="field-value">3 specimens</span></div>
+            <div class="metric"><span class="field-label">เวลาสั่ง</span><span class="field-value time-value mono"><span>28/08/69</span><span>12:02:32</span></span></div>
+            <div class="metric"><span class="field-label">เวลารับ</span><span class="field-value">–</span></div>
+            <div class="doctor-cell"><span class="field-label">แพทย์</span><span class="field-value">นพ.ใจดี ปากไม่ดี</span></div>
+            <span class="row-status status-waiting" data-row-status>รอรับ</span>
+            <button class="btn btn-sm plain-action" type="button" data-toast="เตรียม PDF ใบสั่งตรวจ">PDF</button>
+            <button class="btn btn-sm plain-action" type="button" data-toast="แสดงข้อมูลผู้ป่วยแบบ readonly" aria-label="ดูข้อมูล HN00000001">ดู</button>
+          </div>
+
+          <div class="detail-panel">
+            <div class="detail-top" role="tablist" aria-label="รายละเอียด HN00000001">
+              <button class="detail-tab active" type="button" role="tab" aria-selected="true" data-panel="orders">order</button>
+              <button class="detail-tab" type="button" role="tab" aria-selected="false" data-panel="results">ออกผล</button>
+              <div class="bulk-actions" data-order-actions>
+                <button class="btn btn-success btn-sm" type="button" data-bulk-action="receive">รับ specimen ทั้งหมด</button>
+                <button class="btn btn-danger btn-sm" type="button" data-bulk-action="reject">ปฏิเสธทั้งหมด</button>
+              </div>
+            </div>
+
+            <div class="detail-view" data-view="orders">
+              <div class="detail-summary"><span><strong>3</strong>รายการสั่งตรวจ</span><span><strong>3</strong>specimens</span><span>· ตรวจสอบชนิด specimen ก่อนรับ</span></div>
+              <div class="detail-table-wrap">
+                <table class="detail-table">
+                  <colgroup><col style="width:6%"><col style="width:16%"><col style="width:23%"><col style="width:18%"><col style="width:12%"><col style="width:10%"><col style="width:15%"></colgroup>
+                  <thead><tr><th scope="col">ลำดับ</th><th scope="col">Lab no.</th><th scope="col">รายการสั่งตรวจ</th><th scope="col">specimen</th><th scope="col">เวลาเก็บ specimen</th><th scope="col">สถานะ</th><th scope="col">ดำเนินการ</th></tr></thead>
+                  <tbody>
+                    <tr data-specimen-item>
+                      <td class="mono">1</td><td class="mono" translate="no">LN1069000000</td><td class="test-name">C1 Test</td>
+                      <td><div class="specimen-combobox" data-specimen-combobox><input class="control specimen-search" name="specimen-c1" type="search" value="specimen1" autocomplete="off" spellcheck="false" role="combobox" aria-label="ค้นหาและเลือก specimen สำหรับ C1 Test" aria-autocomplete="list" aria-expanded="false" aria-controls="specimen-menu-c1"><button class="specimen-toggle" type="button" aria-label="เปิดรายการ specimen สำหรับ C1 Test"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"></path></svg></button><div id="specimen-menu-c1" class="specimen-menu" role="listbox" hidden><button class="specimen-option" type="button" role="option" aria-selected="true" data-specimen-value="specimen1">specimen1</button><button class="specimen-option" type="button" role="option" aria-selected="false" data-specimen-value="specimen2">specimen2</button><button class="specimen-option" type="button" role="option" aria-selected="false" data-specimen-value="specimen3">specimen3</button><div class="specimen-empty" hidden>ไม่พบ specimen</div></div></div></td>
+                      <td><span class="field-value time-value mono"><span>28/08/69</span><span>10:30:20</span></span></td><td><span class="state-tag tag-warning" data-item-status>รอรับ</span></td><td><div class="item-actions"><button class="btn btn-success btn-sm" type="button" data-item-action="receive">รับ</button><button class="btn btn-danger btn-sm" type="button" data-item-action="reject">ปฏิเสธ</button></div></td>
+                    </tr>
+                    <tr data-specimen-item>
+                      <td class="mono">2</td><td class="mono" translate="no">LN1069000002</td><td class="test-name">C2 Test</td>
+                      <td><div class="specimen-combobox" data-specimen-combobox><input class="control specimen-search" name="specimen-c2" type="search" value="specimen2" autocomplete="off" spellcheck="false" role="combobox" aria-label="ค้นหาและเลือก specimen สำหรับ C2 Test" aria-autocomplete="list" aria-expanded="false" aria-controls="specimen-menu-c2"><button class="specimen-toggle" type="button" aria-label="เปิดรายการ specimen สำหรับ C2 Test"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"></path></svg></button><div id="specimen-menu-c2" class="specimen-menu" role="listbox" hidden><button class="specimen-option" type="button" role="option" aria-selected="false" data-specimen-value="specimen1">specimen1</button><button class="specimen-option" type="button" role="option" aria-selected="true" data-specimen-value="specimen2">specimen2</button><button class="specimen-option" type="button" role="option" aria-selected="false" data-specimen-value="specimen3">specimen3</button><div class="specimen-empty" hidden>ไม่พบ specimen</div></div></div></td>
+                      <td><span class="field-value time-value mono"><span>28/08/69</span><span>10:30:20</span></span></td><td><span class="state-tag tag-warning" data-item-status>รอรับ</span></td><td><div class="item-actions"><button class="btn btn-success btn-sm" type="button" data-item-action="receive">รับ</button><button class="btn btn-danger btn-sm" type="button" data-item-action="reject">ปฏิเสธ</button></div></td>
+                    </tr>
+                    <tr data-specimen-item>
+                      <td class="mono">3</td><td class="mono" translate="no">LN1069000002</td><td class="test-name">C3 Test</td>
+                      <td><div class="specimen-combobox" data-specimen-combobox><input class="control specimen-search" name="specimen-c3" type="search" value="specimen3" autocomplete="off" spellcheck="false" role="combobox" aria-label="ค้นหาและเลือก specimen สำหรับ C3 Test" aria-autocomplete="list" aria-expanded="false" aria-controls="specimen-menu-c3"><button class="specimen-toggle" type="button" aria-label="เปิดรายการ specimen สำหรับ C3 Test"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"></path></svg></button><div id="specimen-menu-c3" class="specimen-menu" role="listbox" hidden><button class="specimen-option" type="button" role="option" aria-selected="false" data-specimen-value="specimen1">specimen1</button><button class="specimen-option" type="button" role="option" aria-selected="false" data-specimen-value="specimen2">specimen2</button><button class="specimen-option" type="button" role="option" aria-selected="true" data-specimen-value="specimen3">specimen3</button><div class="specimen-empty" hidden>ไม่พบ specimen</div></div></div></td>
+                      <td><span class="field-value time-value mono"><span>28/08/69</span><span>10:30:20</span></span></td><td><span class="state-tag tag-warning" data-item-status>รอรับ</span></td><td><div class="item-actions"><button class="btn btn-success btn-sm" type="button" data-item-action="receive">รับ</button><button class="btn btn-danger btn-sm" type="button" data-item-action="reject">ปฏิเสธ</button></div></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="detail-view" data-view="results" hidden>
+              <div class="empty-state"><strong>ยังไม่มีผลตรวจ</strong>รับ specimen อย่างน้อย 1 รายการก่อนบันทึกผล</div>
+            </div>
+          </div>
+        </article>
+
+        <article class="patient-block is-open" data-patient-id="hn00000002" data-hn="hn00000002" data-order-id="ord-result-partial-0002" data-status="resulted" data-result-state="partial" data-request-time="2026-08-28T12:02:32+07:00" data-received-time="2026-08-28T12:32:32+07:00" data-result-time="2026-08-28T14:10:20+07:00" data-search="hn00000002 vn00000002 ด.ช. ทดสอบ สมมติ c2 vitamin d electrolyte sodium potassium chloride anion gap">
+          <div class="patient-row">
+            <button class="expand-button" type="button" aria-label="ย่อรายละเอียด HN00000002" aria-expanded="true">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"></path></svg>
+            </button>
+            <div class="patient-summary">
+              <div class="patient-hn"><span class="mono" translate="no">HN00000002</span></div>
+              <div class="patient-name">ด.ช. ทดสอบ สมมติ</div>
+              <div class="patient-demographic"><span class="inline-tag gender-pill">ชาย</span><span>อายุ 3 ปี 3 เดือน 3 วัน</span></div>
+            </div>
+            <div class="context-tags">
+              <div class="context-top"><span class="inline-tag meta-pill">ห้องที่ส่ง</span><span class="inline-tag meta-pill">ชำระเงินแล้ว</span></div>
+              <span class="inline-tag meta-pill">UC</span>
+            </div>
+            <div class="metric"><span class="field-label">รายการ</span><span class="field-value">3 orders</span></div>
+            <div class="metric"><span class="field-label">specimen</span><span class="field-value">3 specimens</span></div>
+            <div class="metric"><span class="field-label">เวลาสั่ง</span><span class="field-value time-value mono"><span>28/08/69</span><span>12:02:32</span></span></div>
+            <div class="metric"><span class="field-label">เวลาออกผล</span><span class="field-value time-value mono"><span>28/08/69</span><span>14:10:20</span></span></div>
+            <div class="doctor-cell"><span class="field-label">แพทย์</span><span class="field-value">นพ.ใจดี ปากไม่ดี</span></div>
+            <span class="row-status status-result-partial" data-row-status>ออกผลบางส่วน</span>
+            <button class="btn btn-sm plain-action" type="button" disabled title="พิมพ์ได้เมื่อออกผลครบทุก test" aria-label="PDF ผลตรวจยังใช้ไม่ได้ เพราะยังออกผลไม่ครบทุก test">PDF</button>
+            <button class="btn btn-sm plain-action" type="button" data-open-results data-result-scope="partial" aria-label="ดูผลทั้งหมดของ HN00000002">ดูผล</button>
+          </div>
+
+          <div class="detail-panel">
+            <div class="detail-top" role="tablist" aria-label="รายละเอียด HN00000002">
+              <button class="detail-tab" type="button" role="tab" aria-selected="false" data-panel="orders">order</button>
+              <button class="detail-tab active" type="button" role="tab" aria-selected="true" data-panel="results">ออกผล</button>
+            </div>
+            <div class="detail-view" data-view="orders" hidden>
+              <div class="detail-summary"><span><strong>3</strong>รายการสั่งตรวจ</span><span><strong>3</strong>specimens</span><span>· รับครบแล้ว</span></div>
+            </div>
+            <div class="detail-view" data-view="results">
+              <div class="detail-summary"><span><strong>3</strong>รายการสั่งตรวจ</span><span>· แสดงผลล่าสุดของแต่ละรายการ</span></div>
+              <div class="detail-table-wrap">
+                <table class="detail-table">
+                  <colgroup><col style="width:7%"><col style="width:22%"><col style="width:14%"><col style="width:20%"><col style="width:17%"><col style="width:20%"></colgroup>
+                  <thead><tr><th scope="col">ลำดับ</th><th scope="col">รายการสั่งตรวจ</th><th scope="col">เวลาออกผล</th><th scope="col">ผลตรวจ</th><th scope="col">สถานะ</th><th scope="col">ดำเนินการ</th></tr></thead>
+                  <tbody>
+                    <tr><td class="mono">1</td><td class="test-name">Vitamin D</td><td class="mono">14:08:10</td><td><div class="result-action-group"><button class="btn btn-sm" type="button" data-open-results data-result-profile="vitamin-d">ดูผล</button></div></td><td><span class="state-tag tag-danger">ค่าวิกฤติ</span></td><td><button class="btn btn-danger btn-sm" type="button" data-toast="เปิดหน้าต่างแจ้งเตือนแพทย์">แจ้งเตือนแพทย์</button></td></tr>
+                    <tr><td class="mono">2</td><td class="test-name">C2 Test</td><td>–</td><td><div class="result-action-group"><button class="btn btn-sm" type="button" disabled aria-label="ยังไม่มีผลของ C2 Test">ดูผล</button></div></td><td><span class="state-tag tag-warning">รอผล</span></td><td>–</td></tr>
+                    <tr><td class="mono">3</td><td class="test-name">Electrolyte (cotted blood)</td><td class="mono">14:10:20</td><td><div class="result-action-group"><button class="btn btn-sm" type="button" data-open-results data-result-profile="electrolyte">ดูผล</button></div></td><td><span class="state-tag tag-success">ไม่พบค่าวิกฤติ</span></td><td>–</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="patient-block" data-patient-id="hn00000002" data-hn="hn00000002" data-order-id="ord-result-complete-history-0002" data-status="resulted" data-result-state="complete" data-request-time="2024-02-12T08:12:40+07:00" data-received-time="2024-02-12T08:41:16+07:00" data-result-time="2024-02-12T10:26:05+07:00" data-search="hn00000002 vn67000002 ด.ช. ทดสอบ สมมติ vitamin d electrolyte sodium potassium chloride anion gap ผลย้อนหลัง">
+          <div class="patient-row">
+            <button class="expand-button" type="button" aria-label="ขยายรายละเอียดผลย้อนหลัง HN00000002" aria-expanded="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"></path></svg>
+            </button>
+            <div class="patient-summary">
+              <div class="patient-hn"><span class="mono" translate="no">HN00000002</span></div>
+              <div class="patient-name">ด.ช. ทดสอบ สมมติ</div>
+              <div class="patient-demographic"><span class="inline-tag gender-pill">ชาย</span><span>ผลย้อนหลัง</span></div>
+            </div>
+            <div class="context-tags">
+              <div class="context-top"><span class="inline-tag meta-pill">ห้องที่ส่ง</span><span class="inline-tag meta-pill">ชำระเงินแล้ว</span></div>
+              <span class="inline-tag meta-pill">UC</span>
+            </div>
+            <div class="metric"><span class="field-label">รายการ</span><span class="field-value">2 orders</span></div>
+            <div class="metric"><span class="field-label">specimen</span><span class="field-value">2 specimens</span></div>
+            <div class="metric"><span class="field-label">เวลาสั่ง</span><span class="field-value time-value mono"><span>12/02/67</span><span>08:12:40</span></span></div>
+            <div class="metric"><span class="field-label">เวลาออกผล</span><span class="field-value time-value mono"><span>12/02/67</span><span>10:26:05</span></span></div>
+            <div class="doctor-cell"><span class="field-label">แพทย์</span><span class="field-value">นพ.ใจดี ปากไม่ดี</span></div>
+            <span class="row-status status-result-complete" data-row-status>ออกผลครบ</span>
+            <button class="btn btn-sm plain-action" type="button" data-toast="เตรียม PDF ผลตรวจฉบับล่าสุด">PDF</button>
+            <button class="btn btn-sm plain-action" type="button" data-open-results data-result-scope="complete" aria-label="ดูผลย้อนหลังทั้งหมดของ HN00000002">ดูผล</button>
+          </div>
+          <div class="detail-panel" hidden>
+            <div class="detail-top" role="tablist" aria-label="รายละเอียดผลย้อนหลัง HN00000002">
+              <button class="detail-tab" type="button" role="tab" aria-selected="false" data-panel="orders">order</button>
+              <button class="detail-tab active" type="button" role="tab" aria-selected="true" data-panel="results">ออกผล</button>
+            </div>
+            <div class="detail-view" data-view="orders" hidden><div class="detail-summary"><span><strong>2</strong>รายการสั่งตรวจ</span><span><strong>2</strong>specimens</span><span>· ผลย้อนหลัง</span></div></div>
+            <div class="detail-view" data-view="results">
+              <div class="detail-summary"><span><strong>2</strong>รายการสั่งตรวจ</span><span>· ออกผลครบทุก test</span></div>
+              <div class="detail-table-wrap">
+                <table class="detail-table">
+                  <colgroup><col style="width:7%"><col style="width:32%"><col style="width:16%"><col style="width:20%"><col style="width:25%"></colgroup>
+                  <thead><tr><th scope="col">ลำดับ</th><th scope="col">รายการสั่งตรวจ</th><th scope="col">เวลาออกผล</th><th scope="col">ผลตรวจ</th><th scope="col">สถานะ</th></tr></thead>
+                  <tbody>
+                    <tr><td class="mono">1</td><td class="test-name">Vitamin D</td><td class="mono">10:20:40</td><td><button class="btn btn-sm" type="button" data-open-results data-result-profile="vitamin-d" data-result-scope="complete">ดูผล</button></td><td><span class="state-tag tag-danger">ค่าวิกฤติ</span></td></tr>
+                    <tr><td class="mono">2</td><td class="test-name">Electrolyte (cotted blood)</td><td class="mono">10:26:05</td><td><button class="btn btn-sm" type="button" data-open-results data-result-profile="electrolyte" data-result-scope="complete">ดูผล</button></td><td><span class="state-tag tag-success">ไม่พบค่าวิกฤติ</span></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="patient-block" data-patient-id="hn00000003" data-hn="hn00000003" data-order-id="ord-waiting-0003" data-status="waiting" data-request-time="2026-08-28T12:02:32+07:00" data-search="hn00000003 vn00000003 ด.ช. สมมติ ทดสอบ 3 orders 3 specimens">
+          <div class="patient-row">
+            <button class="expand-button" type="button" aria-label="ขยายรายละเอียด HN00000003" aria-expanded="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"></path></svg>
+            </button>
+            <div class="patient-summary">
+              <div class="patient-hn"><span class="mono" translate="no">HN00000003</span></div>
+              <div class="patient-name">ด.ช. สมมติ ทดสอบ</div>
+              <div class="patient-demographic"><span class="inline-tag gender-pill">ชาย</span><span>อายุ 3 ปี 3 เดือน 3 วัน</span></div>
+            </div>
+            <div class="context-tags">
+              <div class="context-top"><span class="inline-tag meta-pill">ห้องที่ส่ง</span><span class="inline-tag meta-pill">ชำระเงินแล้ว</span></div>
+              <span class="inline-tag meta-pill">UC</span>
+            </div>
+            <div class="metric"><span class="field-label">รายการ</span><span class="field-value">3 orders</span></div>
+            <div class="metric"><span class="field-label">specimen</span><span class="field-value">3 specimens</span></div>
+            <div class="metric"><span class="field-label">เวลาสั่ง</span><span class="field-value time-value mono"><span>28/08/69</span><span>12:02:32</span></span></div>
+            <div class="metric"><span class="field-label">เวลารับ</span><span class="field-value">–</span></div>
+            <div class="doctor-cell"><span class="field-label">แพทย์</span><span class="field-value">นพ.ใจดี ปากไม่ดี</span></div>
+            <span class="row-status status-waiting" data-row-status>รอรับ</span>
+            <button class="btn btn-sm plain-action" type="button" data-toast="เตรียม PDF ใบสั่งตรวจ">PDF</button>
+            <button class="btn btn-sm plain-action" type="button" data-toast="แสดงข้อมูลผู้ป่วยแบบ readonly" aria-label="ดูข้อมูล HN00000003">ดู</button>
+          </div>
+          <div class="detail-panel" hidden>
+            <div class="detail-top" role="tablist" aria-label="รายละเอียด HN00000003">
+              <button class="detail-tab active" type="button" role="tab" aria-selected="true" data-panel="orders">order</button>
+              <button class="detail-tab" type="button" role="tab" aria-selected="false" data-panel="results">ออกผล</button>
+              <div class="bulk-actions" data-order-actions>
+                <button class="btn btn-success btn-sm" type="button" data-bulk-action="receive">รับ specimen ทั้งหมด</button>
+                <button class="btn btn-danger btn-sm" type="button" data-bulk-action="reject">ปฏิเสธทั้งหมด</button>
+              </div>
+            </div>
+            <div class="detail-view" data-view="orders"><div class="empty-state"><strong>รายละเอียดรายการพร้อมแสดง</strong>รูปแบบปุ่มและสถานะเหมือนรายการ HN00000001</div></div>
+            <div class="detail-view" data-view="results" hidden><div class="empty-state"><strong>ยังไม่มีผลตรวจ</strong>รับ specimen ก่อนบันทึกผล</div></div>
+          </div>
+        </article>
+
+        <article class="patient-block is-open" data-patient-id="hn00000004" data-hn="hn00000004" data-order-id="ord-rejected-0004" data-status="cancelled" data-request-time="2026-08-28T09:14:18+07:00" data-cancelled-time="2026-08-28T09:32:46+07:00" data-cancel-reason="สิ่งส่งตรวจไม่เพียงพอ" data-cancelled-by="เจ้าหน้าที่ห้องปฏิบัติการ (ตัวอย่าง)" data-search="hn00000004 vn00000004 ด.ญ. ตัวอย่าง ปฏิเสธ c1 c2 c3 สิ่งส่งตรวจไม่เพียงพอ">
+          <div class="patient-row">
+            <button class="expand-button" type="button" aria-label="ย่อรายละเอียด HN00000004" aria-expanded="true">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"></path></svg>
+            </button>
+            <div class="patient-summary">
+              <div class="patient-hn"><span class="mono" translate="no">HN00000004</span></div>
+              <div class="patient-name">ด.ญ. ตัวอย่าง ปฏิเสธ</div>
+              <div class="patient-demographic"><span class="inline-tag gender-pill">หญิง</span><span>อายุ 4 ปี 2 เดือน</span></div>
+            </div>
+            <div class="context-tags">
+              <div class="context-top"><span class="inline-tag meta-pill">ห้องที่ส่ง</span><span class="inline-tag meta-pill">ชำระเงินแล้ว</span></div>
+              <span class="inline-tag meta-pill">UC</span>
+            </div>
+            <div class="metric"><span class="field-label">รายการ</span><span class="field-value">3 orders</span></div>
+            <div class="metric"><span class="field-label">specimen</span><span class="field-value">3 specimens</span></div>
+            <div class="metric"><span class="field-label">เวลาสั่ง</span><span class="field-value time-value mono"><span>28/08/69</span><span>09:14:18</span></span></div>
+            <div class="metric"><span class="field-label">เวลาปฏิเสธ</span><span class="field-value time-value mono"><span>28/08/69</span><span>09:32:46</span></span></div>
+            <div class="doctor-cell"><span class="field-label">แพทย์</span><span class="field-value">พญ.แพทย์ตัวอย่าง</span></div>
+            <span class="row-status status-cancelled" data-row-status>ปฏิเสธ</span>
+            <button class="btn btn-sm plain-action" type="button" data-open-cancel>ดู</button>
+            <button class="btn btn-sm btn-primary" type="button" data-retest>ตรวจใหม่</button>
+          </div>
+          <div class="detail-panel">
+            <div class="detail-top"><span class="detail-tab active" aria-current="page">รายการที่ปฏิเสธ</span></div>
+            <div class="detail-view">
+              <div class="detail-summary"><span><strong>3</strong>รายการสั่งตรวจ</span><span>· ปฏิเสธทั้ง order</span></div>
+              <div class="detail-table-wrap">
+                <table class="detail-table">
+                  <colgroup><col style="width:7%"><col style="width:18%"><col style="width:24%"><col style="width:15%"><col style="width:14%"><col style="width:14%"><col style="width:8%"></colgroup>
+                  <thead><tr><th scope="col">ลำดับ</th><th scope="col">Lab no.</th><th scope="col">รายการสั่งตรวจ</th><th scope="col">specimen</th><th scope="col">เวลาสั่ง</th><th scope="col">เวลาปฏิเสธ</th><th scope="col">สถานะ</th></tr></thead>
+                  <tbody>
+                    <tr><td class="mono">1</td><td class="mono">LN1069000041</td><td class="test-name">C1 Test</td><td>specimen1</td><td class="mono">28/08/69<br>09:14:18</td><td class="mono">28/08/69<br>09:32:46</td><td><span class="state-tag tag-danger">ปฏิเสธ</span></td></tr>
+                    <tr><td class="mono">2</td><td class="mono">LN1069000042</td><td class="test-name">C2 Test</td><td>specimen2</td><td class="mono">28/08/69<br>09:14:18</td><td class="mono">28/08/69<br>09:32:46</td><td><span class="state-tag tag-danger">ปฏิเสธ</span></td></tr>
+                    <tr><td class="mono">3</td><td class="mono">LN1069000043</td><td class="test-name">C3 Test</td><td>specimen3</td><td class="mono">28/08/69<br>09:14:18</td><td class="mono">28/08/69<br>09:32:46</td><td><span class="state-tag tag-danger">ปฏิเสธ</span></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <div id="emptyState" class="empty-state" hidden><strong>ไม่พบรายการ</strong><span id="emptyMessage">ลองเปลี่ยนคำค้น สถานะ หรือช่วงวันที่</span></div>
+      </div>
+    </section>
+
+    <aside class="implementation-remarks" aria-labelledby="agentRemarkTitle">
+      <h2 id="agentRemarkTitle">Remark สำหรับยืนยันกับ Agent / API</h2>
+      <ul>
+        <li>Agent/API ต้องระบุสถานะครบระดับ test และรายการ result component ที่จำเป็นให้ชัดเจน หน้า UI จะไม่คำนวณเองว่า test ที่มีหลาย result ออกผลครบแล้วหรือยัง</li>
+        <li>ต้องยืนยันว่า Agent รองรับการรับหรือปฏิเสธแยกระดับ test ภายใน order เดียวหรือไม่ และต้องกำหนดสถานะ order กรณีผสม เช่น รับ Test 1 แต่ปฏิเสธ Test 2 ก่อนนำ flow นี้ไปใช้จริง</li>
+      </ul>
+    </aside>
+  </main>
+
+  <dialog id="resultDialog" aria-labelledby="resultDialogTitle">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title-row">
+          <h2 id="resultDialogTitle">ผลตรวจทางห้องปฏิบัติการ</h2>
+          <button id="editResultButton" class="edit-result-button" type="button" aria-label="แก้ไขผลตรวจทั้งหมด" aria-pressed="false" title="แก้ไขผลตรวจทั้งหมด"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5 5 5M4 20l4.2-1 10-10a2 2 0 0 0-5-5l-10 10L4 20Z"></path><path d="m12 6 5 5"></path></svg></button>
+          <span id="resultMode" class="mode-badge">โหมดดูอย่างเดียว</span>
+        </div>
+        <div id="resultDialogMeta" class="modal-meta"><span class="mono" translate="no">HN00000002</span> · 3 tests · ผลล่าสุด</div>
+      </div>
+      <button class="modal-close" type="button" data-close-modal aria-label="ปิดหน้าต่างผลตรวจ">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="result-table-wrap">
+        <table class="result-table">
+          <colgroup><col style="width:6%"><col style="width:5%"><col style="width:20%"><col style="width:14%"><col style="width:14%"><col style="width:10%"><col style="width:11%"><col style="width:20%"></colgroup>
+          <thead><tr><th scope="col">#</th><th scope="col"><span class="sr-only">สถานะ</span></th><th scope="col">รายการ</th><th scope="col" title="ผลครั้งก่อนของผู้ป่วยจาก order ก่อนหน้า">ค่าก่อนหน้า</th><th scope="col">ค่าที่ตรวจได้</th><th scope="col">unit</th><th scope="col">แปลผล</th><th scope="col">ค่าปกติ</th></tr></thead>
+          <tbody data-profile="vitamin-d">
+            <tr class="profile-row"><th colspan="8"><div class="profile-head"><span>Vitamin D</span></div></th></tr>
+            <tr><td class="mono">1</td><td><span class="signal-dot critical" aria-label="ค่าวิกฤติ"></span></td><td class="test-name">Vitamin D</td><td class="mono previous-value">28</td><td><span class="result-value" data-result-value="34">34</span></td><td>ng/mL</td><td>H</td><td class="mono">20 - 25</td></tr>
+          </tbody>
+          <tbody data-profile="pending-test" data-pending-profile>
+            <tr class="profile-row"><th colspan="8"><div class="profile-head"><span>C2 Test</span><span class="state-tag tag-warning">รอผล</span></div></th></tr>
+            <tr class="pending-result-row"><td class="mono">2</td><td colspan="7"><div class="pending-result-message"><span class="state-tag tag-warning">รอผล</span><span>ยังไม่ได้รับผลตรวจของ test นี้จาก Agent / LIS</span></div></td></tr>
+          </tbody>
+          <tbody data-profile="electrolyte">
+            <tr class="profile-row"><th colspan="8"><div class="profile-head"><span>Electrolyte (cotted blood)</span></div></th></tr>
+            <tr><td class="mono">1</td><td><span class="signal-dot normal" aria-label="ค่าปกติ"></span></td><td class="test-name">Sodium</td><td class="mono previous-value">41</td><td><span class="result-value" data-result-value="43">43</span></td><td>nmoll</td><td>H</td><td class="mono">20 - 25</td></tr>
+            <tr><td class="mono">2</td><td><span class="signal-dot normal" aria-label="ค่าปกติ"></span></td><td class="test-name">Potassium</td><td class="mono previous-value">33.8</td><td><span class="result-value" data-result-value="34.9">34.9</span></td><td>nmoll</td><td>H</td><td class="mono">20 - 25</td></tr>
+            <tr><td class="mono">3</td><td><span class="signal-dot normal" aria-label="ค่าปกติ"></span></td><td class="test-name">Chloride</td><td class="mono previous-value">24.1</td><td><span class="result-value" data-result-value="23.9">23.9</span></td><td>nmoll</td><td>–</td><td class="mono">20 - 25</td></tr>
+            <tr><td class="mono">4</td><td><span class="signal-dot normal" aria-label="ค่าปกติ"></span></td><td class="test-name">Catondoode</td><td class="mono previous-value">12.1</td><td><span class="result-value" data-result-value="12.4">12.4</span></td><td>nmoll</td><td>–</td><td class="mono">20 - 25</td></tr>
+            <tr><td class="mono">5</td><td><span class="signal-dot normal" aria-label="ค่าปกติ"></span></td><td class="test-name">Anion Gap</td><td class="mono previous-value">22.9</td><td><span class="result-value" data-result-value="23.4">23.4</span></td><td>nmoll</td><td>–</td><td class="mono">20 - 25</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" type="button" data-close-modal>ปิด</button>
+      <button id="saveResult" class="btn btn-primary" type="button" hidden>บันทึกผล</button>
+    </div>
+  </dialog>
+
+  <dialog id="cancelDialog" aria-labelledby="cancelDialogTitle">
+    <div class="modal-head">
+      <div>
+        <h2 id="cancelDialogTitle">รายละเอียดการปฏิเสธรายการตรวจ</h2>
+        <div id="cancelDialogMeta" class="modal-meta"><span class="mono">HN00000004</span> · order ที่ปฏิเสธ</div>
+      </div>
+      <button class="modal-close" type="button" data-close-cancel aria-label="ปิดรายละเอียดการปฏิเสธ">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="cancel-detail-grid">
+        <div class="cancel-detail reason"><span class="field-label">เหตุผลที่ปฏิเสธ</span><span id="cancelReason" class="field-value">–</span></div>
+        <div class="cancel-detail"><span class="field-label">ผู้ปฏิเสธ</span><span id="cancelledBy" class="field-value">–</span></div>
+        <div class="cancel-detail"><span class="field-label">เวลาปฏิเสธ</span><span id="cancelledAt" class="field-value mono">–</span></div>
+        <div class="cancel-detail"><span class="field-label">ขอบเขต</span><span class="field-value">ทั้ง order</span></div>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn" type="button" data-close-cancel>ปิด</button></div>
+  </dialog>
+
+  <dialog id="retestConfirmDialog" aria-labelledby="retestConfirmTitle">
+    <div class="modal-head">
+      <div>
+        <h2 id="retestConfirmTitle">ยืนยันการตรวจใหม่</h2>
+        <div id="retestConfirmMeta" class="modal-meta">สร้าง order ใหม่จากรายการที่ปฏิเสธ</div>
+      </div>
+      <button class="modal-close" type="button" data-cancel-retest aria-label="ปิดคำยืนยันตรวจใหม่">×</button>
+    </div>
+    <div class="modal-body">
+      <p class="confirm-copy">ระบบจะเก็บ order เดิมไว้ สร้าง Order No. และ Lab No. ใหม่ และใช้เวลาสั่งปัจจุบัน จากนั้นส่งรายการไปที่สถานะ <strong>รอรับ</strong></p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" type="button" data-cancel-retest>ยกเลิก</button>
+      <button id="confirmRetest" class="btn btn-primary" type="button">ยืนยันตรวจใหม่</button>
+    </div>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    (function () {
+      var $ = function (selector, scope) { return (scope || document).querySelector(selector); };
+      var $$ = function (selector, scope) { return Array.prototype.slice.call((scope || document).querySelectorAll(selector)); };
+      var searchInput = $('#searchInput');
+      var clearSearch = $('#clearSearch');
+      var dateTrigger = $('#dateTrigger');
+      var dateValue = $('#dateValue');
+      var dateClear = $('#dateClear');
+      var datePopover = $('#datePopover');
+      var calendarMonths = $('#calendarMonths');
+      var calendarHint = $('#calendarHint');
+      var resultDialog = $('#resultDialog');
+      var resultDialogMeta = $('#resultDialogMeta');
+      var editResultButton = $('#editResultButton');
+      var resultMode = $('#resultMode');
+      var saveResult = $('#saveResult');
+      var cancelDialog = $('#cancelDialog');
+      var retestConfirmDialog = $('#retestConfirmDialog');
+      var toast = $('#toast');
+      var activeStatus = '';
+      var selectedStart = null;
+      var selectedEnd = null;
+      var hasExplicitDateRange = false;
+      var calendarCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+      var resultEditing = false;
+      var resultDirty = false;
+      var pendingRetestBlock = null;
+      var toastTimer = null;
+      var monthLabels = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+      var weekdayLabels = ['อา','จ','อ','พ','พฤ','ศ','ส'];
+
+      function showToast(message) {
+        toast.textContent = message;
+        toast.classList.add('show');
+        window.clearTimeout(toastTimer);
+        toastTimer = window.setTimeout(function () { toast.classList.remove('show'); }, 2400);
+      }
+
+      function showDialog(dialog) {
+        if (typeof dialog.showModal === 'function') {
+          dialog.showModal();
+          return;
+        }
+        dialog.classList.add('dialog-fallback');
+        dialog.setAttribute('open', '');
+        document.body.classList.add('modal-open');
+      }
+
+      function hideDialog(dialog) {
+        if (typeof dialog.close === 'function') dialog.close();
+        else dialog.removeAttribute('open');
+        dialog.classList.remove('dialog-fallback');
+        if (!$('dialog[open]')) document.body.classList.remove('modal-open');
+      }
+
+      function formatDate(date) {
+        return new Intl.DateTimeFormat('th-TH', { day:'2-digit', month:'2-digit', year:'numeric' }).format(date);
+      }
+
+      function formatShortThaiDate(date) {
+        return String(date.getDate()).padStart(2, '0') + '/' + String(date.getMonth() + 1).padStart(2, '0') + '/' + String(date.getFullYear() + 543).slice(-2);
+      }
+
+      function formatTime(date) {
+        return new Intl.DateTimeFormat('th-TH', { hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false }).format(date);
+      }
+
+      function formatTimestamp(value) {
+        if (!value) return '–';
+        var date = new Date(value);
+        return formatDate(date) + ' ' + formatTime(date) + ' น.';
+      }
+
+      function isoDate(date) {
+        var y = date.getFullYear();
+        var m = String(date.getMonth() + 1).padStart(2, '0');
+        var d = String(date.getDate()).padStart(2, '0');
+        return y + '-' + m + '-' + d;
+      }
+
+      function localIsoTimestamp(date) {
+        var offsetMinutes = -date.getTimezoneOffset();
+        var sign = offsetMinutes >= 0 ? '+' : '-';
+        var absoluteOffset = Math.abs(offsetMinutes);
+        var offset = sign + String(Math.floor(absoluteOffset / 60)).padStart(2, '0') + ':' + String(absoluteOffset % 60).padStart(2, '0');
+        return isoDate(date) + 'T' + String(date.getHours()).padStart(2, '0') + ':' + String(date.getMinutes()).padStart(2, '0') + ':' + String(date.getSeconds()).padStart(2, '0') + offset;
+      }
+
+      function renderMonth(year, month) {
+        var firstDay = new Date(year, month, 1).getDay();
+        var daysInMonth = new Date(year, month + 1, 0).getDate();
+        var html = '<section class="calendar" aria-label="' + monthLabels[month] + ' ' + (year + 543) + '">';
+        html += '<h3 class="calendar-title">' + monthLabels[month] + ' ' + (year + 543) + '</h3><div class="calendar-grid">';
+        weekdayLabels.forEach(function (label) { html += '<span class="weekday">' + label + '</span>'; });
+        for (var i = 0; i < firstDay; i += 1) { html += '<span></span>'; }
+        for (var day = 1; day <= daysInMonth; day += 1) {
+          var date = new Date(year, month, day);
+          var iso = isoDate(date);
+          var classes = ['day'];
+          if (selectedStart && selectedEnd && date > selectedStart && date < selectedEnd) classes.push('in-range');
+          if ((selectedStart && iso === isoDate(selectedStart)) || (selectedEnd && iso === isoDate(selectedEnd))) classes.push('selected');
+          html += '<button class="' + classes.join(' ') + '" type="button" data-date="' + iso + '" aria-label="' + formatDate(date) + '">' + day + '</button>';
+        }
+        html += '</div></section>';
+        return html;
+      }
+
+      function renderCalendars() {
+        var nextMonth = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() + 1, 1);
+        calendarMonths.innerHTML = renderMonth(calendarCursor.getFullYear(), calendarCursor.getMonth()) + renderMonth(nextMonth.getFullYear(), nextMonth.getMonth());
+        $$('[data-date]', calendarMonths).forEach(function (button) {
+          button.addEventListener('click', function () {
+            var parts = button.dataset.date.split('-').map(Number);
+            var chosen = new Date(parts[0], parts[1] - 1, parts[2]);
+            if (!selectedStart || selectedEnd) {
+              selectedStart = chosen;
+              selectedEnd = null;
+            } else if (chosen < selectedStart) {
+              selectedEnd = selectedStart;
+              selectedStart = chosen;
+            } else {
+              selectedEnd = chosen;
+            }
+            hasExplicitDateRange = Boolean(selectedStart && selectedEnd);
+            updateDateDisplay();
+            renderCalendars();
+            if (selectedStart && selectedEnd) {
+              applyFilters();
+              window.setTimeout(closeCalendar, 160);
+            }
+          });
+        });
+      }
+
+      function updateDateDisplay() {
+        if (!selectedStart) {
+          dateValue.textContent = 'Date Range';
+          dateTrigger.classList.remove('has-value');
+          dateClear.hidden = true;
+          calendarHint.textContent = 'ค่าเริ่มต้น: วันนี้ ตามเวลาของสถานะ';
+          return;
+        }
+        dateTrigger.classList.add('has-value');
+        dateClear.hidden = false;
+        if (selectedEnd) {
+          dateValue.textContent = formatDate(selectedStart) + ' → ' + formatDate(selectedEnd);
+          calendarHint.textContent = 'ช่วงวันที่ ' + dateValue.textContent;
+        } else {
+          dateValue.textContent = formatDate(selectedStart) + ' → เลือกวันสิ้นสุด';
+          calendarHint.textContent = 'เลือกวันสิ้นสุด';
+        }
+      }
+
+      function openCalendar() {
+        renderCalendars();
+        datePopover.hidden = false;
+        dateTrigger.setAttribute('aria-expanded', 'true');
+        var firstSelected = $('.day.selected', datePopover) || $('.day', datePopover);
+        if (firstSelected) firstSelected.focus();
+      }
+
+      function closeCalendar() {
+        datePopover.hidden = true;
+        dateTrigger.setAttribute('aria-expanded', 'false');
+      }
+
+      function syncUrlState() {
+        var params = new URLSearchParams(window.location.search);
+        var query = searchInput.value.trim();
+        if (query) params.set('q', query); else params.delete('q');
+        if (activeStatus) params.set('status', activeStatus); else params.delete('status');
+        if (hasExplicitDateRange && selectedStart) params.set('from', isoDate(selectedStart)); else params.delete('from');
+        if (hasExplicitDateRange && selectedEnd) params.set('to', isoDate(selectedEnd)); else params.delete('to');
+        var openIds = $$('.patient-block.is-open').map(function (block) { return block.dataset.orderId || block.dataset.patientId; });
+        if (openIds.length) params.set('open', openIds.join(',')); else params.delete('open');
+        window.history.replaceState({}, '', window.location.pathname + (params.toString() ? '?' + params.toString() : '') + window.location.hash);
+      }
+
+      function normalizeHn(value) {
+        return value.toLocaleLowerCase('en').replace(/[\s-]+/g, '');
+      }
+
+      function exactHnQuery(query) {
+        var normalized = normalizeHn(query);
+        return /^hn\d+$/.test(normalized) ? normalized : '';
+      }
+
+      function eventTimeForBlock(block) {
+        var status = activeStatus || block.dataset.status;
+        if (status === 'received') return block.dataset.receivedTime;
+        if (status === 'resulted') return block.dataset.resultTime;
+        if (status === 'cancelled') return block.dataset.cancelledTime;
+        return block.dataset.requestTime;
+      }
+
+      function isWithinDateScope(block, showAllResultHistory) {
+        var value = eventTimeForBlock(block);
+        if (!value) return false;
+        var eventDate = new Date(value.slice(0, 10) + 'T00:00:00');
+        if (hasExplicitDateRange && selectedStart && selectedEnd) {
+          return eventDate >= selectedStart && eventDate <= selectedEnd;
+        }
+        if (showAllResultHistory) return true;
+        var today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return eventDate.getTime() === today.getTime();
+      }
+
+      function applyFilters() {
+        var query = searchInput.value.trim().toLocaleLowerCase('th');
+        var exactHn = exactHnQuery(query);
+        var showAllResultHistory = activeStatus === 'resulted' && Boolean(exactHn) && !hasExplicitDateRange;
+        var visibleCount = 0;
+        $$('.patient-block').forEach(function (block) {
+          var blockHn = normalizeHn(block.dataset.hn || block.dataset.patientId || '');
+          var matchesQuery = !query || (exactHn ? blockHn === exactHn : block.dataset.search.toLocaleLowerCase('th').indexOf(query) !== -1);
+          var matchesStatus = !activeStatus || block.dataset.status === activeStatus;
+          var matchesDate = isWithinDateScope(block, showAllResultHistory);
+          block.hidden = !(matchesQuery && matchesStatus && matchesDate);
+          if (!block.hidden) visibleCount += 1;
+        });
+        $('#emptyState').hidden = visibleCount !== 0;
+        clearSearch.hidden = !query;
+        syncUrlState();
+      }
+
+      function restoreUrlState() {
+        var params = new URLSearchParams(window.location.search);
+        var restoredStatus = params.get('status') || '';
+        if ($('.status-chip[data-status="' + restoredStatus + '"]')) activeStatus = restoredStatus;
+        searchInput.value = params.get('q') || '';
+        var from = params.get('from');
+        var to = params.get('to');
+        if (from && to) {
+          selectedStart = new Date(from + 'T00:00:00');
+          selectedEnd = new Date(to + 'T00:00:00');
+          hasExplicitDateRange = true;
+          calendarCursor = new Date(selectedStart.getFullYear(), selectedStart.getMonth(), 1);
+        }
+        $$('.status-chip').forEach(function (chip) {
+          var active = chip.dataset.status === activeStatus;
+          chip.classList.toggle('active', active);
+          chip.setAttribute('aria-pressed', String(active));
+        });
+      }
+
+      function closeSpecimenMenu(combo) {
+        if (!combo) return;
+        var menu = $('.specimen-menu', combo);
+        var input = $('.specimen-search', combo);
+        menu.hidden = true;
+        input.setAttribute('aria-expanded', 'false');
+        var block = combo.closest('.patient-block');
+        if (block) block.classList.remove('dropdown-open');
+      }
+
+      function filterSpecimenMenu(combo) {
+        var input = $('.specimen-search', combo);
+        var query = input.value.trim().toLocaleLowerCase();
+        var visibleCount = 0;
+        $$('[data-specimen-value]', combo).forEach(function (option) {
+          var visible = !query || option.dataset.specimenValue.toLocaleLowerCase().indexOf(query) !== -1;
+          option.hidden = !visible;
+          if (visible) visibleCount += 1;
+        });
+        $('.specimen-empty', combo).hidden = visibleCount !== 0;
+      }
+
+      function openSpecimenMenu(combo) {
+        $$('[data-specimen-combobox]').forEach(function (other) { if (other !== combo) closeSpecimenMenu(other); });
+        filterSpecimenMenu(combo);
+        var block = combo.closest('.patient-block');
+        if (block) block.classList.add('dropdown-open');
+        $('.specimen-menu', combo).hidden = false;
+        $('.specimen-search', combo).setAttribute('aria-expanded', 'true');
+      }
+
+      function chooseSpecimen(combo, option) {
+        var input = $('.specimen-search', combo);
+        input.value = option.dataset.specimenValue;
+        $$('[data-specimen-value]', combo).forEach(function (item) { item.setAttribute('aria-selected', String(item === option)); });
+        input.focus();
+        closeSpecimenMenu(combo);
+      }
+
+      function setItemStatus(item, action) {
+        var status = $('[data-item-status]', item);
+        status.className = 'state-tag ' + (action === 'receive' ? 'tag-success' : 'tag-danger');
+        status.textContent = action === 'receive' ? 'รับแล้ว' : 'ปฏิเสธ';
+        $$('[data-item-action]', item).forEach(function (button) { button.disabled = true; });
+        var specimenInput = $('.specimen-search', item);
+        var specimenToggle = $('.specimen-toggle', item);
+        if (specimenInput) specimenInput.disabled = true;
+        if (specimenToggle) specimenToggle.disabled = true;
+        closeSpecimenMenu($('[data-specimen-combobox]', item));
+      }
+
+      function validateSpecimenItem(item) {
+        var input = $('.specimen-search', item);
+        if (!input) return true;
+        var validValues = $$('[data-specimen-value]', item).map(function (option) { return option.dataset.specimenValue.toLocaleLowerCase(); });
+        var valid = validValues.indexOf(input.value.trim().toLocaleLowerCase()) !== -1;
+        if (!valid) {
+          showToast('เลือกชื่อ specimen จากรายการก่อนรับ');
+          input.focus();
+        }
+        return valid;
+      }
+
+      function finishSpecimenBlock(block) {
+        var items = $$('[data-specimen-item]', block);
+        var complete = items.length > 0 && items.every(function (item) {
+          return $$('[data-item-action]', item).every(function (button) { return button.disabled; });
+        });
+        if (!complete) return;
+        $$('[data-bulk-action]', block).forEach(function (button) { button.disabled = true; });
+        var receivedCount = items.filter(function (item) { return $('[data-item-status]', item).classList.contains('tag-success'); }).length;
+        var rowStatus = $('[data-row-status]', block);
+        var now = localIsoTimestamp(new Date());
+        if (receivedCount === items.length) {
+          block.dataset.status = 'received';
+          block.dataset.receivedTime = now;
+          rowStatus.className = 'row-status status-received';
+          rowStatus.textContent = 'รับแล้ว';
+        } else if (receivedCount === 0) {
+          block.dataset.status = 'cancelled';
+          block.dataset.cancelledTime = now;
+          rowStatus.className = 'row-status status-cancelled';
+          rowStatus.textContent = 'ปฏิเสธ';
+        } else {
+          block.dataset.status = 'mixed';
+          rowStatus.className = 'row-status status-mixed';
+          rowStatus.textContent = 'รอยืนยันสถานะ';
+          showToast('รับและปฏิเสธคนละ test — รอยืนยันสถานะ order จาก Agent');
+        }
+        applyFilters();
+      }
+
+      function setAllItems(block, action) {
+        $$('[data-specimen-item]', block).forEach(function (item) { setItemStatus(item, action); });
+        $$('[data-bulk-action]', block).forEach(function (button) { button.disabled = true; });
+        var rowStatus = $('[data-row-status]', block);
+        var now = localIsoTimestamp(new Date());
+        if (action === 'receive') {
+          block.dataset.status = 'received';
+          block.dataset.receivedTime = now;
+          rowStatus.className = 'row-status status-received';
+          rowStatus.textContent = 'รับแล้ว';
+          showToast('รับ specimen ครบทั้ง 3 รายการแล้ว');
+        } else {
+          block.dataset.status = 'cancelled';
+          block.dataset.cancelledTime = now;
+          rowStatus.className = 'row-status status-cancelled';
+          rowStatus.textContent = 'ปฏิเสธ';
+          showToast('ปฏิเสธ specimen ทั้งหมดแล้ว');
+        }
+        applyFilters();
+      }
+
+      function enterResultEdit() {
+        if (resultEditing) return;
+        resultEditing = true;
+        resultDirty = false;
+        $$('[data-result-value]', resultDialog).filter(function (value) {
+          var profile = value.closest('[data-profile]');
+          return !profile || !profile.hidden;
+        }).forEach(function (value) {
+          var editor = document.createElement(value.dataset.resultValue.length > 24 ? 'textarea' : 'input');
+          editor.className = 'result-editor mono';
+          editor.name = 'lab-result-value';
+          editor.setAttribute('aria-label', 'แก้ไขค่าที่ตรวจได้ของ ' + $('.test-name', value.closest('tr')).textContent);
+          editor.setAttribute('autocomplete', 'off');
+          editor.value = value.dataset.resultValue;
+          editor.dataset.originalValue = value.dataset.resultValue;
+          editor.addEventListener('input', function () { resultDirty = true; });
+          value.replaceWith(editor);
+        });
+        editResultButton.setAttribute('aria-pressed', 'true');
+        editResultButton.setAttribute('aria-label', 'ออกจากโหมดแก้ไขผลตรวจ');
+        editResultButton.setAttribute('title', 'ออกจากโหมดแก้ไขผลตรวจ');
+        resultMode.textContent = 'โหมดแก้ไข';
+        resultMode.classList.add('editing');
+        saveResult.hidden = false;
+        $('.result-editor', resultDialog).focus();
+      }
+
+      function leaveResultEdit(saveChanges) {
+        $$('.result-editor', resultDialog).forEach(function (editor) {
+          var value = document.createElement('span');
+          value.className = 'result-value';
+          value.dataset.resultValue = saveChanges ? editor.value : editor.dataset.originalValue;
+          value.textContent = value.dataset.resultValue;
+          editor.replaceWith(value);
+        });
+        resultEditing = false;
+        resultDirty = false;
+        editResultButton.setAttribute('aria-pressed', 'false');
+        editResultButton.setAttribute('aria-label', 'แก้ไขผลตรวจทั้งหมด');
+        editResultButton.setAttribute('title', 'แก้ไขผลตรวจทั้งหมด');
+        resultMode.textContent = 'โหมดดูอย่างเดียว';
+        resultMode.classList.remove('editing');
+        saveResult.hidden = true;
+        if (saveChanges) showToast('บันทึกผลตรวจทั้งหมดแล้ว');
+      }
+
+      function requestCloseResult() {
+        if (resultEditing && resultDirty && !window.confirm('มีผลตรวจที่แก้ไขแต่ยังไม่ได้บันทึก ต้องการปิดโดยไม่บันทึกหรือไม่?')) return;
+        if (resultEditing) leaveResultEdit(false);
+        hideDialog(resultDialog);
+      }
+
+      function openResultDialog(button) {
+        if (resultEditing) leaveResultEdit(false);
+        var block = button.closest('.patient-block');
+        var scope = button.dataset.resultScope || (block && block.dataset.resultState) || 'partial';
+        var profile = button.dataset.resultProfile || '';
+        var visibleTests = 0;
+        $$('[data-profile]', resultDialog).forEach(function (section) {
+          var isPending = section.hasAttribute('data-pending-profile');
+          var visible = profile ? section.dataset.profile === profile : (!isPending || scope === 'partial');
+          section.hidden = !visible;
+          if (visible) visibleTests += 1;
+        });
+        var hn = block ? block.dataset.hn.toUpperCase() : 'HN00000002';
+        var suffix = profile ? 'ผลเฉพาะ test' : (scope === 'complete' ? 'ออกผลครบ' : 'ออกผลบางส่วน');
+        resultDialogMeta.innerHTML = '<span class="mono" translate="no">' + hn + '</span> · ' + visibleTests + ' tests · ' + suffix;
+        showDialog(resultDialog);
+      }
+
+      function openCancelDialog(block) {
+        $('#cancelDialogMeta').innerHTML = '<span class="mono">' + block.dataset.hn.toUpperCase() + '</span> · order ที่ปฏิเสธ';
+        $('#cancelReason').textContent = block.dataset.cancelReason || '–';
+        $('#cancelledBy').textContent = block.dataset.cancelledBy || '–';
+        $('#cancelledAt').textContent = formatTimestamp(block.dataset.cancelledTime);
+        showDialog(cancelDialog);
+      }
+
+      function closeCancelDialog() {
+        hideDialog(cancelDialog);
+      }
+
+      function setActiveStatus(status) {
+        activeStatus = status;
+        $$('.status-chip').forEach(function (chip) {
+          var active = chip.dataset.status === activeStatus;
+          chip.classList.toggle('active', active);
+          chip.setAttribute('aria-pressed', String(active));
+        });
+      }
+
+      function createRetestOrder(cancelledBlock) {
+        var source = $('.patient-block[data-order-id="ord-waiting-0001"]');
+        if (!source) return null;
+        var clone = source.cloneNode(true);
+        var now = new Date();
+        var suffix = String(now.getTime()).slice(-6);
+        var hn = cancelledBlock.dataset.hn.toUpperCase();
+        clone.dataset.patientId = cancelledBlock.dataset.hn;
+        clone.dataset.hn = cancelledBlock.dataset.hn;
+        clone.dataset.orderId = 'ord-retest-' + suffix;
+        clone.dataset.status = 'waiting';
+        clone.dataset.requestTime = localIsoTimestamp(now);
+        clone.dataset.retestSourceOrder = cancelledBlock.dataset.orderId;
+        clone.dataset.search = cancelledBlock.dataset.search + ' retest ตรวจใหม่ ' + suffix;
+        clone.classList.add('is-open');
+        clone.hidden = false;
+        $('.patient-hn', clone).innerHTML = $('.patient-hn', cancelledBlock).innerHTML;
+        $('.patient-hn .mono', clone).textContent = hn;
+        $('.patient-name', clone).textContent = $('.patient-name', cancelledBlock).textContent;
+        $('.patient-demographic', clone).innerHTML = $('.patient-demographic', cancelledBlock).innerHTML;
+        $('.context-tags', clone).innerHTML = $('.context-tags', cancelledBlock).innerHTML;
+        $('.doctor-cell', clone).innerHTML = $('.doctor-cell', cancelledBlock).innerHTML;
+        var metrics = $$('.metric', clone);
+        metrics[2].innerHTML = '<span class="field-label">เวลาสั่ง</span><span class="field-value time-value mono"><span>' + formatShortThaiDate(now) + '</span><span>' + formatTime(now) + '</span></span>';
+        metrics[3].innerHTML = '<span class="field-label">เวลารับ</span><span class="field-value">–</span>';
+        $('[data-row-status]', clone).className = 'row-status status-waiting';
+        $('[data-row-status]', clone).textContent = 'รอรับ';
+        $$('.patient-row [aria-label]', clone).forEach(function (element) {
+          element.setAttribute('aria-label', element.getAttribute('aria-label').replace(/HN\d+/i, hn));
+        });
+        $$('[data-specimen-item]', clone).forEach(function (item, index) {
+          var labCell = item.children[1];
+          labCell.textContent = 'LN' + String(now.getFullYear() + 543).slice(-2) + suffix + String(index + 1);
+          var input = $('.specimen-search', item);
+          var menu = $('.specimen-menu', item);
+          if (input && menu) {
+            var menuId = 'specimen-menu-retest-' + suffix + '-' + (index + 1);
+            input.name = 'specimen-retest-' + suffix + '-' + (index + 1);
+            input.setAttribute('aria-controls', menuId);
+            menu.id = menuId;
+          }
+        });
+        var panel = $('.detail-panel', clone);
+        panel.hidden = false;
+        var expand = $('.expand-button', clone);
+        expand.setAttribute('aria-expanded', 'true');
+        expand.setAttribute('aria-label', 'ย่อรายละเอียด ' + hn);
+        $$('[data-bound-expand],[data-bound-tab],[data-bound-specimen],[data-bound-item-action],[data-bound-bulk-action],[data-bound-toast]', clone).forEach(function (element) {
+          ['data-bound-expand','data-bound-tab','data-bound-specimen','data-bound-item-action','data-bound-bulk-action','data-bound-toast'].forEach(function (attribute) { element.removeAttribute(attribute); });
+        });
+        $('#emptyState').before(clone);
+        bindPatientBlock(clone);
+        return clone;
+      }
+
+      function requestRetest(button) {
+        var block = button.closest('.patient-block');
+        pendingRetestBlock = block;
+        $('#retestConfirmMeta').innerHTML = '<span class="mono">' + block.dataset.hn.toUpperCase() + '</span> · ' + block.dataset.orderId;
+        showDialog(retestConfirmDialog);
+      }
+
+      function confirmRetest() {
+        if (!pendingRetestBlock) return;
+        var block = pendingRetestBlock;
+        var button = $('[data-retest]', block);
+        var created = createRetestOrder(block);
+        if (!created) return;
+        button.disabled = true;
+        button.textContent = 'ส่งตรวจใหม่แล้ว';
+        searchInput.value = block.dataset.hn.toUpperCase();
+        setActiveStatus('waiting');
+        applyFilters();
+        created.scrollIntoView({ behavior:'smooth', block:'center' });
+        showToast('สร้าง order ใหม่และส่งไปที่รอรับแล้ว');
+        pendingRetestBlock = null;
+        hideDialog(retestConfirmDialog);
+      }
+
+      function cancelRetest() {
+        pendingRetestBlock = null;
+        hideDialog(retestConfirmDialog);
+      }
+
+      function bindExpandButton(button) {
+        if (button.dataset.boundExpand) return;
+        button.dataset.boundExpand = 'true';
+        button.addEventListener('click', function () {
+          var block = button.closest('.patient-block');
+          var panel = $('.detail-panel', block);
+          var opening = panel.hidden;
+          panel.hidden = !opening;
+          block.classList.toggle('is-open', opening);
+          button.setAttribute('aria-expanded', String(opening));
+          button.setAttribute('aria-label', (opening ? 'ย่อ' : 'ขยาย') + 'รายละเอียด ' + block.dataset.patientId.toUpperCase());
+          syncUrlState();
+        });
+      }
+
+      function bindDetailTab(button) {
+        if (button.dataset.boundTab) return;
+        button.dataset.boundTab = 'true';
+        button.addEventListener('click', function () {
+          var panel = button.closest('.detail-panel');
+          var target = button.dataset.panel;
+          $$('.detail-tab', panel).forEach(function (tab) {
+            var active = tab === button;
+            tab.classList.toggle('active', active);
+            tab.setAttribute('aria-selected', String(active));
+          });
+          $$('.detail-view', panel).forEach(function (view) { view.hidden = view.dataset.view !== target; });
+          var orderActions = $('[data-order-actions]', panel);
+          if (orderActions) orderActions.hidden = target !== 'orders';
+        });
+      }
+
+      function bindSpecimenCombo(combo) {
+        if (combo.dataset.boundSpecimen) return;
+        combo.dataset.boundSpecimen = 'true';
+        var input = $('.specimen-search', combo);
+        var toggle = $('.specimen-toggle', combo);
+        input.addEventListener('focus', function () { openSpecimenMenu(combo); });
+        input.addEventListener('input', function () { openSpecimenMenu(combo); });
+        input.addEventListener('keydown', function (event) {
+          if (event.key === 'Escape') {
+            closeSpecimenMenu(combo);
+          } else if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            var firstVisible = $$('[data-specimen-value]', combo).find(function (option) { return !option.hidden; });
+            if (firstVisible) firstVisible.focus();
+          } else if (event.key === 'Enter') {
+            var visibleOptions = $$('[data-specimen-value]', combo).filter(function (option) { return !option.hidden; });
+            if (visibleOptions.length === 1) {
+              event.preventDefault();
+              chooseSpecimen(combo, visibleOptions[0]);
+            }
+          }
+        });
+        toggle.addEventListener('click', function () {
+          openSpecimenMenu(combo);
+          input.focus();
+        });
+        $$('[data-specimen-value]', combo).forEach(function (option) {
+          option.addEventListener('click', function () { chooseSpecimen(combo, option); });
+          option.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') { closeSpecimenMenu(combo); input.focus(); }
+          });
+        });
+      }
+
+      function bindItemAction(button) {
+        if (button.dataset.boundItemAction) return;
+        button.dataset.boundItemAction = 'true';
+        button.addEventListener('click', function () {
+          var item = button.closest('[data-specimen-item]');
+          var testName = $('.test-name', item).textContent;
+          if (button.dataset.itemAction === 'receive' && !validateSpecimenItem(item)) return;
+          if (button.dataset.itemAction === 'reject' && !window.confirm('ยืนยันการปฏิเสธ specimen ของ ' + testName + '?')) return;
+          setItemStatus(item, button.dataset.itemAction);
+          finishSpecimenBlock(button.closest('.patient-block'));
+          showToast((button.dataset.itemAction === 'receive' ? 'รับ specimen ' : 'ปฏิเสธ specimen ') + testName + ' แล้ว');
+        });
+      }
+
+      function bindBulkAction(button) {
+        if (button.dataset.boundBulkAction) return;
+        button.dataset.boundBulkAction = 'true';
+        button.addEventListener('click', function () {
+          var block = button.closest('.patient-block');
+          if (button.dataset.bulkAction === 'receive') {
+            var invalidItem = $$('[data-specimen-item]', block).find(function (item) { return !validateSpecimenItem(item); });
+            if (invalidItem) return;
+          }
+          if (button.dataset.bulkAction === 'reject' && !window.confirm('ยืนยันการปฏิเสธ specimen ทั้งหมดของผู้ป่วยรายนี้?')) return;
+          setAllItems(block, button.dataset.bulkAction);
+        });
+      }
+
+      function bindToastButton(button) {
+        if (button.dataset.boundToast) return;
+        button.dataset.boundToast = 'true';
+        button.addEventListener('click', function () { showToast(button.dataset.toast); });
+      }
+
+      function bindPatientBlock(block) {
+        $$('.expand-button', block).forEach(bindExpandButton);
+        $$('.detail-tab', block).forEach(bindDetailTab);
+        $$('[data-specimen-combobox]', block).forEach(bindSpecimenCombo);
+        $$('[data-item-action]', block).forEach(bindItemAction);
+        $$('[data-bulk-action]', block).forEach(bindBulkAction);
+        $$('[data-toast]', block).forEach(bindToastButton);
+      }
+
+      $$('.patient-block').forEach(bindPatientBlock);
+
+      $$('.status-chip').forEach(function (chip) {
+        chip.addEventListener('click', function () {
+          setActiveStatus(chip.dataset.status);
+          applyFilters();
+        });
+      });
+
+      searchInput.addEventListener('input', applyFilters);
+      searchInput.addEventListener('keydown', function (event) { if (event.key === 'Enter') applyFilters(); });
+      $('#searchButton').addEventListener('click', applyFilters);
+      clearSearch.addEventListener('click', function () { searchInput.value = ''; searchInput.focus(); applyFilters(); });
+      dateTrigger.addEventListener('click', function () { datePopover.hidden ? openCalendar() : closeCalendar(); });
+      datePopover.addEventListener('click', function (event) { event.stopPropagation(); });
+      dateClear.addEventListener('click', function (event) {
+        event.stopPropagation();
+        selectedStart = null;
+        selectedEnd = null;
+        hasExplicitDateRange = false;
+        updateDateDisplay();
+        renderCalendars();
+        applyFilters();
+      });
+      $('#closeCalendar').addEventListener('click', closeCalendar);
+      $('#previousMonth').addEventListener('click', function () {
+        calendarCursor = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() - 1, 1);
+        renderCalendars();
+      });
+      $('#nextMonth').addEventListener('click', function () {
+        calendarCursor = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() + 1, 1);
+        renderCalendars();
+      });
+      document.addEventListener('click', function (event) {
+        if (!datePopover.hidden && !event.target.closest('.date-range')) closeCalendar();
+        if (!event.target.closest('[data-specimen-combobox]')) {
+          $$('[data-specimen-combobox]').forEach(closeSpecimenMenu);
+        }
+      });
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && !datePopover.hidden) {
+          closeCalendar();
+          dateTrigger.focus();
+        }
+      });
+
+      $$('[data-open-results]').forEach(function (button) {
+        button.dataset.boundResults = 'true';
+        button.addEventListener('click', function () {
+          button.dataset.clickedResults = 'true';
+          try {
+            openResultDialog(button);
+          } catch (error) {
+            button.dataset.resultError = error && error.message ? error.message : 'unknown error';
+            showToast('ไม่สามารถเปิดผลตรวจ: ' + button.dataset.resultError);
+          }
+        });
+      });
+      $$('[data-open-cancel]').forEach(function (button) {
+        button.addEventListener('click', function () { openCancelDialog(button.closest('.patient-block')); });
+      });
+      $$('[data-retest]').forEach(function (button) {
+        button.dataset.boundRetest = 'true';
+        button.addEventListener('click', function () {
+          button.dataset.clickedRetest = 'true';
+          try {
+            requestRetest(button);
+          } catch (error) {
+            button.dataset.retestError = error && error.message ? error.message : 'unknown error';
+            showToast('ไม่สามารถสร้างรายการตรวจใหม่: ' + button.dataset.retestError);
+          }
+        });
+      });
+      $('#confirmRetest').addEventListener('click', confirmRetest);
+      $$('[data-cancel-retest]').forEach(function (button) { button.addEventListener('click', cancelRetest); });
+      editResultButton.addEventListener('click', function () {
+        if (resultEditing) leaveResultEdit(false);
+        else enterResultEdit();
+      });
+      $$('[data-close-modal]').forEach(function (button) { button.addEventListener('click', requestCloseResult); });
+      saveResult.addEventListener('click', function () {
+        if (!window.confirm('ยืนยันการแก้ไขและบันทึกผลตรวจหรือไม่?')) return;
+        leaveResultEdit(true);
+      });
+      resultDialog.addEventListener('click', function (event) {
+        if (event.target === resultDialog) requestCloseResult();
+      });
+      resultDialog.addEventListener('cancel', function (event) { event.preventDefault(); requestCloseResult(); });
+      $$('[data-close-cancel]').forEach(function (button) { button.addEventListener('click', closeCancelDialog); });
+      cancelDialog.addEventListener('click', function (event) { if (event.target === cancelDialog) closeCancelDialog(); });
+      cancelDialog.addEventListener('cancel', function (event) { event.preventDefault(); closeCancelDialog(); });
+      retestConfirmDialog.addEventListener('cancel', function (event) { event.preventDefault(); cancelRetest(); });
+      $$('[data-toast]').forEach(bindToastButton);
+
+      restoreUrlState();
+      renderCalendars();
+      updateDateDisplay();
+      applyFilters();
+    }());
+  </script>
+</body>
+</html>
