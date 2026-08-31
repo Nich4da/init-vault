@@ -72,8 +72,14 @@ Cache. Do not trigger a reset for a minor wording issue resolved immediately.
   frontmatter dates, the index, log, and hot cache when knowledge changes.
 - `02-initcraft/` contains platform-level skills, governance, and the migration
   manifest.
+- `design/` contains user-approved system design contracts and implementation
+  handoffs. Keep implementation facts traceable to the current artifact and mark
+  unresolved decisions explicitly.
 - `Form-Builder/` groups the extension-based implementation libraries.
 - `Form-Builder/SDForm/` contains JSON artifacts, preserving their original category paths.
+- `Form-Builder/SDForm/Lab/` is the user-approved working area for the new LAB
+  Workbench Forms. SDForm JSON created there still requires the repository JSON
+  rules and validator; the folder is not a backup or a proven best practice.
 - `Form-Builder/SDForm/backup/` is read-only reference storage. Never edit,
   delete, rename, move, reformat, or overwrite an existing snapshot. Copy a
   template to `Form-Builder/SDForm/form-factory/forms/` before working on it.

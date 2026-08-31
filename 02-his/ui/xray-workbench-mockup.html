@@ -1,0 +1,2373 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#ffffff">
+  <title>หน่วยรังสีวิทยา — Worklist Mockup</title>
+  <style>
+    :root {
+      --primary:#409eff;
+      --primary-50:#ecf5ff;
+      --success:#67c23a;
+      --success-50:#f0f9eb;
+      --success-200:#b3e19d;
+      --warning:#e6a23c;
+      --warning-50:#fdf6ec;
+      --warning-200:#f3d19e;
+      --danger:#f56c6c;
+      --danger-50:#fef0f0;
+      --danger-200:#fab6b6;
+      --info:#909399;
+      --ink:#303133;
+      --text:#606266;
+      --muted:#909399;
+      --placeholder:#a8abb2;
+      --border:#dcdfe6;
+      --border-light:#e4e7ed;
+      --border-lighter:#ebeef5;
+      --fill:#f5f7fa;
+      --fill-soft:#fafafa;
+      --white:#ffffff;
+      --shadow:0 12px 32px rgba(31,35,41,.14);
+      --font:"Leelawadee UI","Noto Sans Thai","Tahoma","Segoe UI",sans-serif;
+      --mono:"SFMono-Regular","Roboto Mono",Consolas,monospace;
+      color-scheme:light;
+    }
+
+    * { box-sizing:border-box; }
+    html { background:var(--white); }
+    body {
+      margin:0;
+      min-width:320px;
+      background:var(--white);
+      color:var(--text);
+      font-family:var(--font);
+      font-size:14px;
+      line-height:1.45;
+      -webkit-font-smoothing:antialiased;
+      -webkit-tap-highlight-color:rgba(64,158,255,.14);
+    }
+    button,input,select,textarea { font:inherit; }
+    button,select { touch-action:manipulation; }
+    button { cursor:pointer; }
+    button:disabled { cursor:not-allowed; opacity:.55; }
+    .btn:disabled:hover {
+      border-color:var(--border);
+      background:var(--white);
+      color:var(--text);
+      transform:none;
+    }
+    [hidden] { display:none !important; }
+    .sr-only {
+      position:absolute;
+      width:1px;
+      height:1px;
+      padding:0;
+      margin:-1px;
+      overflow:hidden;
+      clip:rect(0,0,0,0);
+      white-space:nowrap;
+      border:0;
+    }
+    .mono {
+      font-family:var(--mono);
+      font-variant-numeric:tabular-nums;
+      letter-spacing:-.02em;
+    }
+    .skip-link {
+      position:fixed;
+      left:12px;
+      top:10px;
+      z-index:100;
+      transform:translateY(-150%);
+      padding:8px 12px;
+      border-radius:5px;
+      background:var(--ink);
+      color:var(--white);
+    }
+    .skip-link:focus { transform:translateY(0); }
+    :focus-visible {
+      outline:2px solid rgba(64,158,255,.55);
+      outline-offset:2px;
+    }
+    h1,h2,h3 { text-wrap:balance; }
+
+    .page {
+      width:100%;
+      padding:24px clamp(16px,2.5vw,40px) 48px;
+    }
+    .page-head {
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      gap:16px;
+      margin-bottom:20px;
+    }
+    .title-wrap { min-width:0; }
+    .title-wrap h1 {
+      margin:0;
+      color:var(--ink);
+      font-size:25px;
+      line-height:1.25;
+      font-weight:700;
+    }
+    .title-wrap p {
+      margin:4px 0 0;
+      color:var(--muted);
+      font-size:12px;
+    }
+
+    .toolbar {
+      display:grid;
+      grid-template-columns:minmax(230px,310px) minmax(250px,310px) auto auto minmax(24px,1fr) auto;
+      align-items:center;
+      gap:10px;
+      margin-bottom:18px;
+    }
+    .control,
+    .btn {
+      height:36px;
+      border:1px solid var(--border);
+      border-radius:5px;
+      background:var(--white);
+      color:var(--text);
+      transition:border-color .15s ease,background-color .15s ease,color .15s ease,box-shadow .15s ease,transform .12s ease;
+    }
+    .control:hover,
+    .btn:hover { border-color:#a0cfff; }
+    .control:focus,
+    .control:focus-within { border-color:var(--primary); box-shadow:0 0 0 2px rgba(64,158,255,.12); }
+    .btn {
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:7px;
+      padding:0 14px;
+      font-weight:600;
+      white-space:nowrap;
+    }
+    .btn:hover { color:var(--primary); background:var(--primary-50); }
+    .btn:active { transform:translateY(1px); }
+    .btn-primary { border-color:var(--primary); background:var(--primary); color:var(--white); }
+    .btn-primary:hover { border-color:#66b1ff; background:#66b1ff; color:var(--white); }
+    .btn-success { border-color:var(--success-200); background:var(--success-50); color:#529b2e; }
+    .btn-success:hover { border-color:var(--success); background:#e1f3d8; color:#3f7f22; }
+    .btn-danger { border-color:var(--danger-200); background:var(--danger-50); color:#c45656; }
+    .btn-danger:hover { border-color:var(--danger); background:#fde2e2; color:#b64242; }
+    .btn-warning { border-color:var(--warning-200); background:var(--warning-50); color:#b88230; }
+    .btn-plain { background:transparent; }
+    .btn-sm { height:30px; padding:0 11px; font-size:12px; }
+    .btn-icon { width:34px; padding:0; }
+    .btn svg,
+    .input-icon {
+      width:16px;
+      height:16px;
+      flex:none;
+      fill:none;
+      stroke:currentColor;
+      stroke-linecap:round;
+      stroke-linejoin:round;
+      stroke-width:1.8;
+    }
+
+    .search-field { position:relative; min-width:0; }
+    .search-field .input-icon {
+      position:absolute;
+      left:11px;
+      top:10px;
+      z-index:1;
+      color:var(--placeholder);
+      pointer-events:none;
+    }
+    .search-field input {
+      width:100%;
+      padding:0 34px 0 35px;
+    }
+    .clear-search {
+      position:absolute;
+      right:7px;
+      top:7px;
+      width:22px;
+      height:22px;
+      padding:0;
+      border:0;
+      border-radius:50%;
+      background:transparent;
+      color:var(--placeholder);
+      font-size:17px;
+      line-height:1;
+    }
+    .clear-search:hover { background:var(--fill); color:var(--text); }
+
+    .date-range { position:relative; min-width:0; }
+    .date-trigger {
+      width:100%;
+      display:flex;
+      align-items:center;
+      gap:9px;
+      padding:0 10px;
+      text-align:left;
+      font-weight:400;
+    }
+    .date-trigger .date-value {
+      min-width:0;
+      flex:1;
+      overflow:hidden;
+      color:var(--placeholder);
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .date-trigger.has-value .date-value { color:var(--ink); }
+    .date-clear {
+      position:absolute;
+      right:31px;
+      top:8px;
+      z-index:2;
+      width:20px;
+      height:20px;
+      padding:0;
+      border:0;
+      border-radius:50%;
+      background:transparent;
+      color:var(--placeholder);
+      line-height:18px;
+    }
+    .date-clear:hover { background:var(--fill); color:var(--text); }
+    .date-popover {
+      position:absolute;
+      top:42px;
+      left:0;
+      z-index:30;
+      width:min(620px,calc(100vw - 32px));
+      padding:14px;
+      border:1px solid var(--border-light);
+      border-radius:7px;
+      background:var(--white);
+      box-shadow:var(--shadow);
+    }
+    .calendar-head {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:12px;
+    }
+    .calendar-head-copy { min-width:0; text-align:center; }
+    .calendar-head-copy strong,
+    .calendar-head-copy span { display:block; }
+    .calendar-nav {
+      width:30px;
+      height:30px;
+      flex:none;
+      padding:0;
+      border:1px solid var(--border-light);
+      border-radius:4px;
+      background:var(--white);
+      color:var(--text);
+      font-size:19px;
+      line-height:1;
+    }
+    .calendar-nav:hover { border-color:#a0cfff; background:var(--primary-50); color:var(--primary); }
+    .calendar-head strong { color:var(--ink); }
+    .calendar-head span { color:var(--muted); font-size:12px; }
+    .calendars {
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:18px;
+    }
+    .calendar + .calendar { border-left:1px solid var(--border-lighter); padding-left:18px; }
+    .calendar-title {
+      margin:0 0 8px;
+      color:var(--ink);
+      font-size:13px;
+      text-align:center;
+    }
+    .calendar-grid {
+      display:grid;
+      grid-template-columns:repeat(7,1fr);
+      gap:3px;
+    }
+    .weekday {
+      padding:4px 0;
+      color:var(--muted);
+      font-size:10px;
+      text-align:center;
+    }
+    .day {
+      min-width:30px;
+      height:30px;
+      padding:0;
+      border:0;
+      border-radius:4px;
+      background:transparent;
+      color:var(--text);
+      font-size:11px;
+    }
+    .day:hover { background:var(--primary-50); color:var(--primary); }
+    .day.outside { color:#c8c9cc; }
+    .day.in-range { border-radius:0; background:var(--primary-50); color:#337ecc; }
+    .day.selected { border-radius:4px; background:var(--primary); color:var(--white); }
+    .calendar-foot {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-top:12px;
+      padding-top:11px;
+      border-top:1px solid var(--border-lighter);
+      color:var(--muted);
+      font-size:12px;
+    }
+
+    .status-strip {
+      display:flex;
+      align-items:center;
+      gap:8px;
+      margin-bottom:18px;
+      overflow-x:auto;
+      scrollbar-width:thin;
+    }
+    .status-chip {
+      --chip-color:var(--primary);
+      --chip-border:#a0cfff;
+      --chip-bg:var(--primary-50);
+      flex:0 0 auto;
+      display:flex;
+      align-items:baseline;
+      justify-content:center;
+      gap:6px;
+      padding:6px 12px;
+      border:1px solid var(--border-light);
+      border-radius:6px;
+      background:var(--fill);
+      color:var(--muted);
+      font-weight:600;
+      white-space:nowrap;
+      transition:border-color .15s ease,background-color .15s ease,color .15s ease,box-shadow .15s ease;
+    }
+    .status-chip strong { color:var(--chip-color); font-size:18px; line-height:1; }
+    .status-chip span { color:var(--muted); font-size:12px; font-weight:500; }
+    .status-chip[data-status="active"] { --chip-color:#b88230; --chip-border:var(--warning-200); --chip-bg:var(--warning-50); }
+    .status-chip[data-status="complete"] { --chip-color:#529b2e; --chip-border:var(--success-200); --chip-bg:var(--success-50); }
+    .status-chip[data-status="cancelled"] { --chip-color:#c45656; --chip-border:var(--danger-200); --chip-bg:var(--danger-50); }
+    .status-chip:hover { border-color:var(--chip-border); background:var(--fill); }
+    .status-chip.active {
+      border-color:var(--chip-border);
+      background:var(--fill);
+      box-shadow:none;
+    }
+
+    .worklist-shell {
+      overflow-x:auto;
+      border-top:1px solid var(--border);
+      border-bottom:1px solid var(--border);
+      scrollbar-width:thin;
+    }
+    .worklist {
+      min-width:1390px;
+      background:var(--white);
+    }
+    .patient-block {
+      position:relative;
+      border-bottom:1px solid var(--border);
+      content-visibility:auto;
+      contain-intrinsic-size:84px;
+    }
+    .patient-block.dropdown-open {
+      z-index:60;
+      content-visibility:visible;
+    }
+    .patient-block:last-child { border-bottom:0; }
+    .patient-row {
+      display:grid;
+      grid-template-columns:34px minmax(205px,1.55fr) minmax(170px,1.18fr) 92px 100px 144px 112px minmax(140px,1fr) 92px 62px 62px 62px;
+      gap:10px;
+      align-items:center;
+      min-height:84px;
+      padding:10px 12px;
+      background:var(--white);
+      transition:background-color .15s ease;
+    }
+    .patient-row:hover { background:var(--fill-soft); }
+    .patient-block.is-open > .patient-row { background:#fcfcfd; }
+    .expand-button {
+      width:28px;
+      height:30px;
+      display:grid;
+      place-items:center;
+      padding:0;
+      border:0;
+      border-radius:4px;
+      background:transparent;
+      color:var(--text);
+    }
+    .expand-button:hover { background:var(--fill); color:var(--primary); }
+    .expand-button svg {
+      width:15px;
+      height:15px;
+      fill:none;
+      stroke:currentColor;
+      stroke-width:2;
+      transition:transform .16s ease;
+    }
+    .patient-block.is-open .expand-button svg { transform:rotate(90deg); }
+    .patient-summary,
+    .context-tags,
+    .metric,
+    .doctor-cell { min-width:0; }
+    .patient-hn {
+      display:flex;
+      align-items:center;
+      gap:6px;
+      min-width:0;
+      color:var(--ink);
+      font-weight:700;
+    }
+    .patient-hn span:first-child {
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .patient-name {
+      margin-top:2px;
+      overflow:hidden;
+      color:var(--ink);
+      font-weight:650;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .patient-demographic {
+      display:flex;
+      align-items:center;
+      gap:6px;
+      margin-top:1px;
+      color:var(--muted);
+      font-size:11px;
+    }
+    .inline-tag,
+    .state-tag {
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:22px;
+      padding:1px 7px;
+      border:1px solid;
+      border-radius:4px;
+      font-size:11px;
+      font-weight:650;
+      white-space:nowrap;
+    }
+    .tag-danger { border-color:var(--danger-200); background:var(--danger-50); color:#c45656; }
+    .tag-warning { border-color:var(--warning-200); background:var(--warning-50); color:#b88230; }
+    .tag-success { border-color:var(--success-200); background:var(--success-50); color:#529b2e; }
+    .tag-info { border-color:#c8c9cc; background:#f4f4f5; color:#73767a; }
+    .tag-primary { border-color:#a0cfff; background:var(--primary-50); color:#337ecc; }
+    .urgent-tag { min-height:18px; padding:0 5px; font-size:9px; }
+    .meta-pill {
+      min-height:23px;
+      padding:1px 9px;
+      border-color:#c8c9cc;
+      border-radius:999px;
+      background:var(--white);
+      color:#606266;
+      font-weight:600;
+    }
+    .gender-pill {
+      min-height:18px;
+      padding:0 7px;
+      border-color:#c8c9cc;
+      border-radius:999px;
+      background:var(--white);
+      color:#606266;
+      font-size:9px;
+    }
+    .context-top {
+      display:flex;
+      align-items:center;
+      gap:6px;
+      margin-bottom:5px;
+    }
+    .context-top .inline-tag { background:var(--white); color:var(--text); }
+    .context-top .meta-pill:first-child {
+      border-color:#a0cfff;
+      background:var(--primary-50);
+      color:#337ecc;
+    }
+    .context-top .meta-pill:last-child {
+      border-color:var(--success-200);
+      background:var(--success-50);
+      color:#529b2e;
+    }
+    .context-tags > .meta-pill {
+      border-color:var(--warning-200);
+      background:var(--warning-50);
+      color:#b88230;
+    }
+    .field-label {
+      display:block;
+      margin-bottom:5px;
+      color:var(--muted);
+      font-size:10px;
+      font-weight:650;
+      letter-spacing:.015em;
+    }
+    .order-time-label {
+      display:flex;
+      align-items:center;
+      gap:5px;
+      white-space:nowrap;
+    }
+    .order-no-tag {
+      display:inline-flex;
+      max-width:100%;
+      min-height:18px;
+      align-items:center;
+      padding:0 6px;
+      overflow:hidden;
+      border:1px solid #a0cfff;
+      border-radius:999px;
+      background:var(--primary-50);
+      color:#337ecc;
+      font-family:var(--mono);
+      font-size:9px;
+      font-weight:650;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .field-value {
+      display:block;
+      min-width:0;
+      overflow:hidden;
+      color:var(--ink);
+      font-size:12px;
+      font-weight:650;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .time-value { line-height:1.25; }
+    .time-value span { display:block; }
+    .diagnosis-summary {
+      display:block;
+      margin-top:3px;
+      overflow:hidden;
+      color:var(--muted);
+      font-size:10px;
+      font-weight:500;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .row-status {
+      min-height:22px;
+      width:auto;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      justify-self:start;
+      padding:1px 7px;
+      border:1px solid;
+      border-radius:4px;
+      font-size:11px;
+      font-weight:650;
+      white-space:nowrap;
+    }
+    .status-waiting { border-color:var(--warning-200); background:var(--warning-50); color:#b88230; }
+    .status-received,.status-resulted,.status-result-complete { border-color:var(--success-200); background:var(--success-50); color:#529b2e; }
+    .status-result-partial { border-color:var(--warning-200); background:var(--warning-50); color:#b88230; }
+    .status-cancelled { border-color:var(--danger-200); background:var(--danger-50); color:#c45656; }
+    .status-mixed { border-color:#c8c9cc; background:#f4f4f5; color:#73767a; }
+    .plain-action {
+      width:100%;
+      height:30px;
+      padding:0 7px;
+      border-color:var(--border);
+      background:var(--white);
+      font-size:11px;
+      font-weight:600;
+    }
+
+    .detail-panel {
+      padding:0 16px 18px 46px;
+      background:var(--fill-soft);
+      border-top:1px solid var(--border-lighter);
+    }
+    .detail-top {
+      min-height:48px;
+      display:flex;
+      align-items:flex-end;
+      gap:20px;
+      border-bottom:1px solid var(--border-light);
+    }
+    .detail-tab {
+      height:48px;
+      padding:0;
+      border:0;
+      border-bottom:2px solid transparent;
+      background:transparent;
+      color:var(--muted);
+      font-weight:650;
+    }
+    .detail-tab:hover { color:var(--ink); }
+    .detail-tab.active { border-bottom-color:var(--primary); color:var(--primary); }
+    .detail-tab:disabled,
+    .detail-tab:disabled:hover {
+      border-bottom-color:transparent;
+      color:#c0c4cc;
+      cursor:not-allowed;
+    }
+    .bulk-actions {
+      display:flex;
+      align-items:center;
+      gap:8px;
+      margin-left:auto;
+      padding-bottom:8px;
+    }
+    .detail-summary {
+      display:flex;
+      align-items:center;
+      gap:20px;
+      min-height:46px;
+      color:var(--muted);
+      font-size:12px;
+    }
+    .detail-summary strong {
+      margin-right:4px;
+      color:var(--ink);
+      font-size:18px;
+      font-weight:700;
+      font-variant-numeric:tabular-nums;
+    }
+    .detail-table-wrap { overflow:visible; }
+    .detail-table {
+      width:100%;
+      min-width:990px;
+      border-collapse:collapse;
+      table-layout:fixed;
+      background:transparent;
+    }
+    .detail-table th {
+      height:36px;
+      padding:6px 10px;
+      border-bottom:1px solid var(--border);
+      color:var(--muted);
+      font-size:11px;
+      font-weight:650;
+      text-align:left;
+      text-transform:none;
+    }
+    .detail-table td {
+      height:52px;
+      padding:7px 10px;
+      border-bottom:1px dashed var(--border-lighter);
+      color:var(--text);
+      vertical-align:middle;
+    }
+    .detail-table tr:last-child td { border-bottom:0; }
+    .detail-table tbody tr:hover { background:rgba(255,255,255,.78); }
+    .detail-table.specimen-table { min-width:1340px; }
+    .select-cell { text-align:center !important; }
+    .item-check {
+      width:15px;
+      height:15px;
+      margin:0;
+      accent-color:var(--primary);
+      cursor:pointer;
+    }
+    .item-check:disabled { cursor:not-allowed; opacity:.45; }
+    .empty-cell { color:var(--placeholder); }
+    .test-name { color:var(--ink); font-weight:700; }
+    .specimen-combobox {
+      position:relative;
+      width:100%;
+      max-width:170px;
+    }
+    .specimen-search {
+      width:100%;
+      padding:0 31px 0 10px;
+      background-color:var(--white);
+      color:var(--text);
+    }
+    .specimen-toggle {
+      position:absolute;
+      right:1px;
+      top:1px;
+      width:30px;
+      height:34px;
+      display:grid;
+      place-items:center;
+      padding:0;
+      border:0;
+      border-left:1px solid var(--border-lighter);
+      border-radius:0 4px 4px 0;
+      background:transparent;
+      color:var(--muted);
+    }
+    .specimen-toggle:hover { background:var(--fill); color:var(--primary); }
+    .specimen-toggle svg { width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:1.8; }
+    .specimen-menu {
+      position:absolute;
+      top:40px;
+      left:0;
+      z-index:120;
+      width:100%;
+      padding:4px;
+      border:1px solid var(--border-light);
+      border-radius:6px;
+      background:var(--white);
+      box-shadow:0 8px 22px rgba(31,35,41,.14);
+    }
+    .specimen-option {
+      width:100%;
+      min-height:30px;
+      padding:4px 8px;
+      border:0;
+      border-radius:4px;
+      background:transparent;
+      color:var(--text);
+      text-align:left;
+    }
+    .specimen-option:hover,
+    .specimen-option[aria-selected="true"] { background:var(--primary-50); color:var(--primary); }
+    .specimen-empty { padding:8px; color:var(--muted); font-size:11px; text-align:center; }
+    .result-action-group {
+      display:flex;
+      align-items:center;
+      gap:6px;
+      flex-wrap:wrap;
+    }
+    .critical-state {
+      display:inline-flex;
+      align-items:center;
+      gap:7px;
+      min-width:0;
+    }
+    .signal-dot {
+      width:10px;
+      height:10px;
+      flex:none;
+      border:1px solid;
+      border-radius:50%;
+    }
+    .signal-dot.critical { border-color:#d46a6a; background:#b84d4d; box-shadow:0 0 0 3px rgba(245,108,108,.12); }
+    .signal-dot.normal { border-color:#4e9631; background:#2f761e; box-shadow:0 0 0 3px rgba(103,194,58,.1); }
+
+    .empty-state {
+      padding:44px 20px;
+      color:var(--muted);
+      text-align:center;
+    }
+    .empty-state strong { display:block; margin-bottom:4px; color:var(--ink); }
+
+    dialog {
+      width:min(1040px,calc(100vw - 32px));
+      max-height:calc(100vh - 40px);
+      padding:0;
+      overflow:hidden;
+      border:1px solid var(--border);
+      border-radius:10px;
+      background:var(--white);
+      color:var(--text);
+      box-shadow:0 22px 55px rgba(31,35,41,.22);
+      overscroll-behavior:contain;
+    }
+    dialog::backdrop { background:rgba(31,35,41,.48); }
+    body.modal-open { overflow:hidden; }
+    body.modal-open::before {
+      content:"";
+      position:fixed;
+      inset:0;
+      z-index:89;
+      background:rgba(31,35,41,.48);
+    }
+    dialog.dialog-fallback[open] {
+      position:fixed;
+      inset:50% auto auto 50%;
+      z-index:90;
+      display:block;
+      margin:0;
+      transform:translate(-50%,-50%);
+    }
+    .modal-head {
+      display:flex;
+      align-items:center;
+      gap:14px;
+      padding:15px 18px;
+      border-bottom:1px solid var(--border-lighter);
+    }
+    .modal-head h2 {
+      margin:0;
+      color:var(--ink);
+      font-size:17px;
+    }
+    .modal-title-row {
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    .edit-result-button {
+      width:28px;
+      height:28px;
+      display:grid;
+      place-items:center;
+      padding:0;
+      border:1px solid transparent;
+      border-radius:5px;
+      background:transparent;
+      color:var(--muted);
+    }
+    .edit-result-button:hover { border-color:#a0cfff; background:var(--primary-50); color:var(--primary); }
+    .edit-result-button[aria-pressed="true"] { border-color:var(--primary); background:var(--primary-50); color:var(--primary); }
+    .edit-result-button svg { width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:1.8; }
+    .mode-badge {
+      display:inline-flex;
+      align-items:center;
+      min-height:20px;
+      margin-left:4px;
+      padding:0 7px;
+      border:1px solid var(--border);
+      border-radius:999px;
+      background:var(--fill-soft);
+      color:var(--muted);
+      font-size:10px;
+      font-weight:650;
+    }
+    .mode-badge.editing { border-color:#a0cfff; background:var(--primary-50); color:#337ecc; }
+    .modal-meta { margin-top:2px; color:var(--muted); font-size:11px; }
+    .modal-close {
+      width:32px;
+      height:32px;
+      margin-left:auto;
+      padding:0;
+      border:0;
+      border-radius:5px;
+      background:transparent;
+      color:var(--muted);
+      font-size:22px;
+    }
+    .modal-close:hover { background:var(--fill); color:var(--ink); }
+    .modal-body {
+      max-height:calc(100vh - 160px);
+      padding:18px;
+      overflow:auto;
+      overscroll-behavior:contain;
+    }
+    .result-table-wrap {
+      overflow-x:auto;
+      border:1px solid var(--border);
+      border-radius:7px;
+    }
+    .result-table {
+      width:100%;
+      min-width:940px;
+      border-collapse:collapse;
+      table-layout:fixed;
+    }
+    .result-table thead th {
+      height:42px;
+      padding:7px 10px;
+      border-bottom:1px solid var(--border);
+      background:var(--fill-soft);
+      color:var(--muted);
+      font-size:11px;
+      text-align:left;
+    }
+    .result-table td {
+      min-height:46px;
+      padding:10px;
+      border-bottom:1px solid var(--border-lighter);
+      color:var(--text);
+      vertical-align:top;
+    }
+    .result-table tr:last-child td { border-bottom:0; }
+    .profile-row th {
+      height:40px;
+      padding:5px 10px;
+      border-top:1px solid var(--border);
+      border-bottom:1px solid var(--border);
+      background:var(--fill);
+    }
+    .profile-row:first-child th { border-top:0; }
+    .profile-head {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      color:var(--ink);
+      font-size:13px;
+      text-align:left;
+    }
+    .previous-value { color:var(--muted); }
+    .result-value {
+      display:block;
+      min-width:0;
+      color:var(--ink);
+      font-weight:700;
+      overflow-wrap:anywhere;
+      white-space:pre-wrap;
+    }
+    .pending-result-row td { background:#fffaf2; vertical-align:middle; }
+    .pending-result-message {
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-height:34px;
+      color:var(--muted);
+    }
+    .entry-mode-tag {
+      display:inline-flex;
+      align-items:center;
+      min-height:20px;
+      padding:1px 7px;
+      border:1px solid #a0cfff;
+      border-radius:999px;
+      background:var(--primary-50);
+      color:#337ecc;
+      font-size:10px;
+      font-weight:650;
+      white-space:nowrap;
+    }
+    .result-editor {
+      width:100%;
+      min-height:32px;
+      padding:6px 8px;
+      border:1px solid var(--primary);
+      border-radius:4px;
+      background:var(--white);
+      color:var(--ink);
+      resize:vertical;
+    }
+    .modal-foot {
+      display:flex;
+      justify-content:flex-end;
+      gap:8px;
+      padding:12px 18px;
+      border-top:1px solid var(--border-lighter);
+      background:var(--fill-soft);
+    }
+
+    .cancel-detail-grid {
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:14px;
+    }
+    .cancel-detail {
+      min-width:0;
+      padding:13px 14px;
+      border:1px solid var(--border-lighter);
+      border-radius:6px;
+      background:var(--fill-soft);
+    }
+    .cancel-detail.reason { grid-column:1/-1; }
+    .cancel-detail .field-value {
+      margin-top:5px;
+      white-space:normal;
+      overflow-wrap:anywhere;
+    }
+    .confirm-copy { margin:0; color:var(--ink); }
+    .reject-form-grid {
+      display:grid;
+      grid-template-columns:minmax(0,1fr);
+      gap:14px;
+    }
+    .form-field label {
+      display:block;
+      margin-bottom:6px;
+      color:var(--ink);
+      font-size:12px;
+      font-weight:650;
+    }
+    .form-field select,
+    .form-field textarea {
+      width:100%;
+      border:1px solid var(--border);
+      border-radius:5px;
+      background:var(--white);
+      color:var(--text);
+    }
+    .form-field select { height:38px; padding:0 10px; }
+    .form-field textarea { min-height:86px; padding:9px 10px; resize:vertical; }
+    .form-field select:focus,
+    .form-field textarea:focus { border-color:var(--primary); box-shadow:0 0 0 2px rgba(64,158,255,.12); outline:0; }
+    .required-mark { color:var(--danger); }
+
+    .implementation-remarks {
+      margin-top:18px;
+      padding:14px 16px;
+      border:1px solid var(--warning-200);
+      border-left:3px solid var(--warning);
+      border-radius:6px;
+      background:var(--warning-50);
+      color:var(--text);
+    }
+    .implementation-remarks h2 {
+      margin:0 0 7px;
+      color:#8a5b16;
+      font-size:13px;
+    }
+    .implementation-remarks ul { margin:0; padding-left:20px; }
+    .implementation-remarks li + li { margin-top:5px; }
+
+    .toast {
+      position:fixed;
+      left:50%;
+      bottom:24px;
+      z-index:80;
+      max-width:min(560px,calc(100vw - 32px));
+      padding:10px 14px;
+      border:1px solid #b3e19d;
+      border-radius:6px;
+      background:var(--success-50);
+      color:#3f7f22;
+      box-shadow:0 10px 28px rgba(31,35,41,.16);
+      opacity:0;
+      transform:translate(-50%,16px);
+      transition:opacity .18s ease,transform .18s ease;
+      pointer-events:none;
+    }
+    .toast.show { opacity:1; transform:translate(-50%,0); }
+
+    @media (max-width:980px) {
+      .toolbar {
+        grid-template-columns:1fr 1fr auto auto;
+      }
+      .toolbar-spacer { display:none; }
+      .create-button { grid-column:1/-1; justify-self:end; }
+    }
+    @media (max-width:680px) {
+      .page { padding:18px 12px 36px; }
+      .page-head { align-items:flex-start; }
+      .title-wrap h1 { font-size:22px; }
+      .toolbar { grid-template-columns:1fr 1fr; }
+      .search-field,.date-range { grid-column:1/-1; }
+      .create-button { width:100%; justify-self:stretch; }
+      .status-strip { grid-template-columns:repeat(4,150px); }
+      .calendars { grid-template-columns:1fr; }
+      .calendar + .calendar { display:none; }
+      .detail-panel { padding-left:16px; }
+      .bulk-actions { width:100%; margin:0 0 8px; order:3; }
+      .detail-top { flex-wrap:wrap; }
+      .modal-body { padding:10px; }
+      .cancel-detail-grid { grid-template-columns:1fr; }
+      .cancel-detail.reason { grid-column:auto; }
+    }
+    @media (prefers-reduced-motion:reduce) {
+      *,*::before,*::after {
+        scroll-behavior:auto !important;
+        transition-duration:.001ms !important;
+      }
+    }
+
+    /* ═══ X-ray overrides — ยกระบบภาพจาก LAB ทั้งหมด เปลี่ยนเฉพาะที่จำเป็น ═══════
+       1. toolbar เพิ่มคอลัมน์ dropdown เครื่อง แทรกระหว่าง Date Range กับปุ่ม Search
+       2. worklist ตัดคอลัมน์ specimen ออก ใส่คอลัมน์ "เครื่อง" กว้างขึ้นแทน
+       3. ตารางรายละเอียดไม่มี Lab No. / specimen / เวลาเก็บ specimen           */
+
+    .toolbar {
+      grid-template-columns:minmax(230px,310px) minmax(250px,310px) minmax(170px,220px) auto auto minmax(24px,1fr) auto;
+    }
+
+    /* ── dropdown เครื่อง ─────────────────────────────────────────────────── */
+    .modality-field { position:relative; min-width:0; }
+    .modality-trigger {
+      width:100%;
+      display:flex;
+      align-items:center;
+      gap:9px;
+      padding:0 10px;
+      text-align:left;
+      font-weight:400;
+    }
+    .modality-trigger .modality-label {
+      flex:none;
+      color:var(--muted);
+      font-size:11px;
+      font-weight:650;
+    }
+    .modality-trigger .modality-value {
+      min-width:0;
+      flex:1;
+      overflow:hidden;
+      color:var(--ink);
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .modality-trigger .caret {
+      flex:none;
+      color:var(--placeholder);
+      font-size:11px;
+      transition:transform .15s ease;
+    }
+    .modality-field.open .modality-trigger .caret { transform:rotate(180deg); }
+    .modality-field.open .modality-trigger { border-color:var(--primary); box-shadow:0 0 0 2px rgba(64,158,255,.12); }
+    .modality-menu {
+      position:absolute;
+      top:42px;
+      left:0;
+      z-index:120;
+      width:100%;
+      min-width:190px;
+      max-height:320px;
+      overflow-y:auto;
+      padding:5px;
+      border:1px solid var(--border-light);
+      border-radius:6px;
+      background:var(--white);
+      box-shadow:var(--shadow);
+      scrollbar-width:thin;
+    }
+    .modality-option {
+      width:100%;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      min-height:32px;
+      padding:6px 10px;
+      border:0;
+      border-radius:4px;
+      background:transparent;
+      color:var(--text);
+      text-align:left;
+      font-size:13px;
+    }
+    .modality-option:hover { background:var(--primary-50); color:var(--primary); }
+    .modality-option[aria-selected="true"] { background:var(--primary-50); color:#337ecc; font-weight:650; }
+    .modality-option .opt-count {
+      flex:none;
+      color:var(--muted);
+      font-family:var(--mono);
+      font-size:11px;
+      font-variant-numeric:tabular-nums;
+    }
+    .modality-option:hover .opt-count,
+    .modality-option[aria-selected="true"] .opt-count { color:inherit; }
+    .modality-divider { margin:5px 4px; border-top:1px solid var(--border-lighter); }
+
+    /* ── worklist grid ────────────────────────────────────────────────────── */
+    .worklist { min-width:1310px; }
+    .patient-row {
+      grid-template-columns:30px minmax(165px,1.3fr) minmax(142px,1fr) minmax(145px,1.25fr) 92px 126px 100px minmax(110px,.95fr) 84px 196px;
+    }
+    .modality-cell { display:flex; flex-wrap:wrap; align-items:center; gap:4px; }
+    .modality-tag {
+      min-height:22px;
+      padding:1px 7px;
+      border:1px solid #c8c9cc;
+      border-radius:4px;
+      background:#f4f4f5;
+      color:#73767a;
+      font-size:11px;
+      font-weight:650;
+      white-space:nowrap;
+    }
+    .test-cell .field-value {
+      display:block;
+      overflow:hidden;
+      color:var(--ink);
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .test-code { display:block; margin-top:1px; color:var(--muted); font-size:10px; }
+
+    /* ปุ่มท้ายแถวอยู่ในคอลัมน์เดียวและชิดขวา — ต่อกันเสมอ ไม่มีช่องว่างคั่น */
+    .row-actions {
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap:6px;
+      min-width:0;
+    }
+    .row-actions .plain-action { width:auto; flex:none; }
+
+    /* คอลัมน์ context แคบลงจาก LAB (ตัด specimen ออกแล้วแบ่งความกว้างใหม่)
+       🔴 ต้องให้ pill ตัดบรรทัดได้ ไม่งั้นล้นไปทับคอลัมน์ "รายการ" */
+    .context-top { flex-wrap:wrap; row-gap:4px; }
+    .context-tags { overflow:hidden; }
+
+    /* ── detail table ─────────────────────────────────────────────────────── */
+    .detail-table.item-table { min-width:1180px; }
+    .status-dispatched { border-color:var(--success-200); background:var(--success-50); color:#529b2e; }
+    .status-transport-failed { border-color:var(--danger-200); background:var(--danger-50); color:#c45656; }
+    .transport-note {
+      display:block;
+      margin-top:3px;
+      color:#c45656;
+      font-size:10px;
+      font-weight:600;
+    }
+
+    /* ── result document viewer ───────────────────────────────────────────── */
+    .report-doc { display:grid; gap:14px; }
+    .report-head {
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+      gap:12px;
+      padding:13px 14px;
+      border:1px solid var(--border-lighter);
+      border-radius:6px;
+      background:var(--fill-soft);
+    }
+    .report-section h3 {
+      margin:0 0 6px;
+      color:var(--ink);
+      font-size:13px;
+      font-weight:700;
+      letter-spacing:.015em;
+    }
+    .report-body {
+      margin:0;
+      padding:12px 14px;
+      border:1px solid var(--border-lighter);
+      border-radius:6px;
+      background:var(--white);
+      color:var(--text);
+      font-family:var(--font);
+      font-size:13px;
+      line-height:1.65;
+      white-space:pre-wrap;
+      overflow-wrap:anywhere;
+    }
+    .report-pending {
+      padding:14px;
+      border:1px dashed var(--warning-200);
+      border-radius:6px;
+      background:var(--warning-50);
+      color:#b88230;
+      font-size:12px;
+      text-align:center;
+    }
+    .report-foot {
+      display:flex;
+      flex-wrap:wrap;
+      align-items:center;
+      gap:10px;
+      color:var(--muted);
+      font-size:12px;
+    }
+
+    @media (max-width:980px) {
+      .toolbar { grid-template-columns:1fr 1fr; }
+      .modality-field { grid-column:span 1; }
+    }
+    @media (max-width:680px) {
+      .toolbar { grid-template-columns:1fr; }
+      .modality-menu { width:100%; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#xrayWorklist">ข้ามไปที่รายการผู้ป่วย</a>
+  <main class="page">
+    <div class="page-head">
+      <div class="title-wrap">
+        <h1>หน่วยรังสีวิทยา</h1>
+        <p>รายการสั่งตรวจทางรังสีที่ส่งมาจาก CPOE · รับรายการและส่งเข้าเครื่อง · ติดตามผลอ่าน</p>
+      </div>
+    </div>
+
+    <section aria-label="ค้นหาและกรองรายการ">
+      <div class="toolbar">
+        <div class="search-field">
+          <svg class="input-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+          <input id="searchInput" class="control" type="search" autocomplete="off" placeholder="ค้นหา HN / VN / Order No. / Accession No. / ชื่อผู้ป่วย…" aria-label="ค้นหา HN VN Order No. Accession No. หรือชื่อผู้ป่วย">
+          <button id="clearSearch" class="clear-search" type="button" aria-label="ล้างคำค้นหา" hidden>&times;</button>
+        </div>
+
+        <div class="date-range">
+          <button id="dateTrigger" class="control date-trigger" type="button" aria-haspopup="dialog" aria-expanded="false">
+            <svg class="input-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M8 3v4M16 3v4M3 10h18"></path></svg>
+            <span id="dateValue" class="date-value">Date Range</span>
+          </button>
+          <button id="dateClear" class="date-clear" type="button" aria-label="ล้างช่วงวันที่" hidden>&times;</button>
+          <div id="datePopover" class="date-popover" role="dialog" aria-label="เลือกช่วงวันที่" hidden>
+            <div class="calendar-head">
+              <button class="calendar-nav" type="button" data-cal-nav="-1" aria-label="เดือนก่อนหน้า">&lsaquo;</button>
+              <div class="calendar-head-copy"><strong>เลือก Date Range</strong><span>กรองตามเวลาของสถานะรายการ</span></div>
+              <button class="calendar-nav" type="button" data-cal-nav="1" aria-label="เดือนถัดไป">&rsaquo;</button>
+            </div>
+            <div id="calendars" class="calendars"></div>
+            <div class="calendar-foot">
+              <span id="dateHint">เลือกวันเริ่มต้น</span>
+              <button class="btn btn-sm" type="button" id="dateReset">ล้างช่วงวันที่</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ▼ ตัวกรองเครื่อง — แทรกระหว่าง Date Range กับปุ่ม Search ตามที่ผู้ใช้กำหนด -->
+        <div id="modalityField" class="modality-field">
+          <button id="modalityTrigger" class="control modality-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="กรองตามเครื่อง">
+            <span class="modality-label">เครื่อง</span>
+            <span id="modalityValue" class="modality-value">Select all</span>
+            <span class="caret" aria-hidden="true">&#9662;</span>
+          </button>
+          <div id="modalityMenu" class="modality-menu" role="listbox" aria-label="รายการเครื่อง" hidden></div>
+        </div>
+
+        <button id="searchButton" class="btn" type="button">Search</button>
+        <button class="btn" type="button" data-toast="รอเชื่อมกับ Report Factory">Report</button>
+        <span class="toolbar-spacer" aria-hidden="true"></span>
+        <button class="btn btn-primary create-button" type="button" data-toast="รอเชื่อมกับ CPOE Order App เพื่อสร้างใบสั่งตรวจ">สร้างรายการใหม่</button>
+      </div>
+
+      <div id="statusStrip" class="status-strip" role="group" aria-label="กรองรายการตามสถานะ"></div>
+    </section>
+
+    <section id="xrayWorklist" class="worklist-shell" aria-label="รายการผู้ป่วย" tabindex="-1">
+      <div id="worklist" class="worklist"></div>
+    </section>
+
+    <section class="implementation-remarks" aria-label="หมายเหตุสำหรับผู้พัฒนา">
+      <h2>หมายเหตุการนำไป implement</h2>
+      <ul>
+        <li>หน้านี้เป็น mockup ข้อมูลสมมติทั้งหมด — HN ชื่อผู้ป่วย แพทย์ เครื่อง เวลา และผลอ่าน ห้าม hard-code ลงระบบจริง</li>
+        <li>ระบบภาพ (สี ตัวอักษร ระยะ ขนาด component motion) ยกมาจาก <code>02-his/ui/lab-workbench-stock-pattern-mockup.html</code> ทั้งชุด ต้นฉบับเดียวคือ <code>design/Lab_design.md</code></li>
+        <li>X-ray <strong>ไม่มี</strong> specimen และ <strong>ไม่มี</strong> Lab No. — กดรับแล้วส่งเข้าเครื่องผ่าน API → Agent ได้ทันที</li>
+        <li><strong>1 accession no. = 1 order (1:1)</strong> — หน่วยของการทำงานคือ “ใบ” จึงไม่มี checkbox เลือกราย item และปุ่มใน detail เหลือ <code>ส่งเข้าเครื่อง</code> กับ <code>ยกเลิก order</code> เท่านั้น</li>
+        <li><strong>Order No.</strong> มาจากใบสั่ง CPOE — รังสีเป็นฝ่ายรอรับ ไม่ได้ออกเลขเอง · รูปแบบ <code>YYYYMMDD</code> + running 3 หลัก เช่น <code>20260831011</code></li>
+        <li><strong>Accession No.</strong> เป็นคนละเลข อยู่ <strong>ระดับ test</strong> และห้องรังสีออกเองตอนกดส่งเข้าเครื่อง · รูปแบบ <code>YYYY MM DD + code เครื่อง + running 3 หลัก</code> เช่น <code>20260831CT001</code> · <strong>running นับแยกตาม modality และแยกตามวัน</strong> ครบ 999 วนกลับ 001</li>
+        <li>⚠️ code เครื่องที่ใช้ประกอบเลข: ยืนยันแล้วเฉพาะที่มีใน <code>modality_type</code> (CR CT DX IO RF UN US VCUG) ส่วน AR CTS CTA GI IVP MRI MRS PT USD USP เป็น <strong>ค่าสมมติ</strong> รอยืนยัน · และความยาวเลขไม่คงที่เพราะ code ยาว 2–4 ตัว</li>
+        <li>ปุ่มท้ายแถวอยู่ในคอลัมน์เดียวและเรียงต่อกันเสมอ ไม่มีช่อง <code>–</code> · ใบที่ยกเลิกเหลือ <code>EMR</code> ปุ่มเดียว</li>
+        <li>เหตุผลและผู้ยกเลิกแสดงเป็นคอลัมน์ <code>ปฏิเสธ</code> / <code>คนปฏิเสธ</code> ในตารางระดับ test แทน popup รายละเอียดการยกเลิกที่ถูกตัดออก</li>
+        <li>ปุ่ม <code>ดูภาพ</code> ในแท็บผลอ่านยังไม่ต่อระบบจริง — รอเชื่อมกับโปรแกรม RIS (decision X17)</li>
+        <li>Dropdown เครื่องกรองทันทีโดยไม่ต้องกด Search และตัวเลขบน status chip นับ <strong>ภายใต้ตัวกรองเครื่องปัจจุบัน</strong></li>
+        <li><strong>1 order = 1 accession = 1 test</strong> — ต่างจาก LAB ที่ 1 order มีได้หลาย test ⇒ worklist หนึ่งแถวคือหนึ่งรายการตรวจ</li>
+        <li>ทุก test ผูกเครื่องไว้แล้วตั้งแต่ตอนสั่งใน CPOE ⇒ ไม่มีเคส “ไม่ระบุเครื่อง” ให้ UI ต้องรองรับ</li>
+        <li>รายการ 19 ค่าในdropdown ยัง <strong>ไม่ตรง</strong> กับ enum <code>modality_type</code> ใน <code>section.json</code> (11 ค่า, <code>MRI</code> vs <code>MR</code>) — ต้องเคาะ decision X2 ก่อนผูก master จริง</li>
+        <li>Agent contract ปัจจุบัน (<code>lab_agent_order_submit_api.js</code>) บังคับ <code>labno</code> และ <code>specimen_code</code> — X-ray ส่งผ่านตามสภาพนี้ไม่ได้ ดู decision X3 ห้ามยัดค่าปลอม</li>
+        <li>ขอบเขตหน่วยงานต้อง enforce ที่ server แบบ fail-closed; dropdown เครื่องเป็นตัวกรองการแสดงผลเท่านั้น ไม่ใช่ตัวให้สิทธิ์</li>
+        <li>“ส่งเครื่องไม่สำเร็จ” ต้องแยกจาก “ยกเลิก” และต้องไม่ rollback การรับ — ลองส่งใหม่ด้วย accession เดิมได้</li>
+      </ul>
+    </section>
+  </main>
+
+  <dialog id="reportDialog" aria-labelledby="reportDialogTitle">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title-row">
+          <h2 id="reportDialogTitle">ผลอ่าน</h2>
+          <span id="reportMode" class="mode-badge">โหมดดูอย่างเดียว</span>
+        </div>
+        <div id="reportMeta" class="modal-meta"></div>
+      </div>
+      <button class="modal-close" type="button" data-close-dialog="reportDialog" aria-label="ปิดหน้าต่างผลอ่าน">&times;</button>
+    </div>
+    <div class="modal-body"><div id="reportBody" class="report-doc"></div></div>
+    <div class="modal-foot"><button class="btn" type="button" data-close-dialog="reportDialog">ปิด</button></div>
+  </dialog>
+
+  <dialog id="dispatchDialog" aria-labelledby="dispatchDialogTitle">
+    <div class="modal-head">
+      <div>
+        <h2 id="dispatchDialogTitle">ยืนยันส่งเข้าเครื่อง</h2>
+        <div id="dispatchMeta" class="modal-meta"></div>
+      </div>
+      <button class="modal-close" type="button" data-close-dialog="dispatchDialog" aria-label="ปิดคำยืนยัน">&times;</button>
+    </div>
+    <div class="modal-body"><p class="confirm-copy" id="dispatchCopy"></p></div>
+    <div class="modal-foot">
+      <button class="btn" type="button" data-close-dialog="dispatchDialog">ยกเลิก</button>
+      <button id="dispatchConfirm" class="btn btn-success" type="button">ส่งเข้าเครื่อง</button>
+    </div>
+  </dialog>
+
+  <dialog id="cancelOrderDialog" aria-labelledby="cancelOrderTitle">
+    <div class="modal-head">
+      <div>
+        <h2 id="cancelOrderTitle">ยกเลิก order</h2>
+        <div id="cancelOrderMeta" class="modal-meta"></div>
+      </div>
+      <button class="modal-close" type="button" data-close-dialog="cancelOrderDialog" aria-label="ปิดคำยืนยันยกเลิก">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p class="confirm-copy" id="cancelOrderCopy"></p>
+      <div class="form-field">
+        <label for="cancelReasonSelect">เหตุผลที่ยกเลิก <span class="required-mark">*</span></label>
+        <select id="cancelReasonSelect" class="control">
+          <option value="">— เลือกเหตุผล —</option>
+          <option>แพทย์ยกเลิกคำสั่ง</option>
+          <option>สั่งซ้ำ</option>
+          <option>ผู้ป่วยปฏิเสธการตรวจ</option>
+          <option>ย้ายไปตรวจที่อื่น</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" type="button" data-close-dialog="cancelOrderDialog">ปิด</button>
+      <button id="cancelOrderConfirm" class="btn btn-danger" type="button">ยืนยันยกเลิกทั้ง order</button>
+    </div>
+  </dialog>
+
+  <dialog id="retestDialog" aria-labelledby="retestDialogTitle">
+    <div class="modal-head">
+      <div>
+        <h2 id="retestDialogTitle">ยืนยันการตรวจใหม่</h2>
+        <div id="retestMeta" class="modal-meta">สร้าง order ใหม่จากรายการที่ยกเลิก</div>
+      </div>
+      <button class="modal-close" type="button" data-close-dialog="retestDialog" aria-label="ปิดคำยืนยันตรวจใหม่">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p class="confirm-copy">ระบบจะเก็บ order เดิมไว้ สร้าง Order No. ใหม่ และใช้เวลาสั่งปัจจุบัน จากนั้นส่งรายการไปที่สถานะ <strong>รอรับ</strong> · X-ray ไม่มี Lab No. และไม่ต้องเก็บ specimen</p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" type="button" data-close-dialog="retestDialog">ยกเลิก</button>
+      <button id="retestConfirm" class="btn btn-primary" type="button">ยืนยันตรวจใหม่</button>
+    </div>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    /* ══════════════════════════════════════════════════════════════════════
+       X-ray Workbench Mockup
+       ยกระบบภาพและ interaction จาก lab-workbench-stock-pattern-mockup.html
+       ต่างจาก LAB: มี dropdown เครื่อง · ไม่มี specimen · ไม่มี Lab No.
+                    · กดรับแล้วส่งเข้าเครื่อง (API → Agent) ได้ทันที
+       ข้อมูลทั้งหมดเป็น mock ห้าม hard-code ลงระบบจริง
+       ══════════════════════════════════════════════════════════════════ */
+    (function () {
+      'use strict';
+      var $ = function (sel, scope) { return (scope || document).querySelector(sel); };
+      var $$ = function (sel, scope) { return Array.prototype.slice.call((scope || document).querySelectorAll(sel)); };
+
+      /* ── รายชื่อเครื่อง — ค่าที่ผู้ใช้ยืนยัน 2026-08-31 ────────────────────
+         🔴 ยังไม่ตรงกับ enum modality_type ใน section.json (11 ค่า)
+            ตรงกัน 8 ค่า · master ขาด Air Reduction/CT Service/CTA/GI/IVP/
+            MRI/MRI Service/Portable/US (D)/US (P) · master มี MG/MR/OT เพิ่ม
+            และเขียน MR ไม่ใช่ MRI  ⇒ ต้องเคาะ decision X2 ก่อนผูก master จริง
+         🔴 ของจริงต้องโหลดจาก API ห้าม hard-code list นี้ในหน้าจอ production */
+      /* code = ส่วน modality ในเลข accession
+         ⚠️ code ของค่าที่ไม่มีใน `section.json` (modality_type) เป็น **ค่าสมมติ**
+            ต้องให้เจ้าของงานยืนยันก่อนใช้จริง — ดู decision X2 / X14 */
+      var MODALITIES = [
+        { label: 'Air Reduction', code: 'AR', confirmed: false },
+        { label: 'CR', code: 'CR', confirmed: true },
+        { label: 'CT', code: 'CT', confirmed: true },
+        { label: 'CT Service', code: 'CTS', confirmed: false },
+        { label: 'CTA', code: 'CTA', confirmed: false },
+        { label: 'DX', code: 'DX', confirmed: true },
+        { label: 'GI', code: 'GI', confirmed: false },
+        { label: 'IO', code: 'IO', confirmed: true },
+        { label: 'IVP', code: 'IVP', confirmed: false },
+        { label: 'MRI', code: 'MRI', confirmed: false },
+        { label: 'MRI Service', code: 'MRS', confirmed: false },
+        { label: 'Portable', code: 'PT', confirmed: false },
+        { label: 'RF', code: 'RF', confirmed: true },
+        { label: 'UN', code: 'UN', confirmed: true },
+        { label: 'US', code: 'US', confirmed: true },
+        { label: 'US (D)', code: 'USD', confirmed: false },
+        { label: 'US (P)', code: 'USP', confirmed: false },
+        { label: 'VCUG', code: 'VCUG', confirmed: true }
+      ];
+      var MODALITY_LABELS = MODALITIES.map(function (m) { return m.label; });
+      var MODALITY_CODE = {};
+      MODALITIES.forEach(function (m) { MODALITY_CODE[m.label] = m.code; });
+
+      var STATUS_FILTERS = [
+        { key: 'all', label: 'ทั้งหมด' },
+        { key: 'active', label: 'รอรับ / รอผลอ่าน' },
+        { key: 'complete', label: 'ออกผลครบ' },
+        { key: 'cancelled', label: 'ยกเลิก' }
+      ];
+
+      /* ── ข้อมูลสมมติ ────────────────────────────────────────────────────
+         🔴 X-ray: 1 order = 1 accession = 1 test (ผู้ใช้ยืนยัน 2026-08-31)
+            ต่างจาก LAB ที่ 1 order มีได้หลาย test ⇒ `items` มีสมาชิกเดียวเสมอ
+         🔴 เลขที่ใบ = ปี ค.ศ. 4 หลัก + เดือน 2 หลัก + วัน 2 หลัก + running 3 หลัก
+            ไม่มี prefix ตัวอักษร · running นับใหม่ทุกวัน
+         🔴 ทุก test ผูกเครื่องไว้แล้วตั้งแต่ตอนสั่งใน CPOE ⇒ ไม่มีเคส "ไม่ระบุเครื่อง"
+         item.state: waiting | dispatched | resulted | cancelled                */
+      var ORDERS = [
+        {
+          order_id: 'ord-xr-0001', order_no: '20260831001',
+          hn: 'HN00000001', vn: 'VN00000001', name: 'ด.ช. สมมติ ทดสอบ',
+          gender: 'ชาย', age: 'อายุ 3 ปี 3 เดือน 3 วัน', urgent: true,
+          room: 'ห้องตรวจ 1', paid: true, coverage: 'UC',
+          doctor: 'นพ.ใจดี ปากไม่ดี',
+          dx_short: 'Diagnosis: Blunt chest trauma',
+          dx_full: 'Blunt chest trauma, rule out pneumothorax',
+          ordered_at: '2026-08-31T08:12:04+07:00',
+          items: [{ id: 'it-1', name: 'Chest PA upright', code: 'X101', modality: 'DX', state: 'waiting' }]
+        },
+        {
+          order_id: 'ord-xr-0002', order_no: '20260831002',
+          hn: 'HN00000002', vn: 'VN00000002', name: 'นาง ทดสอบ สมมติ',
+          gender: 'หญิง', age: 'อายุ 62 ปี 1 เดือน', urgent: false,
+          room: 'ห้องตรวจ 3', paid: true, coverage: 'ชำระเอง',
+          doctor: 'พญ.สมมติ ตัวอย่าง',
+          dx_short: 'Diagnosis: Abdominal pain, r/o stone',
+          dx_full: 'Right flank pain, rule out ureteric stone',
+          ordered_at: '2026-08-31T08:40:19+07:00',
+          items: [{ id: 'it-2', name: 'CT KUB non-contrast', code: 'X220', modality: 'CT',
+            state: 'dispatched', accession_no: '20260831CT001', dispatched_at: '2026-08-31T09:02:41+07:00', dispatched_by: 'จนท.รังสี ก' }]
+        },
+        {
+          order_id: 'ord-xr-0003', order_no: '20260831003',
+          hn: 'HN00000003', vn: 'VN00000003', name: 'นาย ตัวอย่าง ทดสอบ',
+          gender: 'ชาย', age: 'อายุ 45 ปี 8 เดือน', urgent: false,
+          room: 'OPD ศัลยกรรม', paid: true, coverage: 'ประกันสังคม',
+          doctor: 'นพ.ทดสอบ ระบบ',
+          dx_short: 'Diagnosis: Chronic cough',
+          dx_full: 'Chronic cough for 6 weeks, rule out pulmonary lesion',
+          ordered_at: '2026-08-31T07:55:12+07:00',
+          items: [{
+            id: 'it-3', name: 'Chest PA', code: 'X101', modality: 'CR',
+            state: 'resulted', accession_no: '20260831CR001', dispatched_at: '2026-08-31T08:10:00+07:00',
+            dispatched_by: 'จนท.รังสี ข', resulted_at: '2026-08-31T09:35:22+07:00',
+            report: {
+              findings: 'The lungs are clear without focal consolidation, pleural effusion or pneumothorax.\nCardiomediastinal silhouette is within normal limits.\nBony thorax shows no acute fracture.',
+              impression: 'No active pulmonary disease.',
+              reader: 'พญ.รังสี ตัวอย่าง', read_at: '2026-08-31T09:35:22+07:00'
+            }
+          }]
+        },
+        {
+          order_id: 'ord-xr-0004', order_no: '20260831004',
+          hn: 'HN00000004', vn: 'VN00000004', name: 'นาง สมมติ ตัวอย่าง',
+          gender: 'หญิง', age: 'อายุ 38 ปี 2 เดือน', urgent: false,
+          room: 'ห้องตรวจ 5', paid: false, coverage: 'UC',
+          doctor: 'นพ.ใจดี ปากไม่ดี',
+          dx_short: 'Diagnosis: Pregnancy follow-up',
+          dx_full: 'Pregnancy follow-up, gestational age assessment',
+          ordered_at: '2026-08-31T09:14:50+07:00',
+          items: [{ id: 'it-4', name: 'Ultrasound obstetric', code: 'X410', modality: 'US (P)', state: 'waiting' }]
+        },
+        /* ผู้ป่วยคนเดียวสั่งสองรายการ = สองใบ สองเลข accession (ผลของกติกา 1:1) */
+        {
+          order_id: 'ord-xr-0005', order_no: '20260831005',
+          hn: 'HN00000005', vn: 'VN00000005', name: 'นาย ทดสอบ ตัวอย่าง',
+          gender: 'ชาย', age: 'อายุ 71 ปี 5 เดือน', urgent: true,
+          room: 'ICU', paid: true, coverage: 'ข้าราชการ',
+          doctor: 'พญ.สมมติ ตัวอย่าง',
+          dx_short: 'Diagnosis: Suspected stroke',
+          dx_full: 'Acute onset hemiparesis, suspected cerebrovascular accident',
+          ordered_at: '2026-08-31T06:20:33+07:00',
+          items: [{
+            id: 'it-5', name: 'MRI brain', code: 'X510', modality: 'MRI',
+            state: 'resulted', accession_no: '20260831MRI001', dispatched_at: '2026-08-31T06:35:10+07:00',
+            dispatched_by: 'จนท.รังสี ค', resulted_at: '2026-08-31T08:02:44+07:00',
+            report: {
+              findings: 'Acute infarction in the left middle cerebral artery territory involving the insular cortex.\nNo intracranial hemorrhage.\nNo midline shift or mass effect.',
+              impression: 'Acute left MCA territory infarction.',
+              reader: 'พญ.รังสี ตัวอย่าง', read_at: '2026-08-31T08:02:44+07:00'
+            }
+          }]
+        },
+        {
+          order_id: 'ord-xr-0006', order_no: '20260831006',
+          hn: 'HN00000005', vn: 'VN00000005', name: 'นาย ทดสอบ ตัวอย่าง',
+          gender: 'ชาย', age: 'อายุ 71 ปี 5 เดือน', urgent: true,
+          room: 'ICU', paid: true, coverage: 'ข้าราชการ',
+          doctor: 'พญ.สมมติ ตัวอย่าง',
+          dx_short: 'Diagnosis: Suspected stroke',
+          dx_full: 'Acute onset hemiparesis, suspected cerebrovascular accident',
+          ordered_at: '2026-08-31T06:21:10+07:00',
+          items: [{
+            id: 'it-6', name: 'CTA brain and neck', code: 'X530', modality: 'CTA',
+            state: 'resulted', accession_no: '20260831CTA001', dispatched_at: '2026-08-31T06:36:02+07:00',
+            dispatched_by: 'จนท.รังสี ค', resulted_at: '2026-08-31T08:20:11+07:00',
+            report: {
+              findings: 'Occlusion of the proximal left M1 segment.\nRemaining intracranial vessels are patent.',
+              impression: 'Left M1 occlusion, correlates with the infarct on MRI.',
+              reader: 'พญ.รังสี ตัวอย่าง', read_at: '2026-08-31T08:20:11+07:00'
+            }
+          }]
+        },
+        {
+          order_id: 'ord-xr-0007', order_no: '20260831007',
+          hn: 'HN00000006', vn: 'VN00000006', name: 'ด.ญ. ตัวอย่าง สมมติ',
+          gender: 'หญิง', age: 'อายุ 1 ปี 2 เดือน', urgent: true,
+          room: 'ER', paid: true, coverage: 'UC',
+          doctor: 'นพ.ทดสอบ ระบบ',
+          dx_short: 'Diagnosis: Intussusception',
+          dx_full: 'Suspected intussusception with intermittent abdominal pain',
+          ordered_at: '2026-08-31T05:40:00+07:00',
+          items: [{ id: 'it-7', name: 'Air reduction procedure', code: 'X601', modality: 'Air Reduction',
+            state: 'dispatched', accession_no: '20260831AR001', dispatched_at: '2026-08-31T06:05:15+07:00', dispatched_by: 'จนท.รังสี ก' }]
+        },
+        /* ส่งเครื่องไม่สำเร็จ — ยังนับเป็น "รับแล้ว" และลองส่งใหม่ด้วย accession เดิมได้ */
+        {
+          order_id: 'ord-xr-0008', order_no: '20260831008',
+          hn: 'HN00000006', vn: 'VN00000006', name: 'ด.ญ. ตัวอย่าง สมมติ',
+          gender: 'หญิง', age: 'อายุ 1 ปี 2 เดือน', urgent: true,
+          room: 'ER', paid: true, coverage: 'UC',
+          doctor: 'นพ.ทดสอบ ระบบ',
+          dx_short: 'Diagnosis: Intussusception',
+          dx_full: 'Suspected intussusception with intermittent abdominal pain',
+          ordered_at: '2026-08-31T05:41:00+07:00',
+          items: [{ id: 'it-8', name: 'Abdomen supine and upright', code: 'X120', modality: 'Portable',
+            state: 'dispatched', accession_no: '20260831PT001', dispatched_at: '2026-08-31T06:06:01+07:00', dispatched_by: 'จนท.รังสี ก', transport_failed: true }]
+        },
+        {
+          order_id: 'ord-xr-0009', order_no: '20260831009',
+          hn: 'HN00000008', vn: 'VN00000008', name: 'นาง ระบบ ทดสอบ',
+          gender: 'หญิง', age: 'อายุ 29 ปี 7 เดือน', urgent: false,
+          room: 'ห้องตรวจ 4', paid: true, coverage: 'ชำระเอง',
+          doctor: 'พญ.สมมติ ตัวอย่าง',
+          dx_short: 'Diagnosis: Recurrent UTI',
+          dx_full: 'Recurrent urinary tract infection, evaluate upper tract',
+          ordered_at: '2026-08-31T09:50:07+07:00',
+          cancelled: true, cancelled_at: '2026-08-31T10:12:30+07:00',
+          cancelled_by: 'นพ.ใจดี ปากไม่ดี', cancel_reason: 'แพทย์ยกเลิกคำสั่ง',
+          items: [{ id: 'it-9', name: 'IVP series', code: 'X210', modality: 'IVP', state: 'cancelled',
+            reject_reason: 'แพทย์ยกเลิกคำสั่ง', rejected_by: 'นพ.ใจดี ปากไม่ดี' }]
+        },
+        {
+          order_id: 'ord-xr-0010', order_no: '20260831010',
+          hn: 'HN00000009', vn: 'VN00000009', name: 'นาย ตัวอย่าง ระบบ',
+          gender: 'ชาย', age: 'อายุ 8 ปี 4 เดือน', urgent: false,
+          room: 'ทันตกรรม', paid: true, coverage: 'UC',
+          doctor: 'ทพ.ทดสอบ ฟันดี',
+          dx_short: 'Diagnosis: Dental caries',
+          dx_full: 'Dental caries, evaluate root involvement',
+          ordered_at: '2026-08-31T10:05:41+07:00',
+          items: [{ id: 'it-10', name: 'Periapical film', code: 'X701', modality: 'IO', state: 'waiting' }]
+        },
+        {
+          order_id: 'ord-xr-0011', order_no: '20260831011',
+          hn: 'HN00000010', vn: 'VN00000010', name: 'นาง สมมติ ทดสอบ',
+          gender: 'หญิง', age: 'อายุ 50 ปี 11 เดือน', urgent: false,
+          room: 'ห้องตรวจ 6', paid: false, coverage: 'UC',
+          doctor: 'นพ.ทดสอบ ระบบ',
+          dx_short: 'Diagnosis: Voiding difficulty',
+          dx_full: 'Voiding difficulty, evaluate vesicoureteral reflux',
+          ordered_at: '2026-08-31T10:22:00+07:00',
+          items: [{ id: 'it-11', name: 'VCUG study', code: 'X801', modality: 'VCUG', state: 'waiting' }]
+        },
+        /* ใบของเมื่อวาน — เห็นได้เมื่อเลือก Date Range ย้อนหลัง (running เริ่มใหม่ทุกวัน) */
+        {
+          order_id: 'ord-xr-0012', order_no: '20260830001',
+          hn: 'HN00000007', vn: 'VN00000007', name: 'นาย สมมติ ระบบ',
+          gender: 'ชาย', age: 'อายุ 55 ปี', urgent: false,
+          room: 'ห้องตรวจ 2', paid: true, coverage: 'ประกันสังคม',
+          doctor: 'นพ.ใจดี ปากไม่ดี',
+          dx_short: 'Diagnosis: Dysphagia',
+          dx_full: 'Progressive dysphagia to solids',
+          ordered_at: '2026-08-30T14:02:11+07:00',
+          items: [{
+            id: 'it-12', name: 'Fluoroscopy esophagus', code: 'X310', modality: 'RF',
+            state: 'resulted', accession_no: '20260830RF001', dispatched_at: '2026-08-30T15:20:00+07:00',
+            dispatched_by: 'จนท.รังสี ข', resulted_at: '2026-08-30T16:44:09+07:00',
+            report: {
+              findings: 'Smooth tapering narrowing at the distal esophagus with proximal dilatation.\nDelayed passage of contrast into the stomach.',
+              impression: 'Findings suggestive of achalasia. Manometry recommended.',
+              reader: 'พญ.รังสี ตัวอย่าง', read_at: '2026-08-30T16:44:09+07:00'
+            }
+          }]
+        }
+      ];
+
+      /* ── state ────────────────────────────────────────────────────────── */
+      var state = {
+        query: '',
+        modality: '',        // '' = Select all
+        status: 'all',
+        dateFrom: '',
+        dateTo: '',
+        expanded: {},
+        pendingDispatch: null,
+        pendingCancel: null
+      };
+
+      /* ── helpers ──────────────────────────────────────────────────────── */
+      var THAI_MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+      function esc(value) {
+        return String(value == null ? '' : value).replace(/[&<>"']/g, function (ch) {
+          return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch];
+        });
+      }
+      function parseTime(iso) { return iso ? new Date(iso) : null; }
+      function pad(n) { return n < 10 ? '0' + n : String(n); }
+      function dateText(iso) {
+        var d = parseTime(iso);
+        if (!d) return '';
+        return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + String((d.getFullYear() + 543) % 100);
+      }
+      function timeText(iso) {
+        var d = parseTime(iso);
+        if (!d) return '';
+        return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+      }
+      function dayKey(iso) {
+        var d = parseTime(iso);
+        return d ? d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) : '';
+      }
+
+      /* สถานะรวมของ Order — คำนวณจากรายการที่ "รับไว้" เท่านั้น
+         รายการที่ปฏิเสธไม่อยู่ในตัวหาร แต่ยังอยู่ในประวัติ (design §A.3) */
+      function orderState(order) {
+        if (order.cancelled) return 'cancelled';
+        var accepted = order.items.filter(function (i) { return i.state === 'dispatched' || i.state === 'resulted'; });
+        var resulted = accepted.filter(function (i) { return i.state === 'resulted'; });
+        var waiting = order.items.filter(function (i) { return i.state === 'waiting'; });
+        if (accepted.length && resulted.length === accepted.length && !waiting.length) return 'complete';
+        if (resulted.length) return 'partial';
+        if (accepted.length) return 'dispatched';
+        return 'waiting';
+      }
+      function filterBucket(order) {
+        var s = orderState(order);
+        if (s === 'cancelled') return 'cancelled';
+        if (s === 'complete') return 'complete';
+        return 'active';
+      }
+      var STATE_LABEL = {
+        waiting: 'รอรับ', dispatched: 'ส่งเครื่องแล้ว', partial: 'ออกผลบางส่วน',
+        complete: 'ออกผลครบ', cancelled: 'ยกเลิก'
+      };
+      var STATE_CLASS = {
+        waiting: 'status-waiting', dispatched: 'status-received', partial: 'status-result-partial',
+        complete: 'status-result-complete', cancelled: 'status-cancelled'
+      };
+      var ITEM_LABEL = {
+        waiting: 'รอรับ', dispatched: 'ส่งเครื่องแล้ว', resulted: 'ออกผลแล้ว',
+        rejected: 'ปฏิเสธ', cancelled: 'ยกเลิก'
+      };
+      var ITEM_TAG = {
+        waiting: 'tag-warning', dispatched: 'tag-success', resulted: 'tag-success',
+        rejected: 'tag-danger', cancelled: 'tag-danger'
+      };
+
+      /* เวลาของสถานะ — ใช้เป็นทั้งคอลัมน์ "เวลาสถานะ" และแกนของ Date Range */
+      function statusTime(order) {
+        var s = orderState(order);
+        if (s === 'cancelled') return { label: 'เวลายกเลิก', iso: order.cancelled_at };
+        if (s === 'complete' || s === 'partial') {
+          var last = '';
+          order.items.forEach(function (i) { if (i.resulted_at && i.resulted_at > last) last = i.resulted_at; });
+          return { label: 'เวลาออกผล', iso: last };
+        }
+        if (s === 'dispatched') {
+          var first = '';
+          order.items.forEach(function (i) { if (i.dispatched_at && (!first || i.dispatched_at < first)) first = i.dispatched_at; });
+          return { label: 'เวลาส่งเครื่อง', iso: first };
+        }
+        return { label: '', iso: '' };
+      }
+
+      /* ── เลข Accession ──────────────────────────────────────────────────
+         รูปแบบ: YYYY + MM + DD + <code ของ modality> + running 3 หลัก
+                 เช่น 20260831CT001
+         🔴 running นับ **แยกตาม modality และแยกตามวัน** ครบ 999 แล้ววนกลับ 001
+         🔴 เลขนี้อยู่ระดับ test ไม่ใช่ระดับ order · order_no มาจากใบสั่ง CPOE
+            ส่วน accession ห้องรังสีเป็นผู้ออกตอนกดส่งเข้าเครื่อง
+         🔴 mock เท่านั้น — ของจริงต้องออกจาก server แบบ atomic + idempotent ต่อ Item
+         ⚠️ ความยาวไม่คงที่ เพราะ code ยาว 2-4 ตัว (CT=2, MRI=3, VCUG=4) → decision X15 */
+      function nextAccession(modalityLabel, whenIso) {
+        var d = parseTime(whenIso) || new Date();
+        var code = MODALITY_CODE[modalityLabel] || '';
+        var day = String(d.getFullYear()) + pad(d.getMonth() + 1) + pad(d.getDate());
+        var bucket = day + code;
+        var used = {};
+        ORDERS.forEach(function (o) {
+          o.items.forEach(function (i) {
+            if (i.accession_no && i.accession_no.indexOf(bucket) === 0) {
+              used[i.accession_no.slice(bucket.length)] = true;
+            }
+          });
+        });
+        for (var n = 1; n <= 999; n++) {
+          var seq = ('00' + n).slice(-3);
+          if (!used[seq]) return bucket + seq;
+        }
+        return '';   /* ครบ 999 ใน modality/วันเดียวกัน — ของจริงต้องมี policy ชัดเจน (X12) */
+      }
+
+      /* 1 order = 1 test ⇒ เครื่องของใบคือเครื่องของ test เดียวนั้น */
+      function orderModality(order) {
+        return (order.items[0] && order.items[0].modality) || '';
+      }
+      function searchBlob(order) {
+        return [order.hn, order.vn, order.order_no, order.name, order.doctor]
+          .concat(order.items.map(function (i) { return i.name + ' ' + i.code + ' ' + i.modality + ' ' + (i.accession_no || ''); }))
+          .join(' ').toLowerCase();
+      }
+
+      /* ── filtering ────────────────────────────────────────────────────────
+         🔴 ตัวกรองเครื่องซ้อนทับทุกอย่าง รวมถึงการนับ chip (design §6.2)
+         🔴 ค้น HN แบบตรงตัวดึงประวัติข้ามวันได้ ถ้าไม่ได้เลือก Date Range   */
+      function matchesModality(order) {
+        if (!state.modality) return true;
+        return orderModality(order) === state.modality;
+      }
+      function matchesQuery(order) {
+        if (!state.query) return true;
+        return searchBlob(order).indexOf(state.query.toLowerCase()) >= 0;
+      }
+      function isExactHnSearch(order) {
+        return !!state.query && order.hn.toLowerCase() === state.query.trim().toLowerCase();
+      }
+      function matchesDate(order) {
+        var st = statusTime(order);
+        var key = dayKey(st.iso || order.ordered_at);
+        if (state.dateFrom && key < state.dateFrom) return false;
+        if (state.dateTo && key > state.dateTo) return false;
+        if (!state.dateFrom && !state.dateTo) {
+          if (isExactHnSearch(order)) return true;   // ประวัติทั้งหมดของ HN นั้น
+          return key === TODAY;
+        }
+        return true;
+      }
+      var TODAY = (function () {
+        var d = new Date('2026-08-31T00:00:00+07:00');
+        return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+      })();
+
+      function baseOrders() {
+        return ORDERS.filter(function (o) {
+          return matchesModality(o) && matchesQuery(o) && matchesDate(o);
+        });
+      }
+      function visibleOrders() {
+        return baseOrders().filter(function (o) {
+          return state.status === 'all' || filterBucket(o) === state.status;
+        }).sort(function (a, b) { return a.ordered_at < b.ordered_at ? 1 : -1; });
+      }
+      function counts() {
+        var out = { all: 0, active: 0, complete: 0, cancelled: 0 };
+        baseOrders().forEach(function (o) { out.all++; out[filterBucket(o)]++; });
+        return out;
+      }
+      function modalityCounts() {
+        var out = {};
+        ORDERS.filter(function (o) { return matchesQuery(o) && matchesDate(o); }).forEach(function (o) {
+          var m = orderModality(o);
+          if (m) out[m] = (out[m] || 0) + 1;
+        });
+        return out;
+      }
+
+      /* ── render: status chips ─────────────────────────────────────────── */
+      function renderChips() {
+        var c = counts();
+        $('#statusStrip').innerHTML = STATUS_FILTERS.map(function (f) {
+          return '<button class="status-chip' + (state.status === f.key ? ' active' : '') + '" type="button"' +
+            ' data-status="' + (f.key === 'all' ? '' : f.key) + '" data-filter-key="' + f.key + '"' +
+            ' aria-pressed="' + (state.status === f.key) + '">' +
+            '<strong>' + (c[f.key] || 0) + '</strong><span>' + esc(f.label) + '</span></button>';
+        }).join('');
+      }
+
+      /* ── render: modality dropdown ────────────────────────────────────── */
+      function renderModalityMenu() {
+        var mc = modalityCounts();
+        var rows = ['<button class="modality-option" type="button" role="option" data-modality=""' +
+          ' aria-selected="' + (state.modality === '') + '"><span>Select all</span>' +
+          '<span class="opt-count">' + ORDERS.filter(function (o) { return matchesQuery(o) && matchesDate(o); }).length + '</span></button>',
+          '<div class="modality-divider" role="separator"></div>'];
+        MODALITY_LABELS.forEach(function (m) {
+          rows.push('<button class="modality-option" type="button" role="option" data-modality="' + esc(m) + '"' +
+            ' aria-selected="' + (state.modality === m) + '"><span>' + esc(m) + '</span>' +
+            '<span class="opt-count">' + (mc[m] || 0) + '</span></button>');
+        });
+        $('#modalityMenu').innerHTML = rows.join('');
+        $('#modalityValue').textContent = state.modality || 'Select all';
+      }
+
+      /* ── render: worklist ─────────────────────────────────────────────── */
+      function itemRow(order, item) {
+        var dispatchCell = item.dispatched_at
+          ? '<span class="field-value time-value mono"><span>' + dateText(item.dispatched_at) + '</span><span>' + timeText(item.dispatched_at) + '</span></span>' +
+            (item.transport_failed ? '<span class="transport-note">ส่งเครื่องไม่สำเร็จ · ลองใหม่ได้</span>' : '')
+          : '<span class="empty-cell">–</span>';
+        /* 🔴 เครื่องผูกมากับ test ตั้งแต่ตอนสั่งเสมอ — ไม่มีเคสไม่ระบุเครื่อง */
+        var modalityCell = '<span class="modality-tag">' + esc(item.modality) + '</span>';
+        var statusTag = item.transport_failed
+          ? '<span class="state-tag tag-danger">ส่งเครื่องไม่สำเร็จ</span>'
+          : '<span class="state-tag ' + ITEM_TAG[item.state] + '">' + ITEM_LABEL[item.state] + '</span>';
+        return '<tr data-item-row data-item-id="' + item.id + '" data-item-state="' + item.state + '">' +
+          '<td class="mono' + (item.accession_no ? '' : ' empty-cell') + '" translate="no">' +
+            (item.accession_no ? esc(item.accession_no) : '–') + '</td>' +
+          '<td class="test-name">' + esc(item.name) + ' <span class="mono" style="color:var(--muted);font-size:11px">' + esc(item.code) + '</span></td>' +
+          '<td><div class="modality-cell">' + modalityCell + '</div></td>' +
+          '<td><span class="field-value time-value mono"><span>' + dateText(order.ordered_at) + '</span><span>' + timeText(order.ordered_at) + '</span></span></td>' +
+          '<td>' + dispatchCell + '</td>' +
+          '<td' + (item.dispatched_by ? '' : ' class="empty-cell"') + '>' + (item.dispatched_by ? esc(item.dispatched_by) : '–') + '</td>' +
+          '<td>' + statusTag + '</td>' +
+          /* เหตุผล/ผู้ปฏิเสธอยู่ที่ระดับ test ตามแบบ LAB — ไม่ใช้ popup แยกอีกแล้ว */
+          '<td' + (item.reject_reason ? '' : ' class="empty-cell"') + '>' + (item.reject_reason ? esc(item.reject_reason) : '–') + '</td>' +
+          '<td' + (item.rejected_by ? '' : ' class="empty-cell"') + '>' + (item.rejected_by ? esc(item.rejected_by) : '–') + '</td>' +
+          '</tr>';
+      }
+
+      function resultRow(order, item, index) {
+        var done = item.state === 'resulted';
+        return '<tr>' +
+          '<td class="mono">' + (index + 1) + '</td>' +
+          '<td class="test-name">' + esc(item.name) + '</td>' +
+          '<td><div class="modality-cell"><span class="modality-tag">' + esc(item.modality) + '</span></div></td>' +
+          '<td class="mono' + (done ? '' : ' empty-cell') + '">' + (done ? timeText(item.resulted_at) : '–') + '</td>' +
+          '<td>' + (done
+            ? '<div class="result-action-group">' +
+                '<button class="btn btn-sm" type="button" data-open-report data-order-id="' + order.order_id + '" data-item-id="' + item.id + '">ดูผลอ่าน</button>' +
+                '<button class="btn btn-sm" type="button" data-toast="รอเชื่อมกับโปรแกรม RIS">ดูภาพ</button>' +
+              '</div>'
+            : '<span class="empty-cell">–</span>') + '</td>' +
+          '<td><span class="state-tag ' + (done ? 'tag-success' : 'tag-warning') + '">' + (done ? 'ออกผลแล้ว' : 'รอผลอ่าน') + '</span></td>' +
+          '</tr>';
+      }
+
+      function orderBlock(order) {
+        var s = orderState(order);
+        var st = statusTime(order);
+        var open = !!state.expanded[order.order_id];
+        var theTest = order.items[0] || { name: '–', code: '', modality: '' };
+        var hasResult = order.items.some(function (i) { return i.state === 'resulted'; });
+        var accepted = order.items.filter(function (i) { return i.state === 'dispatched' || i.state === 'resulted'; });
+        var allResulted = accepted.length > 0 && accepted.every(function (i) { return i.state === 'resulted'; }) &&
+          !order.items.some(function (i) { return i.state === 'waiting'; });
+        var canDispatch = !order.cancelled && order.items.some(function (i) { return i.state === 'waiting'; });
+
+        var modalityCell = '<span class="modality-tag">' + esc(theTest.modality) + '</span>';
+
+        /* 🔴 ปุ่มทั้งหมดอยู่ในคอลัมน์เดียวและต่อกันเสมอ — ห้ามเว้นช่อง "–" ไว้
+           ใบที่ยกเลิกไม่มีทั้ง PDF และปุ่มดู เหลือ EMR ตัวเดียว                */
+        var rowButtons = [];
+        if (!order.cancelled) {
+          rowButtons.push('<button class="btn btn-sm plain-action" type="button"' +
+            (allResulted ? '' : ' disabled title="พิมพ์ได้เมื่อออกผลครบทุกรายการที่รับไว้"') +
+            ' data-toast="เตรียม PDF ผลอ่าน">PDF</button>');
+          if (hasResult) {
+            rowButtons.push('<button class="btn btn-sm plain-action" type="button" data-open-report' +
+              ' data-order-id="' + order.order_id + '">ดูผลอ่าน</button>');
+          }
+        }
+        rowButtons.push('<button class="btn btn-sm plain-action" type="button"' +
+          ' data-toast="เปิด EMR เพื่อดูข้อมูลผู้ป่วยและ Diagnosis"' +
+          ' aria-label="เปิด EMR ของ ' + esc(order.hn) + '">EMR</button>');
+
+        var html = '<article class="patient-block' + (open ? ' is-open' : '') + '" data-order-id="' + order.order_id + '">' +
+          '<div class="patient-row">' +
+            '<button class="expand-button" type="button" data-expand aria-expanded="' + open + '"' +
+              ' aria-label="' + (open ? 'ย่อ' : 'ขยาย') + 'รายละเอียด ' + esc(order.hn) + '">' +
+              '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"></path></svg></button>' +
+            '<div class="patient-summary">' +
+              '<div class="patient-hn"><span class="mono" translate="no">' + esc(order.hn) + '</span>' +
+                (order.urgent ? '<span class="inline-tag tag-danger urgent-tag">เร่งด่วน</span>' : '') + '</div>' +
+              '<div class="patient-name">' + esc(order.name) + '</div>' +
+              '<div class="patient-demographic"><span class="inline-tag gender-pill">' + esc(order.gender) + '</span><span>' + esc(order.age) + '</span></div>' +
+            '</div>' +
+            '<div class="context-tags">' +
+              '<div class="context-top"><span class="inline-tag meta-pill">' + esc(order.room) + '</span>' +
+                (order.paid ? '<span class="inline-tag meta-pill">ชำระเงินแล้ว</span>' : '') + '</div>' +
+              '<span class="inline-tag meta-pill">' + esc(order.coverage) + '</span>' +
+            '</div>' +
+            '<div class="metric test-cell"><span class="field-label">รายการตรวจ</span>' +
+              '<span class="field-value">' + esc(theTest.name) + '</span>' +
+              '<span class="test-code mono">' + esc(theTest.code) + '</span></div>' +
+            '<div class="metric"><span class="field-label">เครื่อง</span><div class="modality-cell">' + modalityCell + '</div></div>' +
+            '<div class="metric"><span class="field-label order-time-label">เวลาสั่ง <span class="order-no-tag">' + esc(order.order_no) + '</span></span>' +
+              '<span class="field-value time-value mono"><span>' + dateText(order.ordered_at) + '</span><span>' + timeText(order.ordered_at) + '</span></span></div>' +
+            '<div class="metric">' + (st.iso
+              ? '<span class="field-label">' + esc(st.label) + '</span><span class="field-value time-value mono"><span>' + dateText(st.iso) + '</span><span>' + timeText(st.iso) + '</span></span>'
+              : '') + '</div>' +
+            '<div class="doctor-cell"><span class="field-label">แพทย์</span><span class="field-value">' + esc(order.doctor) + '</span>' +
+              '<span class="diagnosis-summary" title="' + esc(order.dx_full) + '">' + esc(order.dx_short) + '</span></div>' +
+            '<span class="row-status ' + STATE_CLASS[s] + '">' + STATE_LABEL[s] + '</span>' +
+            '<div class="row-actions">' + rowButtons.join('') + '</div>' +
+          '</div>';
+
+        html += '<div class="detail-panel"' + (open ? '' : ' hidden') + '>' +
+          '<div class="detail-top" role="tablist" aria-label="รายละเอียด ' + esc(order.hn) + '">' +
+            '<button class="detail-tab active" type="button" role="tab" aria-selected="true" data-panel="orders">order</button>' +
+            '<button class="detail-tab" type="button" role="tab" aria-selected="false" data-panel="results"' +
+              (hasResult ? '' : ' disabled title="ยังไม่มีผลอ่านของ order นี้" aria-label="ผลอ่าน ยังไม่มีผลอ่าน"') + '>ผลอ่าน</button>';
+
+        if (order.cancelled) {
+          html += '<div class="bulk-actions"><button class="btn btn-sm" type="button" data-retest data-order-id="' + order.order_id + '">ตรวจใหม่</button></div>';
+        } else {
+          html += '<div class="bulk-actions">' +
+            (canDispatch ? '<button class="btn btn-success btn-sm" type="button" data-bulk="dispatch">ส่งเข้าเครื่อง</button>' : '') +
+            '<button class="btn btn-danger btn-sm btn-plain" type="button" data-bulk="cancel">ยกเลิก order</button>' +
+            '</div>';
+        }
+        html += '</div>';
+
+        html += '<div class="detail-view" data-view="orders">' +
+          '<div class="detail-table-wrap"><table class="detail-table item-table">' +
+            '<colgroup><col style="width:13%"><col style="width:19%"><col style="width:8%"><col style="width:10%"><col style="width:11%"><col style="width:10%"><col style="width:9%"><col style="width:11%"><col style="width:9%"></colgroup>' +
+            '<thead><tr><th scope="col">Accession No.</th><th scope="col">รายการตรวจ</th><th scope="col">เครื่อง</th>' +
+            '<th scope="col">เวลาสั่ง</th><th scope="col">เวลาส่งเข้าเครื่อง</th><th scope="col">ผู้ส่ง</th><th scope="col">สถานะ</th>' +
+            '<th scope="col">ปฏิเสธ</th><th scope="col">คนปฏิเสธ</th></tr></thead>' +
+            '<tbody>' + order.items.map(function (i) { return itemRow(order, i); }).join('') + '</tbody>' +
+          '</table></div></div>';
+
+        html += '<div class="detail-view" data-view="results" hidden>' +
+          (hasResult
+            ? '<div class="detail-table-wrap"><table class="detail-table">' +
+              '<colgroup><col style="width:6%"><col style="width:28%"><col style="width:12%"><col style="width:14%"><col style="width:25%"><col style="width:15%"></colgroup>' +
+              '<thead><tr><th scope="col">ลำดับ</th><th scope="col">รายการตรวจ</th><th scope="col">เครื่อง</th><th scope="col">เวลาออกผล</th><th scope="col">ผลอ่าน</th><th scope="col">สถานะ</th></tr></thead>' +
+              '<tbody>' + order.items.map(function (i, ix) { return resultRow(order, i, ix); }).join('') + '</tbody>' +
+              '</table></div>'
+            : '<div class="empty-state"><strong>ยังไม่มีผลอ่าน</strong>ส่งรายการเข้าเครื่องอย่างน้อย 1 รายการก่อน</div>') +
+          '</div>';
+
+        html += '</div></article>';
+        return html;
+      }
+
+      function renderList() {
+        var rows = visibleOrders();
+        $('#worklist').innerHTML = rows.length
+          ? rows.map(orderBlock).join('')
+          : '<div class="empty-state" style="padding:40px 16px"><strong>ไม่พบรายการ</strong>ลองเปลี่ยนคำค้นหา เครื่อง หรือช่วงวันที่</div>';
+      }
+
+      function render() { renderChips(); renderModalityMenu(); renderList(); }
+
+      /* ── toast ────────────────────────────────────────────────────────── */
+      var toastTimer = null;
+      function toast(message) {
+        var el = $('#toast');
+        el.textContent = message;
+        el.classList.add('show');
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { el.classList.remove('show'); }, 3200);
+      }
+
+      /* ── dialog helpers — ใช้ native <dialog> เหมือน LAB ────────────────
+         🔴 ห้ามใช้ confirm()/alert() ของ browser กับ flow ที่มีผลทางคลินิก */
+      function openDialog(id) {
+        var dlg = document.getElementById(id);
+        if (!dlg) return;
+        if (typeof dlg.showModal === 'function') { dlg.showModal(); }
+        else { dlg.setAttribute('open', ''); dlg.classList.add('dialog-fallback'); document.body.classList.add('modal-open'); }
+      }
+      function closeDialog(id) {
+        var dlg = document.getElementById(id);
+        if (!dlg) return;
+        if (typeof dlg.close === 'function' && dlg.open) { dlg.close(); }
+        else { dlg.removeAttribute('open'); dlg.classList.remove('dialog-fallback'); }
+        document.body.classList.remove('modal-open');
+      }
+
+      function theTestOf(order) { return (order && order.items[0]) || { name: '–', code: '', modality: '' }; }
+
+      function findOrder(id) {
+        for (var i = 0; i < ORDERS.length; i++) if (ORDERS[i].order_id === id) return ORDERS[i];
+        return null;
+      }
+      /* 🔴 X-ray ทำงานที่ระดับ "ใบ" ไม่ใช่ราย Item — 1 accession no. = 1 order (1:1)
+         ⇒ ไม่มี checkbox เลือกรายการ และ action ทั้งหมดกินทั้งใบเสมอ */
+      function waitingItems(order) {
+        return order.items.filter(function (i) { return i.state === 'waiting'; });
+      }
+
+      /* ── ผลอ่าน viewer ────────────────────────────────────────────────── */
+      function openReport(orderId, itemId) {
+        var order = findOrder(orderId);
+        if (!order) return;
+        var items = order.items.filter(function (i) {
+          return itemId ? i.id === itemId : (i.state === 'resulted' || i.state === 'dispatched');
+        });
+        $('#reportMeta').innerHTML = '<span class="mono">' + esc(order.hn) + '</span> · ' + esc(order.name) +
+          ' · <span class="mono">' + esc(order.order_no) + '</span>';
+        $('#reportBody').innerHTML = items.map(function (item) {
+          if (item.state !== 'resulted') {
+            return '<section class="report-section">' +
+              '<div class="report-head">' +
+                '<div><span class="field-label">รายการตรวจ</span><span class="field-value">' + esc(item.name) + '</span></div>' +
+                '<div><span class="field-label">เครื่อง</span><span class="field-value">' + esc(item.modality) + '</span></div>' +
+              '</div>' +
+              '<div class="report-pending">รอผลอ่าน · รายการนี้ส่งเข้าเครื่องแล้วแต่ยังไม่มีผล</div></section>';
+          }
+          var r = item.report || {};
+          return '<section class="report-section">' +
+            '<div class="report-head">' +
+              '<div><span class="field-label">รายการตรวจ</span><span class="field-value">' + esc(item.name) + '</span></div>' +
+              '<div><span class="field-label">เครื่อง</span><span class="field-value">' + esc(item.modality) + '</span></div>' +
+              '<div><span class="field-label">เวลาส่งเครื่อง</span><span class="field-value mono">' + dateText(item.dispatched_at) + ' ' + timeText(item.dispatched_at) + '</span></div>' +
+              '<div><span class="field-label">เวลาออกผล</span><span class="field-value mono">' + dateText(item.resulted_at) + ' ' + timeText(item.resulted_at) + '</span></div>' +
+            '</div>' +
+            '<h3>Findings</h3><p class="report-body">' + esc(r.findings || '') + '</p>' +
+            '<h3>Impression</h3><p class="report-body">' + esc(r.impression || '') + '</p>' +
+            '<div class="report-foot"><span>ผู้อ่านผล: ' + esc(r.reader || '–') + '</span>' +
+              '<span class="mono">' + dateText(r.read_at) + ' ' + timeText(r.read_at) + '</span></div>' +
+            '</section>';
+        }).join('<div class="modality-divider"></div>') ||
+          '<div class="empty-state"><strong>ยังไม่มีผลอ่าน</strong>รายการนี้ยังไม่ถูกส่งเข้าเครื่อง</div>';
+        openDialog('reportDialog');
+      }
+
+      /* ── ส่งเข้าเครื่อง ────────────────────────────────────────────────
+         🔴 mock เท่านั้น — ของจริงเรียก xray-cpoe-dispatch API แล้วต่อ Agent
+         🔴 Agent ล้มเหลวห้าม rollback การรับ (design §A.2 ข้อ 4)          */
+      function requestDispatch(orderId) {
+        var order = findOrder(orderId);
+        if (!order) return;
+        var picked = waitingItems(order);
+        if (!picked.length) { toast('ใบนี้ไม่มีรายการที่รอรับแล้ว'); return; }
+        state.pendingDispatch = { orderId: orderId, itemIds: picked.map(function (i) { return i.id; }) };
+        $('#dispatchMeta').innerHTML = '<span class="mono">' + esc(order.hn) + '</span> · <span class="mono">' + esc(order.order_no) + '</span>';
+        $('#dispatchCopy').innerHTML = 'ระบบจะออกเลข Accession No. ของรายการนี้ บันทึกเวลารับ ' +
+          'และส่งเข้าเครื่องผ่าน API → Agent ทันที<br>' +
+          picked.map(function (i) {
+            return '· ' + esc(i.name) + ' (' + esc(i.modality) + ') → <span class="mono">' +
+              esc(i.accession_no || nextAccession(i.modality, new Date().toISOString())) + '</span>';
+          }).join('<br>');
+        openDialog('dispatchDialog');
+      }
+
+      function confirmDispatch() {
+        var pending = state.pendingDispatch;
+        if (!pending) return;
+        var order = findOrder(pending.orderId);
+        var now = new Date().toISOString();
+        var failed = 0;
+        var issued = [];
+        pending.itemIds.forEach(function (id) {
+          order.items.forEach(function (i) {
+            if (i.id !== id) return;
+            i.state = 'dispatched';
+            /* idempotent — ส่งซ้ำต้องใช้เลขเดิม ไม่ออกเลขใหม่ */
+            if (!i.accession_no) i.accession_no = nextAccession(i.modality, now);
+            issued.push(i.accession_no);
+            i.dispatched_at = now;
+            i.dispatched_by = 'ผู้ใช้ปัจจุบัน (mock)';
+            /* จำลองความล้มเหลวของ transport กับ Portable เพื่อให้เห็นว่า
+               การรับไม่ถูก rollback และสถานะแยกจาก "ปฏิเสธ" */
+            if (i.modality === 'Portable') { i.transport_failed = true; failed++; }
+          });
+        });
+        state.pendingDispatch = null;
+        closeDialog('dispatchDialog');
+        render();
+        toast(failed
+          ? 'ออกเลข ' + issued.join(' ') + ' และรับใบแล้ว แต่ส่งเครื่องไม่สำเร็จ — ลองส่งใหม่ด้วยเลขเดิมได้'
+          : 'ส่งเข้าเครื่องเรียบร้อย · Accession No. ' + issued.join(' '));
+      }
+
+      /* ── ยกเลิกทั้ง order ─────────────────────────────────────────────── */
+      function requestCancel(orderId) {
+        var order = findOrder(orderId);
+        if (!order) return;
+        state.pendingCancel = orderId;
+        $('#cancelOrderMeta').innerHTML = '<span class="mono">' + esc(order.hn) + '</span> · <span class="mono">' + esc(order.order_no) + '</span>';
+        $('#cancelOrderCopy').innerHTML = 'ยกเลิกใบนี้ (' + esc(theTestOf(order).name) + ') · ประวัติเดิมจะไม่ถูกลบ';
+        $('#cancelReasonSelect').value = '';
+        openDialog('cancelOrderDialog');
+      }
+      function confirmCancel() {
+        var id = state.pendingCancel;
+        if (!id) return;
+        var reason = $('#cancelReasonSelect').value;
+        if (!reason) { toast('เลือกเหตุผลที่ยกเลิกก่อน'); return; }
+        var order = findOrder(id);
+        order.cancelled = true;
+        order.cancelled_at = new Date().toISOString();
+        order.cancelled_by = 'ผู้ใช้ปัจจุบัน (mock)';
+        order.cancel_reason = reason;
+        order.items.forEach(function (i) {
+          if (i.state === 'waiting') i.state = 'cancelled';
+          i.reject_reason = reason;
+          i.rejected_by = order.cancelled_by;
+        });
+        state.pendingCancel = null;
+        closeDialog('cancelOrderDialog');
+        render();
+        toast('ยกเลิก order เรียบร้อย · ทุกรายการถูกยกเลิกพร้อมกัน');
+      }
+
+      /* ── Date Range popover ───────────────────────────────────────────── */
+      var calCursor = new Date(2026, 7, 1);
+      var pickStart = '';
+      function buildCalendar(base, offset) {
+        var d = new Date(base.getFullYear(), base.getMonth() + offset, 1);
+        var year = d.getFullYear(), month = d.getMonth();
+        var first = new Date(year, month, 1).getDay();
+        var days = new Date(year, month + 1, 0).getDate();
+        var cells = [];
+        for (var i = 0; i < first; i++) cells.push('<span class="day outside"></span>');
+        for (var day = 1; day <= days; day++) {
+          var key = year + '-' + pad(month + 1) + '-' + pad(day);
+          var cls = 'day';
+          if (state.dateFrom && state.dateTo && key > state.dateFrom && key < state.dateTo) cls += ' in-range';
+          if (key === state.dateFrom || key === state.dateTo) cls += ' selected';
+          cells.push('<button class="' + cls + '" type="button" data-day="' + key + '">' + day + '</button>');
+        }
+        return '<div class="calendar"><h3 class="calendar-title">' + THAI_MONTHS[month] + ' ' + (year + 543) + '</h3>' +
+          '<div class="calendar-grid">' +
+          ['อา','จ','อ','พ','พฤ','ศ','ส'].map(function (w) { return '<span class="weekday">' + w + '</span>'; }).join('') +
+          cells.join('') + '</div></div>';
+      }
+      function renderCalendars() {
+        $('#calendars').innerHTML = buildCalendar(calCursor, 0) + buildCalendar(calCursor, 1);
+        $('#dateHint').textContent = pickStart ? 'เลือกวันสิ้นสุด' : 'เลือกวันเริ่มต้น';
+      }
+      function syncDateLabel() {
+        var trigger = $('#dateTrigger');
+        if (state.dateFrom && state.dateTo) {
+          $('#dateValue').textContent = state.dateFrom + ' ถึง ' + state.dateTo;
+          trigger.classList.add('has-value');
+          $('#dateClear').hidden = false;
+        } else {
+          $('#dateValue').textContent = 'Date Range';
+          trigger.classList.remove('has-value');
+          $('#dateClear').hidden = true;
+        }
+      }
+      function closeDatePopover() {
+        $('#datePopover').hidden = true;
+        $('#dateTrigger').setAttribute('aria-expanded', 'false');
+      }
+
+      /* ── modality dropdown ────────────────────────────────────────────── */
+      function closeModalityMenu() {
+        $('#modalityMenu').hidden = true;
+        $('#modalityField').classList.remove('open');
+        $('#modalityTrigger').setAttribute('aria-expanded', 'false');
+      }
+
+      /* ── events ───────────────────────────────────────────────────────── */
+      $('#searchInput').addEventListener('input', function (e) {
+        state.query = e.target.value.trim();
+        $('#clearSearch').hidden = !state.query;
+        render();
+      });
+      $('#searchInput').addEventListener('keyup', function (e) { if (e.key === 'Enter') render(); });
+      $('#clearSearch').addEventListener('click', function () {
+        state.query = '';
+        $('#searchInput').value = '';
+        $('#clearSearch').hidden = true;
+        render();
+      });
+      $('#searchButton').addEventListener('click', render);
+
+      $('#modalityTrigger').addEventListener('click', function () {
+        var open = $('#modalityMenu').hidden;
+        closeDatePopover();
+        $('#modalityMenu').hidden = !open;
+        $('#modalityField').classList.toggle('open', open);
+        this.setAttribute('aria-expanded', String(open));
+        if (open) renderModalityMenu();
+      });
+      $('#modalityMenu').addEventListener('click', function (e) {
+        var option = e.target.closest('[data-modality]');
+        if (!option) return;
+        state.modality = option.getAttribute('data-modality');
+        closeModalityMenu();
+        render();   /* 🔴 กรองทันที ไม่ต้องกด Search ซ้ำ (design §6.2) */
+        toast(state.modality ? 'กรองเฉพาะเครื่อง ' + state.modality : 'แสดงทุกเครื่องในหน่วยงาน');
+      });
+
+      $('#dateTrigger').addEventListener('click', function () {
+        var open = $('#datePopover').hidden;
+        closeModalityMenu();
+        $('#datePopover').hidden = !open;
+        this.setAttribute('aria-expanded', String(open));
+        if (open) renderCalendars();
+      });
+      $('#dateClear').addEventListener('click', function (e) {
+        e.stopPropagation();
+        state.dateFrom = state.dateTo = ''; pickStart = '';
+        syncDateLabel(); render();
+      });
+      $('#dateReset').addEventListener('click', function () {
+        state.dateFrom = state.dateTo = ''; pickStart = '';
+        syncDateLabel(); renderCalendars(); render();
+      });
+      $('#datePopover').addEventListener('click', function (e) {
+        var nav = e.target.closest('[data-cal-nav]');
+        if (nav) {
+          calCursor = new Date(calCursor.getFullYear(), calCursor.getMonth() + Number(nav.getAttribute('data-cal-nav')), 1);
+          renderCalendars();
+          return;
+        }
+        var day = e.target.closest('[data-day]');
+        if (!day) return;
+        var key = day.getAttribute('data-day');
+        if (!pickStart) {
+          pickStart = key; state.dateFrom = key; state.dateTo = '';
+        } else {
+          if (key < pickStart) { state.dateFrom = key; state.dateTo = pickStart; }
+          else { state.dateFrom = pickStart; state.dateTo = key; }
+          pickStart = '';
+          closeDatePopover();
+          render();          /* ช่วงครบแล้วกรองทันที */
+        }
+        syncDateLabel();
+        renderCalendars();
+      });
+
+      $('#statusStrip').addEventListener('click', function (e) {
+        var chip = e.target.closest('[data-filter-key]');
+        if (!chip) return;
+        state.status = chip.getAttribute('data-filter-key');
+        render();
+      });
+
+      document.addEventListener('click', function (e) {
+        if (!e.target.closest('#modalityField')) closeModalityMenu();
+        if (!e.target.closest('.date-range')) closeDatePopover();
+
+        var closer = e.target.closest('[data-close-dialog]');
+        if (closer) { closeDialog(closer.getAttribute('data-close-dialog')); return; }
+
+        var toastBtn = e.target.closest('[data-toast]');
+        if (toastBtn) { toast(toastBtn.getAttribute('data-toast')); return; }
+
+        var block = e.target.closest('.patient-block');
+        var orderId = block && block.getAttribute('data-order-id');
+
+        if (e.target.closest('[data-expand]') && orderId) {
+          state.expanded[orderId] = !state.expanded[orderId];
+          renderList();
+          return;
+        }
+        var tab = e.target.closest('[data-panel]');
+        if (tab && !tab.disabled && block) {
+          $$('.detail-tab', block).forEach(function (t) {
+            var on = t === tab;
+            t.classList.toggle('active', on);
+            t.setAttribute('aria-selected', String(on));
+          });
+          $$('.detail-view', block).forEach(function (v) {
+            v.hidden = v.getAttribute('data-view') !== tab.getAttribute('data-panel');
+          });
+          return;
+        }
+        var reportBtn = e.target.closest('[data-open-report]');
+        if (reportBtn) {
+          openReport(reportBtn.getAttribute('data-order-id'), reportBtn.getAttribute('data-item-id') || '');
+          return;
+        }
+        if (e.target.closest('[data-retest]')) {
+          openDialog('retestDialog');
+          return;
+        }
+        var bulk = e.target.closest('[data-bulk]');
+        if (bulk && orderId) {
+          var action = bulk.getAttribute('data-bulk');
+          if (action === 'dispatch') requestDispatch(orderId);
+          if (action === 'cancel') requestCancel(orderId);
+        }
+      });
+
+      $('#dispatchConfirm').addEventListener('click', confirmDispatch);
+      $('#cancelOrderConfirm').addEventListener('click', confirmCancel);
+      $('#retestConfirm').addEventListener('click', function () {
+        closeDialog('retestDialog');
+        toast('สร้าง Order No. ใหม่และส่งไปที่รอรับแล้ว · X-ray ไม่มี Lab No. ให้สร้าง');
+      });
+
+      document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        closeModalityMenu();
+        closeDatePopover();
+      });
+
+      /* ── boot ─────────────────────────────────────────────────────────── */
+      /* ?open=<order_id,…> เปิดแถวไว้ล่วงหน้าเพื่อรีวิว · ?modality=<ชื่อเครื่อง>
+         ใช้ตอนตรวจงานเท่านั้น ไม่ใช่ requirement ของหน้าจริง */
+      (function () {
+        var params = new URLSearchParams(location.search);
+        var open = params.get('open');
+        if (open) open.split(',').forEach(function (id) { if (id.trim()) state.expanded[id.trim()] = true; });
+        var modality = params.get('modality');
+        if (modality && MODALITY_LABELS.indexOf(modality) >= 0) state.modality = modality;
+      })();
+      syncDateLabel();
+      render();
+    })();
+  </script>
+</body>
+</html>

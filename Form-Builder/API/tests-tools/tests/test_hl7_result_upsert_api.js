@@ -7,9 +7,18 @@ const REPORT_FORM_ID = '6a8d4334f851000f28e5025b'
 const RESULT_ITEM_FORM_ID = '6a8bc91df851000f28e501fb'
 const STATUS_FORM_ID = '6a7daa3e8d398c11cf2fe869'
 
-const apiBody = fs.readFileSync(path.join(__dirname, 'hl7_result_upsert_api.js'), 'utf8')
-const partial = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/agent_result_partial.json'), 'utf8'))
-const finalResult = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/agent_result_final.json'), 'utf8'))
+const apiBody = fs.readFileSync(
+  path.join(__dirname, '../../api-factory/processes/hl7_result_upsert_api.js'),
+  'utf8',
+)
+const partial = JSON.parse(fs.readFileSync(
+  path.join(__dirname, '../../../SDForm/api-factory/examples/agent_result_partial.json'),
+  'utf8',
+))
+const finalResult = JSON.parse(fs.readFileSync(
+  path.join(__dirname, '../../../SDForm/api-factory/examples/agent_result_final.json'),
+  'utf8',
+))
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
 const Process = new AsyncFunction('params', 'userInfo', 'app', apiBody)
 
@@ -108,6 +117,23 @@ const status = () => rows(STATUS_FORM_ID)[0]
   assert.strictEqual(invalidAlias.code, 'INVALID_PAYLOAD')
   assert.ok(invalidAlias.errors.some(message => message.includes('filler_order_no/labno/lab_no')))
   assert.strictEqual(rows(RECEIPT_FORM_ID).length, 0, 'conflicting LAB NO. aliases must not create a receipt')
+
+  const oversized = clone(partial)
+  oversized.result_uid = 'X'.repeat(201)
+  const invalidLength = await Process(oversized, userInfo, mockApp)
+  assert.strictEqual(invalidLength.success, false)
+  assert.strictEqual(invalidLength.code, 'INVALID_PAYLOAD')
+  assert.ok(invalidLength.errors.some(message => message.includes('result_uid')))
+  assert.strictEqual(rows(RECEIPT_FORM_ID).length, 0, 'oversized schema fields must not create a receipt')
+
+  const emptyCriticalRule = clone(partial)
+  emptyCriticalRule.result_uid = 'RESULT-TEST-EMPTY-RULE'
+  emptyCriticalRule.items[0].critical_low_rule = ''
+  const invalidCriticalRule = await Process(emptyCriticalRule, userInfo, mockApp)
+  assert.strictEqual(invalidCriticalRule.success, false)
+  assert.strictEqual(invalidCriticalRule.code, 'INVALID_PAYLOAD')
+  assert.ok(invalidCriticalRule.errors.some(message => message.includes('critical_low_rule')))
+  assert.strictEqual(rows(RECEIPT_FORM_ID).length, 0, 'empty minLength field must not create a receipt')
 
   const first = await Process(clone(partial), userInfo, mockApp)
   assert.strictEqual(first.success, true)
@@ -220,6 +246,11 @@ const status = () => rows(STATUS_FORM_ID)[0]
   assert.strictEqual(receiptByUid(unmatchedPayload.result_uid).receipt_status, 'unmatched')
   assert.strictEqual(rows(REPORT_FORM_ID).length, reportCountBeforeUnmatched)
   assert.strictEqual(rows(RESULT_ITEM_FORM_ID).length, itemCountBeforeUnmatched)
+  const unmatchedRetry = await Process(clone(unmatchedPayload), userInfo, mockApp)
+  assert.strictEqual(unmatchedRetry.success, false)
+  assert.strictEqual(unmatchedRetry.duplicate, true)
+  assert.strictEqual(unmatchedRetry.code, 'DUPLICATE_UNPROCESSED_RESULT_UID')
+  assert.strictEqual(unmatchedRetry.data.receipt_status, 'unmatched')
 
   const regressionPayload = clone(partial)
   regressionPayload.result_uid = 'RESULT-TEST-REGRESSION-005'
@@ -336,12 +367,14 @@ const status = () => rows(STATUS_FORM_ID)[0]
   assert.strictEqual(drafts.size, 0)
   console.log('PASS: API Process body syntax')
   console.log('PASS: invalid wire types are rejected before write')
+  console.log('PASS: JSON Schema v2 string lengths are enforced before write')
   console.log('PASS: partial result creates Receipt -> Report -> Result Item and critical snapshot')
   console.log('PASS: duplicate result_uid creates no duplicate records')
   console.log('PASS: incomplete final is retained as unmatched receipt without clinical materialization')
   console.log('PASS: final result appends a stage Report and item snapshots, then completes work status')
   console.log('PASS: corrected result appends another stage and preserves prior snapshots/history')
   console.log('PASS: order_no/LAB NO./HN/VN mismatch keeps receipt unmatched only')
+  console.log('PASS: retry of an unprocessed receipt is not falsely acknowledged as success')
   console.log('PASS: stage regression is blocked after corrected/completed results')
   console.log('PASS: same item version with different value is blocked')
   console.log('PASS: labno alias is accepted and rule-only critical data is stored as a non-critical warning')

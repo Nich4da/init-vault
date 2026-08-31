@@ -1,65 +1,46 @@
 ---
 type: meta
 title: Hot Cache
-updated: 2026-08-28
+updated: 2026-08-31
 ---
 
 # 🔥 Hot Cache — read this first
 
 > Working-state cache; cap 500 words. Vault: `/Users/nichada/Documents/Initcraft skill`.
 
-## Current — LAB one-page HTML mockup
+## LAB receive/result flow — revised 2026-08-31
 
-- Conversation reset resolved; `00-home/handoff.md` is inactive.
-- Working UI: `02-his/ui/lab-workbench-stock-pattern-mockup.html`. It is one page,
-  follows the draw.io/Drug visual pattern, retains all LAB data, has one Date Range,
-  five status filters, searchable specimen dropdowns, item/bulk receive-reject actions,
-  colored patient pills, and readonly result popup with pencil-edit confirmation.
-- HTML/JS parsing and desktop/mobile browser checks passed. The file remains untracked.
+- Physical receipt is independent from Agent payload readiness. HIS records receive time, assigns Lab No., and accepts first. Missing collection time parks `awaiting_collection`; missing priority/test/specimen code parks `awaiting_outbound_data`; Agent whole-order dedupe parks a later Item at `awaiting_agent_append`. Receive time never substitutes for collection time.
+- Removed the pre-receive Agent `PRECHECK`; missing priority/specimen code now returns received success without calling Agent. Worklist uses `await field.confirm(...)`. All client Process calls now use authenticated `globalThis.fetch` with `{params}` because callback-style `userState.runProcess` caused successful HTTP responses to appear as `API run success` errors.
+- The `order` tab has no Item-level result-action column. `ออกผล` is enabled immediately and lists every active Item with `ดูผล`, even before receipt. `ดูผล` opens read-only before receipt; after receipt the pencil enables Manual entry for every section.
+- Result, Unit, interpretation, reference range are editable. `ค่าก่อนหน้า` is readonly Item revision history; Manual never overwrites Agent/LIS rows.
+- Doctor display strips email decorations and empty brackets: `ศิรชัย ปิยะชน ( )` → `ศิรชัย ปิยะชน`.
 
-## Completed mockup behavior
+Changed: receive/worklist APIs, Worklist generator/JSON/tests, Lab design, and HTML mockup.
 
-- Kept the existing `ออกผลแล้ว` filter only. Result order badges now distinguish
-  `ออกผลบางส่วน` and `ออกผลครบ`; no additional filter chip.
-- Partial means at least one test has a result and at least one is pending. The order
-  result popup shows every test: completed result components continue downward in the
-  current pattern; pending tests show `รอผล`; long text wraps and grows the row.
-- Partial-order PDF remains visible but disabled. Complete-order PDF uses the latest
-  corrected result. Top `ดูผล` opens all results; per-test `ดูผล` remains. Waiting and
-  received orders keep top action `ดู` for patient EMR.
-- Resulted + normalized exact HN shows all years; explicit Date Range narrows it.
-  Otherwise lists default to today. Date filtering uses request, receive, result, or
-  rejection timestamp according to row status. Calendar now navigates months/years.
-- Unified cancelled wording as `ปฏิเสธ`. Added one rejected mock order, expanded test
-  detail, reason/canceller popup, and a custom confirmation flow for `ตรวจใหม่`.
-  Retest preserves the original, creates linked Order/Lab numbers and current local
-  request time, copies patient/doctor/priority/coverage/tests, then opens in waiting.
-- Visible Agent/API remarks record two unresolved contracts: required components and
-  test-level completeness; mixed accept/reject support and resulting order status.
-- Keep current aggregate mock counts.
-- Added native-dialog fallback for the in-app browser.
+Verified: Agent submit, Lab No., receive/worklist API, Form tests, and SDForm validator (2 widgets) pass.
 
-## Verification
+## Git checkpoint and deployment next
 
-- JavaScript syntax and duplicate-ID checks passed; no browser console errors.
-- Browser checks passed partial/complete popup composition, pending rows, PDF gating,
-  per-test versus all-test editing, exact-HN all-history search, Date Range narrowing,
-  month navigation, rejection popup, retest linkage/copying, and original preservation.
-- Responsive check passed at 390 px: body has no page overflow; dense worklist stays in
-  its horizontal scroller. Desktop tested at 1440 px.
+Re-import bundle: `02-his/handoff/lab-cpoe-reimport-20260831-v2.zip` (four ID-labelled API bodies, Form JSON, Thai instructions, checksums). Replace existing IDs; creating new IDs requires remapping. Agent URL/key are placeholders; configure only in the protected process and rotate the previously file-stored key. Perform runtime/Agent UAT.
 
-## Integration checkpoint
+The repository work was checkpointed on `main` and pushed on 2026-08-31. Automated API/Form regressions and SDForm validation passed, including the byte-identical re-import bundle at `02-his/handoff/lab-cpoe-reimport-20260831-v2/`. Obsidian workspace/graph state and the nested `01-knowledge-base/.obsidian/` local configuration were intentionally excluded.
 
-- HL7 result receiver and three Forms remain UAT candidates, not production-ready.
-  Authoritative note: `02-his/handoff/lab-result-api-readiness.md`.
-- Preserve append-only final/corrected history and idempotency. Agent/API must define
-  which result components are required before a multi-component test is complete; UI
-  must not infer clinical completion.
+## X-ray — mockup + design, rev 4, 2026-08-31
 
-## Guardrails
+Artifacts: `02-his/ui/xray-workbench-mockup.html` and `design/Xray_*.md`; full spec is there.
 
-- Before SDForm edits read `02-initcraft/governance/from-codex-backup/SDFORM_JSON_RULES.md`
-  and run `Form-Builder/seed/tests-tools/validators/check_sdform_json.py`.
-- Existing `backup/`, promoted best practices, source materials, credentials, and
-  unrelated local changes are immutable/out of scope.
-- Refresh this cache after state changes. Conversation reset handoff is inactive.
+Core rules: **1 order = 1 accession = 1 test** (LAB is 1 order, many tests), so a row is one exam
+— no item checkboxes, no item-level reject, detail buttons are only `ส่งเข้าเครื่อง` and
+`ยกเลิก order`. No specimen, no Lab No. Every test is machine-bound at order time. The machine
+dropdown (19 values, `Select all`) sits between Date Range and Search and its filter also drives
+the chip counts. Two numbers: `Order No.` from CPOE (`20260831011`); `Accession No.` issued by
+radiology at dispatch as a **test-level column**, `YYYYMMDD` + modality code + 3-digit running
+**per modality per day** (`20260831CT001`).
+
+Working folder: **`Form-Builder/SDForm/X-ray/`** with `design.md` and `spec.md`; no SDForm JSON yet.
+
+Open: real modality codes for the 10 dropdown values missing from `section.json` (D-X14, mockup
+invents them); accession length 13-15 chars (D-X15); code case (D-X16); 999 wrap guard (D-X12);
+the Agent validator requires `labno`/`specimen_code`, so X-ray cannot use it as-is (D-X3). The
+draw.io link is unreadable here — export it into `02-his/draw_design/`.

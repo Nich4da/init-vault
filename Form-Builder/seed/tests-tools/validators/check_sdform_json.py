@@ -16,6 +16,7 @@
 import json, os, sys, collections
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+FORMS_DIR = os.path.abspath(os.path.join(HERE, '..', '..', '..', 'SDForm', 'form-factory', 'forms'))
 
 # ฟอร์มแม่แบบ — ระบบ export มา หรือใช้งานจริงอยู่แล้ว ใช้เป็นแหล่งอ้างอิงชุด options
 GOLD = ['person.json', 'disease.json', 'EMR.json', 'ฟอร์มปลายทาง.json',
@@ -57,7 +58,7 @@ def load_reference():
     เพราะ widget รุ่นใหม่มีช่องเพิ่มที่รุ่นเก่าไม่มี)"""
     seen = collections.defaultdict(list)
     for fn in GOLD:
-        p = os.path.join(HERE, fn)
+        p = os.path.join(FORMS_DIR, fn)
         if not os.path.exists(p):
             continue
         try:
@@ -75,7 +76,7 @@ def load_keyless():
     ยืนยันแล้ว 2026-08-25: list-ui ที่มี key จะขึ้นเป็น col ว่าง เอา key ออกแล้วขึ้นทันที"""
     tot, keyed = collections.Counter(), collections.Counter()
     for fn in GOLD:
-        p = os.path.join(HERE, fn)
+        p = os.path.join(FORMS_DIR, fn)
         if not os.path.exists(p):
             continue
         try:

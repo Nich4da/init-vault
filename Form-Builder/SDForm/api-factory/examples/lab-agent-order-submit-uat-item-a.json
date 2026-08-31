@@ -1,0 +1,39 @@
+{
+  "payload": {
+    "order_no": "UAT-R260831-APPEND-01",
+    "labno": "1069999901",
+    "hn": "HN-UAT-25690831-01",
+    "visit_id": "VN-UAT-25690831-01",
+    "ordered_at": "20260831100000",
+    "requested_at": "20260831095500",
+    "priority": "R",
+    "note": "UAT transport only - no clinical use",
+    "patient_prefix": "ด.ช.",
+    "patient_first_name": "ผู้ป่วย",
+    "patient_last_name": "ทดสอบระบบ",
+    "birth_date": "20200101",
+    "sex": "ชาย",
+    "visit_type": "OPD",
+    "doctor_name": "แพทย์ UAT",
+    "clinic_code": "UAT",
+    "clinic_name": "คลินิกทดสอบระบบ",
+    "station": "LAB-UAT",
+    "mongo_form_id": "UAT-CPOE-ORDER",
+    "mongo_data_id": "UAT-ITEM-C10",
+    "items": [
+      {
+        "seq": 25,
+        "test_code": "1010UR",
+        "test_name": "Urine calcium",
+        "specimen_code": "UR",
+        "specimen_name": "Urine / Urine spot",
+        "collector_code": "UAT-COLLECTOR",
+        "collector_name": "เจ้าหน้าที่เก็บตัวอย่าง UAT",
+        "lab_code": "BC",
+        "collected_at": "20260831100500",
+        "received_at": "20260831101500",
+        "receiver": "LAB-UAT"
+      }
+    ]
+  }
+}

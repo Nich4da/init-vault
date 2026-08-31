@@ -1,6 +1,10 @@
 const assert = require('assert')
 const fs = require('fs')
+const path = require('path')
 const vm = require('vm')
+
+const FORM_DIR = path.join(__dirname, '../../../SDForm/form-factory/forms')
+const SCHEMA_DIR = path.join(__dirname, '../../../SDForm/api-factory/schemas')
 
 const FILES = {
   report: 'Result_Report_Manual_Entry_Agent_Result_v1.json',
@@ -14,12 +18,15 @@ const FORM_IDS = {
 }
 
 const forms = Object.fromEntries(
-  Object.entries(FILES).map(([name, file]) => [name, JSON.parse(fs.readFileSync(file, 'utf8'))]),
+  Object.entries(FILES).map(([name, file]) => [
+    name,
+    JSON.parse(fs.readFileSync(path.join(FORM_DIR, file), 'utf8')),
+  ]),
 )
-const schema = JSON.parse(fs.readFileSync('schemas/agent-to-his-result.schema.json', 'utf8'))
-const listTemplateForm = JSON.parse(fs.readFileSync('Lab_Result_Inbound_Receive_User_View_EMR_Person_v2.json', 'utf8'))
-const personTemplateForm = JSON.parse(fs.readFileSync('person.json', 'utf8'))
-const diseaseTemplateForm = JSON.parse(fs.readFileSync('disease.json', 'utf8'))
+const schema = JSON.parse(fs.readFileSync(path.join(SCHEMA_DIR, 'agent-to-his-result-v2.schema.json'), 'utf8'))
+const listTemplateForm = JSON.parse(fs.readFileSync(path.join(FORM_DIR, 'Lab_Result_Inbound_Receive_User_View_EMR_Person_v2.json'), 'utf8'))
+const personTemplateForm = JSON.parse(fs.readFileSync(path.join(FORM_DIR, 'person.json'), 'utf8'))
+const diseaseTemplateForm = JSON.parse(fs.readFileSync(path.join(FORM_DIR, 'disease.json'), 'utf8'))
 
 function walk(value, output = []) {
   if (Array.isArray(value)) {
@@ -111,6 +118,7 @@ const schemaToReceipt = {
 for (const property of schema.required) {
   assert(receiptNames.has(schemaToReceipt[property]), `Receipt missing Agent field ${property}`)
 }
+assert(receiptNames.has('filler_order_no'), 'Receipt missing normalized LAB NO. field')
 assert(receiptNames.has('raw_payload_json'))
 assert.strictEqual(byName(forms.receipt, 'record_kind').options.defaultValue, 'receipt')
 assert.strictEqual(byName(forms.report, 'record_kind').options.defaultValue, 'report')

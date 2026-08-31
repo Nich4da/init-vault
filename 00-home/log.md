@@ -354,3 +354,65 @@ Append-only, chronological. Newest at the bottom. Each entry header is
 - กำหนดว่า static validation อย่างเดียวไม่พอ; เป้าหมายด้าน UI ต้องมี Builder/Preview evidence และเป้าหมายด้าน data/workflow ต้องมี runtime evidence
 - ต้นแบบที่ promote แล้วเป็น immutable; การ reuse ต้อง copy ไป `form-factory/forms/` และ improvement ต้องสร้าง version ใหม่
 - อัปเดต CLAUDE, AGENTS, README, SDForm README, migration manifest และ Hot Cache ตามกฎใหม่
+
+## [2026-08-27] note | Revalidated HL7 result API and three result forms
+- ซ่อม path ของ API/form/Viewer regression tests และ SDForm validator หลังย้าย artifact library
+- `hl7_result_upsert_api.js` บังคับ string length ตาม Agent result schema v2 และไม่ตอบ success ให้ duplicate receipt ที่ยัง error/unmatched
+- API regression ผ่าน partial, final, corrected, duplicate, unmatched, stale/version conflict และ critical-decision cases
+- Receipt, Report, Result Item และ Viewer ผ่าน SDForm static validator; prior live evidence ยังพิสูจน์เฉพาะ partial + processed duplicate
+- เพิ่ม `02-his/handoff/lab-result-api-readiness.md`; สถานะเป็น UAT-ready candidate ยังไม่ production-ready และยังไม่ promote เป็น Best Practice
+
+## [2026-08-30] design | Frozen LAB mockup as SDForm implementation contract
+- ผู้ใช้กำหนดให้สร้าง `design/` และ `Form-Builder/SDForm/Lab/` เป็น path ใหม่สำหรับสเปกและงาน Form ระบบ LAB
+- เพิ่ม `design/Lab_design.md` รวม visual tokens, typography, spacing, exact component dimensions, one-page layout, interaction, status/search/date/result rules, integration boundaries, open decisions และ acceptance checklist
+- เพิ่ม decision record และ concise implementation handoff ตาม reference-design-contract พร้อมแยก observed/provided/inferred evidence
+- เพิ่ม `Form-Builder/SDForm/Lab/README.md`; รอบนี้ยังไม่สร้างหรือแก้ SDForm JSON
+- อัปเดต README, AGENTS, CLAUDE และ Index ให้ path ใหม่เป็นส่วนหนึ่งของโครง repository ที่ผู้ใช้อนุมัติ
+
+## [2026-08-30] design | Defined CPOE-to-LAB integration execution checklist
+- ยืนยัน CPOE Order เป็นหัวใบ/การเงินหนึ่งใบ, LAB NO. ต่อ Item, หลาย section ต่อ Order และ routing ด้วย Item section
+- ตรวจ MongoDB แบบ read-only พบ `sub_order` group แตกเป็น child transaction rows จริง แต่ transaction ไม่เก็บ set provenance; `lab_parent` เป็น exclusive parent/child คนละกติกา
+- เพิ่ม `design/lab-cpoe-integration-checklist.md`: ไม่สร้าง Order mirror, เริ่มด้วย Item-first worklist API, join Order/master/section/Organization และใช้ snapshot-first/fallback-master
+- แยก P0 read API, P1 additive CPOE fixes, P2 LAB JSON, P3 receive/reject/reorder, P4 reuse Result Receipt/Report/Item pipeline
+- เพิ่ม checklist ใน implementation handoff และ Index; ไม่มีการเขียนฐานข้อมูลหรือแก้ SDForm JSON
+
+## [2026-08-30] design | Confirmed LAB result overwrite and EMR diagnosis source
+- ผู้ใช้ยืนยันว่าแก้ผลให้ทับ current Result Item และทับชื่อ/เวลาเป็นผู้แก้ล่าสุด ไม่เก็บรายชื่อผู้แก้ก่อนหน้าใน clinical result
+- Technical Receipt ยังแยกไว้สำหรับรับ Agent payload/deduplicate; result API/tests เดิมที่คาดหวัง append corrected snapshots ต้องปรับในรอบ result integration
+- ยืนยัน Diagnosis มาจาก EMR treatment ของ VN และปุ่ม EMR ผูกกับแต่ละ Order
+- เพิ่ม UAT orders ใน checklist: C1 parent, C25-CD group และ Order ข้าม section C2 + MS1
+
+## [2026-08-30] implementation | Started LAB CPOE worklist Step 1
+- เพิ่ม read-only API Factory body `lab_cpoe_worklist_api.js`: Item-first, section/Organization fail-closed routing, snapshot-first/master fallback, Order grouping, exact HN/date/priority/pagination
+- เพิ่ม local AsyncFunction test ครอบคลุม BC unit access, denied cross-section request, manager multi-section, status defaults, priority filtering, invalid date, missing unit และ unauthenticated caller; test ผ่าน
+- ตรวจ MongoDB pipeline แบบ read-only: BC sent Orders join ได้และคืน specimen completeness; C25-CD draft children ทั้ง 4 derive `set_code=C25-CD` ได้
+- ไม่ deploy API, ไม่เขียนฐานข้อมูล และยังไม่สร้าง LAB SDForm JSON
+
+## [2026-08-30] implementation | Wired LAB CPOE worklist SDForm v1
+- ผู้ใช้สร้าง API Factory Process `6a9434c3422c1ca959829d5e`; บันทึก ID ใน local API artifact/checklist โดยยังไม่อ้างว่า deployed runtime ผ่าน
+- เพิ่ม `Form-Builder/SDForm/Lab/lab-cpoe-worklist-waiting-v1.json` จาก grid/vue-ui templates ที่มีอยู่ ไม่แก้ backup/best-practice
+- Candidate เรียก process ผ่าน authenticated `runProcess`, มี 4 status filters, exact HN/date/priority, pagination, expandable Orders, Item selection และแสดง specimen completeness
+- ปุ่ม Receive/Reject/Cancel/EMR ถูก guard ไว้จนมี write API/form mapping; JSON, event syntax, process-binding harness, SDForm validator และ API regression ผ่าน
+- ยังต้อง import เข้า Builder โดยไม่เลือก widget, ตรวจ Preview และทดสอบ response จริงด้วยบัญชี LAB
+
+## [2026-08-30] implementation | Realigned LAB SDForm v1 to canonical HTML
+- ปรับ `lab-cpoe-worklist-waiting-v1.json` ให้ใช้ header, toolbar, status chips, 12-column patient row, expanded Item table และ responsive layout ตาม `lab-workbench-stock-pattern-mockup.html`
+- ถอด Organization badge, Priority/Clear toolbar, worklist column-header row, section list, panel provenance และข้อความ `read-only v1` ออกจาก UI
+- ข้อความเหนือรายการเหลือเฉพาะ `แสดง X Order จากทั้งหมด Y`; ปุ่มรับ specimen/ปฏิเสธ/ยกเลิกยังคงอยู่ตามแบบและยัง guard ระหว่างรอ write API
+- JSON/event parse, static UI contract, process-binding harness, SDForm validator และ API regression ผ่าน; Builder/Preview/deployed runtime ยังต้องตรวจจริง
+
+## [2026-08-30] implementation | Applied Drug & Stock Stock structure to LAB worklist
+- ใช้ `Form-Builder/SDForm/sdform_module/Drug&Stock/Drug&Stock` tab Stock และ screenshot ผู้ใช้เป็นโครงอ้างอิง: compact Element Plus toolbar, dropdown, status chips, aligned header และ expandable row; รายละเอียด clinical/LAB ยังใช้ดีไซน์ LAB เดิม
+- เพิ่ม Section dropdown จาก `sections` ที่ API คืนเฉพาะ authenticated Organization context; การเลือก dropdown ส่ง `section_codes` กลับ API ซึ่งยังปฏิเสธ section นอกสิทธิ์แบบ fail-closed
+- เพิ่ม live Organization-unit watcher แบบเดียวกับ App Viewer pattern: เปลี่ยน unit แล้วล้าง section/expansion และโหลดรายการ/counts ใหม่ พร้อม request sequence ป้องกัน response เก่าทับผลใหม่
+- ชื่อแพทย์ตัด email suffix ออกจากข้อความแสดงผล; responsive ยุบ header ที่ tablet และแปลง Order/Item details เป็น card layout บน mobile
+- API regression, JSON/event parse, doctor/section behavior harness และ SDForm validator ผ่าน; deployed Process body และ Builder/Preview ยังต้องอัปเดต/ตรวจจริง
+
+## [2026-08-30] implementation | Finalized Organization-routed LAB worklist UI and CPOE/EMR entry points
+- ถอด header/subtitle และ Section dropdown ออกจาก LAB Form; หน้าเริ่มที่ search toolbar และ reload ตาม App Organization โดยอัตโนมัติ
+- เปลี่ยน expanded Item จาก boxed table เป็น borderless grid แบบ Drug & Stock, คืน specimen dropdown และแสดงอายุ snapshot ตรงตัว เช่น `3y 3m 3d`
+- API คืน age จาก `order.vid.pid.age`, specimen options จาก master และ regression บังคับให้ section filter เกิดก่อน Order grouping เพื่อรองรับ Order เดียวข้าม Bio/Hemato
+- ปุ่ม Create เปิด CPOE Order App `6a927860422c1ca959829d26`; เพิ่ม manual VN search + patient card ใน `CPOE_app.json`
+- ปุ่ม EMR เปิด `6a4f64e7f8cdfc54cec16488` read-only; `EMR.json` รองรับ deep-link ไป Visit Tran `6a461235e521219e514d1c4b`
+- ยืนยันว่า CPOE/EMR ทั้งสองจุด reuse Form หลัก ID เดิม ไม่สร้าง Form ใหม่; JSON เป็น working definition สำหรับอัปเดต behavior ของ Form เดิมเท่านั้น
+- API/Form tests, lifecycle compile, JSON parse, `git diff --check` และ SDForm validator ผ่าน; Builder/Preview/deployed runtime ยังรอทดสอบ

@@ -46,8 +46,10 @@ immediately after Hot Cache and before this file.
 │   ├── skills-archive/          # older/uninstalled skill packages kept for reference
 │   ├── governance/              # workspace rules and SDForm safety references
 │   └── MIGRATION_MANIFEST.md    # artifact catalog and source provenance
+├── design/                      # user-approved system design contracts and handoffs
 ├── Form-Builder/                # implementation artifacts grouped by file type
 │   ├── SDForm/                  # every migrated JSON artifact
+│   │   ├── Lab/                 # working area for the new LAB Workbench Forms
 │   │   ├── backup/              # read-only, versioned Form reference snapshots
 │   │   ├── best-practices/      # proven, sanitized, immutable reusable Form patterns
 │   │   ├── form-factory/        # SDForm exports, JSON specifications/prototypes

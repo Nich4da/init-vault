@@ -2,7 +2,7 @@
 type: synthesis
 title: Wiki Index
 created: 2026-07-16
-updated: 2026-08-27
+updated: 2026-08-30
 tags: [meta, index]
 ---
 
@@ -124,6 +124,15 @@ _Overviews, comparisons, evolving theses, and filed query outputs._
 - [[his-opd-flow]] — end-to-end HIS OPD patient journey (register → EMR → billing → claims → data feeds) + module/transaction-table map. `2026-07-19`
 - [[his-lab-module-plan]] — ⚠ **SUPERSEDED 2026-08-16** by [[his-lab-workbench-handoff]] and siblings — LAB module scope/plan: 9 screens, proposed `zdata_lab_*` model, 18 blocking decisions. Kept for history. `2026-07-31` (revised `2026-08-04`)
 - [[his-lab-worklist-ui]] — **the 3-tab LAB worklist UI design** (S2/S3/S4) for งานชีวเคมี; clickable mockup at `02-his/ui/lab-worklist-mockup.html`. `2026-08-04`
+
+## Design and implementation contracts
+_User-approved artifact specifications outside the maintained knowledge-base layer._
+
+- [LAB design and functional specification](../design/Lab_design.md) — binding visual tokens, dimensions, layout, workflow/state rules, integration boundaries and SDForm acceptance checklist. `2026-08-30`
+- [LAB design decision record](../design/Lab_design-contract.md) — evidence, keep/change/do-not-copy boundaries, risks and quality gate. `2026-08-30`
+- [LAB implementation handoff](../design/Lab_implementation-handoff.md) — concise instructions for the first SDForm build. `2026-08-30`
+- [LAB CPOE integration checklist](../design/lab-cpoe-integration-checklist.md) — confirmed Order/Item decisions, panel evidence, worklist API contract, CPOE fixes, and staged path to the first real-data LAB SDForm. `2026-08-30`
+- [LAB SDForm working area](../Form-Builder/SDForm/Lab/README.md) — user-approved destination and JSON safety guardrails. `2026-08-30`
 
 ---
 

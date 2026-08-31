@@ -159,6 +159,14 @@ const requiredItemFields = [
 const isoPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?\+07:00$/
 const sequencePattern = /^\d+$/
 
+const validateStringLength = (value, path, maxLength, errors, minLength) => {
+  if (value == null) return
+  if (typeof value !== 'string') return
+  const minimum = minLength == null ? 0 : minLength
+  if (value.length < minimum) errors.push(path + ' ต้องยาวอย่างน้อย ' + minimum + ' ตัวอักษร')
+  if (value.length > maxLength) errors.push(path + ' ต้องยาวไม่เกิน ' + maxLength + ' ตัวอักษร')
+}
+
 const validateIdentity = (value, path, errors) => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     errors.push(path + ' ต้องเป็น object')
@@ -170,6 +178,8 @@ const validateIdentity = (value, path, errors) => {
   for (const key of allowedIdentityFields) {
     if (!trimmed(value[key])) errors.push(path + '.' + key + ' ต้องมีค่า')
   }
+  validateStringLength(value.source_id, path + '.source_id', 100, errors, 1)
+  validateStringLength(value.source_name, path + '.source_name', 300, errors, 1)
 }
 
 const validatePayload = payload => {
@@ -188,6 +198,10 @@ const validatePayload = payload => {
   for (const key of ['order_no', 'filler_order_no', 'labno', 'lab_no', 'hn', 'visit_id', 'result_uid', 'stage']) {
     if (payload[key] != null && typeof payload[key] !== 'string') errors.push(key + ' ต้องเป็น string')
   }
+  for (const key of ['order_no', 'filler_order_no', 'labno', 'lab_no', 'hn', 'visit_id']) {
+    validateStringLength(payload[key], key, 100, errors, 1)
+  }
+  validateStringLength(payload.result_uid, 'result_uid', 200, errors, 1)
   const labNoValues = [payload.filler_order_no, payload.labno, payload.lab_no]
     .map(trimmed)
     .filter(Boolean)
@@ -234,6 +248,23 @@ const validatePayload = payload => {
       if (item[key] == null || (key !== 'value' && typeof item[key] === 'string' && !item[key])) {
         errors.push(path + '.' + key + ' เป็น required field')
       }
+    }
+    const itemLimits = {
+      obs_code: [100, 1],
+      obs_name: [300, 1],
+      units: [100, 0],
+      ref_range: [500, 0],
+      obx_status: [20, 1],
+      change_kind: [100, 1],
+      critical_low_rule: [200, 1],
+      critical_high_rule: [200, 1],
+      panel_code: [100, 0],
+      panel_name: [300, 0],
+      group_role: [100, 0],
+      organism: [300, 0],
+    }
+    for (const [key, limit] of Object.entries(itemLimits)) {
+      validateStringLength(item[key], path + '.' + key, limit[0], errors, limit[1])
     }
     for (const key of Object.keys(item)) {
       if (key === 'is_critical') {
@@ -350,6 +381,22 @@ try {
 
 if (duplicateRows.length) {
   const existing = duplicateRows[0]
+  const existingStatus = lower(existing.receipt_status)
+  if (existingStatus !== 'processed') {
+    return {
+      success: false,
+      created: false,
+      duplicate: true,
+      code: 'DUPLICATE_UNPROCESSED_RESULT_UID',
+      message: 'result_uid นี้มี receipt เดิมที่ยังไม่ processed; ต้อง reconcile ก่อนตอบรับสำเร็จ',
+      data: {
+        result_uid: payload.result_uid,
+        receipt_id: trimmed(existing._id),
+        receipt_status: existingStatus || 'unknown',
+        result_report_id: trimmed(existing.result_report_id),
+      },
+    }
+  }
   return {
     success: true,
     created: false,

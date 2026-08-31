@@ -348,9 +348,8 @@
     }
     .status-chip strong { color:var(--chip-color); font-size:18px; line-height:1; }
     .status-chip span { color:var(--muted); font-size:12px; font-weight:500; }
-    .status-chip[data-status="waiting"] { --chip-color:#b88230; --chip-border:var(--warning-200); --chip-bg:var(--warning-50); }
-    .status-chip[data-status="received"] { --chip-color:var(--info); --chip-border:#909399; --chip-bg:#f4f4f5; }
-    .status-chip[data-status="resulted"] { --chip-color:#529b2e; --chip-border:var(--success-200); --chip-bg:var(--success-50); }
+    .status-chip[data-status="active"] { --chip-color:#b88230; --chip-border:var(--warning-200); --chip-bg:var(--warning-50); }
+    .status-chip[data-status="complete"] { --chip-color:#529b2e; --chip-border:var(--success-200); --chip-bg:var(--success-50); }
     .status-chip[data-status="cancelled"] { --chip-color:#c45656; --chip-border:var(--danger-200); --chip-bg:var(--danger-50); }
     .status-chip:hover { border-color:var(--chip-border); background:var(--fill); }
     .status-chip.active {
@@ -366,7 +365,7 @@
       scrollbar-width:thin;
     }
     .worklist {
-      min-width:1260px;
+      min-width:1390px;
       background:var(--white);
     }
     .patient-block {
@@ -382,7 +381,7 @@
     .patient-block:last-child { border-bottom:0; }
     .patient-row {
       display:grid;
-      grid-template-columns:34px minmax(205px,1.55fr) minmax(170px,1.18fr) 92px 100px 112px 112px minmax(140px,1fr) 92px 62px 62px;
+      grid-template-columns:34px minmax(205px,1.55fr) minmax(170px,1.18fr) 92px 100px 144px 112px minmax(140px,1fr) 92px 62px 62px 62px;
       gap:10px;
       align-items:center;
       min-height:84px;
@@ -513,6 +512,29 @@
       font-weight:650;
       letter-spacing:.015em;
     }
+    .order-time-label {
+      display:flex;
+      align-items:center;
+      gap:5px;
+      white-space:nowrap;
+    }
+    .order-no-tag {
+      display:inline-flex;
+      max-width:100%;
+      min-height:18px;
+      align-items:center;
+      padding:0 6px;
+      overflow:hidden;
+      border:1px solid #a0cfff;
+      border-radius:999px;
+      background:var(--primary-50);
+      color:#337ecc;
+      font-family:var(--mono);
+      font-size:9px;
+      font-weight:650;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
     .field-value {
       display:block;
       min-width:0;
@@ -525,6 +547,16 @@
     }
     .time-value { line-height:1.25; }
     .time-value span { display:block; }
+    .diagnosis-summary {
+      display:block;
+      margin-top:3px;
+      overflow:hidden;
+      color:var(--muted);
+      font-size:10px;
+      font-weight:500;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
     .row-status {
       min-height:22px;
       width:auto;
@@ -577,6 +609,12 @@
     }
     .detail-tab:hover { color:var(--ink); }
     .detail-tab.active { border-bottom-color:var(--primary); color:var(--primary); }
+    .detail-tab:disabled,
+    .detail-tab:disabled:hover {
+      border-bottom-color:transparent;
+      color:#c0c4cc;
+      cursor:not-allowed;
+    }
     .bulk-actions {
       display:flex;
       align-items:center;
@@ -626,6 +664,17 @@
     }
     .detail-table tr:last-child td { border-bottom:0; }
     .detail-table tbody tr:hover { background:rgba(255,255,255,.78); }
+    .detail-table.specimen-table { min-width:1340px; }
+    .select-cell { text-align:center !important; }
+    .item-check {
+      width:15px;
+      height:15px;
+      margin:0;
+      accent-color:var(--primary);
+      cursor:pointer;
+    }
+    .item-check:disabled { cursor:not-allowed; opacity:.45; }
+    .empty-cell { color:var(--placeholder); }
     .test-name { color:var(--ink); font-weight:700; }
     .specimen-combobox {
       position:relative;
@@ -680,13 +729,6 @@
     .specimen-option:hover,
     .specimen-option[aria-selected="true"] { background:var(--primary-50); color:var(--primary); }
     .specimen-empty { padding:8px; color:var(--muted); font-size:11px; text-align:center; }
-    .item-actions {
-      display:flex;
-      align-items:center;
-      gap:6px;
-      white-space:nowrap;
-    }
-    .item-actions .btn { min-width:64px; }
     .result-action-group {
       display:flex;
       align-items:center;
@@ -871,6 +913,19 @@
       min-height:34px;
       color:var(--muted);
     }
+    .entry-mode-tag {
+      display:inline-flex;
+      align-items:center;
+      min-height:20px;
+      padding:1px 7px;
+      border:1px solid #a0cfff;
+      border-radius:999px;
+      background:var(--primary-50);
+      color:#337ecc;
+      font-size:10px;
+      font-weight:650;
+      white-space:nowrap;
+    }
     .result-editor {
       width:100%;
       min-height:32px;
@@ -909,6 +964,31 @@
       overflow-wrap:anywhere;
     }
     .confirm-copy { margin:0; color:var(--ink); }
+    .reject-form-grid {
+      display:grid;
+      grid-template-columns:minmax(0,1fr);
+      gap:14px;
+    }
+    .form-field label {
+      display:block;
+      margin-bottom:6px;
+      color:var(--ink);
+      font-size:12px;
+      font-weight:650;
+    }
+    .form-field select,
+    .form-field textarea {
+      width:100%;
+      border:1px solid var(--border);
+      border-radius:5px;
+      background:var(--white);
+      color:var(--text);
+    }
+    .form-field select { height:38px; padding:0 10px; }
+    .form-field textarea { min-height:86px; padding:9px 10px; resize:vertical; }
+    .form-field select:focus,
+    .form-field textarea:focus { border-color:var(--primary); box-shadow:0 0 0 2px rgba(64,158,255,.12); outline:0; }
+    .required-mark { color:var(--danger); }
 
     .implementation-remarks {
       margin-top:18px;
@@ -960,7 +1040,7 @@
       .toolbar { grid-template-columns:1fr 1fr; }
       .search-field,.date-range { grid-column:1/-1; }
       .create-button { width:100%; justify-self:stretch; }
-      .status-strip { grid-template-columns:repeat(5,150px); }
+      .status-strip { grid-template-columns:repeat(4,150px); }
       .calendars { grid-template-columns:1fr; }
       .calendar + .calendar { display:none; }
       .detail-panel { padding-left:16px; }
@@ -1025,17 +1105,16 @@
       </div>
 
       <div class="status-strip" role="group" aria-label="กรองรายการตามสถานะ">
-        <button class="status-chip active" type="button" data-status="" aria-pressed="true"><strong>21</strong><span>ทั้งหมด</span></button>
-        <button class="status-chip" type="button" data-status="waiting" aria-pressed="false"><strong>10</strong><span>รอรับ</span></button>
-        <button class="status-chip" type="button" data-status="received" aria-pressed="false"><strong>4</strong><span>รับแล้ว / รอตรวจ</span></button>
-        <button class="status-chip" type="button" data-status="resulted" aria-pressed="false"><strong>3</strong><span>ออกผลแล้ว</span></button>
-        <button class="status-chip" type="button" data-status="cancelled" aria-pressed="false"><strong>4</strong><span>ปฏิเสธ</span></button>
+        <button class="status-chip active" type="button" data-status="" aria-pressed="true"><strong>5</strong><span>ทั้งหมด</span></button>
+        <button class="status-chip" type="button" data-status="active" aria-pressed="false"><strong>3</strong><span>รอรับ / ออกผลบางส่วน</span></button>
+        <button class="status-chip" type="button" data-status="complete" aria-pressed="false"><strong>1</strong><span>ออกผลครบ</span></button>
+        <button class="status-chip" type="button" data-status="cancelled" aria-pressed="false"><strong>1</strong><span>ยกเลิก</span></button>
       </div>
     </section>
 
     <section id="labWorklist" class="worklist-shell" aria-label="รายการผู้ป่วย">
       <div class="worklist">
-        <article class="patient-block is-open" data-patient-id="hn00000001" data-hn="hn00000001" data-order-id="ord-waiting-0001" data-status="waiting" data-request-time="2026-08-28T12:02:32+07:00" data-search="hn00000001 vn00000001 ln1069000000 ln1069000002 ด.ช. สมมติ ทดสอบ c1 c2 c3">
+        <article class="patient-block is-open" data-patient-id="hn00000001" data-hn="hn00000001" data-order-id="ord-waiting-0001" data-order-no="ORD1069000001" data-filter-status="active" data-status="waiting" data-request-time="2026-08-28T12:02:32+07:00" data-search="hn00000001 vn00000001 ord1069000001 ด.ช. สมมติ ทดสอบ c1 c2 c3">
           <div class="patient-row">
             <button class="expand-button" type="button" aria-label="ย่อรายละเอียด HN00000001" aria-expanded="true">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"></path></svg>
@@ -1051,45 +1130,46 @@
             </div>
             <div class="metric"><span class="field-label">รายการ</span><span class="field-value">3 orders</span></div>
             <div class="metric"><span class="field-label">specimen</span><span class="field-value">3 specimens</span></div>
-            <div class="metric"><span class="field-label">เวลาสั่ง</span><span class="field-value time-value mono"><span>28/08/69</span><span>12:02:32</span></span></div>
-            <div class="metric"><span class="field-label">เวลารับ</span><span class="field-value">–</span></div>
-            <div class="doctor-cell"><span class="field-label">แพทย์</span><span class="field-value">นพ.ใจดี ปากไม่ดี</span></div>
+            <div class="metric" data-order-time><span class="field-label order-time-label">เวลาสั่ง <span class="order-no-tag" data-order-no-tag>ORD1069000001</span></span><span class="field-value time-value mono"><span>28/08/69</span><span>12:02:32</span></span></div>
+            <div class="metric" data-status-time aria-hidden="true"></div>
+            <div class="doctor-cell"><span class="field-label">แพทย์</span><span class="field-value">นพ.ใจดี ปากไม่ดี</span><span class="diagnosis-summary" title="Acute upper respiratory infection with fever">Diagnosis: Acute URI with fever</span></div>
             <span class="row-status status-waiting" data-row-status>รอรับ</span>
             <button class="btn btn-sm plain-action" type="button" data-toast="เตรียม PDF ใบสั่งตรวจ">PDF</button>
-            <button class="btn btn-sm plain-action" type="button" data-toast="แสดงข้อมูลผู้ป่วยแบบ readonly" aria-label="ดูข้อมูล HN00000001">ดู</button>
+            <button class="btn btn-sm plain-action" type="button" data-toast="เปิด EMR เพื่อดูข้อมูลผู้ป่วยและรายละเอียด Diagnosis" aria-label="เปิด EMR ของ HN00000001">EMR</button>
           </div>
 
           <div class="detail-panel">
             <div class="detail-top" role="tablist" aria-label="รายละเอียด HN00000001">
               <button class="detail-tab active" type="button" role="tab" aria-selected="true" data-panel="orders">order</button>
-              <button class="detail-tab" type="button" role="tab" aria-selected="false" data-panel="results">ออกผล</button>
+              <button class="detail-tab" type="button" role="tab" aria-selected="false" aria-label="ออกผลของ order นี้" title="เปิดดูรายการผลได้ แม้ผลยังไม่มา" data-panel="results">ออกผล</button>
               <div class="bulk-actions" data-order-actions>
-                <button class="btn btn-success btn-sm" type="button" data-bulk-action="receive">รับ specimen ทั้งหมด</button>
-                <button class="btn btn-danger btn-sm" type="button" data-bulk-action="reject">ปฏิเสธทั้งหมด</button>
+                <button class="btn btn-success btn-sm" type="button" data-bulk-action="receive">รับ specimen</button>
+                <button class="btn btn-danger btn-sm" type="button" data-bulk-action="reject-item">ปฏิเสธรายการที่เลือก</button>
+                <button class="btn btn-danger btn-sm btn-plain" type="button" data-bulk-action="cancel-order">ยกเลิก order</button>
               </div>
             </div>
 
             <div class="detail-view" data-view="orders">
-              <div class="detail-summary"><span><strong>3</strong>รายการสั่งตรวจ</span><span><strong>3</strong>specimens</span><span>· ตรวจสอบชนิด specimen ก่อนรับ</span></div>
+              <div class="detail-summary"><span>ตรวจสอบชนิด specimen ก่อนรับ</span></div>
               <div class="detail-table-wrap">
-                <table class="detail-table">
-                  <colgroup><col style="width:6%"><col style="width:16%"><col style="width:23%"><col style="width:18%"><col style="width:12%"><col style="width:10%"><col style="width:15%"></colgroup>
-                  <thead><tr><th scope="col">ลำดับ</th><th scope="col">Lab no.</th><th scope="col">รายการสั่งตรวจ</th><th scope="col">specimen</th><th scope="col">เวลาเก็บ specimen</th><th scope="col">สถานะ</th><th scope="col">ดำเนินการ</th></tr></thead>
+                <table class="detail-table specimen-table">
+                  <colgroup><col style="width:4%"><col style="width:5%"><col style="width:11%"><col style="width:15%"><col style="width:13%"><col style="width:11%"><col style="width:11%"><col style="width:8%"><col style="width:13%"><col style="width:9%"></colgroup>
+                  <thead><tr><th class="select-cell" scope="col"><input class="item-check" type="checkbox" data-select-all aria-label="เลือก test ที่รอรับทั้งหมด"></th><th scope="col">ลำดับ</th><th scope="col">Lab no.</th><th scope="col">รายการสั่งตรวจ</th><th scope="col">specimen</th><th scope="col">เวลาเก็บ specimen</th><th scope="col">เวลารับ specimen</th><th scope="col">สถานะ</th><th scope="col">ปฏิเสธ</th><th scope="col">คนปฏิเสธ</th></tr></thead>
                   <tbody>
-                    <tr data-specimen-item>
-                      <td class="mono">1</td><td class="mono" translate="no">LN1069000000</td><td class="test-name">C1 Test</td>
+                    <tr data-specimen-item data-item-state="waiting">
+                      <td class="select-cell"><input class="item-check" type="checkbox" data-item-check aria-label="เลือก C1 Test"></td><td class="mono">1</td><td class="mono empty-cell" translate="no" data-lab-no>–</td><td class="test-name">C1 Test</td>
                       <td><div class="specimen-combobox" data-specimen-combobox><input class="control specimen-search" name="specimen-c1" type="search" value="specimen1" autocomplete="off" spellcheck="false" role="combobox" aria-label="ค้นหาและเลือก specimen สำหรับ C1 Test" aria-autocomplete="list" aria-expanded="false" aria-controls="specimen-menu-c1"><button class="specimen-toggle" type="button" aria-label="เปิดรายการ specimen สำหรับ C1 Test"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"></path></svg></button><div id="specimen-menu-c1" class="specimen-menu" role="listbox" hidden><button class="specimen-option" type="button" role="option" aria-selected="true" data-specimen-value="specimen1">specimen1</button><button class="specimen-option" type="button" role="option" aria-selected="false" data-specimen-value="specimen2">specimen2</button><button class="specimen-option" type="button" role="option" aria-selected="false" data-specimen-value="specimen3">specimen3</button><div class="specimen-empty" hidden>ไม่พบ specimen</div></div></div></td>
-                      <td><span class="field-value time-value mono"><span>28/08/69</span><span>10:30:20</span></span></td><td><span class="state-tag tag-warning" data-item-status>รอรับ</span></td><td><div class="item-actions"><button class="btn btn-success btn-sm" type="button" data-item-action="receive">รับ</button><button class="btn btn-danger btn-sm" type="button" data-item-action="reject">ปฏิเสธ</button></div></td>
+                      <td><span class="field-value time-value mono"><span>28/08/69</span><span>10:30:20</span></span></td><td class="mono empty-cell" data-received-at>–</td><td><span class="state-tag tag-warning" data-item-status>รอรับ</span></td><td class="empty-cell" data-reject-reason>–</td><td class="empty-cell" data-rejected-by>–</td>
                     </tr>
-                    <tr data-specimen-item>
-                      <td class="mono">2</td><td class="mono" translate="no">LN1069000002</td><td class="test-name">C2 Test</td>
+                    <tr data-specimen-item data-item-state="waiting">
+                      <td class="select-cell"><input class="item-check" type="checkbox" data-item-check aria-label="เลือก C2 Test"></td><td class="mono">2</td><td class="mono empty-cell" translate="no" data-lab-no>–</td><td class="test-name">C2 Test</td>
                       <td><div class="specimen-combobox" data-specimen-combobox><input class="control specimen-search" name="specimen-c2" type="search" value="specimen2" autocomplete="off" spellcheck="false" role="combobox" aria-label="ค้นหาและเลือก specimen สำหรับ C2 Test" aria-autocomplete="list" aria-expanded="false" aria-controls="specimen-menu-c2"><button class="specimen-toggle" type="button" aria-label="เปิดรายการ specimen สำหรับ C2 Test"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"></path></svg></button><div id="specimen-menu-c2" class="specimen-menu" role="listbox" hidden><button class="specimen-option" type="button" role="option" aria-selected="false" data-specimen-value="specimen1">specimen1</button><button class="specimen-option" type="button" role="option" aria-selected="true" data-specimen-value="specimen2">specimen2</button><button class="specimen-option" type="button" role="option" aria-selected="false" data-specimen-value="specimen3">specimen3</button><div class="specimen-empty" hidden>ไม่พบ specimen</div></div></div></td>
-                      <td><span class="field-value time-value mono"><span>28/08/69</span><span>10:30:20</span></span></td><td><span class="state-tag tag-warning" data-item-status>รอรับ</span></td><td><div class="item-actions"><button class="btn btn-success btn-sm" type="button" data-item-action="receive">รับ</button><button class="btn btn-danger btn-sm" type="button" data-item-action="reject">ปฏิเสธ</button></div></td>
+                      <td><span class="field-value time-value mono"><span>28/08/69</span><span>10:30:20</span></span></td><td class="mono empty-cell" data-received-at>–</td><td><span class="state-tag tag-warning" data-item-status>รอรับ</span></td><td class="empty-cell" data-reject-reason>–</td><td class="empty-cell" data-rejected-by>–</td>
                     </tr>
-                    <tr data-specimen-item>
-                      <td class="mono">3</td><td class="mono" translate="no">LN1069000002</td><td class="test-name">C3 Test</td>
+                    <tr data-specimen-item data-item-state="waiting">
+                      <td class="select-cell"><input class="item-check" type="checkbox" data-item-check aria-label="เลือก C3 Test"></td><td class="mono">3</td><td class="mono empty-cell" translate="no" data-lab-no>–</td><td class="test-name">C3 Test</td>
                       <td><div class="specimen-combobox" data-specimen-combobox><input class="control specimen-search" name="specimen-c3" type="search" value="specimen3" autocomplete="off" spellcheck="false" role="combobox" aria-label="ค้นหาและเลือก specimen สำหรับ C3 Test" aria-autocomplete="list" aria-expanded="false" aria-controls="specimen-menu-c3"><button class="specimen-toggle" type="button" aria-label="เปิดรายการ specimen สำหรับ C3 Test"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"></path></svg></button><div id="specimen-menu-c3" class="specimen-menu" role="listbox" hidden><button class="specimen-option" type="button" role="option" aria-selected="false" data-specimen-value="specimen1">specimen1</button><button class="specimen-option" type="button" role="option" aria-selected="false" data-specimen-value="specimen2">specimen2</button><button class="specimen-option" type="button" role="option" aria-selected="true" data-specimen-value="specimen3">specimen3</button><div class="specimen-empty" hidden>ไม่พบ specimen</div></div></div></td>
-                      <td><span class="field-value time-value mono"><span>28/08/69</span><span>10:30:20</span></span></td><td><span class="state-tag tag-warning" data-item-status>รอรับ</span></td><td><div class="item-actions"><button class="btn btn-success btn-sm" type="button" data-item-action="receive">รับ</button><button class="btn btn-danger btn-sm" type="button" data-item-action="reject">ปฏิเสธ</button></div></td>
+                      <td><span class="field-value time-value mono"><span>28/08/69</span><span>10:30:20</span></span></td><td class="mono empty-cell" data-received-at>–</td><td><span class="state-tag tag-warning" data-item-status>รอรับ</span></td><td class="empty-cell" data-reject-reason>–</td><td class="empty-cell" data-rejected-by>–</td>
                     </tr>
                   </tbody>
                 </table>
@@ -1097,12 +1177,23 @@
             </div>
 
             <div class="detail-view" data-view="results" hidden>
-              <div class="empty-state"><strong>ยังไม่มีผลตรวจ</strong>รับ specimen อย่างน้อย 1 รายการก่อนบันทึกผล</div>
+              <div class="detail-summary"><span><strong>3</strong>รายการสั่งตรวจ</span><span>· ปุ่มดูผลพร้อมแสดงสถานะรอผล</span></div>
+              <div class="detail-table-wrap">
+                <table class="detail-table">
+                  <colgroup><col style="width:8%"><col style="width:38%"><col style="width:18%"><col style="width:18%"><col style="width:18%"></colgroup>
+                  <thead><tr><th scope="col">ลำดับ</th><th scope="col">รายการสั่งตรวจ</th><th scope="col">Lab no.</th><th scope="col">สถานะ</th><th scope="col">ผลตรวจ</th></tr></thead>
+                  <tbody>
+                    <tr><td class="mono">1</td><td class="test-name">C1 Test</td><td class="mono empty-cell">–</td><td><span class="state-tag tag-warning">รอผล</span></td><td><button class="btn btn-sm" type="button" data-open-results data-result-profile="pending-test" data-result-scope="partial" data-result-entry-mode="fallback" data-result-test-id="c1-test" data-test-name="C1 Test" aria-label="ดูผลของ C1 Test">ดูผล</button></td></tr>
+                    <tr><td class="mono">2</td><td class="test-name">C2 Test</td><td class="mono empty-cell">–</td><td><span class="state-tag tag-warning">รอผล</span></td><td><button class="btn btn-sm" type="button" data-open-results data-result-profile="pending-test" data-result-scope="partial" data-result-entry-mode="fallback" data-result-test-id="c2-test" data-test-name="C2 Test" aria-label="ดูผลของ C2 Test">ดูผล</button></td></tr>
+                    <tr><td class="mono">3</td><td class="test-name">C3 Test</td><td class="mono empty-cell">–</td><td><span class="state-tag tag-warning">รอผล</span></td><td><button class="btn btn-sm" type="button" data-open-results data-result-profile="pending-test" data-result-scope="partial" data-result-entry-mode="fallback" data-result-test-id="c3-test" data-test-name="C3 Test" aria-label="ดูผลของ C3 Test">ดูผล</button></td></tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </article>
 
-        <article class="patient-block is-open" data-patient-id="hn00000002" data-hn="hn00000002" data-order-id="ord-result-partial-0002" data-status="resulted" data-result-state="partial" data-request-time="2026-08-28T12:02:32+07:00" data-received-time="2026-08-28T12:32:32+07:00" data-result-time="2026-08-28T14:10:20+07:00" data-search="hn00000002 vn00000002 ด.ช. ทดสอบ สมมติ c2 vitamin d electrolyte sodium potassium chloride anion gap">
+        <article class="patient-block is-open" data-patient-id="hn00000002" data-hn="hn00000002" data-order-id="ord-result-partial-0002" data-order-no="ORD1069000002" data-filter-status="active" data-status="resulted" data-result-state="partial" data-request-time="2026-08-28T12:02:32+07:00" data-received-time="2026-08-28T12:32:32+07:00" data-result-time="2026-08-28T14:10:20+07:00" data-search="hn00000002 vn00000002 ord1069000002 ด.ช. ทดสอบ สมมติ c2 vitamin d electrolyte sodium potassium chloride anion gap">
           <div class="patient-row">
             <button class="expand-button" type="button" aria-label="ย่อรายละเอียด HN00000002" aria-expanded="true">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"></path></svg>
@@ -1118,12 +1209,13 @@
             </div>
             <div class="metric"><span class="field-label">รายการ</span><span class="field-value">3 orders</span></div>
             <div class="metric"><span class="field-label">specimen</span><span class="field-value">3 specimens</span></div>
-            <div class="metric"><span class="field-label">เวลาสั่ง</span><span class="field-value time-value mono"><span>28/08/69</span><span>12:02:32</span></span></div>
-            <div class="metric"><span class="field-label">เวลาออกผล</span><span class="field-value time-value mono"><span>28/08/69</span><span>14:10:20</span></span></div>
-            <div class="doctor-cell"><span class="field-label">แพทย์</span><span class="field-value">นพ.ใจดี ปากไม่ดี</span></div>
+            <div class="metric" data-order-time><span class="field-label order-time-label">เวลาสั่ง <span class="order-no-tag" data-order-no-tag>ORD1069000002</span></span><span class="field-value time-value mono"><span>28/08/69</span><span>12:02:32</span></span></div>
+            <div class="metric" data-status-time><span class="field-label">เวลาออกผล</span><span class="field-value time-value mono"><span>28/08/69</span><span>14:10:20</span></span></div>
+            <div class="doctor-cell"><span class="field-label">แพทย์</span><span class="field-value">นพ.ใจดี ปากไม่ดี</span><span class="diagnosis-summary" title="Vitamin D deficiency; electrolyte imbalance under evaluation">Diagnosis: Vitamin D deficiency…</span></div>
             <span class="row-status status-result-partial" data-row-status>ออกผลบางส่วน</span>
             <button class="btn btn-sm plain-action" type="button" disabled title="พิมพ์ได้เมื่อออกผลครบทุก test" aria-label="PDF ผลตรวจยังใช้ไม่ได้ เพราะยังออกผลไม่ครบทุก test">PDF</button>
             <button class="btn btn-sm plain-action" type="button" data-open-results data-result-scope="partial" aria-label="ดูผลทั้งหมดของ HN00000002">ดูผล</button>
+            <button class="btn btn-sm plain-action" type="button" data-toast="เปิด EMR เพื่อดูข้อมูลผู้ป่วยและรายละเอียด Diagnosis" aria-label="เปิด EMR ของ HN00000002">EMR</button>
           </div>
 
           <div class="detail-panel">
@@ -1142,7 +1234,7 @@
                   <thead><tr><th scope="col">ลำดับ</th><th scope="col">รายการสั่งตรวจ</th><th scope="col">เวลาออกผล</th><th scope="col">ผลตรวจ</th><th scope="col">สถานะ</th><th scope="col">ดำเนินการ</th></tr></thead>
                   <tbody>
                     <tr><td class="mono">1</td><td class="test-name">Vitamin D</td><td class="mono">14:08:10</td><td><div class="result-action-group"><button class="btn btn-sm" type="button" data-open-results data-result-profile="vitamin-d">ดูผล</button></div></td><td><span class="state-tag tag-danger">ค่าวิกฤติ</span></td><td><button class="btn btn-danger btn-sm" type="button" data-toast="เปิดหน้าต่างแจ้งเตือนแพทย์">แจ้งเตือนแพทย์</button></td></tr>
-                    <tr><td class="mono">2</td><td class="test-name">C2 Test</td><td>–</td><td><div class="result-action-group"><button class="btn btn-sm" type="button" disabled aria-label="ยังไม่มีผลของ C2 Test">ดูผล</button></div></td><td><span class="state-tag tag-warning">รอผล</span></td><td>–</td></tr>
+                    <tr data-result-test="c2-test" data-test-result-state="pending" data-result-entry-mode="fallback" data-result-schema-id="single-value-v1" data-unit-id="mock-unit" data-requires-verification="true"><td class="mono">2</td><td class="test-name">C2 Test</td><td class="mono" data-test-result-time>–</td><td><div class="result-action-group"><button class="btn btn-sm" type="button" data-open-results data-result-profile="pending-test" data-result-scope="partial" data-result-entry-mode="fallback" data-result-test-id="c2-test" data-test-name="C2 Test" data-result-schema="single-value" data-unit="unit (mock)" aria-label="ดูหรือบันทึกผล Manual fallback ของ C2 Test">ดูผล</button></div></td><td><span class="state-tag tag-warning" data-test-result-status>รอผล</span></td><td><span class="entry-mode-tag">LIS / fallback</span></td></tr>
                     <tr><td class="mono">3</td><td class="test-name">Electrolyte (cotted blood)</td><td class="mono">14:10:20</td><td><div class="result-action-group"><button class="btn btn-sm" type="button" data-open-results data-result-profile="electrolyte">ดูผล</button></div></td><td><span class="state-tag tag-success">ไม่พบค่าวิกฤติ</span></td><td>–</td></tr>
                   </tbody>
                 </table>
@@ -1151,7 +1243,53 @@
           </div>
         </article>
 
-        <article class="patient-block" data-patient-id="hn00000002" data-hn="hn00000002" data-order-id="ord-result-complete-history-0002" data-status="resulted" data-result-state="complete" data-request-time="2024-02-12T08:12:40+07:00" data-received-time="2024-02-12T08:41:16+07:00" data-result-time="2024-02-12T10:26:05+07:00" data-search="hn00000002 vn67000002 ด.ช. ทดสอบ สมมติ vitamin d electrolyte sodium potassium chloride anion gap ผลย้อนหลัง">
+        <article class="patient-block" data-patient-id="hn00000005" data-hn="hn00000005" data-order-id="ord-result-complete-0005" data-order-no="ORD1069000005" data-filter-status="complete" data-status="resulted" data-result-state="complete" data-request-time="2026-08-28T11:18:24+07:00" data-received-time="2026-08-28T11:42:06+07:00" data-result-time="2026-08-28T15:06:48+07:00" data-search="hn00000005 vn00000005 ord1069000005 ด.ญ. ตัวอย่าง ออกผลครบ vitamin d electrolyte sodium potassium chloride anion gap">
+          <div class="patient-row">
+            <button class="expand-button" type="button" aria-label="ขยายรายละเอียด HN00000005" aria-expanded="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"></path></svg>
+            </button>
+            <div class="patient-summary">
+              <div class="patient-hn"><span class="mono" translate="no">HN00000005</span></div>
+              <div class="patient-name">ด.ญ. ตัวอย่าง ออกผลครบ</div>
+              <div class="patient-demographic"><span class="inline-tag gender-pill">หญิง</span><span>อายุ 5 ปี 1 เดือน</span></div>
+            </div>
+            <div class="context-tags">
+              <div class="context-top"><span class="inline-tag meta-pill">ห้องที่ส่ง</span><span class="inline-tag meta-pill">ชำระเงินแล้ว</span></div>
+              <span class="inline-tag meta-pill">UC</span>
+            </div>
+            <div class="metric"><span class="field-label">รายการ</span><span class="field-value">2 orders</span></div>
+            <div class="metric"><span class="field-label">specimen</span><span class="field-value">2 specimens</span></div>
+            <div class="metric" data-order-time><span class="field-label order-time-label">เวลาสั่ง <span class="order-no-tag" data-order-no-tag>ORD1069000005</span></span><span class="field-value time-value mono"><span>28/08/69</span><span>11:18:24</span></span></div>
+            <div class="metric" data-status-time><span class="field-label">เวลาออกผล</span><span class="field-value time-value mono"><span>28/08/69</span><span>15:06:48</span></span></div>
+            <div class="doctor-cell"><span class="field-label">แพทย์</span><span class="field-value">พญ.แพทย์ตัวอย่าง</span><span class="diagnosis-summary" title="Follow-up vitamin and electrolyte status">Diagnosis: Follow-up vitamin status…</span></div>
+            <span class="row-status status-result-complete" data-row-status>ออกผลครบ</span>
+            <button class="btn btn-sm plain-action" type="button" data-toast="เตรียม PDF ผลตรวจฉบับล่าสุด">PDF</button>
+            <button class="btn btn-sm plain-action" type="button" data-open-results data-result-scope="complete" aria-label="ดูผลทั้งหมดของ HN00000005">ดูผล</button>
+            <button class="btn btn-sm plain-action" type="button" data-toast="เปิด EMR เพื่อดูข้อมูลผู้ป่วยและรายละเอียด Diagnosis" aria-label="เปิด EMR ของ HN00000005">EMR</button>
+          </div>
+          <div class="detail-panel" hidden>
+            <div class="detail-top" role="tablist" aria-label="รายละเอียด HN00000005">
+              <button class="detail-tab" type="button" role="tab" aria-selected="false" data-panel="orders">order</button>
+              <button class="detail-tab active" type="button" role="tab" aria-selected="true" data-panel="results">ออกผล</button>
+            </div>
+            <div class="detail-view" data-view="orders" hidden><div class="detail-summary"><span><strong>2</strong>รายการสั่งตรวจ</span><span><strong>2</strong>specimens</span><span>· รับครบแล้ว</span></div></div>
+            <div class="detail-view" data-view="results">
+              <div class="detail-summary"><span><strong>2</strong>รายการสั่งตรวจ</span><span>· ออกผลครบทุก test</span></div>
+              <div class="detail-table-wrap">
+                <table class="detail-table">
+                  <colgroup><col style="width:7%"><col style="width:32%"><col style="width:16%"><col style="width:20%"><col style="width:25%"></colgroup>
+                  <thead><tr><th scope="col">ลำดับ</th><th scope="col">รายการสั่งตรวจ</th><th scope="col">เวลาออกผล</th><th scope="col">ผลตรวจ</th><th scope="col">สถานะ</th></tr></thead>
+                  <tbody>
+                    <tr><td class="mono">1</td><td class="test-name">Vitamin D</td><td class="mono">15:02:30</td><td><button class="btn btn-sm" type="button" data-open-results data-result-profile="vitamin-d" data-result-scope="complete">ดูผล</button></td><td><span class="state-tag tag-danger">ค่าวิกฤติ</span></td></tr>
+                    <tr><td class="mono">2</td><td class="test-name">Electrolyte (cotted blood)</td><td class="mono">15:06:48</td><td><button class="btn btn-sm" type="button" data-open-results data-result-profile="electrolyte" data-result-scope="complete">ดูผล</button></td><td><span class="state-tag tag-success">ไม่พบค่าวิกฤติ</span></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="patient-block" data-patient-id="hn00000002" data-hn="hn00000002" data-order-id="ord-result-complete-history-0002" data-order-no="ORD6702000002" data-filter-status="complete" data-status="resulted" data-result-state="complete" data-request-time="2024-02-12T08:12:40+07:00" data-received-time="2024-02-12T08:41:16+07:00" data-result-time="2024-02-12T10:26:05+07:00" data-search="hn00000002 vn67000002 ord6702000002 ด.ช. ทดสอบ สมมติ vitamin d electrolyte sodium potassium chloride anion gap ผลย้อนหลัง">
           <div class="patient-row">
             <button class="expand-button" type="button" aria-label="ขยายรายละเอียดผลย้อนหลัง HN00000002" aria-expanded="false">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"></path></svg>
@@ -1167,12 +1305,13 @@
             </div>
             <div class="metric"><span class="field-label">รายการ</span><span class="field-value">2 orders</span></div>
             <div class="metric"><span class="field-label">specimen</span><span class="field-value">2 specimens</span></div>
-            <div class="metric"><span class="field-label">เวลาสั่ง</span><span class="field-value time-value mono"><span>12/02/67</span><span>08:12:40</span></span></div>
-            <div class="metric"><span class="field-label">เวลาออกผล</span><span class="field-value time-value mono"><span>12/02/67</span><span>10:26:05</span></span></div>
-            <div class="doctor-cell"><span class="field-label">แพทย์</span><span class="field-value">นพ.ใจดี ปากไม่ดี</span></div>
+            <div class="metric" data-order-time><span class="field-label order-time-label">เวลาสั่ง <span class="order-no-tag" data-order-no-tag>ORD6702000002</span></span><span class="field-value time-value mono"><span>12/02/67</span><span>08:12:40</span></span></div>
+            <div class="metric" data-status-time><span class="field-label">เวลาออกผล</span><span class="field-value time-value mono"><span>12/02/67</span><span>10:26:05</span></span></div>
+            <div class="doctor-cell"><span class="field-label">แพทย์</span><span class="field-value">นพ.ใจดี ปากไม่ดี</span><span class="diagnosis-summary" title="Follow-up metabolic and vitamin status">Diagnosis: Follow-up metabolic status</span></div>
             <span class="row-status status-result-complete" data-row-status>ออกผลครบ</span>
             <button class="btn btn-sm plain-action" type="button" data-toast="เตรียม PDF ผลตรวจฉบับล่าสุด">PDF</button>
             <button class="btn btn-sm plain-action" type="button" data-open-results data-result-scope="complete" aria-label="ดูผลย้อนหลังทั้งหมดของ HN00000002">ดูผล</button>
+            <button class="btn btn-sm plain-action" type="button" data-toast="เปิด EMR เพื่อดูข้อมูลผู้ป่วยและรายละเอียด Diagnosis" aria-label="เปิด EMR ของ HN00000002">EMR</button>
           </div>
           <div class="detail-panel" hidden>
             <div class="detail-top" role="tablist" aria-label="รายละเอียดผลย้อนหลัง HN00000002">
@@ -1196,9 +1335,9 @@
           </div>
         </article>
 
-        <article class="patient-block" data-patient-id="hn00000003" data-hn="hn00000003" data-order-id="ord-waiting-0003" data-status="waiting" data-request-time="2026-08-28T12:02:32+07:00" data-search="hn00000003 vn00000003 ด.ช. สมมติ ทดสอบ 3 orders 3 specimens">
+        <article class="patient-block is-open" data-patient-id="hn00000003" data-hn="hn00000003" data-order-id="ord-manual-0003" data-order-no="ORD1069000003" data-filter-status="active" data-status="received" data-request-time="2026-08-28T12:02:32+07:00" data-received-time="2026-08-28T12:22:18+07:00" data-lab-no="LN69000003" data-organization-id="org-lab-demo" data-lab-section="microbiology" data-search="hn00000003 vn00000003 ln69000003 ord1069000003 ด.ช. สมมติ ทดสอบ ตรวจเชื้อรา koh manual จุลชีววิทยา">
           <div class="patient-row">
-            <button class="expand-button" type="button" aria-label="ขยายรายละเอียด HN00000003" aria-expanded="false">
+            <button class="expand-button" type="button" aria-label="ย่อรายละเอียด HN00000003" aria-expanded="true">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"></path></svg>
             </button>
             <div class="patient-summary">
@@ -1210,37 +1349,53 @@
               <div class="context-top"><span class="inline-tag meta-pill">ห้องที่ส่ง</span><span class="inline-tag meta-pill">ชำระเงินแล้ว</span></div>
               <span class="inline-tag meta-pill">UC</span>
             </div>
-            <div class="metric"><span class="field-label">รายการ</span><span class="field-value">3 orders</span></div>
-            <div class="metric"><span class="field-label">specimen</span><span class="field-value">3 specimens</span></div>
-            <div class="metric"><span class="field-label">เวลาสั่ง</span><span class="field-value time-value mono"><span>28/08/69</span><span>12:02:32</span></span></div>
-            <div class="metric"><span class="field-label">เวลารับ</span><span class="field-value">–</span></div>
-            <div class="doctor-cell"><span class="field-label">แพทย์</span><span class="field-value">นพ.ใจดี ปากไม่ดี</span></div>
-            <span class="row-status status-waiting" data-row-status>รอรับ</span>
+            <div class="metric"><span class="field-label">รายการ</span><span class="field-value">1 order</span></div>
+            <div class="metric"><span class="field-label">specimen</span><span class="field-value">1 specimen</span></div>
+            <div class="metric" data-order-time><span class="field-label order-time-label">เวลาสั่ง <span class="order-no-tag" data-order-no-tag>ORD1069000003</span></span><span class="field-value time-value mono"><span>28/08/69</span><span>12:02:32</span></span></div>
+            <div class="metric" data-status-time><span class="field-label">เวลารับ</span><span class="field-value time-value mono"><span>28/08/69</span><span>12:22:18</span></span></div>
+            <div class="doctor-cell"><span class="field-label">แพทย์</span><span class="field-value">นพ.ใจดี ปากไม่ดี</span><span class="diagnosis-summary" title="Suspected superficial fungal infection">Diagnosis: Suspected fungal infection…</span></div>
+            <span class="row-status status-received" data-row-status>รับแล้ว</span>
             <button class="btn btn-sm plain-action" type="button" data-toast="เตรียม PDF ใบสั่งตรวจ">PDF</button>
-            <button class="btn btn-sm plain-action" type="button" data-toast="แสดงข้อมูลผู้ป่วยแบบ readonly" aria-label="ดูข้อมูล HN00000003">ดู</button>
+            <button class="btn btn-sm plain-action" type="button" data-toast="เปิด EMR เพื่อดูข้อมูลผู้ป่วยและรายละเอียด Diagnosis" aria-label="เปิด EMR ของ HN00000003">EMR</button>
           </div>
-          <div class="detail-panel" hidden>
+          <div class="detail-panel">
             <div class="detail-top" role="tablist" aria-label="รายละเอียด HN00000003">
-              <button class="detail-tab active" type="button" role="tab" aria-selected="true" data-panel="orders">order</button>
-              <button class="detail-tab" type="button" role="tab" aria-selected="false" data-panel="results">ออกผล</button>
-              <div class="bulk-actions" data-order-actions>
-                <button class="btn btn-success btn-sm" type="button" data-bulk-action="receive">รับ specimen ทั้งหมด</button>
-                <button class="btn btn-danger btn-sm" type="button" data-bulk-action="reject">ปฏิเสธทั้งหมด</button>
+              <button class="detail-tab" type="button" role="tab" aria-selected="false" data-panel="orders">order</button>
+              <button class="detail-tab active" type="button" role="tab" aria-selected="true" title="เปิดดูผลได้ตลอด และใช้ปุ่มดินสอกรอกผลหลังรับ specimen" data-panel="results">ออกผล</button>
+            </div>
+            <div class="detail-view" data-view="orders" hidden>
+              <div class="detail-summary"><span>ตรวจสอบชนิด specimen ก่อนรับ</span><span>· รับ specimen แล้ว</span></div>
+              <div class="detail-table-wrap">
+                <table class="detail-table specimen-table">
+                  <colgroup><col style="width:7%"><col style="width:14%"><col style="width:22%"><col style="width:16%"><col style="width:17%"><col style="width:16%"><col style="width:8%"></colgroup>
+                  <thead><tr><th scope="col">ลำดับ</th><th scope="col">Lab no.</th><th scope="col">รายการสั่งตรวจ</th><th scope="col">specimen</th><th scope="col">เวลาเก็บ specimen</th><th scope="col">เวลารับ specimen</th><th scope="col">สถานะ</th></tr></thead>
+                  <tbody><tr><td class="mono">1</td><td class="mono" translate="no">LN69000003</td><td class="test-name">ตรวจเชื้อรา KOH</td><td>Skin scraping</td><td class="mono">28/08/69<br>12:10:06</td><td class="mono">28/08/69<br>12:22:18</td><td><span class="state-tag tag-success">รับแล้ว</span></td></tr></tbody>
+                </table>
               </div>
             </div>
-            <div class="detail-view" data-view="orders"><div class="empty-state"><strong>รายละเอียดรายการพร้อมแสดง</strong>รูปแบบปุ่มและสถานะเหมือนรายการ HN00000001</div></div>
-            <div class="detail-view" data-view="results" hidden><div class="empty-state"><strong>ยังไม่มีผลตรวจ</strong>รับ specimen ก่อนบันทึกผล</div></div>
+            <div class="detail-view" data-view="results">
+              <div class="detail-summary"><span><strong>1</strong>รายการสั่งตรวจ</span><span>· ช่องทางผลกำหนดอัตโนมัติจาก Test Master</span></div>
+              <div class="detail-table-wrap">
+                <table class="detail-table">
+                  <colgroup><col style="width:8%"><col style="width:30%"><col style="width:16%"><col style="width:22%"><col style="width:12%"><col style="width:12%"></colgroup>
+                  <thead><tr><th scope="col">ลำดับ</th><th scope="col">รายการสั่งตรวจ</th><th scope="col">เวลาออกผล</th><th scope="col">ผลตรวจ</th><th scope="col">สถานะ</th><th scope="col">ช่องทางผล</th></tr></thead>
+                  <tbody>
+                    <tr data-result-test="fungus-koh" data-test-result-state="pending" data-result-entry-mode="manual" data-result-schema-id="fungus-long-text-v1" data-unit-id="" data-requires-verification="true"><td class="mono">1</td><td class="test-name">ตรวจเชื้อรา KOH</td><td class="mono" data-test-result-time>–</td><td><button class="btn btn-primary btn-sm" type="button" data-open-results data-result-profile="pending-test" data-result-scope="partial" data-result-entry-mode="manual" data-result-test-id="fungus-koh" data-test-name="ตรวจเชื้อรา KOH" data-result-schema="long-text" data-unit="–" aria-label="ดูผลของตรวจเชื้อรา KOH">ดูผล</button></td><td><span class="state-tag tag-warning" data-test-result-status>รอผล</span></td><td><span class="entry-mode-tag">Manual</span></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </article>
 
-        <article class="patient-block is-open" data-patient-id="hn00000004" data-hn="hn00000004" data-order-id="ord-rejected-0004" data-status="cancelled" data-request-time="2026-08-28T09:14:18+07:00" data-cancelled-time="2026-08-28T09:32:46+07:00" data-cancel-reason="สิ่งส่งตรวจไม่เพียงพอ" data-cancelled-by="เจ้าหน้าที่ห้องปฏิบัติการ (ตัวอย่าง)" data-search="hn00000004 vn00000004 ด.ญ. ตัวอย่าง ปฏิเสธ c1 c2 c3 สิ่งส่งตรวจไม่เพียงพอ">
+        <article class="patient-block is-open" data-patient-id="hn00000004" data-hn="hn00000004" data-order-id="ord-rejected-0004" data-order-no="ORD1069000004" data-filter-status="cancelled" data-status="cancelled" data-request-time="2026-08-28T09:14:18+07:00" data-cancelled-time="2026-08-28T09:32:46+07:00" data-cancel-reason="สิ่งส่งตรวจไม่เพียงพอ" data-cancelled-by="เจ้าหน้าที่ห้องปฏิบัติการ (ตัวอย่าง)" data-search="hn00000004 vn00000004 ord1069000004 ด.ญ. ตัวอย่าง ยกเลิก c1 c2 c3 สิ่งส่งตรวจไม่เพียงพอ">
           <div class="patient-row">
             <button class="expand-button" type="button" aria-label="ย่อรายละเอียด HN00000004" aria-expanded="true">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"></path></svg>
             </button>
             <div class="patient-summary">
               <div class="patient-hn"><span class="mono" translate="no">HN00000004</span></div>
-              <div class="patient-name">ด.ญ. ตัวอย่าง ปฏิเสธ</div>
+              <div class="patient-name">ด.ญ. ตัวอย่าง ยกเลิก</div>
               <div class="patient-demographic"><span class="inline-tag gender-pill">หญิง</span><span>อายุ 4 ปี 2 เดือน</span></div>
             </div>
             <div class="context-tags">
@@ -1249,25 +1404,26 @@
             </div>
             <div class="metric"><span class="field-label">รายการ</span><span class="field-value">3 orders</span></div>
             <div class="metric"><span class="field-label">specimen</span><span class="field-value">3 specimens</span></div>
-            <div class="metric"><span class="field-label">เวลาสั่ง</span><span class="field-value time-value mono"><span>28/08/69</span><span>09:14:18</span></span></div>
-            <div class="metric"><span class="field-label">เวลาปฏิเสธ</span><span class="field-value time-value mono"><span>28/08/69</span><span>09:32:46</span></span></div>
-            <div class="doctor-cell"><span class="field-label">แพทย์</span><span class="field-value">พญ.แพทย์ตัวอย่าง</span></div>
-            <span class="row-status status-cancelled" data-row-status>ปฏิเสธ</span>
+            <div class="metric" data-order-time><span class="field-label order-time-label">เวลาสั่ง <span class="order-no-tag" data-order-no-tag>ORD1069000004</span></span><span class="field-value time-value mono"><span>28/08/69</span><span>09:14:18</span></span></div>
+            <div class="metric" data-status-time><span class="field-label">เวลายกเลิก</span><span class="field-value time-value mono"><span>28/08/69</span><span>09:32:46</span></span></div>
+            <div class="doctor-cell"><span class="field-label">แพทย์</span><span class="field-value">พญ.แพทย์ตัวอย่าง</span><span class="diagnosis-summary" title="Specimen recollection required">Diagnosis: Specimen recollection required</span></div>
+            <span class="row-status status-cancelled" data-row-status>ยกเลิก</span>
             <button class="btn btn-sm plain-action" type="button" data-open-cancel>ดู</button>
             <button class="btn btn-sm btn-primary" type="button" data-retest>ตรวจใหม่</button>
+            <button class="btn btn-sm plain-action" type="button" data-toast="เปิด EMR เพื่อดูข้อมูลผู้ป่วยและรายละเอียด Diagnosis" aria-label="เปิด EMR ของ HN00000004">EMR</button>
           </div>
           <div class="detail-panel">
-            <div class="detail-top"><span class="detail-tab active" aria-current="page">รายการที่ปฏิเสธ</span></div>
+            <div class="detail-top"><span class="detail-tab active" aria-current="page">รายการที่ยกเลิก</span></div>
             <div class="detail-view">
-              <div class="detail-summary"><span><strong>3</strong>รายการสั่งตรวจ</span><span>· ปฏิเสธทั้ง order</span></div>
+              <div class="detail-summary"><span><strong>3</strong>รายการสั่งตรวจ</span><span>· ยกเลิกทั้ง order</span></div>
               <div class="detail-table-wrap">
-                <table class="detail-table">
-                  <colgroup><col style="width:7%"><col style="width:18%"><col style="width:24%"><col style="width:15%"><col style="width:14%"><col style="width:14%"><col style="width:8%"></colgroup>
-                  <thead><tr><th scope="col">ลำดับ</th><th scope="col">Lab no.</th><th scope="col">รายการสั่งตรวจ</th><th scope="col">specimen</th><th scope="col">เวลาสั่ง</th><th scope="col">เวลาปฏิเสธ</th><th scope="col">สถานะ</th></tr></thead>
+                <table class="detail-table specimen-table">
+                  <colgroup><col style="width:5%"><col style="width:10%"><col style="width:16%"><col style="width:12%"><col style="width:12%"><col style="width:12%"><col style="width:8%"><col style="width:16%"><col style="width:9%"></colgroup>
+                  <thead><tr><th scope="col">ลำดับ</th><th scope="col">Lab no.</th><th scope="col">รายการสั่งตรวจ</th><th scope="col">specimen</th><th scope="col">เวลาสั่ง</th><th scope="col">เวลายกเลิก</th><th scope="col">สถานะ</th><th scope="col">ปฏิเสธ</th><th scope="col">คนปฏิเสธ</th></tr></thead>
                   <tbody>
-                    <tr><td class="mono">1</td><td class="mono">LN1069000041</td><td class="test-name">C1 Test</td><td>specimen1</td><td class="mono">28/08/69<br>09:14:18</td><td class="mono">28/08/69<br>09:32:46</td><td><span class="state-tag tag-danger">ปฏิเสธ</span></td></tr>
-                    <tr><td class="mono">2</td><td class="mono">LN1069000042</td><td class="test-name">C2 Test</td><td>specimen2</td><td class="mono">28/08/69<br>09:14:18</td><td class="mono">28/08/69<br>09:32:46</td><td><span class="state-tag tag-danger">ปฏิเสธ</span></td></tr>
-                    <tr><td class="mono">3</td><td class="mono">LN1069000043</td><td class="test-name">C3 Test</td><td>specimen3</td><td class="mono">28/08/69<br>09:14:18</td><td class="mono">28/08/69<br>09:32:46</td><td><span class="state-tag tag-danger">ปฏิเสธ</span></td></tr>
+                    <tr><td class="mono">1</td><td class="mono empty-cell">–</td><td class="test-name">C1 Test</td><td>specimen1</td><td class="mono">28/08/69<br>09:14:18</td><td class="mono">28/08/69<br>09:32:46</td><td><span class="state-tag tag-danger">ยกเลิก</span></td><td>สิ่งส่งตรวจไม่เพียงพอ</td><td>เจ้าหน้าที่ Lab</td></tr>
+                    <tr><td class="mono">2</td><td class="mono empty-cell">–</td><td class="test-name">C2 Test</td><td>specimen2</td><td class="mono">28/08/69<br>09:14:18</td><td class="mono">28/08/69<br>09:32:46</td><td><span class="state-tag tag-danger">ยกเลิก</span></td><td>สิ่งส่งตรวจไม่เพียงพอ</td><td>เจ้าหน้าที่ Lab</td></tr>
+                    <tr><td class="mono">3</td><td class="mono empty-cell">–</td><td class="test-name">C3 Test</td><td>specimen3</td><td class="mono">28/08/69<br>09:14:18</td><td class="mono">28/08/69<br>09:32:46</td><td><span class="state-tag tag-danger">ยกเลิก</span></td><td>สิ่งส่งตรวจไม่เพียงพอ</td><td>เจ้าหน้าที่ Lab</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -1282,8 +1438,13 @@
     <aside class="implementation-remarks" aria-labelledby="agentRemarkTitle">
       <h2 id="agentRemarkTitle">Remark สำหรับยืนยันกับ Agent / API</h2>
       <ul>
-        <li>Agent/API ต้องระบุสถานะครบระดับ test และรายการ result component ที่จำเป็นให้ชัดเจน หน้า UI จะไม่คำนวณเองว่า test ที่มีหลาย result ออกผลครบแล้วหรือยัง</li>
-        <li>ต้องยืนยันว่า Agent รองรับการรับหรือปฏิเสธแยกระดับ test ภายใน order เดียวหรือไม่ และต้องกำหนดสถานะ order กรณีผสม เช่น รับ Test 1 แต่ปฏิเสธ Test 2 ก่อนนำ flow นี้ไปใช้จริง</li>
+        <li>Agent/API ระบุสถานะครบระดับ test และรายการ result component ที่จำเป็น หน้า UI จะแสดงค่าตาม contract และไม่อนุมานเองว่า test ที่มีหลาย result ออกผลครบแล้วหรือยัง</li>
+        <li>รองรับการรับหรือปฏิเสธแยกระดับ test ภายใน order เดียว: test ที่ปฏิเสธต้องคงอยู่เป็น log ใต้ order แต่ไม่นำมานับเป็นรายการรอผล; เมื่อ test ที่รับไว้ออกผลครบ order จึงเป็น `ออกผลครบ`</li>
+        <li>ขอบเขต Worklist มาจาก `organization_id`, `lab_section_ids` และสิทธิ์ของผู้ใช้ที่ login โดย Agent/API ต้องตรวจสิทธิ์ซ้ำทุก request; หน้า UI ไม่มีตัวเลือกห้องแลปให้ผู้ใช้เลือกเอง</li>
+        <li>Test Master กำหนด `result_entry_mode = machine | manual | fallback`, `result_schema_id`, `unit_id` และ `requires_verification` แล้ว snapshot ค่าไว้ที่ Order Item เพื่อไม่ให้การแก้ Master ภายหลังเปลี่ยนรายการเก่า</li>
+        <li>เวลาเก็บ specimen ที่ว่างไม่บล็อกการรับ: UI ยังแสดง “–” และบันทึกเวลารับจริง โดยพักการส่ง Agent ไว้ที่ `awaiting_collection` จนต้นทางส่งเวลาเก็บจริงมา</li>
+        <li>หน้า order ไม่มีคอลัมน์ผลตรวจ; หน้าออกผลแสดง `ดูผล` รอไว้ทุก Item และเปิด popup ได้ก่อนมีผล ปุ่มดินสอเริ่มกรอกผล/Unit/แปลผล/ค่าปกติได้หลังรับ specimen ส่วนค่าก่อนหน้าเป็น audit ระดับ Item และแก้ไขไม่ได้</li>
+        <li>ฟอร์มอ้างอิง `lab_reject.json` ปัจจุบันเป็น logic ของ Lab CHE; งานจริงต้องเลือก master เหตุผลตาม `lab_section` และบันทึกผู้ปฏิเสธจาก runtime user context</li>
       </ul>
     </aside>
   </main>
@@ -1304,22 +1465,23 @@
       <div class="result-table-wrap">
         <table class="result-table">
           <colgroup><col style="width:6%"><col style="width:5%"><col style="width:20%"><col style="width:14%"><col style="width:14%"><col style="width:10%"><col style="width:11%"><col style="width:20%"></colgroup>
-          <thead><tr><th scope="col">#</th><th scope="col"><span class="sr-only">สถานะ</span></th><th scope="col">รายการ</th><th scope="col" title="ผลครั้งก่อนของผู้ป่วยจาก order ก่อนหน้า">ค่าก่อนหน้า</th><th scope="col">ค่าที่ตรวจได้</th><th scope="col">unit</th><th scope="col">แปลผล</th><th scope="col">ค่าปกติ</th></tr></thead>
+          <thead><tr><th scope="col">#</th><th scope="col"><span class="sr-only">สถานะ</span></th><th scope="col">รายการ</th><th scope="col" title="ประวัติค่าที่เคยบันทึกของ Item นี้ · อ่านอย่างเดียว">ค่าก่อนหน้า</th><th scope="col">ค่าที่ตรวจได้</th><th scope="col">unit</th><th scope="col">แปลผล</th><th scope="col">ค่าปกติ</th></tr></thead>
           <tbody data-profile="vitamin-d">
             <tr class="profile-row"><th colspan="8"><div class="profile-head"><span>Vitamin D</span></div></th></tr>
-            <tr><td class="mono">1</td><td><span class="signal-dot critical" aria-label="ค่าวิกฤติ"></span></td><td class="test-name">Vitamin D</td><td class="mono previous-value">28</td><td><span class="result-value" data-result-value="34">34</span></td><td>ng/mL</td><td>H</td><td class="mono">20 - 25</td></tr>
+            <tr><td class="mono">1</td><td><span class="signal-dot critical" aria-label="ค่าวิกฤติ"></span></td><td class="test-name">Vitamin D</td><td class="mono previous-value">28</td><td><span class="result-value" data-result-value="34">34</span></td><td data-result-edit="ng/mL">ng/mL</td><td data-result-edit="H">H</td><td class="mono" data-result-edit="20 - 25">20 - 25</td></tr>
           </tbody>
           <tbody data-profile="pending-test" data-pending-profile>
-            <tr class="profile-row"><th colspan="8"><div class="profile-head"><span>C2 Test</span><span class="state-tag tag-warning">รอผล</span></div></th></tr>
-            <tr class="pending-result-row"><td class="mono">2</td><td colspan="7"><div class="pending-result-message"><span class="state-tag tag-warning">รอผล</span><span>ยังไม่ได้รับผลตรวจของ test นี้จาก Agent / LIS</span></div></td></tr>
+            <tr class="profile-row"><th colspan="8"><div class="profile-head"><span data-profile-test-name>C2 Test</span><span><span class="entry-mode-tag" data-entry-mode-label>LIS / fallback</span> <span class="state-tag tag-warning" data-pending-profile-status>รอผล</span></span></div></th></tr>
+            <tr class="pending-result-row"><td class="mono">1</td><td>–</td><td class="test-name" data-profile-test-name>C2 Test</td><td class="mono previous-value">–</td><td><span class="result-value pending-manual-value" data-result-value="" data-pending-value>รอผล</span></td><td data-pending-unit data-result-edit="">–</td><td data-result-edit="">–</td><td data-result-edit="">–</td></tr>
+            <tr class="pending-result-row"><td colspan="8"><div class="pending-result-message" data-pending-message><span class="state-tag tag-warning">รอผล</span><span>รอผลจาก Agent / LIS · Manual fallback ใช้ตามสิทธิ์และเหตุผล</span></div></td></tr>
           </tbody>
           <tbody data-profile="electrolyte">
             <tr class="profile-row"><th colspan="8"><div class="profile-head"><span>Electrolyte (cotted blood)</span></div></th></tr>
-            <tr><td class="mono">1</td><td><span class="signal-dot normal" aria-label="ค่าปกติ"></span></td><td class="test-name">Sodium</td><td class="mono previous-value">41</td><td><span class="result-value" data-result-value="43">43</span></td><td>nmoll</td><td>H</td><td class="mono">20 - 25</td></tr>
-            <tr><td class="mono">2</td><td><span class="signal-dot normal" aria-label="ค่าปกติ"></span></td><td class="test-name">Potassium</td><td class="mono previous-value">33.8</td><td><span class="result-value" data-result-value="34.9">34.9</span></td><td>nmoll</td><td>H</td><td class="mono">20 - 25</td></tr>
-            <tr><td class="mono">3</td><td><span class="signal-dot normal" aria-label="ค่าปกติ"></span></td><td class="test-name">Chloride</td><td class="mono previous-value">24.1</td><td><span class="result-value" data-result-value="23.9">23.9</span></td><td>nmoll</td><td>–</td><td class="mono">20 - 25</td></tr>
-            <tr><td class="mono">4</td><td><span class="signal-dot normal" aria-label="ค่าปกติ"></span></td><td class="test-name">Catondoode</td><td class="mono previous-value">12.1</td><td><span class="result-value" data-result-value="12.4">12.4</span></td><td>nmoll</td><td>–</td><td class="mono">20 - 25</td></tr>
-            <tr><td class="mono">5</td><td><span class="signal-dot normal" aria-label="ค่าปกติ"></span></td><td class="test-name">Anion Gap</td><td class="mono previous-value">22.9</td><td><span class="result-value" data-result-value="23.4">23.4</span></td><td>nmoll</td><td>–</td><td class="mono">20 - 25</td></tr>
+            <tr><td class="mono">1</td><td><span class="signal-dot normal" aria-label="ค่าปกติ"></span></td><td class="test-name">Sodium</td><td class="mono previous-value">41</td><td><span class="result-value" data-result-value="43">43</span></td><td data-result-edit="nmoll">nmoll</td><td data-result-edit="H">H</td><td class="mono" data-result-edit="20 - 25">20 - 25</td></tr>
+            <tr><td class="mono">2</td><td><span class="signal-dot normal" aria-label="ค่าปกติ"></span></td><td class="test-name">Potassium</td><td class="mono previous-value">33.8</td><td><span class="result-value" data-result-value="34.9">34.9</span></td><td data-result-edit="nmoll">nmoll</td><td data-result-edit="H">H</td><td class="mono" data-result-edit="20 - 25">20 - 25</td></tr>
+            <tr><td class="mono">3</td><td><span class="signal-dot normal" aria-label="ค่าปกติ"></span></td><td class="test-name">Chloride</td><td class="mono previous-value">24.1</td><td><span class="result-value" data-result-value="23.9">23.9</span></td><td data-result-edit="nmoll">nmoll</td><td data-result-edit="">–</td><td class="mono" data-result-edit="20 - 25">20 - 25</td></tr>
+            <tr><td class="mono">4</td><td><span class="signal-dot normal" aria-label="ค่าปกติ"></span></td><td class="test-name">Catondoode</td><td class="mono previous-value">12.1</td><td><span class="result-value" data-result-value="12.4">12.4</span></td><td data-result-edit="nmoll">nmoll</td><td data-result-edit="">–</td><td class="mono" data-result-edit="20 - 25">20 - 25</td></tr>
+            <tr><td class="mono">5</td><td><span class="signal-dot normal" aria-label="ค่าปกติ"></span></td><td class="test-name">Anion Gap</td><td class="mono previous-value">22.9</td><td><span class="result-value" data-result-value="23.4">23.4</span></td><td data-result-edit="nmoll">nmoll</td><td data-result-edit="">–</td><td class="mono" data-result-edit="20 - 25">20 - 25</td></tr>
           </tbody>
         </table>
       </div>
@@ -1330,19 +1492,76 @@
     </div>
   </dialog>
 
+  <dialog id="saveResultConfirmDialog" aria-labelledby="saveResultConfirmTitle">
+    <div class="modal-head">
+      <div>
+        <h2 id="saveResultConfirmTitle">ยืนยันการบันทึกผลตรวจ</h2>
+        <div id="saveResultConfirmMeta" class="modal-meta">ตรวจสอบผลก่อนยืนยันบันทึก</div>
+      </div>
+      <button class="modal-close" type="button" data-cancel-save-result aria-label="ปิดคำยืนยันบันทึกผล">×</button>
+    </div>
+    <div class="modal-body">
+      <p class="confirm-copy">ต้องการบันทึกผลตรวจนี้ใช่หรือไม่? ระบบจะบันทึกเวลาและเปลี่ยนสถานะรายการเป็น <strong>ออกผลแล้ว</strong></p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" type="button" data-cancel-save-result>กลับไปตรวจสอบ</button>
+      <button id="confirmSaveResult" class="btn btn-primary" type="button">ยืนยันบันทึกผล</button>
+    </div>
+  </dialog>
+
+  <dialog id="rejectFormDialog" aria-labelledby="rejectFormTitle">
+    <div class="modal-head">
+      <div>
+        <h2 id="rejectFormTitle">ปฏิเสธรายการตรวจ</h2>
+        <div id="rejectFormMeta" class="modal-meta">เลือกเหตุผลการปฏิเสธ</div>
+      </div>
+      <button class="modal-close" type="button" data-close-reject-form aria-label="ปิดฟอร์มปฏิเสธ">×</button>
+    </div>
+    <form id="rejectForm">
+      <div class="modal-body">
+        <div class="reject-form-grid">
+          <div class="form-field">
+            <label for="rejectReasonCode">เหตุผลการปฏิเสธ <span class="required-mark">*</span></label>
+            <select id="rejectReasonCode" name="reject_reason_code" required>
+              <option value="">กรุณาเลือกเหตุผล</option>
+              <option value="specimen_incorrect">สิ่งส่งตรวจไม่ถูกต้อง</option>
+              <option value="specimen_insufficient">ปริมาณสิ่งส่งตรวจไม่เพียงพอ</option>
+              <option value="container_incorrect">ภาชนะบรรจุไม่ถูกต้อง</option>
+              <option value="patient_mismatch">ระบุตัวผู้ป่วยผิดคน</option>
+              <option value="specimen_unsuitable">สิ่งส่งตรวจเสื่อมสภาพหรือปนเปื้อน</option>
+              <option value="ward_cancel">Ward ยกเลิกการส่งตรวจ</option>
+              <option value="change_draw">คลินิกนมแม่ขอเปลี่ยนสิทธิ์คนไข้</option>
+              <option value="change_draw_1">คนไข้ขอเปลี่ยนใช้สิทธิ์บัตรทอง</option>
+              <option value="finance_error">รายการไม่ส่งไปการเงิน</option>
+              <option value="other">อื่น ๆ</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label for="rejectReasonDetail">รายละเอียดเพิ่มเติม</label>
+            <textarea id="rejectReasonDetail" name="reject_reason_detail" placeholder="ระบุรายละเอียด (ถ้ามี)"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" type="button" data-close-reject-form>ยกเลิก</button>
+        <button id="confirmReject" class="btn btn-danger" type="submit">ยืนยันการปฏิเสธ</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="cancelDialog" aria-labelledby="cancelDialogTitle">
     <div class="modal-head">
       <div>
-        <h2 id="cancelDialogTitle">รายละเอียดการปฏิเสธรายการตรวจ</h2>
-        <div id="cancelDialogMeta" class="modal-meta"><span class="mono">HN00000004</span> · order ที่ปฏิเสธ</div>
+        <h2 id="cancelDialogTitle">รายละเอียดการยกเลิก order</h2>
+        <div id="cancelDialogMeta" class="modal-meta"><span class="mono">HN00000004</span> · order ที่ยกเลิก</div>
       </div>
-      <button class="modal-close" type="button" data-close-cancel aria-label="ปิดรายละเอียดการปฏิเสธ">×</button>
+      <button class="modal-close" type="button" data-close-cancel aria-label="ปิดรายละเอียดการยกเลิก">×</button>
     </div>
     <div class="modal-body">
       <div class="cancel-detail-grid">
-        <div class="cancel-detail reason"><span class="field-label">เหตุผลที่ปฏิเสธ</span><span id="cancelReason" class="field-value">–</span></div>
-        <div class="cancel-detail"><span class="field-label">ผู้ปฏิเสธ</span><span id="cancelledBy" class="field-value">–</span></div>
-        <div class="cancel-detail"><span class="field-label">เวลาปฏิเสธ</span><span id="cancelledAt" class="field-value mono">–</span></div>
+        <div class="cancel-detail reason"><span class="field-label">เหตุผลที่ยกเลิก</span><span id="cancelReason" class="field-value">–</span></div>
+        <div class="cancel-detail"><span class="field-label">ผู้ยกเลิก</span><span id="cancelledBy" class="field-value">–</span></div>
+        <div class="cancel-detail"><span class="field-label">เวลายกเลิก</span><span id="cancelledAt" class="field-value mono">–</span></div>
         <div class="cancel-detail"><span class="field-label">ขอบเขต</span><span class="field-value">ทั้ง order</span></div>
       </div>
     </div>
@@ -1353,12 +1572,12 @@
     <div class="modal-head">
       <div>
         <h2 id="retestConfirmTitle">ยืนยันการตรวจใหม่</h2>
-        <div id="retestConfirmMeta" class="modal-meta">สร้าง order ใหม่จากรายการที่ปฏิเสธ</div>
+        <div id="retestConfirmMeta" class="modal-meta">สร้าง order ใหม่จากรายการที่ยกเลิก</div>
       </div>
       <button class="modal-close" type="button" data-cancel-retest aria-label="ปิดคำยืนยันตรวจใหม่">×</button>
     </div>
     <div class="modal-body">
-      <p class="confirm-copy">ระบบจะเก็บ order เดิมไว้ สร้าง Order No. และ Lab No. ใหม่ และใช้เวลาสั่งปัจจุบัน จากนั้นส่งรายการไปที่สถานะ <strong>รอรับ</strong></p>
+      <p class="confirm-copy">ระบบจะเก็บ order เดิมไว้ สร้าง Order No. ใหม่ และใช้เวลาสั่งปัจจุบัน จากนั้นส่งรายการไปที่สถานะ <strong>รอรับ</strong> ส่วน Lab No. จะสร้างเมื่อกดรับ specimen</p>
     </div>
     <div class="modal-foot">
       <button class="btn" type="button" data-cancel-retest>ยกเลิก</button>
@@ -1385,6 +1604,12 @@
       var editResultButton = $('#editResultButton');
       var resultMode = $('#resultMode');
       var saveResult = $('#saveResult');
+      var saveResultConfirmDialog = $('#saveResultConfirmDialog');
+      var rejectFormDialog = $('#rejectFormDialog');
+      var rejectForm = $('#rejectForm');
+      var rejectReasonCode = $('#rejectReasonCode');
+      var rejectReasonDetail = $('#rejectReasonDetail');
+      var confirmReject = $('#confirmReject');
       var cancelDialog = $('#cancelDialog');
       var retestConfirmDialog = $('#retestConfirmDialog');
       var toast = $('#toast');
@@ -1395,6 +1620,8 @@
       var calendarCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
       var resultEditing = false;
       var resultDirty = false;
+      var activeResultContext = null;
+      var pendingRejectContext = null;
       var pendingRetestBlock = null;
       var toastTimer = null;
       var monthLabels = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
@@ -1455,6 +1682,31 @@
         var absoluteOffset = Math.abs(offsetMinutes);
         var offset = sign + String(Math.floor(absoluteOffset / 60)).padStart(2, '0') + ':' + String(absoluteOffset % 60).padStart(2, '0');
         return isoDate(date) + 'T' + String(date.getHours()).padStart(2, '0') + ':' + String(date.getMinutes()).padStart(2, '0') + ':' + String(date.getSeconds()).padStart(2, '0') + offset;
+      }
+
+      function rebaseDemoDataToToday() {
+        var sourceIsoDate = '2026-08-28';
+        var sourceThaiDate = '28/08/69';
+        var today = new Date();
+        var targetIsoDate = isoDate(today);
+        var targetThaiDate = formatShortThaiDate(today);
+        if (sourceIsoDate === targetIsoDate) return;
+
+        $$('.patient-block').forEach(function (block) {
+          ['requestTime', 'receivedTime', 'resultTime', 'cancelledTime'].forEach(function (field) {
+            if (block.dataset[field] && block.dataset[field].indexOf(sourceIsoDate) === 0) {
+              block.dataset[field] = targetIsoDate + block.dataset[field].slice(sourceIsoDate.length);
+            }
+          });
+
+          var walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
+          var textNode;
+          while ((textNode = walker.nextNode())) {
+            if (textNode.nodeValue.indexOf(sourceThaiDate) !== -1) {
+              textNode.nodeValue = textNode.nodeValue.split(sourceThaiDate).join(targetThaiDate);
+            }
+          }
+        });
       }
 
       function renderMonth(year, month) {
@@ -1557,21 +1809,21 @@
       }
 
       function eventTimeForBlock(block) {
-        var status = activeStatus || block.dataset.status;
-        if (status === 'received') return block.dataset.receivedTime;
-        if (status === 'resulted') return block.dataset.resultTime;
+        var status = block.dataset.status;
         if (status === 'cancelled') return block.dataset.cancelledTime;
+        if (block.dataset.resultState) return block.dataset.resultTime;
+        if (status === 'received') return block.dataset.receivedTime;
         return block.dataset.requestTime;
       }
 
-      function isWithinDateScope(block, showAllResultHistory) {
+      function isWithinDateScope(block, exactHn) {
         var value = eventTimeForBlock(block);
         if (!value) return false;
         var eventDate = new Date(value.slice(0, 10) + 'T00:00:00');
         if (hasExplicitDateRange && selectedStart && selectedEnd) {
           return eventDate >= selectedStart && eventDate <= selectedEnd;
         }
-        if (showAllResultHistory) return true;
+        if (exactHn && block.dataset.resultState) return true;
         var today = new Date();
         today.setHours(0, 0, 0, 0);
         return eventDate.getTime() === today.getTime();
@@ -1580,15 +1832,25 @@
       function applyFilters() {
         var query = searchInput.value.trim().toLocaleLowerCase('th');
         var exactHn = exactHnQuery(query);
-        var showAllResultHistory = activeStatus === 'resulted' && Boolean(exactHn) && !hasExplicitDateRange;
         var visibleCount = 0;
+        var statusCounts = { total:0, active:0, complete:0, cancelled:0 };
         $$('.patient-block').forEach(function (block) {
           var blockHn = normalizeHn(block.dataset.hn || block.dataset.patientId || '');
           var matchesQuery = !query || (exactHn ? blockHn === exactHn : block.dataset.search.toLocaleLowerCase('th').indexOf(query) !== -1);
-          var matchesStatus = !activeStatus || block.dataset.status === activeStatus;
-          var matchesDate = isWithinDateScope(block, showAllResultHistory);
+          var matchesStatus = !activeStatus || block.dataset.filterStatus === activeStatus;
+          var matchesDate = isWithinDateScope(block, Boolean(exactHn) && !hasExplicitDateRange);
+          if (matchesQuery && matchesDate) {
+            statusCounts.total += 1;
+            if (Object.prototype.hasOwnProperty.call(statusCounts, block.dataset.filterStatus)) {
+              statusCounts[block.dataset.filterStatus] += 1;
+            }
+          }
           block.hidden = !(matchesQuery && matchesStatus && matchesDate);
           if (!block.hidden) visibleCount += 1;
+        });
+        $$('.status-chip').forEach(function (chip) {
+          var countKey = chip.dataset.status || 'total';
+          $('strong', chip).textContent = statusCounts[countKey] || 0;
         });
         $('#emptyState').hidden = visibleCount !== 0;
         clearSearch.hidden = !query;
@@ -1598,6 +1860,8 @@
       function restoreUrlState() {
         var params = new URLSearchParams(window.location.search);
         var restoredStatus = params.get('status') || '';
+        if (restoredStatus === 'waiting' || restoredStatus === 'received') restoredStatus = 'active';
+        if (restoredStatus === 'resulted') restoredStatus = 'complete';
         if ($('.status-chip[data-status="' + restoredStatus + '"]')) activeStatus = restoredStatus;
         searchInput.value = params.get('q') || '';
         var from = params.get('from');
@@ -1654,13 +1918,67 @@
         closeSpecimenMenu(combo);
       }
 
-      function setItemStatus(item, action) {
+      function pendingItems(block) {
+        return $$('[data-specimen-item]', block).filter(function (item) { return item.dataset.itemState === 'waiting'; });
+      }
+
+      function checkedPendingItems(block) {
+        return pendingItems(block).filter(function (item) {
+          var checkbox = $('[data-item-check]', item);
+          return checkbox && checkbox.checked;
+        });
+      }
+
+      function generateLabNo(block, now) {
+        if (block.dataset.labNo) return block.dataset.labNo;
+        var suffix = String(now.getTime()).slice(-6);
+        block.dataset.labNo = 'LN' + String(now.getFullYear() + 543).slice(-2) + suffix;
+        return block.dataset.labNo;
+      }
+
+      function rejectionText(reasonLabel, detail) {
+        return reasonLabel + (detail ? ' — ' + detail : '');
+      }
+
+      function setItemStatus(item, action, options) {
+        options = options || {};
         var status = $('[data-item-status]', item);
-        status.className = 'state-tag ' + (action === 'receive' ? 'tag-success' : 'tag-danger');
-        status.textContent = action === 'receive' ? 'รับแล้ว' : 'ปฏิเสธ';
-        $$('[data-item-action]', item).forEach(function (button) { button.disabled = true; });
+        var checkbox = $('[data-item-check]', item);
+        var labCell = $('[data-lab-no]', item);
+        var receivedCell = $('[data-received-at]', item);
+        var reasonCell = $('[data-reject-reason]', item);
+        var rejectedByCell = $('[data-rejected-by]', item);
         var specimenInput = $('.specimen-search', item);
         var specimenToggle = $('.specimen-toggle', item);
+        item.dataset.itemState = action === 'receive' ? 'received' : (action === 'cancel' ? 'cancelled' : 'rejected');
+        status.className = 'state-tag ' + (action === 'receive' ? 'tag-success' : 'tag-danger');
+        status.textContent = action === 'receive' ? 'รับแล้ว' : (action === 'cancel' ? 'ยกเลิก' : 'ปฏิเสธ');
+        if (checkbox) {
+          checkbox.checked = false;
+          checkbox.disabled = true;
+        }
+        if (action === 'receive') {
+          if (labCell) {
+            labCell.textContent = options.labNo || '–';
+            labCell.classList.toggle('empty-cell', !options.labNo);
+          }
+          if (receivedCell) {
+            receivedCell.textContent = formatShortThaiDate(options.now) + ' ' + formatTime(options.now);
+            receivedCell.classList.remove('empty-cell');
+          }
+        } else {
+          if (reasonCell) {
+            reasonCell.textContent = options.reason || '–';
+            reasonCell.classList.toggle('empty-cell', !options.reason);
+          }
+          if (rejectedByCell) {
+            rejectedByCell.textContent = options.actor || '–';
+            rejectedByCell.classList.toggle('empty-cell', !options.actor);
+          }
+          item.dataset.itemRejectReason = options.reason || '';
+          item.dataset.itemRejectedBy = options.actor || '';
+          item.dataset.itemRejectedAt = options.timestamp || '';
+        }
         if (specimenInput) specimenInput.disabled = true;
         if (specimenToggle) specimenToggle.disabled = true;
         closeSpecimenMenu($('[data-specimen-combobox]', item));
@@ -1678,53 +1996,233 @@
         return valid;
       }
 
+      function syncSelectionState(block) {
+        var available = pendingItems(block);
+        var checked = checkedPendingItems(block);
+        var selectAll = $('[data-select-all]', block);
+        if (selectAll) {
+          selectAll.disabled = available.length === 0;
+          selectAll.checked = available.length > 0 && checked.length === available.length;
+          selectAll.indeterminate = checked.length > 0 && checked.length < available.length;
+        }
+        var receiveButton = $('[data-bulk-action="receive"]', block);
+        var rejectButton = $('[data-bulk-action="reject-item"]', block);
+        if (receiveButton) receiveButton.hidden = available.length === 0;
+        if (rejectButton) rejectButton.hidden = available.length === 0;
+      }
+
       function finishSpecimenBlock(block) {
         var items = $$('[data-specimen-item]', block);
-        var complete = items.length > 0 && items.every(function (item) {
-          return $$('[data-item-action]', item).every(function (button) { return button.disabled; });
-        });
-        if (!complete) return;
-        $$('[data-bulk-action]', block).forEach(function (button) { button.disabled = true; });
-        var receivedCount = items.filter(function (item) { return $('[data-item-status]', item).classList.contains('tag-success'); }).length;
+        var pendingCount = items.filter(function (item) { return item.dataset.itemState === 'waiting'; }).length;
+        var receivedCount = items.filter(function (item) { return item.dataset.itemState === 'received'; }).length;
         var rowStatus = $('[data-row-status]', block);
-        var now = localIsoTimestamp(new Date());
-        if (receivedCount === items.length) {
+        if (receivedCount > 0 || (items.length > 0 && pendingCount === 0)) {
           block.dataset.status = 'received';
-          block.dataset.receivedTime = now;
+          block.dataset.filterStatus = 'active';
           rowStatus.className = 'row-status status-received';
           rowStatus.textContent = 'รับแล้ว';
-        } else if (receivedCount === 0) {
-          block.dataset.status = 'cancelled';
-          block.dataset.cancelledTime = now;
-          rowStatus.className = 'row-status status-cancelled';
-          rowStatus.textContent = 'ปฏิเสธ';
         } else {
-          block.dataset.status = 'mixed';
-          rowStatus.className = 'row-status status-mixed';
-          rowStatus.textContent = 'รอยืนยันสถานะ';
-          showToast('รับและปฏิเสธคนละ test — รอยืนยันสถานะ order จาก Agent');
+          block.dataset.status = 'waiting';
+          block.dataset.filterStatus = 'active';
+          rowStatus.className = 'row-status status-waiting';
+          rowStatus.textContent = 'รอรับ';
         }
+        syncSelectionState(block);
         applyFilters();
       }
 
-      function setAllItems(block, action) {
-        $$('[data-specimen-item]', block).forEach(function (item) { setItemStatus(item, action); });
-        $$('[data-bulk-action]', block).forEach(function (button) { button.disabled = true; });
-        var rowStatus = $('[data-row-status]', block);
-        var now = localIsoTimestamp(new Date());
-        if (action === 'receive') {
-          block.dataset.status = 'received';
-          block.dataset.receivedTime = now;
-          rowStatus.className = 'row-status status-received';
-          rowStatus.textContent = 'รับแล้ว';
-          showToast('รับ specimen ครบทั้ง 3 รายการแล้ว');
-        } else {
-          block.dataset.status = 'cancelled';
-          block.dataset.cancelledTime = now;
-          rowStatus.className = 'row-status status-cancelled';
-          rowStatus.textContent = 'ปฏิเสธ';
-          showToast('ปฏิเสธ specimen ทั้งหมดแล้ว');
+      function receiveSelectedItems(block) {
+        var selected = checkedPendingItems(block);
+        if (!selected.length) {
+          showToast('เลือก test ที่ต้องการรับ specimen ก่อน');
+          return;
         }
+        var invalidItem = selected.find(function (item) { return !validateSpecimenItem(item); });
+        if (invalidItem) return;
+        var nowDate = new Date();
+        var labNo = generateLabNo(block, nowDate);
+        selected.forEach(function (item) { setItemStatus(item, 'receive', { now:nowDate, labNo:labNo }); });
+        block.dataset.receivedTime = block.dataset.receivedTime || localIsoTimestamp(nowDate);
+        finishSpecimenBlock(block);
+        showToast('รับ specimen ' + selected.length + ' test แล้ว · ' + labNo);
+      }
+
+      function openRejectForm(block, scope, item) {
+        pendingRejectContext = { block:block, scope:scope, item:item || null };
+        rejectForm.reset();
+        var hn = block.dataset.hn.toUpperCase();
+        if (scope === 'item') {
+          var testName = $('.test-name', item).textContent;
+          $('#rejectFormTitle').textContent = 'ปฏิเสธรายการตรวจ';
+          $('#rejectFormMeta').innerHTML = '<span class="mono">' + hn + '</span> · ' + testName;
+          confirmReject.textContent = 'ยืนยันการปฏิเสธ';
+        } else {
+          $('#rejectFormTitle').textContent = 'ยกเลิก order';
+          $('#rejectFormMeta').innerHTML = '<span class="mono">' + hn + '</span> · ' + (block.dataset.orderNo || block.dataset.orderId);
+          confirmReject.textContent = 'ยืนยันการยกเลิก order';
+        }
+        showDialog(rejectFormDialog);
+        window.setTimeout(function () { rejectReasonCode.focus(); }, 0);
+      }
+
+      function requestItemReject(block) {
+        var selected = checkedPendingItems(block);
+        if (selected.length !== 1) {
+          showToast(selected.length > 1 ? 'ปฏิเสธได้ครั้งละ 1 item กรุณาเลือกเพียงรายการเดียว' : 'เลือก 1 item ที่ต้องการปฏิเสธก่อน');
+          return;
+        }
+        openRejectForm(block, 'item', selected[0]);
+      }
+
+      function requestOrderCancel(block) {
+        openRejectForm(block, 'order');
+      }
+
+      function submitRejection() {
+        if (!pendingRejectContext) return;
+        if (!rejectReasonCode.value) {
+          showToast('กรุณาเลือกเหตุผลการปฏิเสธ');
+          rejectReasonCode.focus();
+          return;
+        }
+        var selectedOption = rejectReasonCode.options[rejectReasonCode.selectedIndex];
+        var reason = rejectionText(selectedOption.textContent, rejectReasonDetail.value.trim());
+        var actor = 'เจ้าหน้าที่ห้องปฏิบัติการ (ตัวอย่าง)';
+        var nowDate = new Date();
+        var timestamp = localIsoTimestamp(nowDate);
+        var context = pendingRejectContext;
+        if (context.scope === 'item') {
+          var testName = $('.test-name', context.item).textContent;
+          setItemStatus(context.item, 'reject', { reason:reason, actor:actor, timestamp:timestamp });
+          finishSpecimenBlock(context.block);
+          showToast('ปฏิเสธ ' + testName + ' แล้ว และเก็บรายการไว้ใน order');
+        } else {
+          $$('[data-specimen-item]', context.block).forEach(function (item) {
+            setItemStatus(item, 'cancel', { reason:reason, actor:actor, timestamp:timestamp });
+          });
+          context.block.dataset.status = 'cancelled';
+          context.block.dataset.filterStatus = 'cancelled';
+          context.block.dataset.cancelledTime = timestamp;
+          context.block.dataset.cancelReason = reason;
+          context.block.dataset.cancelledBy = actor;
+          context.block.dataset.search += ' ยกเลิก ' + reason;
+          var rowStatus = $('[data-row-status]', context.block);
+          rowStatus.className = 'row-status status-cancelled';
+          rowStatus.textContent = 'ยกเลิก';
+          var statusTime = $('[data-status-time]', context.block);
+          if (statusTime) statusTime.innerHTML = '<span class="field-label">เวลายกเลิก</span><span class="field-value time-value mono"><span>' + formatShortThaiDate(nowDate) + '</span><span>' + formatTime(nowDate) + '</span></span>';
+          var orderActions = $('[data-order-actions]', context.block);
+          if (orderActions) orderActions.hidden = true;
+          var topActions = $$('.patient-row > .btn', context.block);
+          var emrAction = topActions.find(function (button) {
+            return (button.getAttribute('aria-label') || '').indexOf('เปิด EMR') === 0;
+          });
+          if (topActions[0]) {
+            topActions[0].textContent = 'ดู';
+            topActions[0].disabled = false;
+            topActions[0].removeAttribute('data-toast');
+            topActions[0].removeAttribute('data-bound-toast');
+            topActions[0].setAttribute('data-open-cancel', '');
+            bindCancelViewerButton(topActions[0]);
+          }
+          var retestAction = document.createElement('button');
+          retestAction.className = 'btn btn-sm btn-primary';
+          retestAction.type = 'button';
+          retestAction.textContent = 'ตรวจใหม่';
+          retestAction.setAttribute('data-retest', '');
+          var patientRow = $('.patient-row', context.block);
+          if (emrAction) patientRow.insertBefore(retestAction, emrAction);
+          else patientRow.appendChild(retestAction);
+          applyFilters();
+          showToast('ยกเลิกทุก test ใต้ order แล้ว');
+        }
+        pendingRejectContext = null;
+        hideDialog(rejectFormDialog);
+      }
+
+      function closeRejectForm() {
+        pendingRejectContext = null;
+        hideDialog(rejectFormDialog);
+      }
+
+      function completeManualResult() {
+        if (!activeResultContext || !activeResultContext.manualButton) return;
+        var resultValue = $('[data-profile="pending-test"] [data-result-value]', resultDialog);
+        if (!resultValue || !resultValue.dataset.resultValue.trim()) return;
+
+        var block = activeResultContext.block;
+        var resultButton = activeResultContext.manualButton;
+        var testId = resultButton.dataset.resultTestId;
+        var testName = resultButton.dataset.testName || 'รายการตรวจ';
+        var unit = resultButton.dataset.unit || '–';
+        var nowDate = new Date();
+        var resultRow = $$('[data-result-test]', block).find(function (row) { return row.dataset.resultTest === testId; });
+        if (!resultRow) return;
+        var resultStatus = $('[data-test-result-status]', resultRow);
+        var resultTime = $('[data-test-result-time]', resultRow);
+        resultRow.dataset.testResultState = 'resulted';
+        resultStatus.className = 'state-tag tag-success';
+        resultStatus.textContent = 'ออกผลแล้ว';
+        resultTime.textContent = formatTime(nowDate);
+        resultButton.dataset.resultScope = 'complete';
+        resultButton.dataset.manualResultValue = resultValue.dataset.resultValue;
+        resultButton.textContent = 'ดูผล';
+        resultButton.classList.remove('btn-primary');
+        resultButton.setAttribute('aria-label', 'ดูหรือแก้ไขผล Manual ของ ' + testName);
+        delete resultButton.dataset.startEdit;
+        block.dataset.manualResultValue = resultValue.dataset.resultValue;
+        block.dataset.manualResultTestName = testName;
+        block.dataset.manualResultEntryMode = resultButton.dataset.resultEntryMode || 'manual';
+        block.dataset.manualResultUnit = unit;
+
+        var profileStatus = $('[data-pending-profile-status]', resultDialog);
+        profileStatus.className = 'state-tag tag-success';
+        profileStatus.textContent = 'ออกผลแล้ว';
+        $('[data-pending-unit]', resultDialog).textContent = unit;
+        $('[data-pending-message]', resultDialog).innerHTML = '<span class="state-tag tag-success">ออกผลแล้ว</span><span>บันทึกผล Manual แล้ว · เก็บผู้บันทึก เวลา และ revision ไว้ใน correction history</span>';
+        $$('[data-profile="pending-test"] .pending-result-row', resultDialog).forEach(function (row) { row.classList.remove('pending-result-row'); });
+
+        var trackedResultRows = $$('[data-test-result-state]', block);
+        var totalResultRows = $$('[data-view="results"] tbody > tr', block).length;
+        var isComplete = trackedResultRows.length > 0 && trackedResultRows.every(function (row) { return row.dataset.testResultState === 'resulted'; });
+        block.dataset.filterStatus = isComplete ? 'complete' : 'active';
+        block.dataset.resultState = isComplete ? 'complete' : 'partial';
+        block.dataset.resultTime = localIsoTimestamp(nowDate);
+        var rowStatus = $('[data-row-status]', block);
+        rowStatus.className = 'row-status ' + (isComplete ? 'status-result-complete' : 'status-result-partial');
+        rowStatus.textContent = isComplete ? 'ออกผลครบ' : 'ออกผลบางส่วน';
+        var statusTime = $('[data-status-time]', block);
+        statusTime.innerHTML = '<span class="field-label">เวลาออกผล</span><span class="field-value time-value mono"><span>' + formatShortThaiDate(nowDate) + '</span><span>' + formatTime(nowDate) + '</span></span>';
+        var pdfButton = $$('.patient-row > .btn', block).find(function (button) { return button.textContent.trim() === 'PDF'; });
+        if (pdfButton && isComplete) {
+          pdfButton.disabled = false;
+          pdfButton.removeAttribute('title');
+          pdfButton.setAttribute('aria-label', 'เปิด PDF ผลตรวจที่ออกผลครบแล้ว');
+          pdfButton.dataset.toast = 'เตรียม PDF ผลตรวจฉบับล่าสุด';
+          bindToastButton(pdfButton);
+        }
+        var orderResultButton = $('.patient-row > [data-open-results]', block);
+        if (!orderResultButton && isComplete) {
+          orderResultButton = document.createElement('button');
+          orderResultButton.className = 'btn btn-sm plain-action';
+          orderResultButton.type = 'button';
+          orderResultButton.textContent = 'ดูผล';
+          orderResultButton.setAttribute('data-open-results', '');
+          if (totalResultRows === 1) orderResultButton.dataset.resultProfile = 'pending-test';
+          var emrButton = $$('.patient-row > .btn', block).find(function (button) {
+            return (button.getAttribute('aria-label') || '').indexOf('เปิด EMR') === 0;
+          });
+          if (emrButton) emrButton.parentNode.insertBefore(orderResultButton, emrButton);
+          else $('.patient-row', block).appendChild(orderResultButton);
+          bindResultButton(orderResultButton);
+        }
+        if (orderResultButton) {
+          orderResultButton.dataset.resultScope = isComplete ? 'complete' : 'partial';
+          orderResultButton.setAttribute('aria-label', 'ดูผลทั้งหมดของ ' + block.dataset.hn.toUpperCase());
+        }
+        var resultSummary = $('[data-view="results"] .detail-summary', block);
+        if (resultSummary) resultSummary.innerHTML = '<span><strong>' + totalResultRows + '</strong>รายการสั่งตรวจ</span><span>· ' + (isComplete ? 'ออกผลครบทุก test' : 'แสดงผลล่าสุดของแต่ละรายการ') + '</span>';
+        resultDialogMeta.innerHTML = '<span class="mono" translate="no">' + block.dataset.hn.toUpperCase() + '</span> · 1 test · ผล Manual · ออกผลแล้ว';
         applyFilters();
       }
 
@@ -1736,15 +2234,37 @@
           var profile = value.closest('[data-profile]');
           return !profile || !profile.hidden;
         }).forEach(function (value) {
-          var editor = document.createElement(value.dataset.resultValue.length > 24 ? 'textarea' : 'input');
+          var isPendingValue = value.hasAttribute('data-pending-value');
+          var manualSchema = activeResultContext && activeResultContext.manualButton ? activeResultContext.manualButton.dataset.resultSchema : '';
+          var editor = document.createElement(value.dataset.resultValue.length > 24 || (isPendingValue && manualSchema === 'long-text') ? 'textarea' : 'input');
           editor.className = 'result-editor mono';
           editor.name = 'lab-result-value';
           editor.setAttribute('aria-label', 'แก้ไขค่าที่ตรวจได้ของ ' + $('.test-name', value.closest('tr')).textContent);
           editor.setAttribute('autocomplete', 'off');
           editor.value = value.dataset.resultValue;
           editor.dataset.originalValue = value.dataset.resultValue;
+          if (isPendingValue) {
+            editor.dataset.pendingValue = 'true';
+            editor.setAttribute('placeholder', 'กรอกผล Manual');
+            if (editor.tagName === 'TEXTAREA') editor.rows = 3;
+          }
           editor.addEventListener('input', function () { resultDirty = true; });
           value.replaceWith(editor);
+        });
+        $$('[data-result-edit]', resultDialog).filter(function (cell) {
+          var profile = cell.closest('[data-profile]');
+          return !profile || !profile.hidden;
+        }).forEach(function (cell) {
+          var editor = document.createElement('input');
+          editor.className = 'result-editor result-meta-editor mono';
+          editor.name = 'lab-result-detail';
+          editor.setAttribute('aria-label', 'แก้ไขข้อมูลผลตรวจของ ' + $('.test-name', cell.closest('tr')).textContent);
+          editor.setAttribute('autocomplete', 'off');
+          editor.value = cell.dataset.resultEdit || '';
+          editor.dataset.originalValue = cell.dataset.resultEdit || '';
+          editor.addEventListener('input', function () { resultDirty = true; });
+          cell.textContent = '';
+          cell.appendChild(editor);
         });
         editResultButton.setAttribute('aria-pressed', 'true');
         editResultButton.setAttribute('aria-label', 'ออกจากโหมดแก้ไขผลตรวจ');
@@ -1752,17 +2272,27 @@
         resultMode.textContent = 'โหมดแก้ไข';
         resultMode.classList.add('editing');
         saveResult.hidden = false;
-        $('.result-editor', resultDialog).focus();
+        var firstEditor = $('.result-editor', resultDialog);
+        if (firstEditor) firstEditor.focus();
       }
 
       function leaveResultEdit(saveChanges) {
-        $$('.result-editor', resultDialog).forEach(function (editor) {
+        $$('.result-meta-editor', resultDialog).forEach(function (editor) {
+          var cell = editor.parentElement;
+          var value = saveChanges ? editor.value : editor.dataset.originalValue;
+          cell.dataset.resultEdit = value;
+          cell.textContent = value || '–';
+        });
+        $$('.result-editor:not(.result-meta-editor)', resultDialog).forEach(function (editor) {
           var value = document.createElement('span');
-          value.className = 'result-value';
+          var pendingValue = editor.dataset.pendingValue === 'true';
+          value.className = 'result-value' + (pendingValue ? ' pending-manual-value' : '');
           value.dataset.resultValue = saveChanges ? editor.value : editor.dataset.originalValue;
-          value.textContent = value.dataset.resultValue;
+          if (pendingValue) value.setAttribute('data-pending-value', '');
+          value.textContent = value.dataset.resultValue || (pendingValue ? 'รอผล' : '–');
           editor.replaceWith(value);
         });
+        if (saveChanges) completeManualResult();
         resultEditing = false;
         resultDirty = false;
         editResultButton.setAttribute('aria-pressed', 'false');
@@ -1778,6 +2308,25 @@
         if (resultEditing && resultDirty && !window.confirm('มีผลตรวจที่แก้ไขแต่ยังไม่ได้บันทึก ต้องการปิดโดยไม่บันทึกหรือไม่?')) return;
         if (resultEditing) leaveResultEdit(false);
         hideDialog(resultDialog);
+        activeResultContext = null;
+      }
+
+      function openSaveResultConfirm() {
+        var block = activeResultContext && activeResultContext.block;
+        var manualButton = activeResultContext && activeResultContext.manualButton;
+        var hn = block ? block.dataset.hn.toUpperCase() : 'รายการตรวจ';
+        var testName = manualButton ? (manualButton.dataset.testName || 'ผลตรวจ') : 'ผลตรวจทั้งหมด';
+        $('#saveResultConfirmMeta').innerHTML = '<span class="mono" translate="no">' + hn + '</span> · ' + testName;
+        showDialog(saveResultConfirmDialog);
+      }
+
+      function closeSaveResultConfirm() {
+        hideDialog(saveResultConfirmDialog);
+      }
+
+      function confirmSaveResult() {
+        closeSaveResultConfirm();
+        leaveResultEdit(true);
       }
 
       function openResultDialog(button) {
@@ -1785,10 +2334,39 @@
         var block = button.closest('.patient-block');
         var scope = button.dataset.resultScope || (block && block.dataset.resultState) || 'partial';
         var profile = button.dataset.resultProfile || '';
+        var manualButton = profile === 'pending-test' ? button : $('[data-result-profile="pending-test"]', block);
+        var manualRow = manualButton ? manualButton.closest('[data-test-result-state]') : null;
+        var manualValue = manualButton ? (manualButton.dataset.manualResultValue || '') : (block && block.dataset.manualResultValue || '');
+        var manualTestName = manualButton ? (manualButton.dataset.testName || 'รายการตรวจ') : (block && block.dataset.manualResultTestName || 'รายการตรวจ');
+        var entryMode = manualButton ? (manualButton.dataset.resultEntryMode || 'fallback') : (block && block.dataset.manualResultEntryMode || 'fallback');
+        var unit = manualButton ? (manualButton.dataset.unit || '–') : (block && block.dataset.manualResultUnit || '–');
+        var manualResulted = Boolean(manualValue) || Boolean(manualRow && manualRow.dataset.testResultState === 'resulted');
+        activeResultContext = { block:block, button:button, manualButton:manualButton, profile:profile, scope:scope };
+        var editable = Boolean(block && block.dataset.status !== 'waiting');
+        editResultButton.disabled = !editable;
+        editResultButton.setAttribute('aria-label', editable ? 'แก้ไขผลตรวจทั้งหมด' : 'รับ specimen ก่อนกรอกผล');
+        editResultButton.setAttribute('title', editable ? 'แก้ไขผลตรวจทั้งหมด' : 'รับ specimen ก่อนกรอกผล');
+        if (manualButton || manualValue) {
+          $$('[data-profile-test-name]', resultDialog).forEach(function (name) { name.textContent = manualTestName; });
+          $('[data-entry-mode-label]', resultDialog).textContent = entryMode === 'manual' ? 'Manual' : 'LIS / fallback';
+          var pendingValue = $('[data-profile="pending-test"] [data-result-value]', resultDialog);
+          pendingValue.dataset.resultValue = manualValue;
+          pendingValue.textContent = manualValue || 'รอผล';
+          $('[data-pending-unit]', resultDialog).textContent = manualResulted ? unit : '–';
+          var pendingStatus = $('[data-pending-profile-status]', resultDialog);
+          pendingStatus.className = 'state-tag ' + (manualResulted ? 'tag-success' : 'tag-warning');
+          pendingStatus.textContent = manualResulted ? 'ออกผลแล้ว' : 'รอผล';
+          $('[data-pending-message]', resultDialog).innerHTML = manualResulted
+            ? '<span class="state-tag tag-success">ออกผลแล้ว</span><span>บันทึกผล Manual แล้ว · การแก้ไขครั้งถัดไปต้องเก็บ correction history</span>'
+            : (entryMode === 'manual'
+              ? '<span class="state-tag tag-warning">รอผล</span><span>Test Master กำหนดช่องทางผลเป็น Manual · เปิดให้กรอกหลังรับ specimen</span>'
+              : '<span class="state-tag tag-warning">รอผล</span><span>รอผลจาก Agent / LIS · Manual fallback ใช้ตามสิทธิ์และเหตุผล</span>');
+          $$('[data-profile="pending-test"] > tr:not(.profile-row)', resultDialog).forEach(function (row) { row.classList.toggle('pending-result-row', !manualResulted); });
+        }
         var visibleTests = 0;
         $$('[data-profile]', resultDialog).forEach(function (section) {
           var isPending = section.hasAttribute('data-pending-profile');
-          var visible = profile ? section.dataset.profile === profile : (!isPending || scope === 'partial');
+          var visible = profile ? section.dataset.profile === profile : (!isPending || scope === 'partial' || Boolean(block && block.dataset.manualResultValue));
           section.hidden = !visible;
           if (visible) visibleTests += 1;
         });
@@ -1796,10 +2374,25 @@
         var suffix = profile ? 'ผลเฉพาะ test' : (scope === 'complete' ? 'ออกผลครบ' : 'ออกผลบางส่วน');
         resultDialogMeta.innerHTML = '<span class="mono" translate="no">' + hn + '</span> · ' + visibleTests + ' tests · ' + suffix;
         showDialog(resultDialog);
+        if (profile === 'pending-test' && !manualResulted && button.dataset.startEdit === 'true') enterResultEdit();
+      }
+
+      function bindResultButton(button) {
+        if (button.dataset.boundResults) return;
+        button.dataset.boundResults = 'true';
+        button.addEventListener('click', function () {
+          button.dataset.clickedResults = 'true';
+          try {
+            openResultDialog(button);
+          } catch (error) {
+            button.dataset.resultError = error && error.message ? error.message : 'unknown error';
+            showToast('ไม่สามารถเปิดผลตรวจ: ' + button.dataset.resultError);
+          }
+        });
       }
 
       function openCancelDialog(block) {
-        $('#cancelDialogMeta').innerHTML = '<span class="mono">' + block.dataset.hn.toUpperCase() + '</span> · order ที่ปฏิเสธ';
+        $('#cancelDialogMeta').innerHTML = '<span class="mono">' + block.dataset.hn.toUpperCase() + '</span> · order ที่ยกเลิก';
         $('#cancelReason').textContent = block.dataset.cancelReason || '–';
         $('#cancelledBy').textContent = block.dataset.cancelledBy || '–';
         $('#cancelledAt').textContent = formatTimestamp(block.dataset.cancelledTime);
@@ -1829,10 +2422,17 @@
         clone.dataset.patientId = cancelledBlock.dataset.hn;
         clone.dataset.hn = cancelledBlock.dataset.hn;
         clone.dataset.orderId = 'ord-retest-' + suffix;
+        clone.dataset.orderNo = 'ORD' + String(now.getFullYear() + 543).slice(-2) + suffix;
+        clone.dataset.filterStatus = 'active';
         clone.dataset.status = 'waiting';
+        delete clone.dataset.labNo;
+        delete clone.dataset.receivedTime;
+        delete clone.dataset.cancelledTime;
+        delete clone.dataset.cancelReason;
+        delete clone.dataset.cancelledBy;
         clone.dataset.requestTime = localIsoTimestamp(now);
         clone.dataset.retestSourceOrder = cancelledBlock.dataset.orderId;
-        clone.dataset.search = cancelledBlock.dataset.search + ' retest ตรวจใหม่ ' + suffix;
+        clone.dataset.search = cancelledBlock.dataset.search + ' retest ตรวจใหม่ ' + clone.dataset.orderNo + ' ' + suffix;
         clone.classList.add('is-open');
         clone.hidden = false;
         $('.patient-hn', clone).innerHTML = $('.patient-hn', cancelledBlock).innerHTML;
@@ -1841,23 +2441,39 @@
         $('.patient-demographic', clone).innerHTML = $('.patient-demographic', cancelledBlock).innerHTML;
         $('.context-tags', clone).innerHTML = $('.context-tags', cancelledBlock).innerHTML;
         $('.doctor-cell', clone).innerHTML = $('.doctor-cell', cancelledBlock).innerHTML;
-        var metrics = $$('.metric', clone);
-        metrics[2].innerHTML = '<span class="field-label">เวลาสั่ง</span><span class="field-value time-value mono"><span>' + formatShortThaiDate(now) + '</span><span>' + formatTime(now) + '</span></span>';
-        metrics[3].innerHTML = '<span class="field-label">เวลารับ</span><span class="field-value">–</span>';
+        $('[data-order-time]', clone).innerHTML = '<span class="field-label order-time-label">เวลาสั่ง <span class="order-no-tag" data-order-no-tag>' + clone.dataset.orderNo + '</span></span><span class="field-value time-value mono"><span>' + formatShortThaiDate(now) + '</span><span>' + formatTime(now) + '</span></span>';
+        $('[data-status-time]', clone).innerHTML = '';
         $('[data-row-status]', clone).className = 'row-status status-waiting';
         $('[data-row-status]', clone).textContent = 'รอรับ';
         $$('.patient-row [aria-label]', clone).forEach(function (element) {
           element.setAttribute('aria-label', element.getAttribute('aria-label').replace(/HN\d+/i, hn));
         });
         $$('[data-specimen-item]', clone).forEach(function (item, index) {
-          var labCell = item.children[1];
-          labCell.textContent = 'LN' + String(now.getFullYear() + 543).slice(-2) + suffix + String(index + 1);
+          item.dataset.itemState = 'waiting';
+          delete item.dataset.itemRejectReason;
+          delete item.dataset.itemRejectedBy;
+          delete item.dataset.itemRejectedAt;
+          var labCell = $('[data-lab-no]', item);
+          var receivedCell = $('[data-received-at]', item);
+          var reasonCell = $('[data-reject-reason]', item);
+          var rejectedByCell = $('[data-rejected-by]', item);
+          var itemStatus = $('[data-item-status]', item);
+          var checkbox = $('[data-item-check]', item);
+          if (labCell) { labCell.textContent = '–'; labCell.classList.add('empty-cell'); }
+          if (receivedCell) { receivedCell.textContent = '–'; receivedCell.classList.add('empty-cell'); }
+          if (reasonCell) { reasonCell.textContent = '–'; reasonCell.classList.add('empty-cell'); }
+          if (rejectedByCell) { rejectedByCell.textContent = '–'; rejectedByCell.classList.add('empty-cell'); }
+          if (itemStatus) { itemStatus.className = 'state-tag tag-warning'; itemStatus.textContent = 'รอรับ'; }
+          if (checkbox) { checkbox.checked = false; checkbox.disabled = false; }
           var input = $('.specimen-search', item);
+          var toggle = $('.specimen-toggle', item);
           var menu = $('.specimen-menu', item);
           if (input && menu) {
             var menuId = 'specimen-menu-retest-' + suffix + '-' + (index + 1);
             input.name = 'specimen-retest-' + suffix + '-' + (index + 1);
             input.setAttribute('aria-controls', menuId);
+            input.disabled = false;
+            if (toggle) toggle.disabled = false;
             menu.id = menuId;
           }
         });
@@ -1866,8 +2482,11 @@
         var expand = $('.expand-button', clone);
         expand.setAttribute('aria-expanded', 'true');
         expand.setAttribute('aria-label', 'ย่อรายละเอียด ' + hn);
-        $$('[data-bound-expand],[data-bound-tab],[data-bound-specimen],[data-bound-item-action],[data-bound-bulk-action],[data-bound-toast]', clone).forEach(function (element) {
-          ['data-bound-expand','data-bound-tab','data-bound-specimen','data-bound-item-action','data-bound-bulk-action','data-bound-toast'].forEach(function (attribute) { element.removeAttribute(attribute); });
+        $$('[data-bulk-action]', clone).forEach(function (button) { button.hidden = false; button.disabled = false; });
+        var orderActions = $('[data-order-actions]', clone);
+        if (orderActions) orderActions.hidden = false;
+        $$('[data-bound-expand],[data-bound-tab],[data-bound-specimen],[data-bound-bulk-action],[data-bound-selection],[data-bound-toast]', clone).forEach(function (element) {
+          ['data-bound-expand','data-bound-tab','data-bound-specimen','data-bound-bulk-action','data-bound-selection','data-bound-toast'].forEach(function (attribute) { element.removeAttribute(attribute); });
         });
         $('#emptyState').before(clone);
         bindPatientBlock(clone);
@@ -1890,10 +2509,10 @@
         button.disabled = true;
         button.textContent = 'ส่งตรวจใหม่แล้ว';
         searchInput.value = block.dataset.hn.toUpperCase();
-        setActiveStatus('waiting');
+        setActiveStatus('active');
         applyFilters();
         created.scrollIntoView({ behavior:'smooth', block:'center' });
-        showToast('สร้าง order ใหม่และส่งไปที่รอรับแล้ว');
+        showToast('สร้าง Order No. ใหม่และส่งไปที่รอรับแล้ว · Lab No. จะสร้างเมื่อรับ specimen');
         pendingRetestBlock = null;
         hideDialog(retestConfirmDialog);
       }
@@ -1969,17 +2588,18 @@
         });
       }
 
-      function bindItemAction(button) {
-        if (button.dataset.boundItemAction) return;
-        button.dataset.boundItemAction = 'true';
-        button.addEventListener('click', function () {
-          var item = button.closest('[data-specimen-item]');
-          var testName = $('.test-name', item).textContent;
-          if (button.dataset.itemAction === 'receive' && !validateSpecimenItem(item)) return;
-          if (button.dataset.itemAction === 'reject' && !window.confirm('ยืนยันการปฏิเสธ specimen ของ ' + testName + '?')) return;
-          setItemStatus(item, button.dataset.itemAction);
-          finishSpecimenBlock(button.closest('.patient-block'));
-          showToast((button.dataset.itemAction === 'receive' ? 'รับ specimen ' : 'ปฏิเสธ specimen ') + testName + ' แล้ว');
+      function bindSelectionControl(control) {
+        if (control.dataset.boundSelection) return;
+        control.dataset.boundSelection = 'true';
+        control.addEventListener('change', function () {
+          var block = control.closest('.patient-block');
+          if (control.hasAttribute('data-select-all')) {
+            pendingItems(block).forEach(function (item) {
+              var checkbox = $('[data-item-check]', item);
+              if (checkbox) checkbox.checked = control.checked;
+            });
+          }
+          syncSelectionState(block);
         });
       }
 
@@ -1988,12 +2608,9 @@
         button.dataset.boundBulkAction = 'true';
         button.addEventListener('click', function () {
           var block = button.closest('.patient-block');
-          if (button.dataset.bulkAction === 'receive') {
-            var invalidItem = $$('[data-specimen-item]', block).find(function (item) { return !validateSpecimenItem(item); });
-            if (invalidItem) return;
-          }
-          if (button.dataset.bulkAction === 'reject' && !window.confirm('ยืนยันการปฏิเสธ specimen ทั้งหมดของผู้ป่วยรายนี้?')) return;
-          setAllItems(block, button.dataset.bulkAction);
+          if (button.dataset.bulkAction === 'receive') receiveSelectedItems(block);
+          else if (button.dataset.bulkAction === 'reject-item') requestItemReject(block);
+          else if (button.dataset.bulkAction === 'cancel-order') requestOrderCancel(block);
         });
       }
 
@@ -2003,15 +2620,24 @@
         button.addEventListener('click', function () { showToast(button.dataset.toast); });
       }
 
+      function bindCancelViewerButton(button) {
+        if (button.dataset.boundCancelViewer) return;
+        button.dataset.boundCancelViewer = 'true';
+        button.addEventListener('click', function () { openCancelDialog(button.closest('.patient-block')); });
+      }
+
       function bindPatientBlock(block) {
         $$('.expand-button', block).forEach(bindExpandButton);
         $$('.detail-tab', block).forEach(bindDetailTab);
         $$('[data-specimen-combobox]', block).forEach(bindSpecimenCombo);
-        $$('[data-item-action]', block).forEach(bindItemAction);
+        $$('[data-select-all],[data-item-check]', block).forEach(bindSelectionControl);
         $$('[data-bulk-action]', block).forEach(bindBulkAction);
         $$('[data-toast]', block).forEach(bindToastButton);
+        $$('[data-open-cancel]', block).forEach(bindCancelViewerButton);
+        syncSelectionState(block);
       }
 
+      rebaseDemoDataToToday();
       $$('.patient-block').forEach(bindPatientBlock);
 
       $$('.status-chip').forEach(function (chip) {
@@ -2050,6 +2676,16 @@
         if (!event.target.closest('[data-specimen-combobox]')) {
           $$('[data-specimen-combobox]').forEach(closeSpecimenMenu);
         }
+        var retestButton = event.target.closest('[data-retest]');
+        if (retestButton) {
+          retestButton.dataset.clickedRetest = 'true';
+          try {
+            requestRetest(retestButton);
+          } catch (error) {
+            retestButton.dataset.retestError = error && error.message ? error.message : 'unknown error';
+            showToast('ไม่สามารถสร้างรายการตรวจใหม่: ' + retestButton.dataset.retestError);
+          }
+        }
       });
       document.addEventListener('keydown', function (event) {
         if (event.key === 'Escape' && !datePopover.hidden) {
@@ -2058,33 +2694,8 @@
         }
       });
 
-      $$('[data-open-results]').forEach(function (button) {
-        button.dataset.boundResults = 'true';
-        button.addEventListener('click', function () {
-          button.dataset.clickedResults = 'true';
-          try {
-            openResultDialog(button);
-          } catch (error) {
-            button.dataset.resultError = error && error.message ? error.message : 'unknown error';
-            showToast('ไม่สามารถเปิดผลตรวจ: ' + button.dataset.resultError);
-          }
-        });
-      });
-      $$('[data-open-cancel]').forEach(function (button) {
-        button.addEventListener('click', function () { openCancelDialog(button.closest('.patient-block')); });
-      });
-      $$('[data-retest]').forEach(function (button) {
-        button.dataset.boundRetest = 'true';
-        button.addEventListener('click', function () {
-          button.dataset.clickedRetest = 'true';
-          try {
-            requestRetest(button);
-          } catch (error) {
-            button.dataset.retestError = error && error.message ? error.message : 'unknown error';
-            showToast('ไม่สามารถสร้างรายการตรวจใหม่: ' + button.dataset.retestError);
-          }
-        });
-      });
+      $$('[data-open-results]').forEach(bindResultButton);
+      $$('[data-open-cancel]').forEach(bindCancelViewerButton);
       $('#confirmRetest').addEventListener('click', confirmRetest);
       $$('[data-cancel-retest]').forEach(function (button) { button.addEventListener('click', cancelRetest); });
       editResultButton.addEventListener('click', function () {
@@ -2093,9 +2704,27 @@
       });
       $$('[data-close-modal]').forEach(function (button) { button.addEventListener('click', requestCloseResult); });
       saveResult.addEventListener('click', function () {
-        if (!window.confirm('ยืนยันการแก้ไขและบันทึกผลตรวจหรือไม่?')) return;
-        leaveResultEdit(true);
+        if (activeResultContext && activeResultContext.profile === 'pending-test') {
+          var manualEditor = $('.result-editor', resultDialog);
+          if (!manualEditor || !manualEditor.value.trim()) {
+            showToast('กรอกผล Manual ก่อนบันทึก');
+            if (manualEditor) manualEditor.focus();
+            return;
+          }
+        }
+        openSaveResultConfirm();
       });
+      $('#confirmSaveResult').addEventListener('click', confirmSaveResult);
+      $$('[data-cancel-save-result]').forEach(function (button) { button.addEventListener('click', closeSaveResultConfirm); });
+      saveResultConfirmDialog.addEventListener('click', function (event) { if (event.target === saveResultConfirmDialog) closeSaveResultConfirm(); });
+      saveResultConfirmDialog.addEventListener('cancel', function (event) { event.preventDefault(); closeSaveResultConfirm(); });
+      rejectForm.addEventListener('submit', function (event) {
+        event.preventDefault();
+        submitRejection();
+      });
+      $$('[data-close-reject-form]').forEach(function (button) { button.addEventListener('click', closeRejectForm); });
+      rejectFormDialog.addEventListener('click', function (event) { if (event.target === rejectFormDialog) closeRejectForm(); });
+      rejectFormDialog.addEventListener('cancel', function (event) { event.preventDefault(); closeRejectForm(); });
       resultDialog.addEventListener('click', function (event) {
         if (event.target === resultDialog) requestCloseResult();
       });

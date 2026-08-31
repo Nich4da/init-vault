@@ -1,12 +1,14 @@
 const assert = require("assert");
 const fs = require("fs");
+const path = require("path");
 
 const VIEWER = "Result_Report_Viewer_Agent_Result_v1.json";
 const TEMPLATE = "TEMPLATE_file_upload_from_builder.json";
 const ITEM_FORM_ID = "6a8bc91df851000f28e501fb";
+const FORM_DIR = path.join(__dirname, "../../../SDForm/form-factory/forms");
 
-const viewer = JSON.parse(fs.readFileSync(VIEWER, "utf8"));
-const template = JSON.parse(fs.readFileSync(TEMPLATE, "utf8"));
+const viewer = JSON.parse(fs.readFileSync(path.join(FORM_DIR, VIEWER), "utf8"));
+const template = JSON.parse(fs.readFileSync(path.join(FORM_DIR, TEMPLATE), "utf8"));
 
 function walk(nodes, visitor, path = "fields") {
   (nodes || []).forEach((node, index) => {

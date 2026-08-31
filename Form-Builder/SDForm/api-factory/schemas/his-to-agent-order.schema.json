@@ -101,6 +101,18 @@
       "type": "string",
       "maxLength": 100
     },
+    "special_request": {
+      "type": "string"
+    },
+    "diagnosis": {
+      "type": "string"
+    },
+    "antimicrobial_used": {
+      "type": "string"
+    },
+    "underlying_disease": {
+      "type": "string"
+    },
     "mongo_form_id": {
       "type": "string",
       "maxLength": 100
@@ -175,6 +187,10 @@
         "collector_name": {
           "type": "string",
           "maxLength": 300
+        },
+        "lab_code": {
+          "type": "string",
+          "maxLength": 100
         },
         "collected_at": {
           "$ref": "#/$defs/thailandDateTime"
