@@ -42,4 +42,4 @@ Order cancellation is wired: `action:'cancel_order'` inside the existing worklis
 2. Verify cancelled/rejected rows show only `ตรวจใหม่`; clicking it must only show the mock notice.
 3. Confirm attempted/sent Order refuses cancellation pending LIS cancel API; then resolve Agent routing/callback.
 
-LAB checkpoint `7665fef` is pushed to `origin/main`. Remaining dirty X-ray/Obsidian/user changes were excluded; never discard or stage them broadly.
+LAB checkpoint `7665fef` is pushed. Dirty X-ray/Obsidian/user changes remain excluded; never stage broadly.
