@@ -2,6 +2,11 @@
  * initCraft API Factory Process body
  * Suggested name: Lab - Prepare Manual Result Items
  *
+ * LEGACY / DO NOT DEPLOY FOR THE CURRENT CPOE WORKLIST.
+ * Superseded by lab_cpoe_worklist_api.js, which writes the canonical live
+ * Result Report and Result Item forms. This file is retained as historical
+ * reference for the older zdata_specimen_collection_status workflow only.
+ *
  * Paste only this file's contents inside Process(params, userInfo).
  * Input: { status_record_id: '<Lab Order Item Status _id>' }
  */

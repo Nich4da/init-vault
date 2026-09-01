@@ -13,7 +13,7 @@
 const RECEIPT_FORM_ID = '6a8b1c03f851000f28e501ef'
 const REPORT_FORM_ID = '6a8d4334f851000f28e5025b'
 const RESULT_ITEM_FORM_ID = '6a8bc91df851000f28e501fb'
-const STATUS_FORM_ID = '6a7daa3e8d398c11cf2fe869'
+const WORK_ITEM_FORM_ID = '6a95c750422c1ca959829e8a'
 const SCHEMA_VERSION = 'his-agent-result-v2'
 
 const text = value => {
@@ -484,9 +484,9 @@ const failAfterReceipt = async (code, message, status, extra) => {
 let statusRows
 try {
   statusRows = await queryRows(
-    STATUS_FORM_ID,
-    { fillerOrderNo: payload.filler_order_no },
-    '`order_number` = :fillerOrderNo AND `xrstatx` NOT IN (0,3)',
+    WORK_ITEM_FORM_ID,
+    { labNo: payload.filler_order_no },
+    '`lab_no` = :labNo AND `xrstatx` NOT IN (0,3)',
     [],
     20
   )
@@ -495,10 +495,11 @@ try {
 }
 
 const exactStatusRows = statusRows.filter(row => {
-  const sameLabNo = firstText([row.order_number, row.lab_no]) === payload.filler_order_no
-  const sameOrder = firstText([row.center_order_id, row.order_no]) === payload.order_no
+  const sameLabNo = trimmed(row.lab_no) === payload.filler_order_no
+  const workIds = [row._id, row.dataid, row.source_specimen_record_id].map(trimmed).filter(Boolean)
+  const sameOrder = workIds.includes(payload.order_no)
   const sameHn = trimmed(row.patient_hn) === payload.hn
-  const sameVisit = [trimmed(row.visit_vn), trimmed(row.visit_id)].filter(Boolean).includes(payload.visit_id)
+  const sameVisit = [trimmed(row.visit_id), trimmed(row.visit_vn)].filter(Boolean).includes(payload.visit_id)
   return sameLabNo && sameOrder && sameHn && sameVisit
 })
 
@@ -904,7 +905,7 @@ try {
     statusPatch.resulted_at = payload.verified_at || payload.reported_at
     statusPatch.resulted_by = payload.reported_by.source_name
   }
-  await saveRecord(STATUS_FORM_ID, statusId, statusPatch)
+  await saveRecord(WORK_ITEM_FORM_ID, statusId, statusPatch)
 } catch (error) {
   return failAfterReceipt('STATUS_SYNC_FAILED', 'เก็บผลแล้ว แต่ sync Work Status ไม่สำเร็จ: ' + trimmed(error.message || error), 'error', {
     order_status_id: statusId,

@@ -10,7 +10,7 @@
  * { source_record: <one row returned by Lab Center Specimen action:list> }
  */
 
-const WORK_ITEM_FORM_ID = '6a7e818b8d398c11cf2fe8d4'
+const WORK_ITEM_FORM_ID = '6a95c750422c1ca959829e8a'
 
 if (!app.isAuth(userInfo.roles || [])) {
   return { success: false, message: 'คุณไม่มีสิทธิ์สร้างงานห้องปฏิบัติการ' }

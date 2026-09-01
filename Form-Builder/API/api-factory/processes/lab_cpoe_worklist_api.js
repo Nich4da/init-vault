@@ -1,6 +1,6 @@
 /*
  * initCraft API Factory Process
- * Name: LAB CPOE Worklist + specimen correction + Result viewer/manual fallback
+ * Name: LAB CPOE Worklist + specimen correction + Mycology Manual Result
  * Deployed Process ID: 6a9434c3422c1ca959829d5e
  * Deployment reported by the user on 2026-08-30; deployed runtime/UAT is not yet verified.
  *
@@ -9,10 +9,12 @@
  * - Route each Item by section, then group rows back into one CPOE Order for UI.
  * - Prefer immutable Item snapshots when they exist; fall back to current masters
  *   while cpoe-order-save/send is being extended.
+ * - Manual Mycology writes the canonical Result Report/Result Item forms used by
+ *   Agent callbacks. The legacy Result Item form is read-only fallback only.
  *
  * Input:
  * {
- *   action?: 'list' | 'update_specimen' | 'get_manual_result' | 'save_manual_result',
+ *   action?: 'list' | 'list_open_visits' | 'update_specimen' | 'get_manual_result' | 'save_manual_result' | 'cancel_order',
  *   organization_code?: string,                      // App Organization (m1000-m1007)
  *   section_codes?: string[] | comma-separated string,
  *   statuses?: string[] | comma-separated string, // default: ['sent']
@@ -27,8 +29,9 @@
  *   limit?: number                                // default: 30, max: 100
  * }
  *
- * Read is the default action. Write actions are specimen correction and audited
- * Manual Result persistence after receipt. Receive/Reject/Cancel remain out of scope.
+ * Read is the default action. Write actions are specimen correction,
+ * Mycology-only Manual Result persistence, and whole-Order cancellation.
+ * Receive and Item rejection remain separate Processes.
  */
 
 const ITEM_COLLECTION = 'zdata_cpoe_order_item'
@@ -36,7 +39,14 @@ const ORDER_COLLECTION = 'zdata_cpoe_order'
 const ITEM_MASTER_COLLECTION = 'zdata_master_item_order'
 const SECTION_COLLECTION = 'zdata_section'
 const SPECIMEN_COLLECTION = 'zdata_specimen_code'
-const RESULT_ITEM_FORM_ID = '6a7aa641935ed08882467374'
+const WORK_ITEM_COLLECTION = 'zdata_lab_work_item'
+const OUTBOUND_COLLECTION = 'zdata_lab_outband_order'
+const ORDER_CANCELLATION_COLLECTION = 'zdata_lab_order_cancellation'
+const DIAGNOSIS_COLLECTION = 'zdata_diagnosis'
+const VISIT_COLLECTION = 'zdata_visit'
+const RESULT_REPORT_FORM_ID = '6a8d4334f851000f28e5025b'
+const RESULT_ITEM_FORM_ID = '6a8bc91df851000f28e501fb'
+const LEGACY_RESULT_ITEM_FORM_ID = '6a7aa641935ed08882467374'
 
 // App Organization ใช้ m100x แต่ Section master ใช้รหัสห้อง LAB คนละชุด
 // จึงต้อง route ผ่าน mapping ที่ยืนยันจาก zdata_organization + zdata_section
@@ -89,19 +99,6 @@ const listText = value => {
       return true
     })
 }
-
-const objectArray = value => {
-  if (Array.isArray(value)) return value.filter(row => row && typeof row === 'object')
-  if (typeof value !== 'string' || !value.trim()) return []
-  try {
-    const parsed = JSON.parse(value)
-    return Array.isArray(parsed) ? parsed.filter(row => row && typeof row === 'object') : []
-  } catch (error) {
-    return []
-  }
-}
-
-const booleanValue = value => value === true || value === 1 || value === '1' || value === 'true'
 
 const clampInt = (value, fallback, min, max) => {
   const number = Number(value)
@@ -217,6 +214,385 @@ if (!allowedSectionCodes.length) {
 
 const action = valueText(params.action).trim().toLowerCase() || 'list'
 
+if (action === 'cancel_order') {
+  const orderId = valueText(params.order_id).trim()
+  const requestedOrderNumber = valueText(params.order_number).trim()
+  const cancelReason = valueText(params.cancel_reason || params.reason).trim()
+  if (!/^[a-f0-9]{24}$/i.test(orderId)) {
+    return { success: false, error: 'invalid_order_id', message: 'order_id ไม่ถูกต้อง' }
+  }
+  if (!cancelReason) {
+    return { success: false, error: 'cancel_reason_missing', message: 'กรุณาระบุเหตุผลการยกเลิก Order' }
+  }
+  if (cancelReason.length > 1000) {
+    return { success: false, error: 'cancel_reason_too_long', message: 'เหตุผลการยกเลิกต้องไม่เกิน 1000 ตัวอักษร' }
+  }
+
+  const now = valueText(app.curDate('YYYY-MM-DD HH:mm:ss')).trim()
+  const actorCode = valueText(userInfo.employee_code || userInfo.username || userInfo.account && (userInfo.account.code || userInfo.account.name)).trim()
+  const actorName = valueText(userInfo.fullname || userInfo.display_name || userInfo.account && (userInfo.account.label || userInfo.account.name) || actorCode).trim()
+  const actorId = userInfo._id || userInfo.id || userInfo.account && (userInfo.account._id || userInfo.account.id) || ''
+  if (!actorCode) {
+    return { success: false, error: 'actor_missing', message: 'ไม่พบผู้ยกเลิกจากบัญชีผู้ใช้' }
+  }
+  const actorAudit = { id: actorId, name: actorName || actorCode }
+  const orderObjectId = app.dbObjectId(orderId)
+  const active = { $nin: [0, 3] }
+  const orderCollection = app.db.collection(ORDER_COLLECTION)
+  const itemCollection = app.db.collection(ITEM_COLLECTION)
+  const masterCollection = app.db.collection(ITEM_MASTER_COLLECTION)
+  const sectionCollection = app.db.collection(SECTION_COLLECTION)
+  const workCollection = app.db.collection(WORK_ITEM_COLLECTION)
+  const outboundCollection = app.db.collection(OUTBOUND_COLLECTION)
+  const cancellationCollection = app.db.collection(ORDER_CANCELLATION_COLLECTION)
+  const serviceTypeOf = item => valueText(
+    item && item.service_type && item.service_type.value != null
+      ? item.service_type.value
+      : item && item.service_type
+  ).trim().toLowerCase()
+  const orderLinks = [orderObjectId, orderId]
+
+  const order = await orderCollection.findOne({ _id: orderObjectId, xrstatx: active })
+  if (!order) return { success: false, error: 'order_not_found', message: 'ไม่พบ CPOE Order ที่ต้องการยกเลิก' }
+  const orderNumber = valueText(order.order_number).trim()
+  if (requestedOrderNumber && requestedOrderNumber !== orderNumber) {
+    return { success: false, error: 'order_number_mismatch', message: 'เลขที่ใบสั่งไม่ตรงกับ Order ที่เลือก' }
+  }
+
+  const allItems = await itemCollection.find({
+    xrstatx: active,
+    $or: [
+      { 'order_id.value': { $in: orderLinks } },
+      { order_ref_id: { $in: orderLinks } },
+      { xparentx: { $in: orderLinks } }
+    ]
+  }).toArray()
+  const labItems = allItems.filter(item => serviceTypeOf(item) === 'lab')
+  if (!labItems.length) {
+    return { success: false, error: 'lab_items_not_found', message: 'Order นี้ไม่มี LAB Item ที่ยกเลิกได้' }
+  }
+
+  const contexts = []
+  for (let index = 0; index < labItems.length; index += 1) {
+    const item = labItems[index]
+    const itemId = valueText(item._id).trim()
+    let master = null
+    if (item.item_data_id) master = await masterCollection.findOne({ _id: item.item_data_id, xrstatx: active })
+    let section = item.section_snapshot || item.lab_context_snapshot && item.lab_context_snapshot.section || master && master.section || {}
+    if (!valueText(section.code).trim() && section.value) {
+      const sectionId = typeof section.value === 'string' ? app.dbObjectId(section.value) : section.value
+      const foundSection = await sectionCollection.findOne({ _id: sectionId, xrstatx: active, enable: { $ne: false } })
+      if (foundSection) section = foundSection
+    }
+    const sectionCode = valueText(section.code).trim().toUpperCase()
+    if (!sectionCode) {
+      return { success: false, error: 'section_missing', message: 'ไม่พบห้อง LAB ของ Item ' + (valueText(item.item_code).trim() || itemId) }
+    }
+    if (!allowedLookup[sectionCode]) {
+      return { success: false, error: 'section_forbidden', message: 'Order นี้มี Item นอก Section ของ Organization ปัจจุบัน จึงยกเลิกทั้งใบไม่ได้' }
+    }
+    const workItem = await workCollection.findOne({
+      xrstatx: active,
+      $or: [{ _id: item._id }, { source_specimen_record_id: itemId }]
+    })
+    const outbound = await outboundCollection.findOne({
+      xrstatx: active,
+      $or: [{ _id: item._id }, { source_cpoe_item_id: itemId }, { work_item_id: itemId }]
+    })
+    contexts.push({ item, itemId, master, section, sectionCode, workItem, outbound })
+  }
+
+  const terminalStatuses = ['cancelled', 'rejected', 'returned', 'reversed']
+  const legacyWaitingStatuses = ['accepted', 'prepared', 'ready', 'dispensed']
+  let cancellation = await cancellationCollection.findOne({ _id: orderObjectId, xrstatx: active })
+  const cancellable = []
+  for (let index = 0; index < contexts.length; index += 1) {
+    const context = contexts[index]
+    const workStatus = valueText(context.workItem && context.workItem.work_status).trim().toLowerCase()
+    const cpoeStatus = valueText(context.item.current_status).trim().toLowerCase()
+    const status = workStatus || cpoeStatus
+    if (terminalStatuses.includes(status)) continue
+    if (context.outbound) {
+      const outboundStatus = valueText(context.outbound.hl7_status).trim().toLowerCase()
+      const alreadyCancelledOutbound = outboundStatus === 'cancelled' && Boolean(cancellation)
+      const attempted = !alreadyCancelledOutbound && (Number(context.outbound.attempt_count || 0) > 0 ||
+        Boolean(valueText(context.outbound.sent_at || context.outbound.last_success_at).trim()) ||
+        !['', 'new', 'pending', 'ready'].includes(outboundStatus))
+      if (attempted) {
+        return { success: false, error: 'lis_cancel_required', message: 'Order นี้เคยส่งออกไป Agent/LIS แล้ว ต้องใช้ API ยกเลิกฝั่ง LIS ซึ่งยังไม่เปิดใช้' }
+      }
+    }
+    if (context.workItem) {
+      if (!['waiting_receive', 'received'].includes(workStatus)) {
+        return { success: false, error: 'item_not_cancellable', message: 'ยกเลิก Order ไม่ได้ เพราะมี Item อยู่ในสถานะ ' + (workStatus || 'ไม่ทราบสถานะ') }
+      }
+    } else {
+      const hasReceiptEvidence = Boolean(valueText(context.item.received_at || context.item.lab_no).trim())
+      const effectiveStatus = legacyWaitingStatuses.includes(cpoeStatus) && !hasReceiptEvidence ? 'sent' : cpoeStatus
+      if (effectiveStatus !== 'sent') {
+        return { success: false, error: 'item_not_cancellable', message: 'ยกเลิก Order ไม่ได้ เพราะมี Item ที่ไม่อยู่ในสถานะรอรับ' }
+      }
+    }
+    cancellable.push(context)
+  }
+
+  if (!cancellable.length && !cancellation) {
+    return { success: false, error: 'nothing_to_cancel', message: 'Order นี้ไม่มีรายการที่ยกเลิกได้' }
+  }
+  if (cancellation && valueText(cancellation.cancel_status).trim().toLowerCase() === 'conflict') {
+    return { success: false, error: 'cancel_conflict', message: 'Order นี้เคยยกเลิกไม่สำเร็จเพราะสถานะเปลี่ยน กรุณาให้ผู้ดูแลตรวจสอบ' }
+  }
+
+  let alreadyCancelled = Boolean(cancellation)
+  if (!cancellation) {
+    const cancellationDoc = {
+      _id: orderObjectId,
+      xparentx: orderObjectId,
+      xsitex: userInfo.site || {},
+      xunitx: userInfo.unit || {},
+      xrstatx: 1,
+      xversionx: 'v1',
+      dataid: orderId,
+      source_order_id: orderId,
+      source_order_number: orderNumber,
+      cancel_type: 'lab_order_cancelled',
+      cancel_status: 'pending',
+      cancel_reason: cancelReason,
+      cancelled_at: now,
+      cancelled_by: actorAudit,
+      organization_code: organizationCode,
+      section_codes: contexts.map(context => context.sectionCode).filter((code, index, rows) => rows.indexOf(code) === index),
+      item_ids: contexts.map(context => context.itemId),
+      created_at: now,
+      created_by: actorAudit,
+      updated_at: now,
+      updated_by: actorAudit
+    }
+    try {
+      await cancellationCollection.insertOne(cancellationDoc)
+      cancellation = cancellationDoc
+    } catch (error) {
+      cancellation = await cancellationCollection.findOne({ _id: orderObjectId, xrstatx: active })
+      if (!cancellation) throw error
+      alreadyCancelled = true
+    }
+  }
+
+  const cancellationId = valueText(cancellation._id).trim() || orderId
+  const authoritativeReason = valueText(cancellation.cancel_reason).trim() || cancelReason
+  const authoritativeAt = valueText(cancellation.cancelled_at).trim() || now
+  const authoritativeBy = cancellation.cancelled_by || actorAudit
+  let cancelledCount = 0
+  for (let index = 0; index < cancellable.length; index += 1) {
+    const context = cancellable[index]
+    const patient = order.vid && order.vid.pid || {}
+    const labData = context.item.lab_data && typeof context.item.lab_data === 'object' ? context.item.lab_data : {}
+    const masterLab = context.master && context.master.lab_item && typeof context.master.lab_item === 'object' ? context.master.lab_item : {}
+    const masterSpecimen = masterLab.specimen && !Array.isArray(masterLab.specimen) ? masterLab.specimen : {}
+    const cancelPatch = {
+      work_status: 'cancelled',
+      cancellation_record_id: cancellationId,
+      cancel_type: 'lab_order_cancelled',
+      cancel_reason: authoritativeReason,
+      cancelled_at: authoritativeAt,
+      cancelled_by: authoritativeBy,
+      updated_at: now,
+      updated_by: actorAudit
+    }
+    if (context.outbound) {
+      const stopped = await outboundCollection.updateOne(
+        { _id: context.outbound._id, xrstatx: active, attempt_count: 0, hl7_status: { $in: ['', 'new', 'pending', 'ready'] } },
+        { $set: {
+          hl7_status: 'cancelled',
+          retryable: false,
+          last_status_at: authoritativeAt,
+          updated_at: now,
+          updated_by: actorCode,
+          last_error_code: 'order_cancelled',
+          last_error_at: authoritativeAt,
+          last_error_reason: authoritativeReason
+        } }
+      )
+      if (!stopped || Number(stopped.matchedCount) !== 1) {
+        await cancellationCollection.updateOne(
+          { _id: orderObjectId, xrstatx: active },
+          { $set: { cancel_status: 'conflict', conflict_item_id: context.itemId, updated_at: now, updated_by: actorAudit } }
+        )
+        return { success: false, error: 'cancel_race_lost', message: 'สถานะ Outbound เปลี่ยนระหว่างยกเลิก จึงหยุดเพื่อไม่ให้ HIS ขัดกับ Agent/LIS' }
+      }
+    }
+    if (context.workItem) {
+      const saved = await workCollection.updateOne(
+        { _id: context.workItem._id, xrstatx: active, work_status: { $in: ['waiting_receive', 'received'] } },
+        { $set: cancelPatch }
+      )
+      if (!saved || Number(saved.matchedCount) !== 1) {
+        await cancellationCollection.updateOne(
+          { _id: orderObjectId, xrstatx: active },
+          { $set: { cancel_status: 'conflict', conflict_item_id: context.itemId, updated_at: now, updated_by: actorAudit } }
+        )
+        return { success: false, error: 'cancel_race_lost', message: 'สถานะ Item เปลี่ยนระหว่างยกเลิก กรุณาโหลดใหม่และให้ผู้ดูแลตรวจสอบ' }
+      }
+    } else {
+      const patientHn = valueText(patient.hn).trim()
+      const patientName = [valueText(patient.prename), valueText(patient.p_fname || patient.first_name), valueText(patient.p_lname || patient.last_name)]
+        .map(value => value.trim()).filter(Boolean).join(' ') || patientHn
+      const workItemDoc = {
+        _id: context.item._id,
+        xparentx: context.item._id,
+        xsitex: userInfo.site || {},
+        xunitx: { code: context.sectionCode, name: valueText(context.section.name_th || context.section.name || context.sectionCode).trim() },
+        xrstatx: 1,
+        xversionx: 'v1',
+        dataid: context.itemId,
+        created_by: actorAudit,
+        created_at: now,
+        source_order_id: orderId,
+        source_order_number: orderNumber,
+        source_specimen_record_id: context.itemId,
+        lab_no: '',
+        section_code: context.sectionCode,
+        section_name: valueText(context.section.name_th || context.section.name || context.sectionCode).trim(),
+        patient_hn: patientHn,
+        visit_id: valueText(order.vid && (order.vid.vn || order.vid.value) || order.xparentx).trim(),
+        patient_name: patientName,
+        ward_clinic: valueText(order.vid && (order.vid.ward || order.vid.visit_clinic)).trim(),
+        ordered_at: valueText(order.created_at).trim(),
+        specimen_json: JSON.stringify({
+          code: valueText(labData.spec_source_code || masterSpecimen.code).trim(),
+          name: valueText(labData.spec_source || labData.source || masterSpecimen.name).trim(),
+          collected_at: valueText(labData.specimen_at || labData.at).trim(),
+          collected_by: valueText(labData.specimen_by || labData.by).trim()
+        }),
+        selected_items_json: JSON.stringify([{
+          seq: Number(context.item.item_no || 1),
+          source_item_id: context.itemId,
+          item_code: valueText(context.item.item_code).trim(),
+          item_name: valueText(context.item.item_name || context.master && context.master.item_name).trim(),
+          test_code: valueText(masterLab.his_lab_code).trim(),
+          specimen_code: valueText(labData.spec_source_code || masterSpecimen.code).trim()
+        }]),
+        ...cancelPatch
+      }
+      try {
+        await workCollection.insertOne(workItemDoc)
+      } catch (error) {
+        const raced = await workCollection.findOne({ _id: context.item._id, xrstatx: active })
+        if (!raced || valueText(raced.work_status).trim().toLowerCase() !== 'cancelled') {
+          await cancellationCollection.updateOne(
+            { _id: orderObjectId, xrstatx: active },
+            { $set: { cancel_status: 'conflict', conflict_item_id: context.itemId, updated_at: now, updated_by: actorAudit } }
+          )
+          return { success: false, error: 'cancel_race_lost', message: 'สถานะ Item เปลี่ยนระหว่างยกเลิก กรุณาโหลดใหม่และให้ผู้ดูแลตรวจสอบ' }
+        }
+      }
+    }
+    cancelledCount += 1
+  }
+
+  let auditSyncPending = false
+  try {
+    const stamped = await cancellationCollection.updateOne(
+      { _id: orderObjectId, xrstatx: active, cancel_status: { $in: ['pending', 'applied'] } },
+      { $set: { cancel_status: 'applied', applied_at: now, updated_at: now, updated_by: actorAudit } }
+    )
+    auditSyncPending = !stamped || Number(stamped.matchedCount) !== 1
+  } catch (error) {
+    auditSyncPending = true
+  }
+
+  return {
+    success: true,
+    data: {
+      order_id: orderId,
+      order_number: orderNumber,
+      current_status: 'cancelled',
+      cancel_type: 'lab_order_cancelled',
+      cancel_reason: authoritativeReason,
+      cancelled_at: authoritativeAt,
+      cancelled_by: authoritativeBy,
+      item_count: contexts.length,
+      cancelled_item_count: cancelledCount,
+      preserved_terminal_item_count: contexts.length - cancelledCount,
+      cancellation_record_id: cancellationId,
+      already_cancelled: alreadyCancelled,
+      audit_sync_pending: auditSyncPending,
+      cpoe_unchanged: true
+    },
+    message: auditSyncPending
+      ? 'ยกเลิก LAB Order แล้ว แต่ Cancellation Log ยังรอ reconcile'
+      : alreadyCancelled
+        ? 'LAB Order นี้ถูกยกเลิกแล้ว'
+        : 'ยกเลิก LAB Order แล้ว'
+  }
+}
+
+if (action === 'list_open_visits') {
+  const nowText = typeof app.curDate === 'function' ? valueText(app.curDate()) : ''
+  const visitDate = validDate(nowText.slice(0, 10))
+    ? nowText.slice(0, 10)
+    : new Date(Date.now() + (7 * 60 * 60 * 1000)).toISOString().slice(0, 10)
+
+  try {
+    const found = await app.dbFindAll(
+      {
+        from: VISIT_COLLECTION,
+        nosql: {
+          type: 'query',
+          collection: VISIT_COLLECTION,
+          query: {
+            xrstatx: { $nin: [0, 3] },
+            visit_date: visitDate,
+            visit_status: true
+          },
+          projection: {
+            _id: 1,
+            vn: 1,
+            visit_date: 1,
+            visit_type: 1,
+            visit_clinic: 1,
+            visit_doctor: 1,
+            inscl_hos: 1,
+            'pid.value': 1,
+            'pid.hn': 1,
+            'pid.prename': 1,
+            'pid.p_fname': 1,
+            'pid.p_lname': 1,
+            'pid.p_gender': 1,
+            'pid.age': 1,
+            'pid.p_abogroup': 1
+          },
+          sort: { vn: 1 },
+          limit: 2000
+        }
+      },
+      false,
+      false
+    )
+    if (!found || found.success === false) {
+      return { success: false, message: 'อ่าน Visit ที่เปิดอยู่วันนี้ไม่สำเร็จ' }
+    }
+    const visits = found.reply && Array.isArray(found.reply.data) ? found.reply.data : []
+    return {
+      success: true,
+      data: {
+        visits,
+        total: visits.length,
+        visit_date: visitDate,
+        organization_code: organizationCode,
+        section_codes: allowedSectionCodes,
+        sections: allowedSections
+      },
+      message: 'อ่าน Visit ที่เปิดอยู่วันนี้สำเร็จ'
+    }
+  } catch (error) {
+    return {
+      success: false,
+      message: 'อ่าน Visit ที่เปิดอยู่วันนี้ไม่สำเร็จ: ' + String(error && error.message || error)
+    }
+  }
+}
+
 const loadItemContext = async itemId => {
   const found = await app.dbFindById(app.dbObjectId(itemId), ITEM_COLLECTION)
   const item = found && found.reply && found.reply.data
@@ -244,13 +620,41 @@ const loadItemContext = async itemId => {
     const orderFound = await app.dbFindById(orderRef, ORDER_COLLECTION)
     order = orderFound && orderFound.reply && orderFound.reply.data
   }
-  return { item, master, section, order }
+  let cancellation = null
+  const orderId = valueText(order && order._id || orderRef).trim()
+  if (/^[a-f0-9]{24}$/i.test(orderId)) {
+    cancellation = await app.db.collection(ORDER_CANCELLATION_COLLECTION).findOne({
+      _id: app.dbObjectId(orderId),
+      xrstatx: { $nin: [0, 3] },
+      cancel_status: { $in: ['pending', 'applied'] }
+    })
+  }
+  const workItem = await app.db.collection(WORK_ITEM_COLLECTION).findOne({
+    source_specimen_record_id: itemId,
+    xrstatx: { $nin: [0, 3] }
+  })
+  return { item, master, section, order, workItem, cancellation }
 }
 
-const resultRows = async (where, queryParams, orderBy, limit) => {
+const effectiveItemStatus = context => {
+  if (context && context.cancellation) return 'cancelled'
+  const workStatus = valueText(context && context.workItem && context.workItem.work_status).trim().toLowerCase()
+  const map = {
+    waiting_receive: 'sent',
+    received: 'accepted',
+    processing: 'prepared',
+    resulted: 'resulted',
+    completed: 'completed',
+    rejected: 'rejected',
+    cancelled: 'cancelled'
+  }
+  return map[workStatus] || valueText(context && context.item && context.item.current_status).trim().toLowerCase()
+}
+
+const formRows = async (formId, where, queryParams, orderBy, limit) => {
   const found = await app.sdformGetAll(
     {
-      providerId: RESULT_ITEM_FORM_ID,
+      providerId: formId,
       providerType: 'FORM',
       params: queryParams,
       options: {
@@ -266,6 +670,12 @@ const resultRows = async (where, queryParams, orderBy, limit) => {
   if (!found || found.success === false) throw new Error('RESULT_LOOKUP_FAILED')
   return Array.isArray(found.data) ? found.data : []
 }
+
+const resultRows = (where, queryParams, orderBy, limit) =>
+  formRows(RESULT_ITEM_FORM_ID, where, queryParams, orderBy, limit)
+
+const legacyResultRows = (where, queryParams, orderBy, limit) =>
+  formRows(LEGACY_RESULT_ITEM_FORM_ID, where, queryParams, orderBy, limit)
 
 if (action === 'get_manual_result' || action === 'save_manual_result') {
   const itemId = valueText(params.item_id).trim()
@@ -287,11 +697,17 @@ if (action === 'get_manual_result' || action === 'save_manual_result') {
   if (!allowedLookup[itemSectionCode]) {
     return { success: false, message: 'Item นี้ไม่ได้อยู่ใน Section ของ Organization ปัจจุบัน' }
   }
-  const itemStatus = valueText(context.item.current_status).trim().toLowerCase()
+  if (action === 'save_manual_result' && itemSectionCode !== 'MY') {
+    return { success: false, message: 'กรอกผล Manual จาก Worklist นี้ได้เฉพาะ Mycology (MY)' }
+  }
+
+  const itemStatus = effectiveItemStatus(context)
   const editableStatuses = ['accepted', 'prepared', 'ready', 'dispensed', 'resulted']
-  const viewableStatuses = ['sent'].concat(editableStatuses, ['completed'])
-  if (!viewableStatuses.includes(itemStatus) ||
-    (action === 'save_manual_result' && !editableStatuses.includes(itemStatus))) {
+  const viewableStatuses = ['sent', ...editableStatuses, 'completed']
+  if (action === 'get_manual_result' && !viewableStatuses.includes(itemStatus)) {
+    return { success: false, message: 'สถานะ Item นี้ไม่อนุญาตให้ดูผลตรวจ' }
+  }
+  if (action === 'save_manual_result' && !editableStatuses.includes(itemStatus)) {
     return {
       success: false,
       message: itemStatus === 'sent'
@@ -311,7 +727,8 @@ if (action === 'get_manual_result' || action === 'save_manual_result') {
     : {}
   const orderId = valueText(context.order._id).trim()
   const orderNo = valueText(context.order.order_number).trim()
-  const labNo = valueText(context.item.lab_no).trim()
+  const workItemId = valueText(context.workItem && context.workItem._id).trim()
+  const labNo = valueText(context.workItem && context.workItem.lab_no).trim()
   const patientHn = valueText(context.order.vid && context.order.vid.pid && context.order.vid.pid.hn).trim()
   const visitVn = valueText(context.order.vid && context.order.vid.vn).trim()
   const visitRecordId = valueText(context.order.xparentx).trim()
@@ -322,141 +739,102 @@ if (action === 'get_manual_result' || action === 'save_manual_result') {
 
   let currentRows = []
   let previousRows = []
+  let currentIsLegacy = false
   try {
-    const sourceRows = await resultRows(
-      'source_item_id = :itemId AND xrstatx NOT IN (0,3)',
-      { itemId },
+    currentRows = await resultRows(
+      "order_no = :workItemId AND test_code = :testCode AND result_source = :resultSource AND xrstatx NOT IN (0,3)",
+      { workItemId, testCode, resultSource: 'manual' },
       [{ column: 'xupdatx', sort: 'DESC' }],
-      50
+      10
     )
-    let agentRows = []
-    if (labNo) {
-      agentRows = await resultRows(
-        'filler_order_no = :labNo AND xrstatx NOT IN (0,3)',
-        { labNo },
-        [
-          { column: 'result_version', sort: 'DESC' },
-          { column: 'xupdatx', sort: 'DESC' }
-        ],
-        100
+    if (!currentRows.length) {
+      currentRows = await legacyResultRows(
+        'source_item_id = :itemId AND xrstatx NOT IN (0,3)',
+        { itemId },
+        [{ column: 'xupdatx', sort: 'DESC' }],
+        10
       )
+      currentIsLegacy = currentRows.length > 0
     }
-    const seenResultIds = {}
-    currentRows = sourceRows.concat(agentRows).filter(row => {
-      const rowId = valueText(row && (row._id || row.id)).trim()
-      if (!rowId) return true
-      if (seenResultIds[rowId]) return false
-      seenResultIds[rowId] = true
-      return true
-    })
     if (patientHn && testCode) {
       previousRows = await resultRows(
-        'patient_hn = :patientHn AND test_code = :testCode AND source_item_id != :itemId AND xrstatx NOT IN (0,3)',
-        { patientHn, testCode, itemId },
+        'hn = :patientHn AND test_code = :testCode AND order_no != :workItemId AND xrstatx NOT IN (0,3)',
+        { patientHn, testCode, workItemId },
         [
           { column: 'entered_at', sort: 'DESC' },
           { column: 'xupdatx', sort: 'DESC' }
         ],
         20
       )
+      if (!previousRows.length) {
+        previousRows = await legacyResultRows(
+          'patient_hn = :patientHn AND test_code = :testCode AND source_item_id != :itemId AND xrstatx NOT IN (0,3)',
+          { patientHn, testCode, itemId },
+          [
+            { column: 'entered_at', sort: 'DESC' },
+            { column: 'xupdatx', sort: 'DESC' }
+          ],
+          20
+        )
+      }
     }
   } catch (error) {
     return { success: false, message: 'ค้นหารายการผลตรวจเดิมไม่สำเร็จ' }
   }
 
-  // Never edit an Agent/LIS row in place. Manual entry owns its own row and a
-  // later LIS result remains a separate version for explicit reconciliation.
-  const current = currentRows.find(row =>
-    valueText(row && row.result_source).trim().toLowerCase() === 'manual' &&
-    valueText(row && row.source_item_id).trim() === itemId
-  ) || null
-  const patientPrevious = previousRows.find(row => {
+  const current = currentRows[0] || null
+  const previous = previousRows.find(row => {
     const status = valueText(row && row.result_status).trim().toLowerCase()
     return !['pending', 'draft', 'void', 'cancelled'].includes(status)
   }) || previousRows[0] || null
-  const editBaseline = current || currentRows[0] || null
 
-  const resultView = row => ({
-    result_item_id: valueText(row && (row._id || row.id)).trim(),
-    result_source: valueText(row && row.result_source).trim() || 'unknown',
-    result_value: valueText(row && row.result_value),
-    unit: valueText(row && (row.unit_symbol_snapshot || row.unit_symbol || row.units)),
-    interpretation: valueText(row && row.interpretation_code),
-    reference_range: valueText(row && (row.reference_range_snapshot || row.ref_range)),
-    result_status: valueText(row && (row.result_status || row.obx_status)),
-    is_critical: booleanValue(row && row.is_critical),
-    critical_low_rule: valueText(row && row.critical_low_rule),
-    critical_high_rule: valueText(row && row.critical_high_rule),
-    entered_at: valueText(row && (row.entered_at || row.reported_at || row.xupdatx || row.xcreatx)),
-    entered_by: valueText(row && (row.entered_by || row.reported_by_source_name)),
-    test_code: valueText(row && (row.test_code || row.obs_code)) || testCode,
-    test_name: valueText(row && (row.test_name || row.obs_name)) || testName
+  const responseData = savedRow => ({
+    item_id: itemId,
+    result_item_id: valueText(savedRow && (savedRow._id || savedRow.id)).trim(),
+    order_id: orderId,
+    order_no: orderNo,
+    lab_no: labNo,
+    patient_hn: patientHn,
+    visit_vn: visitVn,
+    visit_record_id: visitRecordId,
+    section_code: itemSectionCode,
+    test_code: testCode,
+    test_name: testName,
+    specimen_code: specimenCode,
+    specimen_name: specimenName,
+    result_value: valueText(savedRow && savedRow.result_value),
+    unit: valueText(savedRow && (savedRow.unit_symbol_snapshot || savedRow.unit_symbol || savedRow.units)),
+    interpretation: valueText(savedRow && savedRow.interpretation_code),
+    reference_range: valueText(savedRow && savedRow.reference_range_snapshot),
+    result_status: valueText(savedRow && savedRow.result_status),
+    entered_at: valueText(savedRow && (savedRow.entered_at || savedRow.xupdatx || savedRow.xcreatx)),
+    previous: previous ? {
+      value: valueText(previous.result_value),
+      unit: valueText(previous.unit_symbol_snapshot || previous.unit_symbol || previous.units),
+      interpretation: valueText(previous.interpretation_code),
+      reference_range: valueText(previous.reference_range_snapshot),
+      visit_vn: valueText(previous.visit_id || previous.visit_vn),
+      entered_at: valueText(previous.entered_at || previous.xupdatx || previous.xcreatx)
+    } : null
   })
-
-  const responseData = savedRow => {
-    const revisions = objectArray(savedRow && savedRow.edit_history_json)
-    const previousRevision = revisions.length ? revisions[revisions.length - 1] : null
-    return {
-      item_id: itemId,
-      result_item_id: valueText(savedRow && (savedRow._id || savedRow.id)).trim(),
-      order_id: orderId,
-      order_no: orderNo,
-      lab_no: labNo,
-      patient_hn: patientHn,
-      visit_vn: visitVn,
-      visit_record_id: visitRecordId,
-      section_code: itemSectionCode,
-      test_code: testCode,
-      test_name: testName,
-      specimen_code: specimenCode,
-      specimen_name: specimenName,
-      result_value: valueText(savedRow && savedRow.result_value),
-      unit: valueText(savedRow && (savedRow.unit_symbol_snapshot || savedRow.unit_symbol || savedRow.units)),
-      interpretation: valueText(savedRow && savedRow.interpretation_code),
-      reference_range: valueText(savedRow && (savedRow.reference_range_snapshot || savedRow.ref_range)),
-      is_critical: booleanValue(savedRow && savedRow.is_critical),
-      result_status: valueText(savedRow && savedRow.result_status),
-      result_entry: 'pencil',
-      results: currentRows.map(resultView),
-      revisions,
-      previous: previousRevision ? {
-        value: valueText(previousRevision.result_value),
-        unit: valueText(previousRevision.unit),
-        interpretation: valueText(previousRevision.interpretation),
-        reference_range: valueText(previousRevision.reference_range),
-        is_critical: booleanValue(previousRevision.is_critical),
-        entered_at: valueText(previousRevision.changed_at),
-        entered_by: valueText(previousRevision.changed_by),
-        source: valueText(previousRevision.source)
-      } : null,
-      patient_previous: patientPrevious ? {
-        value: valueText(patientPrevious.result_value),
-        unit: valueText(patientPrevious.unit_symbol_snapshot || patientPrevious.unit_symbol || patientPrevious.units),
-        interpretation: valueText(patientPrevious.interpretation_code),
-        reference_range: valueText(patientPrevious.reference_range_snapshot),
-        visit_vn: valueText(patientPrevious.visit_vn || patientPrevious.visit_id),
-        entered_at: valueText(patientPrevious.entered_at || patientPrevious.xupdatx || patientPrevious.xcreatx)
-      } : null
-    }
-  }
 
   if (action === 'get_manual_result') {
     const defaults = {
       result_value: '',
       unit_symbol_snapshot: valueText(masterLab.unit_symbol || masterLab.unit || context.master && context.master.unit),
       interpretation_code: '',
-      reference_range_snapshot: valueText(masterLab.reference_range || masterLab.ref_range),
-      is_critical: false,
-      edit_history_json: '[]'
+      reference_range_snapshot: valueText(masterLab.reference_range || masterLab.ref_range)
     }
     return {
       success: true,
-      data: responseData(editBaseline || defaults),
-      message: currentRows.length
+      data: responseData(current || defaults),
+      message: current
         ? 'อ่านผลตรวจแล้ว'
         : itemStatus === 'sent'
           ? 'ยังไม่มีผลตรวจ; รับ specimen ก่อนใช้ปุ่มดินสอกรอกผล'
-          : 'ยังไม่มีผลตรวจ; ใช้ปุ่มดินสอเพื่อกรอกผล Manual ได้'
+          : itemSectionCode === 'MY'
+            ? 'ยังไม่มีผลตรวจ; ใช้ปุ่มดินสอเพื่อกรอกผล Manual ได้'
+            : 'ยังไม่มีผลตรวจ; รอผลจาก Agent/LIS'
     }
   }
 
@@ -467,67 +845,118 @@ if (action === 'get_manual_result' || action === 'save_manual_result') {
     result_value: valueText(manual.result_value),
     unit_symbol_snapshot: valueText(manual.unit),
     interpretation_code: valueText(manual.interpretation),
-    reference_range_snapshot: valueText(manual.reference_range),
-    is_critical: booleanValue(manual.is_critical)
+    reference_range_snapshot: valueText(manual.reference_range)
   }
-  const hasClinicalValue = [
-    clinical.result_value,
-    clinical.unit_symbol_snapshot,
-    clinical.interpretation_code,
-    clinical.reference_range_snapshot
-  ].some(value => value.trim())
+  const hasClinicalValue = Object.values(clinical).some(value => value.trim())
   const now = app.curDate('YYYY-MM-DD HH:mm:ss')
   const actor = valueText(userInfo.username || userInfo.account && userInfo.account.name).trim()
-  const history = objectArray(current && current.edit_history_json)
-  const previousSource = current || editBaseline
-  const changed = previousSource && (
-    valueText(previousSource.result_value) !== clinical.result_value ||
-    valueText(previousSource.unit_symbol_snapshot || previousSource.unit_symbol || previousSource.units) !== clinical.unit_symbol_snapshot ||
-    valueText(previousSource.interpretation_code) !== clinical.interpretation_code ||
-    valueText(previousSource.reference_range_snapshot || previousSource.ref_range) !== clinical.reference_range_snapshot ||
-    booleanValue(previousSource.is_critical) !== clinical.is_critical
-  )
-  if (changed) {
-    history.push({
-      source: valueText(previousSource.result_source) || 'unknown',
-      changed_at: now,
-      changed_by: actor,
-      result_value: valueText(previousSource.result_value),
-      unit: valueText(previousSource.unit_symbol_snapshot || previousSource.unit_symbol || previousSource.units),
-      interpretation: valueText(previousSource.interpretation_code),
-      reference_range: valueText(previousSource.reference_range_snapshot || previousSource.ref_range),
-      is_critical: booleanValue(previousSource.is_critical)
-    })
-  }
-  const rowData = {
-    order_status_id: orderId,
-    order_id: orderId,
-    order_no: orderNo,
-    lab_no: labNo,
-    lab_section: itemSectionCode,
-    source_item_id: itemId,
-    patient_hn: patientHn,
-    visit_id: visitVn,
-    visit_vn: visitVn,
-    visit_record_id: visitRecordId,
-    specimen_code: specimenCode,
-    specimen_name: specimenName,
-    result_sequence: Number(context.item.item_no || 1),
-    test_code: testCode,
-    obs_code: testCode,
-    test_name: testName,
-    ...clinical,
-    result_source: 'manual',
-    result_status: hasClinicalValue ? 'entered' : 'draft',
-    previous_value: previousSource ? valueText(previousSource.result_value) : '',
-    entered_at: current && valueText(current.entered_at) || (hasClinicalValue ? now : ''),
-    entered_by: current && valueText(current.entered_by) || (hasClinicalValue ? actor : ''),
-    last_edited_at: changed ? now : valueText(current && current.last_edited_at),
-    last_edited_by: changed ? actor : valueText(current && current.last_edited_by),
-    edit_history_json: JSON.stringify(history)
+  const reportKey = 'manual|' + workItemId
+  let reportRowsForWork = []
+  try {
+    reportRowsForWork = await formRows(
+      RESULT_REPORT_FORM_ID,
+      'report_key = :reportKey AND xrstatx NOT IN (0,3)',
+      { reportKey },
+      [{ column: 'xupdatx', sort: 'DESC' }],
+      2
+    )
+  } catch (error) {
+    return { success: false, message: 'ค้นหา Result Report ไม่สำเร็จ' }
   }
 
-  let resultItemId = valueText(current && (current._id || current.id)).trim()
+  let resultReportId = valueText(reportRowsForWork[0] && reportRowsForWork[0]._id).trim()
+  const reportData = {
+    xparentx: app.dbObjectId(workItemId),
+    filler_order_no: labNo,
+    hn: patientHn,
+    visit_id: visitVn,
+    order_no: workItemId,
+    order_status_id: workItemId,
+    lab_section: itemSectionCode,
+    lab_section_name: valueText(context.section && (context.section.name_th || context.section.name)),
+    record_kind: 'report',
+    report_key: reportKey,
+    receipt_status: 'processed',
+    source_channel: 'manual',
+    internal_overall_status: hasClinicalValue ? 'partial' : 'processing',
+    reported_at: hasClinicalValue ? now : '',
+    reported_by_source_id: hasClinicalValue ? actor : '',
+    reported_by_source_name: hasClinicalValue ? actor : '',
+    item_count: 1,
+    matched_item_count: 1,
+    unmatched_item_count: 0,
+    processed_at: now,
+    error_message: ''
+  }
+  try {
+    if (!resultReportId) {
+      const draft = await app.insertData(RESULT_REPORT_FORM_ID, userInfo)
+      resultReportId = valueText(draft && (
+        draft.id ||
+        draft.data && (draft.data._id || draft.data.id) ||
+        draft.reply && (draft.reply.id || draft.reply.data && draft.reply.data._id)
+      )).trim()
+      if (!draft || draft.success === false || !resultReportId) {
+        return { success: false, message: 'สร้าง draft Result Report ไม่สำเร็จ' }
+      }
+    }
+    const reportSaved = await app.sdformSetOne(
+      RESULT_REPORT_FORM_ID,
+      resultReportId,
+      { ...reportData, result_report_id: resultReportId },
+      1,
+      userInfo
+    )
+    if (!reportSaved || reportSaved.success === false) {
+      return { success: false, message: 'บันทึก Result Report ไม่สำเร็จ' }
+    }
+  } catch (error) {
+    return { success: false, message: 'บันทึก Result Report ไม่สำเร็จ: ' + valueText(error && error.message || error) }
+  }
+
+  const manualValueChanged = Boolean(
+    current && hasClinicalValue && valueText(current.result_value) !== clinical.result_value
+  )
+  const reportParent = app.dbObjectId(resultReportId)
+  const rowData = {
+    xparentx: reportParent,
+    parent_id: {
+      value: reportParent,
+      label: 'LAB ' + labNo + ' · HN ' + patientHn + ' · VN ' + visitVn,
+      filler_order_no: labNo,
+      hn: patientHn,
+      visit_id: visitVn,
+      lab_section: itemSectionCode
+    },
+    result_report_id: resultReportId,
+    result_definition_id: valueText(current && current.result_definition_id),
+    order_no: workItemId,
+    filler_order_no: labNo,
+    lab_section: itemSectionCode,
+    hn: patientHn,
+    visit_id: visitVn,
+    result_sequence: String(context.item.item_no || 1),
+    test_code: testCode,
+    obs_code: testCode,
+    obs_name: testName,
+    test_name: testName,
+    result_value: clinical.result_value,
+    units: clinical.unit_symbol_snapshot,
+    unit_symbol_snapshot: clinical.unit_symbol_snapshot,
+    ref_range: clinical.reference_range_snapshot,
+    reference_range_snapshot: clinical.reference_range_snapshot,
+    interpretation_code: clinical.interpretation_code,
+    result_source: 'manual',
+    result_status: hasClinicalValue ? 'entered' : 'draft',
+    previous_value: previous ? valueText(previous.result_value) : '',
+    entered_at: hasClinicalValue ? valueText(current && current.entered_at) || now : '',
+    entered_by: hasClinicalValue ? valueText(current && current.entered_by) || actor : '',
+    last_edited_at: manualValueChanged ? now : '',
+    last_edited_by: manualValueChanged ? actor : '',
+    edit_history_json: valueText(current && current.edit_history_json) || '[]'
+  }
+
+  let resultItemId = currentIsLegacy ? '' : valueText(current && (current._id || current.id)).trim()
   try {
     if (!resultItemId) {
       const draft = await app.insertData(RESULT_ITEM_FORM_ID, userInfo)
@@ -549,33 +978,31 @@ if (action === 'get_manual_result' || action === 'save_manual_result') {
   }
 
   if (hasClinicalValue && itemStatus !== 'resulted') {
+    if (!context.workItem || !context.workItem._id) {
+      return { success: false, message: 'บันทึกผลแล้ว แต่ไม่พบ Lab Work Item สำหรับปรับสถานะ กรุณาให้ผู้ดูแลตรวจสอบ' }
+    }
     try {
       const statusSaved = await app.dbUpdate(
-        { current_status: 'resulted', resulted_at: now, resulted_by: actor },
-        ITEM_COLLECTION,
+        { work_status: 'resulted', resulted_at: now, resulted_by: actor },
+        WORK_ITEM_COLLECTION,
         userInfo,
         {
-          _id: app.dbObjectId(itemId),
+          _id: context.workItem._id,
           xrstatx: { $nin: [0, 3] },
-          current_status: { $in: editableStatuses.filter(status => status !== 'resulted') }
+          work_status: { $in: ['received', 'processing'] }
         }
       )
       if (!statusSaved || statusSaved.success === false) {
-        return { success: false, message: 'บันทึกผลแล้ว แต่ปรับสถานะ CPOE Item ไม่สำเร็จ กรุณาให้ผู้ดูแลตรวจสอบ' }
+        return { success: false, message: 'บันทึกผลแล้ว แต่ปรับสถานะ Lab Work Item ไม่สำเร็จ กรุณาให้ผู้ดูแลตรวจสอบ' }
       }
     } catch (error) {
-      return { success: false, message: 'บันทึกผลแล้ว แต่ปรับสถานะ CPOE Item ไม่สำเร็จ กรุณาให้ผู้ดูแลตรวจสอบ' }
+      return { success: false, message: 'บันทึกผลแล้ว แต่ปรับสถานะ Lab Work Item ไม่สำเร็จ กรุณาให้ผู้ดูแลตรวจสอบ' }
     }
   }
 
   return {
     success: true,
-    data: {
-      ...responseData({ _id: resultItemId, ...rowData }),
-      results: [resultView({ _id: resultItemId, ...rowData })].concat(
-        currentRows.filter(row => valueText(row && (row._id || row.id)).trim() !== resultItemId).map(resultView)
-      )
-    },
+    data: responseData({ _id: resultItemId, ...rowData }),
     message: hasClinicalValue ? 'บันทึกผล Manual แล้ว' : 'บันทึกร่างผล Manual แล้ว'
   }
 }
@@ -604,6 +1031,16 @@ if (action === 'update_specimen') {
     }
     if (valueText(item.current_status).toLowerCase() !== 'sent') {
       return { success: false, message: 'แก้ specimen ได้เฉพาะรายการที่ยังรอรับ' }
+    }
+    const orderRef = item.order_id && item.order_id.value ? item.order_id.value : item.xparentx
+    const orderId = valueText(orderRef).trim()
+    if (/^[a-f0-9]{24}$/i.test(orderId)) {
+      const cancellation = await app.db.collection(ORDER_CANCELLATION_COLLECTION).findOne({
+        _id: app.dbObjectId(orderId),
+        xrstatx: { $nin: [0, 3] },
+        cancel_status: { $in: ['pending', 'applied'] }
+      })
+      if (cancellation) return { success: false, message: 'Order นี้ถูกยกเลิกแล้ว จึงแก้ specimen ไม่ได้' }
     }
 
     if (item.item_data_id) {
@@ -773,8 +1210,7 @@ if ((dateFrom && !validDate(dateFrom)) || (dateTo && !validDate(dateTo))) {
 
 const itemMatch = {
   xrstatx: { $nin: [0, 3] },
-  'service_type.value': 'lab',
-  current_status: { $in: statuses }
+  'service_type.value': 'lab'
 }
 
 const orderMatch = {
@@ -832,6 +1268,77 @@ const pipeline = [
   },
   {
     $lookup: {
+      from: WORK_ITEM_COLLECTION,
+      let: { source_item_id: { $toString: '$_id' } },
+      pipeline: [
+        {
+          $match: {
+            xrstatx: { $nin: [0, 3] },
+            $expr: { $eq: ['$source_specimen_record_id', '$$source_item_id'] }
+          }
+        },
+        { $sort: { updated_at: -1, created_at: -1 } },
+        { $limit: 1 }
+      ],
+      as: 'work_item'
+    }
+  },
+  { $unwind: { path: '$work_item', preserveNullAndEmptyArrays: true } },
+  {
+    $lookup: {
+      from: ORDER_CANCELLATION_COLLECTION,
+      let: { source_order_id: { $toString: '$order_ref_id' } },
+      pipeline: [
+        {
+          $match: {
+            xrstatx: { $nin: [0, 3] },
+            cancel_status: { $in: ['pending', 'applied'] },
+            $expr: { $eq: ['$source_order_id', '$$source_order_id'] }
+          }
+        },
+        { $sort: { updated_at: -1, created_at: -1 } },
+        { $limit: 1 }
+      ],
+      as: 'order_cancellation'
+    }
+  },
+  { $unwind: { path: '$order_cancellation', preserveNullAndEmptyArrays: true } },
+  {
+    $addFields: {
+      effective_status: {
+        $switch: {
+          branches: [
+            {
+              case: { $ne: [{ $ifNull: ['$order_cancellation._id', null] }, null] },
+              then: 'cancelled'
+            },
+            { case: { $eq: ['$work_item.work_status', 'waiting_receive'] }, then: 'sent' },
+            { case: { $eq: ['$work_item.work_status', 'received'] }, then: 'accepted' },
+            { case: { $eq: ['$work_item.work_status', 'processing'] }, then: 'prepared' },
+            { case: { $eq: ['$work_item.work_status', 'resulted'] }, then: 'resulted' },
+            { case: { $eq: ['$work_item.work_status', 'completed'] }, then: 'completed' },
+            { case: { $eq: ['$work_item.work_status', 'rejected'] }, then: 'rejected' },
+            { case: { $eq: ['$work_item.work_status', 'cancelled'] }, then: 'cancelled' },
+            {
+              case: {
+                $and: [
+                  { $eq: [{ $ifNull: ['$work_item._id', null] }, null] },
+                  { $in: ['$current_status', ['accepted', 'prepared', 'ready', 'dispensed']] },
+                  { $eq: [{ $ifNull: ['$received_at', ''] }, ''] },
+                  { $eq: [{ $ifNull: ['$lab_no', ''] }, ''] }
+                ]
+              },
+              then: 'sent'
+            }
+          ],
+          default: '$current_status'
+        }
+      }
+    }
+  },
+  { $match: { effective_status: { $in: statuses } } },
+  {
+    $lookup: {
       from: ITEM_MASTER_COLLECTION,
       let: { item_code: '$item_code' },
       pipeline: [
@@ -870,7 +1377,9 @@ const pipeline = [
           item_code: '$item_code',
           item_name: '$item_name',
           quantity: '$quantity',
-          current_status: '$current_status',
+          current_status: '$effective_status',
+          work_status: '$work_item.work_status',
+          work_item_id: { $toString: '$work_item._id' },
           service_type: '$service_type',
           item_master_id: { $toString: '$item_data_id' },
           section: {
@@ -932,12 +1441,28 @@ const pipeline = [
             set_code: '$set_master.item_code',
             parent_code: '$master.lab_parent.value'
           },
-          lab_no: '$lab_no',
-          received_at: '$received_at',
-          received_by: '$received_by',
-          rejected_at: '$rejected_at',
-          rejected_by: '$rejected_by',
-          reject_reason: '$reject_reason'
+          lab_no: { $ifNull: ['$work_item.lab_no', '$lab_no'] },
+          received_at: { $ifNull: ['$work_item.received_at', '$received_at'] },
+          received_by: { $ifNull: ['$work_item.received_by', '$received_by'] },
+          resulted_at: { $ifNull: ['$work_item.resulted_at', '$resulted_at'] },
+          is_critical: '$is_critical',
+          result_summary: '$result_summary',
+          rejected_at: { $ifNull: ['$work_item.rejected_at', '$rejected_at'] },
+          rejected_by: { $ifNull: ['$work_item.rejected_by', '$rejected_by'] },
+          reject_reason_code: { $ifNull: ['$work_item.reject_reason_code', '$reject_reason_code'] },
+          reject_reason_detail: { $ifNull: ['$work_item.reject_reason_detail', '$reject_reason_detail'] },
+          reject_reason: {
+            $cond: [
+              { $ne: [{ $ifNull: ['$work_item.reject_reason_detail', ''] }, ''] },
+              '$work_item.reject_reason_detail',
+              { $ifNull: ['$work_item.reject_reason_code', '$reject_reason'] }
+            ]
+          },
+          cancellation_record_id: { $toString: '$order_cancellation._id' },
+          cancel_type: { $ifNull: ['$work_item.cancel_type', '$order_cancellation.cancel_type'] },
+          cancel_reason: { $ifNull: ['$work_item.cancel_reason', '$order_cancellation.cancel_reason'] },
+          cancelled_at: { $ifNull: ['$work_item.cancelled_at', '$order_cancellation.cancelled_at'] },
+          cancelled_by: { $ifNull: ['$work_item.cancelled_by', '$order_cancellation.cancelled_by'] }
         }
       }
     }
@@ -945,6 +1470,7 @@ const pipeline = [
   {
     $project: {
       _id: 0,
+      _diagnosis_visit_id: '$order.xparentx',
       order_id: { $toString: '$_id' },
       order_number: '$order.order_number',
       current_status: '$order.current_status',
@@ -968,6 +1494,8 @@ const pipeline = [
         }
       },
       priority: '$order.priority',
+      prior_medication: '$order.prior_medication',
+      prior_specify: '$order.prior_specify',
       patient: {
         hn: '$order.vid.pid.hn',
         prename: '$order.vid.pid.prename',
@@ -1009,7 +1537,31 @@ const pipeline = [
   { $sort: { requested_at: -1, order_number: -1 } },
   {
     $facet: {
-      rows: [{ $skip: skip }, { $limit: limit }],
+      rows: [
+        { $skip: skip },
+        { $limit: limit },
+        {
+          $lookup: {
+            from: DIAGNOSIS_COLLECTION,
+            let: { visit_id: '$_diagnosis_visit_id' },
+            pipeline: [
+              {
+                $match: {
+                  xrstatx: { $nin: [0, 3] },
+                  $expr: { $eq: ['$vid.value', '$$visit_id'] }
+                }
+              },
+              { $sort: { updated_at: -1, created_at: -1 } },
+              { $limit: 1 },
+              { $project: { _id: 0, primary_dx: 1 } }
+            ],
+            as: 'diagnosis_record'
+          }
+        },
+        { $unwind: { path: '$diagnosis_record', preserveNullAndEmptyArrays: true } },
+        { $addFields: { diagnosis: '$diagnosis_record.primary_dx' } },
+        { $project: { _diagnosis_visit_id: 0, diagnosis_record: 0 } }
+      ],
       meta: [{ $count: 'total' }]
     }
   }
@@ -1045,24 +1597,6 @@ const orders = Array.isArray(facet.rows) ? facet.rows : []
 const total = Array.isArray(facet.meta) && facet.meta[0]
   ? Number(facet.meta[0].total || 0)
   : 0
-
-// CPOE Order status may remain `sent` while Item-level LAB work has already
-// advanced. Derive the worklist label from the Items that belong to this LAB
-// context so a received Item is shown as received-awaiting-result immediately.
-orders.forEach(order => {
-  const itemStatuses = (Array.isArray(order && order.items) ? order.items : [])
-    .map(item => valueText(item && item.current_status).trim().toLowerCase())
-    .filter(Boolean)
-  if (!itemStatuses.length) return
-  const all = values => itemStatuses.every(status => values.includes(status))
-  const some = values => itemStatuses.some(status => values.includes(status))
-  if (all(['cancelled', 'rejected', 'returned', 'reversed'])) order.current_status = 'cancelled'
-  else if (all(['completed'])) order.current_status = 'completed'
-  else if (some(['resulted', 'completed'])) order.current_status = 'resulted'
-  else if (all(['accepted', 'prepared', 'ready', 'dispensed'])) order.current_status = 'accepted'
-  else if (some(['accepted', 'prepared', 'ready', 'dispensed'])) order.current_status = 'mixed'
-  else order.current_status = 'sent'
-})
 
 return {
   success: true,

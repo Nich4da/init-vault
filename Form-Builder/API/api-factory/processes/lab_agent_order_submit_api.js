@@ -5,8 +5,9 @@
  * Process creation reported by the user on 2026-08-31; Agent configuration and live UAT are not yet verified.
  *
  * Purpose:
- * - Server-side transport boundary for the configured Agent order endpoint.
+ * - Server-side transport boundary for POST {AGENT_URL}/api/orders.
  * - Validate the canonical HIS -> Agent payload before any network call.
+ * - collected_at is optional; validate its Thai timestamp only when supplied.
  * - Preserve Agent idempotency semantics: order_no is the retry key.
  * - Normalize HTTP/Agent responses for the receive orchestrator to persist.
  *
@@ -16,13 +17,12 @@
  * }
  *
  * Deployment configuration:
- * AGENT_ORDER_URL must be the complete endpoint, including /api/orders.
  * Replace the two placeholders below only in the protected API Factory process.
  * Never put the Agent key in SDForm/Vue code, query strings, or this repository.
  */
 
-const AGENT_ORDER_URL = 'REPLACE_WITH_AGENT_ORDER_URL'
-const AGENT_KEY = 'REPLACE_WITH_AGENT_KEY'
+const AGENT_URL = '__CONFIGURE_AGENT_URL__'
+const AGENT_KEY = '__CONFIGURE_AGENT_KEY__'
 const MAX_BODY_BYTES = 1024 * 1024
 const REQUEST_TIMEOUT_MS = 5000
 
@@ -106,7 +106,6 @@ const ITEM_REQUIRED = [
   'test_code',
   'test_name',
   'specimen_code',
-  'collected_at',
   'received_at',
   'receiver'
 ]
@@ -253,7 +252,7 @@ const configured = value => {
   return Boolean(text) && !/^__CONFIGURE_/.test(text)
 }
 
-const normalizeAgentOrderUrl = value => {
+const normalizeAgentBaseUrl = value => {
   const text = valueText(value).trim().replace(/\/+$/, '')
   if (!/^https?:\/\/[^\s/?#]+(?::\d+)?(?:\/[^\s?#]*)?$/.test(text)) return ''
   if (/^https?:\/\/[^/]*@/i.test(text)) return ''
@@ -301,8 +300,8 @@ if (bodyBytes > MAX_BODY_BYTES) {
   }
 }
 
-const agentOrderUrl = normalizeAgentOrderUrl(AGENT_ORDER_URL)
-if (!configured(AGENT_ORDER_URL) || !agentOrderUrl || !configured(AGENT_KEY)) {
+const agentBaseUrl = normalizeAgentBaseUrl(AGENT_URL)
+if (!configured(AGENT_URL) || !agentBaseUrl || !configured(AGENT_KEY)) {
   return {
     success: false,
     error: 'not_configured',
@@ -314,7 +313,7 @@ if (!configured(AGENT_ORDER_URL) || !agentOrderUrl || !configured(AGENT_KEY)) {
 
 let response
 try {
-  response = await app.axios.post(agentOrderUrl, normalizedPayload, {
+  response = await app.axios.post(agentBaseUrl + '/api/orders', normalizedPayload, {
     timeout: REQUEST_TIMEOUT_MS,
     maxBodyLength: MAX_BODY_BYTES,
     maxContentLength: MAX_BODY_BYTES,

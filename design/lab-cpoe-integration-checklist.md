@@ -2,7 +2,7 @@
 type: checklist
 title: LAB CPOE Integration Checklist
 created: 2026-08-30
-updated: 2026-08-30
+updated: 2026-09-01
 status: active
 tags: [lab, cpoe, worklist, integration, checklist]
 ---
@@ -67,8 +67,9 @@ LAB Workbench JSON
       → join zdata_section.unit / Organization เพื่อ routing และสิทธิ
 
 รับ specimen ราย Item
-  → LAB receive API สร้าง LAB NO. แบบ atomic
-  → update CPOE Order Item
+  → LAB NO. API สร้าง zdata_lab_work_item แบบ atomic (CPOE read-only)
+  → Receive update Work Item + create zdata_lab_outband_order ใน transaction เดียว
+  → ยังไม่ call Agent; transport worker อ่าน Outbound ภายหลัง
 
 รับผล
   → Agent → hl7_result_upsert_api.js
@@ -160,8 +161,8 @@ Local Step 1 artifact: `Form-Builder/API/api-factory/processes/lab_cpoe_worklist
 - [x] specimen เป็น searchable dropdown และ persist ค่าใหม่ผ่าน Worklist API ลง
   `lab_data.spec_source/spec_source_code` โดยคงข้อมูลเวลา/ผู้เก็บเดิม
 - [x] ปุ่มรับ specimen เชื่อม Receive Process `6a94f634422c1ca959829d70`, บังคับเลือก
-  ครั้งละ 1 Item, ตรวจเวลาเก็บก่อนเรียก และแยกข้อความ “รับแล้วแต่ Agent ส่งไม่ผ่าน”
-  ออกจากกรณีรับไม่สำเร็จ; deployed Builder/runtime UAT ยังรอ
+  ครั้งละ 1 Item; Receive สร้าง LAB NO. และบันทึกเวลารับโดยไม่บังคับเวลาเก็บหรือข้อมูล
+  outbound และยังไม่ส่ง Agent ระหว่างรอ VPN; deployed Builder/runtime UAT ยังรอ
 - [x] ปุ่มสร้างรายการเปิด CPOE Order App `6a927860422c1ca959829d26` ในโหมดเลือก VN เอง
   และ CPOE App แสดง patient/EMR-style card ของ Visit ที่เลือก
 - [x] ปุ่ม EMR เปิด Form `6a4f64e7f8cdfc54cec16488` แบบ read-only และ deep-link ด้วย Visit ID ของ Order
@@ -171,24 +172,52 @@ Local Step 1 artifact: `Form-Builder/API/api-factory/processes/lab_cpoe_worklist
 
 ## P3 — Receive / reject / reorder ระดับ Item
 
+- [x] ยืนยัน CPOE Order/Item เป็น read-only source; งาน Lab ใช้ Lab Work Item ใหม่ Form ID
+  `6a95c750422c1ca959829e8a` เป็น operational record กลาง
+- [x] สร้าง local Form candidate `Form-Builder/SDForm/Lab/lab-outbound-order-v1.json`
+  สำหรับ payload/response, `dispatch_id`, `hl7_status`, retry/error และ attempt summary
+- [x] Refactor local LAB NO. generator และ Receive ให้เขียน Lab Work Item/Outbound Order
+  แทน `zdata_cpoe_order_item`; deployed Process body ยังต้องอัปเดตและ UAT
+- [x] ยืนยัน collection สด: Work Item = `zdata_lab_work_item`; Outbound =
+  `zdata_lab_outband_order` (ชื่อจริงใน DB สะกด `outband`); ทั้งสอง collection ยังว่างก่อน UAT
 - [x] สร้าง local atomic LAB NO. generator ต่อ CPOE Item พร้อม idempotency จาก `item_id`:
-  `Form-Builder/API/api-factory/processes/lab_no_generate_api.js`; รูปแบบ `SSYY######`,
-  counter แยก section + ปี พ.ศ., ขึ้นปีใหม่เริ่ม `000001`, overflow วน `000001`
-  แต่ fail-safe หากเลขที่วนมายังใช้งานอยู่; Process ID `6a94f1ed422c1ca959829d6e`
+  `Form-Builder/API/api-factory/processes/lab_no_generate_api.js`; รูปแบบ `SSYYMMDDNNNN`,
+  counter แยก section + วันตามเวลาไทย, วันใหม่เริ่ม `0001` และเมื่อครบ `9999`
+  จะหยุดแจ้ง error โดยไม่วนเลขซ้ำภายในวัน; Process ID `6a94f1ed422c1ca959829d6e`
   สร้างแล้ว แต่ deployed body/runtime UAT ยังรอ
-- [x] สร้าง local Receive API: validate outbound data + `sent` → เรียก LAB NO. generator →
-  set Item `accepted` + audit received time/user/location → ส่ง Agent นอก transaction → เก็บ
-  transport outcome โดยไม่ rollback การรับเมื่อ Agent ล้มเหลว:
+- [x] สร้าง local Receive API รุ่น persistence-first: อ่าน CPOE Item → เรียก LAB NO.
+  generator เพื่อ reserve Work Item → set Work Item `received` + สร้าง Outbound `new`
+  ใน transaction เดียว โดยไม่เรียก Agent และไม่แก้ CPOE:
   `Form-Builder/API/api-factory/processes/lab_cpoe_receive_api.js`; Process ID
   `6a94f634422c1ca959829d70`; สร้างแล้วและเชื่อม local Form แต่ deployed body/runtime UAT ยังรอ
-- [x] local test ป้องกัน double-click/retry ไม่ให้ได้ LAB NO. ซ้ำหรือส่งซ้ำเมื่อ Item queued แล้ว
-- [x] v1 ใช้ `master.lab_item.his_lab_code` เป็น outbound `test_code` เพียงแหล่งเดียวและ
-  fail ก่อนรับถ้าไม่มีค่า; ไม่ fallback เป็น `c_test` โดยเงียบ
-- [x] fail-closed เมื่อ Order เดิมมี Item อื่น queued แล้ว เพราะ Agent ปัจจุบัน dedupe ทั้ง
-  `order_no`; ยังต้องแก้ Agent contract ก่อนรองรับ Item ถัดไปของ Order เดิม
-- [ ] Reject API: เก็บ reason/user/time และชนิดเหตุการณ์ `specimen_rejected`
-- [ ] ถ้าใช้ `current_status=cancelled` ร่วมกับ EMR cancellation ต้องมี `cancel_type`
-  แยก `requester_cancelled` กับ `specimen_rejected`
+- [x] local test ป้องกัน double-click/retry ไม่ให้ได้ LAB NO./Work Item/Outbound ซ้ำ,
+  ยืนยัน CPOE ไม่เปลี่ยน, Receive ไม่เรียก Agent subprocess และ retry ใช้
+  Work Item `received_at` เดิมใน Outbound payload แม้เวลารอบใหม่เปลี่ยน
+- [x] Outbound readiness: พร้อม = `ready`; `collected_at` เป็น optional—มีค่าจึงส่งและ validate,
+  ว่างให้ omit โดยไม่สร้างเวลาปลอม; ขาด priority/test/specimen mapping =
+  `awaiting_outbound_data`; ทุกกรณีไม่ rollback การรับจริง
+- [x] กำหนด Agent `order_no` เป็น stable Work Item ID เพื่อให้หนึ่ง CPOE Item มี idempotency key
+  ของตัวเอง; เก็บ CPOE Order ID/Item ID และเลขใบสั่งต้นทางแยก ไม่ปลอมเป็น Agent key
+- [x] Deploy Receive body รุ่นตรึงเวลารับ และ retry Item `6a956902422c1ca959829e3b`;
+  live DB ยืนยัน Outbound `items[0].received_at` = `2026-09-01T09:06:13+07:00`
+  ตรงกับ Work Item เดิม และ Agent `attempt_count` ยังเป็น `0`
+- [ ] หลัง DB-only UAT ผ่าน ให้สร้าง dispatch/reconcile action ที่อ่าน `request_payload_json`
+  จาก Outbound แล้วเรียก `lab_agent_order_submit_api.js` นอก transaction
+- [x] VPN curl จาก Mac เข้าถึง Agent และ key ผ่าน: payload ว่างได้ `422`
+  ตามคาด จึงแยกปัญหา network/token ออกจาก payload contract ได้แล้ว
+- [x] ปรับ Agent `endpoint.behavior.labnoPattern`: Agent เดิมคาด 10 หลัก
+  `YYMMDDNNNN` แต่ HIS ใช้รูปแบบที่อนุมัติแล้ว 12 หลัก `SSYYMMDDNNNN`;
+  Agent แก้แล้ว และ direct VPN curl ได้ `202 Accepted`, `duplicate:false`,
+  `dispatch_id:12`, route `rax-file` โดยใช้ LAB NO. `106909010001`
+- [x] ทดสอบ Agent Submit Process `6a9468c7422c1ca959829d6a` ซ้ำด้วย payload เดิม;
+  ยังได้ `agent_unreachable` + `http_status:null` จึงยืนยันว่า API Factory server ไม่มี
+  network route ไป Agent แม้ Mac ที่ต่อ VPN ส่งได้
+- [ ] Infra จัด server-to-Agent VPN/private route, firewall allowlist หรือ approved relay
+  แล้ว retry `order_no` เดิม; ห้ามนำ Agent key ไปไว้ฝั่ง browser/Form
+- [x] Reject API: เก็บ reason/user/time ใน Work Item และ Rejection record; ใช้สถานะ
+  `rejected` แยกจาก whole-Order cancellation
+- [x] Whole-Order cancellation ใช้ `cancel_type=lab_order_cancelled` และ Work Item
+  `work_status=cancelled`; specimen rejection ใช้ `work_status=rejected` จึงไม่ปนกัน
 - [ ] `ตรวจใหม่`: สร้าง CPOE Order/Item ใหม่และเก็บ `reorder_of_order_id`/
   `reorder_of_item_id`; ห้ามแก้หรือลบประวัติเดิม
 - [ ] ตกลงผลกระทบการเงินของ Item เดิมและ Item ใหม่กับ CPOE/การเงิน
@@ -199,6 +228,9 @@ Local Step 1 artifact: `Form-Builder/API/api-factory/processes/lab_cpoe_worklist
 - [x] Result Report form candidate มีแล้ว
 - [x] Result Item form candidate มีแล้ว
 - [x] Result Viewer และ `hl7_result_upsert_api.js` มี regression test แล้ว
+- [x] แท็บออกผลเปิดได้ตั้งแต่ Item ยังรอรับ และตารางระดับ Item ใช้คอลัมน์
+  `ลำดับ / รายการสั่งตรวจ / เวลาออกผล / ผลตรวจ / สถานะ`; สถานะค่าวิกฤติใช้เฉพาะ explicit
+  decision ถ้าไม่มีให้แสดง `รอผล`/`รอยืนยัน` โดยไม่อนุมานจาก H/L หรือ reference range
 - [ ] ปรับ result persistence เดิมจาก append stage snapshots เป็น current-value overwrite ตาม
   ข้อตกลงล่าสุด โดยคง Technical Receipt สำหรับรับ payload/deduplicate
 - [ ] Result Item เดิมถูก update ด้วยค่าล่าสุด; `edited_by`/`edited_at` ถูกทับเป็นผู้แก้ล่าสุด
@@ -218,6 +250,45 @@ Local Step 1 artifact: `Form-Builder/API/api-factory/processes/lab_cpoe_worklist
 - [ ] CPOE Item เก็บเพียง result summary/reference ถ้าต้องใช้กรองเร็ว
 - [ ] ทดสอบ real order: partial → final → corrected → duplicate retry
 
+### ไฟล์แนบใน Popup ดูผล
+
+- [x] ตำแหน่ง UI: วางส่วน `ไฟล์แนบผลตรวจ` ใต้ตารางผลใน Popup `ดูผล`
+- [x] ขอบเขตผล LAB นอกเป็นระดับ Result Report/Order ทั้งชุด ไม่ใช่ Result Item ราย test
+- [x] เก็บ binary ใน built-in file storage และเก็บ array metadata ชุดปัจจุบันใน Result Report เดิม;
+  ไม่สร้าง Attachment Log form แยกและไม่เก็บ base64
+- [x] การแก้ไขใช้ current-value overwrite เหมือนค่าผลทั่วไป; ก่อนบันทึกต้องยืนยันผู้ใช้ และทับ
+  `confirmed_by`/`confirmed_at` เป็นผู้รับรองผลล่าสุด โดยไม่เก็บ attachment edit history
+- [x] ผู้ใช้ยืนยัน `fileTypes=["pdf","jpg","jpeg","png"]`, ไม่เกิน 10 MB ต่อไฟล์,
+  3 ไฟล์ต่อ Report และรวมไม่เกิน 30 MB ต่อ Report; ห้ามตั้งไม่จำกัด
+- [ ] ยืนยัน hard limit ของ upload gateway/file storage และตรวจ MIME จริงฝั่ง server
+- [ ] เพิ่ม `result_mode=external_document`, `result_attachments`, `confirmed_by`,
+  `confirmed_at` ใน Result Report contract/schema ที่ใช้งานจริง
+- [ ] Export widget `File Upload` ตัวจริงจาก Builder แล้วใช้ definition นั้น; ห้ามเดาชื่อ component
+  จาก candidate เก่าที่ไม่ render
+- [x] Test export: `test_widget_uploadfile.json`, Form/collection candidate
+  `6a96508f422c1ca959829e9a` / `zdata_6a96508f422c1ca959829e9a`; field
+  `file_upload_input30660`, max 10 MB, limit 3. Runtime upload/save succeeded with the built-in
+  default endpoint even though exported `uploadURL` is blank; response returns `fileId`, `fileName`,
+  `filePath`, `fileType`, `mimetype`, `formId` and URL. Editing the same record preserved both
+  original file IDs and appended a third successful file with a new ID. Removing one file removed
+  its entry from the saved array while preserving the other file IDs; the widget does not retain
+  removal history in the Form record. Use this export as the structural template; in the LAB copy
+  set `multipleSelect=true` and add `png` without editing the proven test source.
+- [ ] ผูก `get_external_result` / `save_external_result` เข้า Popup และทดสอบ
+  PDF/JPG/JPEG/PNG, ไฟล์เกินขนาด, MIME ปลอม, permission และ save retry
+
+### ผล LAB นอกแบบเอกสาร
+
+- [x] LAB นอกเริ่มจาก Order/Item ใน HIS ตาม flow เดิม และรอหน่วยงานภายนอกส่งเอกสารผล
+  กลับมาให้เจ้าหน้าที่แนบกับผลภายหลัง
+- [x] ผู้ใช้ยืนยันว่าผล LAB นอกกลับมาเป็นเอกสารทั้งชุด Order ไม่ได้แยกผลระดับ Item test
+- [x] Upload อย่างเดียวยังไม่เปลี่ยนสถานะ; เมื่อกด `ยืนยันออกผล` และ save สำเร็จ จึงเปลี่ยน
+  LAB Items ใน external Order ชุดนั้นเป็น `completed`
+- [x] การแก้ไขแสดง confirm `ยืนยันบันทึกผลที่แก้ไข?`, overwrite attachments และทับ
+  ผู้รับรองผล/เวลาล่าสุด ไม่มี register/list/void หรือประวัติ attachment แยก
+- [ ] ต้องมีตัวระบุ Order/Items ว่าเป็น LAB นอก (`result_mode=external_document` หรือ field
+  ต้นทางที่ยืนยันภายหลัง) เพื่อห้าม complete Item ของ LAB ภายในที่อาจอยู่ใน CPOE Order เดียวกัน
+
 ## Header status เมื่อ Item ไปคนละจังหวะ
 
 ตัวอย่าง Order เดียวมี BC และ HM: BC อาจรับ specimen/ออกผลแล้ว ขณะที่ HM ยังรอรับ
@@ -226,7 +297,10 @@ Local Step 1 artifact: `Form-Builder/API/api-factory/processes/lab_cpoe_worklist
 - [ ] ตกลงกับ CPOE/การเงินว่า Order header ใช้ generic state ใด
 - [ ] ห้ามเปลี่ยน Order เป็น complete เมื่อยังมี Item ที่ไม่ terminal
 - [ ] ห้ามให้การรับ Item แรกทำให้ Item อื่นเปลี่ยนเป็น accepted
-- [ ] cancellation ระดับ Order ต้อง cascade ทุก Item แบบ atomic ตาม contract เดิม
+- [x] cancellation ระดับ Order มี canonical audit lock หนึ่ง record แล้ว cascade ทุก Item
+  แบบ idempotent; standalone MongoDB ไม่มี multi-document transaction จึงบันทึก `conflict`
+  และหยุดแบบ fail-closed หาก CAS ของ Item ใดแพ้ระหว่างทำรายการ
+- [ ] cancellation หลัง Outbound เคยส่ง Agent/LIS ต้องรอ LIS cancel API; ห้ามยกเลิกเฉพาะ HIS
 
 ## รายการค้าง / ต้องถาม
 

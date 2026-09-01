@@ -8,6 +8,9 @@ const apiBody = fs.readFileSync(
 )
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
 const Process = new AsyncFunction('params', 'userInfo', 'app', apiBody)
+const RESULT_REPORT_FORM_ID = '6a8d4334f851000f28e5025b'
+const RESULT_ITEM_FORM_ID = '6a8bc91df851000f28e501fb'
+const LEGACY_RESULT_ITEM_FORM_ID = '6a7aa641935ed08882467374'
 
 const sections = [
   {
@@ -65,7 +68,10 @@ const facetResult = {
     order_id: 'ORDER-1',
     order_number: 'TEST-ORDER-1',
     requested_at: '2026-08-30 10:00:00',
-    items: [{ item_id: 'ITEM-1', item_code: 'C2', current_status: 'accepted', section: { code: 'BC' } }],
+    prior_medication: '2',
+    prior_specify: 'abacavir',
+    diagnosis: { value: 'C4102', label: 'C4102 Maxilla malignant neoplasm' },
+    items: [{ item_id: 'ITEM-1', item_code: 'C2', section: { code: 'BC' } }],
     item_count: 1,
   }],
   meta: [{ total: 1 }],
@@ -77,12 +83,33 @@ const manualItemId = 'cccccccccccccccccccccccc'
 const manualMasterId = 'dddddddddddddddddddddddd'
 const manualOrderId = 'eeeeeeeeeeeeeeeeeeeeeeee'
 
-const makeApp = (captures, manualSectionCode = 'MY', manualStatus = 'accepted') => ({
+const makeApp = (captures, { manualStatus = 'accepted', manualSectionCode = 'MY' } = {}) => ({
   isAuth: () => true,
   isSuper: roles => roles.includes('super'),
   isAdmin: roles => roles.includes('admin'),
   isManager: roles => roles.includes('manager'),
   dbObjectId: id => String(id),
+  db: {
+    collection: name => {
+      if (name === 'zdata_lab_order_cancellation') {
+        return { findOne: async () => null }
+      }
+      if (name !== 'zdata_lab_work_item') throw new Error('Unexpected direct collection ' + name)
+      return {
+        findOne: async query => {
+          if (query.source_specimen_record_id !== manualItemId) return null
+          return {
+            _id: '999999999999999999999999',
+            xrstatx: 1,
+            source_specimen_record_id: manualItemId,
+            lab_no: 'MY2608310001',
+            section_code: manualSectionCode,
+            work_status: manualStatus === 'sent' ? 'waiting_receive' : manualStatus === 'resulted' ? 'resulted' : 'received',
+          }
+        },
+      }
+    },
+  },
   dbFindById: async (id, from) => {
     if (from === 'zdata_cpoe_order_item' && String(id) === writeItemId) {
       return {
@@ -177,6 +204,20 @@ const makeApp = (captures, manualSectionCode = 'MY', manualStatus = 'accepted') 
         },
       }
     }
+    if (provider.from === 'zdata_visit') {
+      return {
+        success: true,
+        reply: {
+          data: [{
+            _id: 'VISIT-TODAY-1',
+            vn: 'VN-TODAY-1',
+            visit_date: '2026-08-31',
+            visit_status: true,
+            pid: { value: 'PERSON-1', hn: 'HN-1', p_fname: 'Test', p_lname: 'Patient' },
+          }],
+        },
+      }
+    }
     if (provider.from === 'zdata_cpoe_order_item') {
       return { success: true, reply: { data: [facetResult] } }
     }
@@ -185,29 +226,19 @@ const makeApp = (captures, manualSectionCode = 'MY', manualStatus = 'accepted') 
   curDate: () => '2026-08-31 10:20:30',
   sdformGetAll: async provider => {
     captures.push({ type: 'sdformGetAll', provider })
-    if (provider.options.where.includes('source_item_id = :itemId')) {
+    if (provider.providerId === RESULT_REPORT_FORM_ID && provider.options.where.includes('report_key = :reportKey')) {
       return { success: true, data: [] }
     }
-    if (provider.options.where.includes('filler_order_no = :labNo')) {
-      return {
-        success: true,
-        data: [{
-          _id: 'agent-result-row',
-          filler_order_no: provider.params.labNo,
-          result_source: 'agent',
-          result_status: 'final',
-          result_value: 'Detected',
-          unit_symbol_snapshot: '',
-          interpretation_code: 'H',
-          reference_range_snapshot: 'Not detected',
-          is_critical: false,
-          test_code: 'MY-CULTURE',
-          test_name: 'Fungal culture',
-          reported_at: '2026-08-31 10:00:00',
-        }],
-      }
+    if (provider.providerId === RESULT_ITEM_FORM_ID && provider.options.where.includes('order_no = :workItemId')) {
+      return { success: true, data: [] }
     }
-    if (provider.options.where.includes('patient_hn = :patientHn')) {
+    if (provider.providerId === RESULT_ITEM_FORM_ID && provider.options.where.includes('hn = :patientHn')) {
+      return { success: true, data: [] }
+    }
+    if (provider.providerId === LEGACY_RESULT_ITEM_FORM_ID && provider.options.where.includes('source_item_id = :itemId')) {
+      return { success: true, data: [] }
+    }
+    if (provider.providerId === LEGACY_RESULT_ITEM_FORM_ID && provider.options.where.includes('patient_hn = :patientHn')) {
       return {
         success: true,
         data: [{
@@ -226,7 +257,12 @@ const makeApp = (captures, manualSectionCode = 'MY', manualStatus = 'accepted') 
   },
   insertData: async formId => {
     captures.push({ type: 'insertData', formId })
-    return { success: true, id: 'ffffffffffffffffffffffff' }
+    return {
+      success: true,
+      id: formId === RESULT_REPORT_FORM_ID
+        ? '111111111111111111111111'
+        : 'ffffffffffffffffffffffff'
+    }
   },
   sdformSetOne: async (formId, id, data) => {
     captures.push({ type: 'sdformSetOne', formId, id, data })
@@ -251,7 +287,9 @@ const userAt = code => ({ roles: ['auth'], username: 'lab-test', unit: { code, n
     assert.deepStrictEqual(result.data.statuses, ['sent'])
     assert.strictEqual(result.data.total, 1)
     assert.strictEqual(result.data.orders.length, 1)
-    assert.strictEqual(result.data.orders[0].current_status, 'accepted')
+    assert.strictEqual(result.data.orders[0].prior_medication, '2')
+    assert.strictEqual(result.data.orders[0].prior_specify, 'abacavir')
+    assert.strictEqual(result.data.orders[0].diagnosis.label, 'C4102 Maxilla malignant neoplasm')
     assert.deepStrictEqual(result.data.specimen_options, [
       { value: 'BL', label: 'Blood' },
       { value: 'CD', label: 'Clotted blood' },
@@ -266,11 +304,36 @@ const userAt = code => ({ roles: ['auth'], username: 'lab-test', unit: { code, n
     assert(pipelineText.includes('zdata_master_item_order'))
     assert(pipelineText.includes('zdata_section'))
     assert(pipelineText.includes('zdata_cpoe_order'))
+    assert(pipelineText.includes('zdata_lab_work_item'))
+    assert(pipelineText.includes('zdata_lab_order_cancellation'))
     assert(pipelineText.includes('service_type.value'))
     assert(pipelineText.includes('resolved_section.code'))
     assert(pipelineText.includes('group_child'))
     assert(pipelineText.includes('emr_context'))
     assert(pipelineText.includes('order.vid.pid.age'))
+    assert(pipelineText.includes('order.prior_medication'))
+    assert(pipelineText.includes('order.prior_specify'))
+    assert(pipelineText.includes('zdata_diagnosis'))
+    assert(pipelineText.includes('diagnosis_record.primary_dx'))
+    assert(pipelineText.includes('vid.value'))
+
+    const facetStage = aggregateProvider.nosql.pipeline.find(stage => stage.$facet)
+    const diagnosisLookupIndex = facetStage.$facet.rows.findIndex(stage =>
+      stage.$lookup && stage.$lookup.from === 'zdata_diagnosis'
+    )
+    const pageLimitIndex = facetStage.$facet.rows.findIndex(stage => stage.$limit)
+    assert(diagnosisLookupIndex > pageLimitIndex, 'Diagnosis lookup must run only after the page limit')
+    assert(pipelineText.includes('resulted_at'))
+    assert(pipelineText.includes('is_critical'))
+    assert(pipelineText.includes('effective_status'))
+    assert(pipelineText.includes('work_item._id'), 'receipt status must prefer the canonical LAB Work Item')
+    assert(pipelineText.includes('received_at'), 'accepted CPOE status without an actual receipt must fall back to waiting')
+    assert(pipelineText.includes('lab_no'), 'legacy receipt evidence must remain supported')
+    assert(pipelineText.includes('work_item_id'))
+    assert(pipelineText.includes('reject_reason_code'))
+    assert(pipelineText.includes('reject_reason_detail'))
+    assert(pipelineText.includes('cancel_reason'))
+    assert(pipelineText.includes('cancelled_at'))
 
     const sectionFilterIndex = aggregateProvider.nosql.pipeline.findIndex(stage =>
       stage.$match && stage.$match['resolved_section.code']
@@ -284,6 +347,32 @@ const userAt = code => ({ roles: ['auth'], username: 'lab-test', unit: { code, n
       sectionFilterIndex < orderGroupIndex,
       'cross-section Order must be filtered at Item level before grouping by Order No.',
     )
+  }
+
+  {
+    const captures = []
+    const result = await Process(
+      { action: 'list_open_visits', organization_code: 'm1001' },
+      userAt('m1001'),
+      makeApp(captures),
+    )
+    assert.strictEqual(result.success, true)
+    assert.strictEqual(result.data.visit_date, '2026-08-31')
+    assert.strictEqual(result.data.total, 1)
+    assert.strictEqual(result.data.visits[0].vn, 'VN-TODAY-1')
+    assert.deepStrictEqual(result.data.section_codes, ['BC'])
+    assert.strictEqual(result.data.organization_code, 'M1001')
+
+    const visitProvider = captures.find(provider => provider.from === 'zdata_visit')
+    assert(visitProvider, 'must query Visit records for the LAB manual-order launcher')
+    assert.deepStrictEqual(visitProvider.nosql.query, {
+      xrstatx: { $nin: [0, 3] },
+      visit_date: '2026-08-31',
+      visit_status: true,
+    })
+    assert.strictEqual(visitProvider.nosql.projection['pid.hn'], 1)
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(visitProvider.nosql.projection, 'pid.p_pic'), false)
+    assert.strictEqual(visitProvider.nosql.limit, 2000)
   }
 
   {
@@ -354,55 +443,67 @@ const userAt = code => ({ roles: ['auth'], username: 'lab-test', unit: { code, n
     )
     assert.strictEqual(result.success, true)
     assert.strictEqual(result.data.section_code, 'MY')
-    assert.strictEqual(result.data.result_entry, 'pencil')
     assert.strictEqual(result.data.visit_vn, 'VN-NEW')
-    assert.strictEqual(result.data.unit, '')
+    assert.strictEqual(result.data.unit, 'CFU/mL')
     assert.strictEqual(result.data.reference_range, 'Not detected')
-    assert.strictEqual(result.data.previous, null)
-    assert.strictEqual(result.data.patient_previous.value, 'Candida albicans')
-    assert.strictEqual(result.data.patient_previous.visit_vn, 'VN-OLD')
-    assert.strictEqual(result.data.results.length, 1)
-    assert.strictEqual(result.data.results[0].result_source, 'agent')
-    assert.strictEqual(result.data.results[0].is_critical, false)
+    assert.strictEqual(result.data.previous.value, 'Candida albicans')
+    assert.strictEqual(result.data.previous.visit_vn, 'VN-OLD')
   }
 
   {
     const captures = []
     const result = await Process(
-      { action: 'get_manual_result', organization_code: 'm1001', item_id: manualItemId },
-      userAt('m1001'),
-      makeApp(captures, 'BC'),
+      { action: 'get_manual_result', organization_code: 'm1005', item_id: manualItemId },
+      userAt('m1005'),
+      makeApp(captures, { manualStatus: 'sent' }),
     )
-    assert.strictEqual(result.success, true)
-    assert.strictEqual(result.data.section_code, 'BC')
-    assert.strictEqual(result.data.result_entry, 'pencil')
+    assert.strictEqual(result.success, true, 'waiting Item must allow read-only result lookup')
+    assert.strictEqual(result.data.result_value, '')
   }
 
   {
     const captures = []
-    const result = await Process(
-      { action: 'get_manual_result', organization_code: 'm1001', item_id: manualItemId },
-      userAt('m1001'),
-      makeApp(captures, 'BC', 'sent'),
-    )
-    assert.strictEqual(result.success, true)
-    assert.strictEqual(result.data.section_code, 'BC')
-    assert.strictEqual(result.data.results.length, 1)
-  }
-
-  {
     const result = await Process(
       {
         action: 'save_manual_result',
-        organization_code: 'm1001',
+        organization_code: 'm1005',
         item_id: manualItemId,
-        manual_result: { result_value: '123' },
+        manual_result: { result_value: 'must-not-save' },
       },
-      userAt('m1001'),
-      makeApp([], 'BC', 'sent'),
+      userAt('m1005'),
+      makeApp(captures, { manualStatus: 'sent' }),
     )
     assert.strictEqual(result.success, false)
-    assert(result.message.includes('รับ specimen ก่อน'))
+    assert(result.message.includes('รับ specimen'))
+    assert(!captures.some(entry => entry.type === 'sdformSetOne'))
+  }
+
+  {
+    const captures = []
+    const result = await Process(
+      { action: 'get_manual_result', organization_code: '10', item_id: manualItemId },
+      userAt('10'),
+      makeApp(captures, { manualSectionCode: 'BC' }),
+    )
+    assert.strictEqual(result.success, true, 'non-MY Item must still allow read-only result lookup')
+    assert(result.message.includes('Agent/LIS'))
+  }
+
+  {
+    const captures = []
+    const result = await Process(
+      {
+        action: 'save_manual_result',
+        organization_code: '10',
+        item_id: manualItemId,
+        manual_result: { result_value: 'must-not-save' },
+      },
+      userAt('10'),
+      makeApp(captures, { manualSectionCode: 'BC' }),
+    )
+    assert.strictEqual(result.success, false)
+    assert(result.message.includes('Mycology'))
+    assert(!captures.some(entry => entry.type === 'sdformSetOne'))
   }
 
   {
@@ -424,25 +525,26 @@ const userAt = code => ({ roles: ['auth'], username: 'lab-test', unit: { code, n
     )
     assert.strictEqual(result.success, true)
     assert.strictEqual(result.data.result_status, 'entered')
-    const save = captures.find(entry => entry.type === 'sdformSetOne')
+    const reportSave = captures.find(entry => entry.type === 'sdformSetOne' && entry.formId === RESULT_REPORT_FORM_ID)
+    assert(reportSave, 'must persist a Result Report before its Item')
+    assert.strictEqual(reportSave.data.report_key, 'manual|999999999999999999999999')
+    assert.strictEqual(reportSave.data.order_status_id, '999999999999999999999999')
+    const save = captures.find(entry => entry.type === 'sdformSetOne' && entry.formId === RESULT_ITEM_FORM_ID)
     assert(save, 'must persist a Result Item')
-    assert.strictEqual(save.formId, '6a7aa641935ed08882467374')
-    assert.strictEqual(save.data.source_item_id, manualItemId)
-    assert.strictEqual(save.data.patient_hn, 'HN-TEST')
-    assert.strictEqual(save.data.visit_vn, 'VN-NEW')
-    assert.strictEqual(save.data.previous_value, 'Detected')
+    assert.strictEqual(save.formId, RESULT_ITEM_FORM_ID)
+    assert.strictEqual(save.data.result_report_id, '111111111111111111111111')
+    assert.strictEqual(save.data.order_no, '999999999999999999999999')
+    assert.strictEqual(save.data.hn, 'HN-TEST')
+    assert.strictEqual(save.data.visit_id, 'VN-NEW')
+    assert.strictEqual(save.data.previous_value, 'Candida albicans')
     assert.strictEqual(save.data.result_value, 'Candida tropicalis')
     assert.strictEqual(save.data.unit_symbol_snapshot, 'CFU/mL')
     assert.strictEqual(save.data.interpretation_code, 'POS')
     assert.strictEqual(save.data.reference_range_snapshot, 'Not detected')
-    const itemAudit = JSON.parse(save.data.edit_history_json)
-    assert.strictEqual(itemAudit.length, 1)
-    assert.strictEqual(itemAudit[0].result_value, 'Detected')
-    assert.strictEqual(itemAudit[0].source, 'agent')
-    const statusUpdate = captures.find(entry => entry.type === 'update' && entry.from === 'zdata_cpoe_order_item')
-    assert(statusUpdate, 'entered Manual result must move only this Item to resulted')
-    assert.strictEqual(statusUpdate.filter._id, manualItemId)
-    assert.strictEqual(statusUpdate.data.current_status, 'resulted')
+    const statusUpdate = captures.find(entry => entry.type === 'update' && entry.from === 'zdata_lab_work_item')
+    assert(statusUpdate, 'entered Manual result must move only its Lab Work Item to resulted')
+    assert.strictEqual(statusUpdate.filter._id, '999999999999999999999999')
+    assert.strictEqual(statusUpdate.data.work_status, 'resulted')
   }
 
   {

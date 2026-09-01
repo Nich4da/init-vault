@@ -5,7 +5,7 @@ const path = require('path')
 const RECEIPT_FORM_ID = '6a8b1c03f851000f28e501ef'
 const REPORT_FORM_ID = '6a8d4334f851000f28e5025b'
 const RESULT_ITEM_FORM_ID = '6a8bc91df851000f28e501fb'
-const STATUS_FORM_ID = '6a7daa3e8d398c11cf2fe869'
+const WORK_ITEM_FORM_ID = '6a95c750422c1ca959829e8a'
 
 const apiBody = fs.readFileSync(
   path.join(__dirname, '../../api-factory/processes/hl7_result_upsert_api.js'),
@@ -27,18 +27,17 @@ const stores = new Map([
   [RECEIPT_FORM_ID, []],
   [REPORT_FORM_ID, []],
   [RESULT_ITEM_FORM_ID, []],
-  [STATUS_FORM_ID, [{
+  [WORK_ITEM_FORM_ID, [{
     _id: '6a9000000000000000000001',
+    dataid: 'ORDER-TEST-001',
     xrstatx: 1,
-    order_number: 'LAB-TEST-001',
-    center_order_id: 'ORDER-TEST-001',
+    lab_no: 'LAB-TEST-001',
     patient_hn: 'HN-TEST-001',
-    visit_id: '6a9000000000000000000002',
-    visit_vn: 'VN-TEST-001',
+    visit_id: 'VN-TEST-001',
     section_code: 'CHEM',
     section_name: 'Biochemistry',
     work_status: 'processing',
-    selected_items: JSON.stringify([
+    selected_items_json: JSON.stringify([
       { his_code_id: 'NA', name: 'Sodium' },
       { his_code_id: 'K', name: 'Potassium' },
     ]),
@@ -60,8 +59,8 @@ const mockApp = {
     const p = provider.params || {}
     if (provider.providerId === RECEIPT_FORM_ID) {
       data = data.filter(row => row.result_uid === p.resultUid)
-    } else if (provider.providerId === STATUS_FORM_ID) {
-      data = data.filter(row => row.order_number === p.fillerOrderNo)
+    } else if (provider.providerId === WORK_ITEM_FORM_ID) {
+      data = data.filter(row => row.lab_no === p.labNo)
     } else if (provider.providerId === REPORT_FORM_ID) {
       if (p.reportKey) data = data.filter(row => row.report_key === p.reportKey)
       if (p.orderStatusId) data = data.filter(row => row.order_status_id === p.orderStatusId)
@@ -99,7 +98,7 @@ const reportBySeq = seq => rows(REPORT_FORM_ID).find(row => row.report_seq === S
 const reportByUid = uid => rows(REPORT_FORM_ID).find(row => row.result_uid === uid)
 const itemsByReport = reportId => rows(RESULT_ITEM_FORM_ID).filter(row => row.result_report_id === reportId)
 const itemByReportAndCode = (reportId, code) => itemsByReport(reportId).find(row => row.obs_code === code)
-const status = () => rows(STATUS_FORM_ID)[0]
+const status = () => rows(WORK_ITEM_FORM_ID)[0]
 
 ;
 (async () => {
@@ -286,17 +285,17 @@ const status = () => rows(STATUS_FORM_ID)[0]
   assert.strictEqual(rows(RESULT_ITEM_FORM_ID).length, itemCountBeforeConflict, 'conflict must not append items')
   assert.strictEqual(receiptByUid(conflictPayload.result_uid).receipt_status, 'error')
 
-  rows(STATUS_FORM_ID).push({
+  rows(WORK_ITEM_FORM_ID).push({
     _id: '6a9000000000000000000003',
+    dataid: 'ORDER-CRITICAL-002',
     xrstatx: 1,
-    order_number: 'LAB-CRITICAL-002',
-    center_order_id: 'ORDER-CRITICAL-002',
+    lab_no: 'LAB-CRITICAL-002',
     patient_hn: 'HN-CRITICAL-002',
-    visit_vn: 'VN-CRITICAL-002',
+    visit_id: 'VN-CRITICAL-002',
     section_code: 'CHEM',
     section_name: 'Biochemistry',
     work_status: 'processing',
-    selected_items: JSON.stringify([{ his_code_id: 'GLU', name: 'Glucose' }]),
+    selected_items_json: JSON.stringify([{ test_code: 'GLU', name: 'Glucose' }]),
   })
   const ruleOnlyPayload = clone(partial)
   delete ruleOnlyPayload.filler_order_no
@@ -330,18 +329,18 @@ const status = () => rows(STATUS_FORM_ID)[0]
   if (process.env.AGENT_RESULT_JSON) {
     const externalPayload = JSON.parse(process.env.AGENT_RESULT_JSON)
     const externalStatusId = objectId()
-    rows(STATUS_FORM_ID).push({
+    rows(WORK_ITEM_FORM_ID).push({
       _id: externalStatusId,
+      dataid: externalPayload.order_no,
       xrstatx: 1,
-      order_number: externalPayload.filler_order_no || externalPayload.labno || externalPayload.lab_no,
-      center_order_id: externalPayload.order_no,
+      lab_no: externalPayload.filler_order_no || externalPayload.labno || externalPayload.lab_no,
       patient_hn: externalPayload.hn,
-      visit_vn: externalPayload.visit_id,
+      visit_id: externalPayload.visit_id,
       section_code: 'TEST',
       section_name: 'External payload test',
       work_status: 'processing',
-      selected_items: JSON.stringify(externalPayload.items.map((item, index) => ({
-        his_code_id: item.obs_code,
+      selected_items_json: JSON.stringify(externalPayload.items.map((item, index) => ({
+        test_code: item.obs_code,
         name: item.obs_name,
         seq: String(index + 1),
       }))),

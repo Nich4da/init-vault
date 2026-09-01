@@ -1,46 +1,45 @@
 ---
 type: meta
 title: Hot Cache
-updated: 2026-08-31
+updated: 2026-09-01
 ---
 
 # 🔥 Hot Cache — read this first
 
-> Working-state cache; cap 500 words. Vault: `/Users/nichada/Documents/Initcraft skill`.
+> Working-state cache; cap 500 words. Vault root: `~/Documents/Initcraft skill`.
 
-## LAB receive/result flow — revised 2026-08-31
+## LAB current state
 
-- Physical receipt is independent from Agent payload readiness. HIS records receive time, assigns Lab No., and accepts first. Missing collection time parks `awaiting_collection`; missing priority/test/specimen code parks `awaiting_outbound_data`; Agent whole-order dedupe parks a later Item at `awaiting_agent_append`. Receive time never substitutes for collection time.
-- Removed the pre-receive Agent `PRECHECK`; missing priority/specimen code now returns received success without calling Agent. Worklist uses `await field.confirm(...)`. All client Process calls now use authenticated `globalThis.fetch` with `{params}` because callback-style `userState.runProcess` caused successful HTTP responses to appear as `API run success` errors.
-- The `order` tab has no Item-level result-action column. `ออกผล` is enabled immediately and lists every active Item with `ดูผล`, even before receipt. `ดูผล` opens read-only before receipt; after receipt the pencil enables Manual entry for every section.
-- Result, Unit, interpretation, reference range are editable. `ค่าก่อนหน้า` is readonly Item revision history; Manual never overwrites Agent/LIS rows.
-- Doctor display strips email decorations and empty brackets: `ศิรชัย ปิยะชน ( )` → `ศิรชัย ปิยะชน`.
+- Work Item `6a95c750422c1ca959829e8a` → `zdata_lab_work_item`
+- Outbound `6a95cb80422c1ca959829e8c` → `zdata_lab_outband_order` (`outband` is exact)
+- Worklist `6a9434c3422c1ca959829d5e`; LAB NO. `6a94f1ed422c1ca959829d6e`; Receive `6a94f634422c1ca959829d70`; Reject `6a79ff46d5218a5b6a26bebc`; Agent Submit `6a9468c7422c1ca959829d6a`
 
-Changed: receive/worklist APIs, Worklist generator/JSON/tests, Lab design, and HTML mockup.
+MongoDB is standalone. LAB NO./Receive use atomic daily `SSYYMMDDNNNN`, idempotency and compare-and-set. CPOE remains read-only.
 
-Verified: Agent submit, Lab No., receive/worklist API, Form tests, and SDForm validator (2 widgets) pass.
+Agent outbound works from Mac VPN (`202`) but API Factory server cannot route to private Agent. Inbound callback UAT remains with Agent team. External LAB upload supports PDF/JPG/JPEG/PNG, 10 MB/file, 3/report; upload alone does not complete a result.
 
-## Git checkpoint and deployment next
+## LAB Worklist
 
-Re-import bundle: `02-his/handoff/lab-cpoe-reimport-20260831-v2.zip` (four ID-labelled API bodies, Form JSON, Thai instructions, checksums). Replace existing IDs; creating new IDs requires remapping. Agent URL/key are placeholders; configure only in the protected process and rotate the previously file-stored key. Perform runtime/Agent UAT.
+Whole-Order cancellation is implemented locally as Worklist action `cancel_order`; no new Process ID. It requires a reason and creates one `zdata_lab_order_cancellation` audit/lock keyed by CPOE Order `_id` (`pending/applied/conflict`), then idempotently cancels eligible Work Items. Prior terminal Items remain unchanged. A never-attempted Outbound is cancelled first through CAS; an attempted/sent Outbound fails with `lis_cancel_required`. LAB NO., Receive, Reject and Worklist specimen/result writes block active cancellation. Form button/dialog and Work Item audit fields are generated. Six LAB suites and both SDForm validators pass; runtime UAT is pending.
 
-The repository work was checkpointed on `main` and pushed on 2026-08-31. Automated API/Form regressions and SDForm validation passed, including the byte-identical re-import bundle at `02-his/handoff/lab-cpoe-reimport-20260831-v2/`. Obsidian workspace/graph state and the nested `01-knowledge-base/.obsidian/` local configuration were intentionally excluded.
+Cancelled/rejected Worklist rows now hide PDF and EMR and show `ตรวจใหม่`. This is a UI mock only: it makes no Process call or data change. The future write flow creates a linked new Order No.; LAB NO. is still created only on specimen receipt. Form tests and SDForm validation pass; Builder/runtime import is pending.
 
-## X-ray — mockup + design, rev 4, 2026-08-31
+Manual CPOE launcher is local and LAB-scoped, but user paused it after preferring a separate LAB launcher. Do not deploy/extend until resumed; server enforcement still needs exported `cpoe-order-save` (`6a71edd247075049ef0245af`).
 
-Artifacts: `02-his/ui/xray-workbench-mockup.html` and `design/Xray_*.md`; full spec is there.
+Reject normalizes legacy CPOE `accepted/prepared/ready/dispensed` without Work Item, LAB NO. or `received_at` to effective `sent`, matching Worklist. Real receipt evidence stays fail-closed.
 
-Core rules: **1 order = 1 accession = 1 test** (LAB is 1 order, many tests), so a row is one exam
-— no item checkboxes, no item-level reject, detail buttons are only `ส่งเข้าเครื่อง` and
-`ยกเลิก order`. No specimen, no Lab No. Every test is machine-bound at order time. The machine
-dropdown (19 values, `Select all`) sits between Date Range and Search and its filter also drives
-the chip counts. Two numbers: `Order No.` from CPOE (`20260831011`); `Accession No.` issued by
-radiology at dispatch as a **test-level column**, `YYYYMMDD` + modality code + 3-digit running
-**per modality per day** (`20260831CT001`).
+## X-ray (2026-09-01)
 
-Working folder: **`Form-Builder/SDForm/X-ray/`** with `design.md` and `spec.md`; no SDForm JSON yet.
+MongoDB is standalone; accession/dispatch use no-transaction fallback. Dispatch is one Item per call and received-state vocabulary is synchronized across API/Form. Half-dispatched rows repair without rewinding status. Item reject exists locally; dispatched cancellation needs the RIS cancel contract.
 
-Open: real modality codes for the 10 dropdown values missing from `section.json` (D-X14, mockup
-invents them); accession length 13-15 chars (D-X15); code case (D-X16); 999 wrap guard (D-X12);
-the Agent validator requires `labno`/`specimen_code`, so X-ray cannot use it as-is (D-X3). The
-draw.io link is unreadable here — export it into `02-his/draw_design/`.
+Runtime 2026-09-01: `SM20260901CT001` was issued and the receipt committed — **only the RIS call still fails**. Dispatch now pre-checks the team's 9 required fields (drift-tested against their `xray_api_order.js`) and names the gap in Thai; `toIsoDate` reads `DD/MM/YYYY`, `YYYYMMDD`, and พ.ศ.; the Form shows the real `transport.message`.
+
+Order cancellation is wired: `action:'cancel_order'` inside the existing worklist Process (LAB's shape, no new Process ID), free-text reason in a dialog, idempotent log in `zdata_xray_order_cancellation`. An issued Accession blocks it (`ris_cancel_required`, D-X9); unnumbered items cancel normally. Eight suites pass.
+
+## Waiting / next
+
+1. Paste updated Worklist, LAB NO., Receive and Reject Processes; re-import Work Item and Worklist Forms; UAT cancellation before receipt and after receipt/before Agent.
+2. Verify cancelled/rejected rows show only `ตรวจใหม่`; clicking it must only show the mock notice.
+3. Confirm attempted/sent Order refuses cancellation pending LIS cancel API; then resolve Agent routing/callback.
+
+Dirty worktree has overlapping LAB/X-ray/Obsidian changes. Never discard, `git add -A`, or auto-commit.

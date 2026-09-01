@@ -2,41 +2,27 @@ const assert = require('assert')
 const fs = require('fs')
 const path = require('path')
 
-const apiBody = fs.readFileSync(
-  path.join(__dirname, '../../api-factory/processes/lab_cpoe_receive_api.js'),
-  'utf8',
-)
+const apiBody = fs.readFileSync(path.join(__dirname, '../../api-factory/processes/lab_cpoe_receive_api.js'), 'utf8')
+const agentApiBody = fs.readFileSync(path.join(__dirname, '../../api-factory/processes/lab_agent_order_submit_api.js'), 'utf8')
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
 const Process = new AsyncFunction('params', 'userInfo', 'app', apiBody)
-const senderBody = fs.readFileSync(
-  path.join(__dirname, '../../api-factory/processes/lab_agent_order_submit_api.js'),
-  'utf8',
-)
-  .replace(
-    /const AGENT_ORDER_URL\s*=\s*['"][^'"]*['"]/,
-    "const AGENT_ORDER_URL = 'http://agent.test:8080/api/orders'",
-  )
-  .replace(
-    /const AGENT_KEY\s*=\s*['"][^'"]*['"]/,
-    "const AGENT_KEY = 'test-only-key'",
-  )
-const SenderProcess = new AsyncFunction('params', 'userInfo', 'app', senderBody)
+const AgentProcess = new AsyncFunction('params', 'userInfo', 'app', agentApiBody)
 
 const ids = {
   item: '111111111111111111111111',
-  sibling: '222222222222222222222222',
   order: '333333333333333333333333',
-  master: '444444444444444444444444',
+  master: '444444444444444444444444'
 }
-
 const clone = value => value == null ? value : JSON.parse(JSON.stringify(value))
 
 const makeHarness = ({
   itemPatch = {},
-  sibling = null,
-  senderResult = null,
-  masterPatch = {},
   orderPatch = {},
+  workPatch = null,
+  generatorFailure = false,
+  generatorEnvelope = true,
+  standalone = false,
+  cancellation = null
 } = {}) => {
   const item = {
     _id: ids.item,
@@ -48,149 +34,147 @@ const makeHarness = ({
     item_code: 'CHEM-GLU',
     item_name: 'Glucose',
     item_no: 1,
-    lab_data: {
-      spec_source: 'Plasma',
-      spec_source_code: 'PLASMA',
-      specimen_at: '2026-08-31 08:10:00',
-      specimen_by: { value: '120164', label: 'Collector One' },
-    },
-    ...clone(itemPatch),
+    lab_data: { spec_source: 'Clotted blood', spec_source_code: 'CD' },
+    ...clone(itemPatch)
   }
-  const items = new Map([[ids.item, item]])
-  if (sibling) items.set(ids.sibling, {
-    _id: ids.sibling,
-    xrstatx: 1,
-    current_status: 'accepted',
-    service_type: { value: 'lab' },
-    order_id: { value: ids.order },
-    ...clone(sibling),
-  })
-
+  const originalItem = clone(item)
   const order = {
     _id: ids.order,
     xrstatx: 1,
     order_number: 'R2608310001',
-    current_status: 'sent',
-    priority: '3',
+    priority: 'R',
     created_at: '2026-08-31 08:00:00',
     status_stage: [{ stage_status: 'sent', stage_at: '2026-08-31 08:05:00' }],
-    cosign_user: { value: 'doctor-id', label: 'พญ. แพทย์ ทดสอบ' },
     vid: {
-      vn: 'VN69000001',
-      visit_type: { value: 'OPD', label: 'ผู้ป่วยนอก' },
-      visit_clinic: { value: 'CL01', code: 'CL01', label: 'คลินิกทดสอบ' },
-      pid: {
-        hn: '69000001',
-        prename: { value: 'MR', label: 'นาย' },
-        p_fname: 'สมชาย',
-        p_lname: 'ทดสอบ',
-        birth_date: '2000-01-02',
-        gender_text: 'ชาย',
-      },
+      vn: 'VN0001',
+      pid: { hn: 'HN0001', prename: 'ด.ช.', p_fname: 'ทดสอบ', p_lname: 'ระบบ', birth_date: '2020-01-02' },
+      visit_clinic: { code: 'OPD', name: 'OPD Clinic' },
+      gender_text: 'ชาย'
     },
-    ...clone(orderPatch),
+    ...clone(orderPatch)
   }
   const master = {
     _id: ids.master,
     xrstatx: 1,
     item_name: 'Glucose',
-    section: { code: 'BC', name: 'Biochemistry' },
-    lab_item: { his_lab_code: 'BC001', c_test: 'GLU', seq: 1 },
-    ...clone(masterPatch),
+    lab_item: { his_lab_code: '1087CD', specimen: { code: 'CD', name: 'Clotted blood' } }
   }
-
-  const matchesItem = (row, query) => {
-    if (!row) return false
-    if (typeof query._id === 'string' && row._id !== query._id) return false
-    if (query._id && query._id.$ne != null && row._id === query._id.$ne) return false
-    if (query.current_status && row.current_status !== query.current_status) return false
+  const workItems = new Map()
+  if (workPatch) {
+    workItems.set(ids.item, {
+      _id: ids.item,
+      xrstatx: 1,
+      source_specimen_record_id: ids.item,
+      source_order_id: ids.order,
+      source_order_number: order.order_number,
+      lab_no: '106908310001',
+      section_code: 'BC',
+      section_name: 'Biochemistry',
+      work_status: 'waiting_receive',
+      patient_hn: 'HN0001',
+      patient_name: 'ด.ช. ทดสอบ ระบบ',
+      ...clone(workPatch)
+    })
+  }
+  const outboundRows = new Map()
+  const cancellations = new Map()
+  if (cancellation) cancellations.set(ids.order, { _id: ids.order, xrstatx: 1, cancel_status: 'applied', ...clone(cancellation) })
+  let currentNow = '2026-08-31 08:20:00'
+  const active = row => row && ![0, 3].includes(Number(row.xrstatx))
+  const matches = (row, query) => {
+    if (!active(row)) return false
+    if (query._id != null && String(row._id) !== String(query._id)) return false
+    if (query.source_specimen_record_id != null && row.source_specimen_record_id !== query.source_specimen_record_id) return false
+    if (query.work_item_id != null && row.work_item_id !== query.work_item_id) return false
+    if (query.work_status != null && row.work_status !== query.work_status) return false
     if (query.lab_no != null && row.lab_no !== query.lab_no) return false
-    if (query.hl7_status != null && row.hl7_status !== query.hl7_status) return false
-    if (query.$or) {
-      const any = query.$or.some(condition => {
-        if (condition['order_id.value'] != null) return row.order_id && row.order_id.value === condition['order_id.value']
-        if (condition.xparentx != null) return row.xparentx === condition.xparentx
-        return false
-      })
-      if (!any) return false
-    }
+    if (query.$or && !query.$or.some(part => matches(row, { ...part, xrstatx: query.xrstatx }))) return false
     return true
   }
-
-  const itemCollection = {
+  const mapCollection = map => ({
     findOne: async query => {
-      for (const row of items.values()) if (matchesItem(row, query)) return clone(row)
+      for (const row of map.values()) if (matches(row, query)) return clone(row)
       return null
     },
-    updateOne: async (query, update) => {
-      const row = items.get(query._id)
-      if (!matchesItem(row, query)) return { matchedCount: 0, modifiedCount: 0 }
-      Object.assign(row, clone(update.$set || {}))
-      if (update.$push) {
-        for (const [key, pushed] of Object.entries(update.$push)) {
-          if (!Array.isArray(row[key])) row[key] = []
-          row[key].push(clone(pushed))
-        }
-      }
-      return { matchedCount: 1, modifiedCount: 1 }
+    insertOne: async doc => {
+      if (map.has(String(doc._id))) throw new Error('duplicate key')
+      map.set(String(doc._id), clone(doc))
+      return { insertedId: doc._id }
     },
-  }
-
+    updateOne: async (query, update) => {
+      for (const [key, row] of map.entries()) {
+        if (!matches(row, query)) continue
+        Object.assign(row, clone(update.$set || {}))
+        map.set(key, row)
+        return { matchedCount: 1, modifiedCount: 1 }
+      }
+      return { matchedCount: 0, modifiedCount: 0 }
+    }
+  })
+  const workCollection = mapCollection(workItems)
+  const outboundCollection = mapCollection(outboundRows)
+  const cancellationCollection = mapCollection(cancellations)
   let generatorCalls = 0
-  let senderCalls = 0
-  let sentPayload = null
+  let unexpectedSubprocessCalls = 0
   const app = {
     isAuth: () => true,
-    curDate: () => '2026-08-31 08:20:00',
+    curDate: () => currentNow,
     dbObjectId: value => String(value),
     db: {
       collection: name => ({
-        zdata_cpoe_order_item: itemCollection,
-        zdata_cpoe_order: { findOne: async query => query._id === ids.order ? clone(order) : null },
-        zdata_master_item_order: { findOne: async query => query._id === ids.master ? clone(master) : null },
-        zdata_section: { findOne: async () => null },
-      })[name],
+        zdata_cpoe_order_item: { findOne: async query => String(query._id) === ids.item ? clone(item) : null },
+        zdata_cpoe_order: { findOne: async query => String(query._id) === ids.order ? clone(order) : null },
+        zdata_master_item_order: { findOne: async query => String(query._id) === ids.master ? clone(master) : null },
+        zdata_lab_work_item: workCollection,
+        zdata_lab_outband_order: outboundCollection,
+        zdata_lab_order_cancellation: cancellationCollection
+      })[name]
     },
-    subProcess: async (processId, params) => {
-      if (processId === '6a94f1ed422c1ca959829d6e') {
-        generatorCalls += 1
-        const row = items.get(params.item_id)
-        if (!row.lab_no) row.lab_no = '1069000001'
-        return { success: true, data: { item_id: params.item_id, lab_no: row.lab_no, section_code: 'BC' } }
+    subProcess: async (processId, processParams) => {
+      if (processId !== '6a94f1ed422c1ca959829d6e') {
+        unexpectedSubprocessCalls += 1
+        throw new Error('unexpected subprocess ' + processId)
       }
-      if (processId === '6a9468c7422c1ca959829d6a') {
-        senderCalls += 1
-        sentPayload = clone(params.payload)
-        return senderResult || {
-          success: true,
-          data: {
-            http_status: 202,
-            hl7_status: 'queued',
-            order_no: params.payload.order_no,
-            labno: params.payload.labno,
-            duplicate: false,
-            order_ref: 'agent-order-ref',
-            routed_to: ['mlab'],
-            dispatch_id: 'dispatch-001',
-          },
-        }
-      }
-      throw new Error('unexpected subprocess ' + processId)
-    },
-  }
-  const context = { mongoTxn: async fn => fn({ id: 'mock-session' }) }
-  const userInfo = {
-    roles: ['lab'],
-    username: '120170',
-    fullname: 'Receiver One',
-    unit: { code: 'M1001' },
+      generatorCalls += 1
+      const wrapGeneratorResult = result => generatorEnvelope
+        ? { success: true, message: 'API run success', data: result, error: '' }
+        : result
+      if (generatorFailure) return wrapGeneratorResult({ success: false, message: 'counter failed' })
+      workItems.set(ids.item, {
+        _id: ids.item,
+        xrstatx: 1,
+        source_specimen_record_id: processParams.item_id,
+        source_order_id: ids.order,
+        source_order_number: order.order_number,
+        lab_no: '106908310001',
+        section_code: 'BC',
+        section_name: 'Biochemistry',
+        work_status: 'waiting_receive',
+        patient_hn: 'HN0001',
+        patient_name: 'ด.ช. ทดสอบ ระบบ'
+      })
+      return wrapGeneratorResult({
+        success: true,
+        data: { item_id: ids.item, work_item_id: ids.item, lab_no: '106908310001' }
+      })
+    }
   }
   return {
     app,
-    context,
-    userInfo,
+    context: {
+      mongoTxn: async fn => {
+        if (standalone) throw new Error('Transaction numbers are only allowed on a replica set member or mongos')
+        return fn({ id: 'mock-session' })
+      }
+    },
+    userInfo: { roles: ['lab'], username: '120170', fullname: 'Receiver One', unit: { code: 'M1001' } },
     item,
-    calls: () => ({ generatorCalls, senderCalls, sentPayload }),
+    originalItem,
+    workItems,
+    outboundRows,
+    cancellations,
+    setNow: value => { currentNow = value },
+    calls: () => ({ generatorCalls, unexpectedSubprocessCalls })
   }
 }
 
@@ -198,165 +182,161 @@ const makeHarness = ({
   {
     const harness = makeHarness()
     const result = await Process.call(harness.context, { item_id: ids.item }, harness.userInfo, harness.app)
-    const calls = harness.calls()
     assert.strictEqual(result.success, true)
     assert.strictEqual(result.data.current_status, 'accepted')
-    assert.strictEqual(result.data.hl7_status, 'queued')
-    assert.strictEqual(result.data.lab_no, '1069000001')
-    assert.strictEqual(result.data.collected_at_source, 'specimen_at')
-    assert.strictEqual(harness.item.current_status, 'accepted')
-    assert.strictEqual(harness.item.received_at, '2026-08-31 08:20:00')
-    assert.strictEqual(harness.item.received_by, '120170')
-    assert.strictEqual(harness.item.agent_collected_at_source, 'specimen_at')
-    assert.strictEqual(harness.item.hl7_status, 'queued')
-    assert.strictEqual(harness.item.agent_dispatch_id, 'dispatch-001')
-    assert.strictEqual(calls.generatorCalls, 1)
-    assert.strictEqual(calls.senderCalls, 1)
-    assert.deepStrictEqual(calls.sentPayload, {
-      order_no: 'R2608310001',
-      labno: '1069000001',
-      hn: '69000001',
-      ordered_at: '20260831080500',
-      priority: 'S',
-      items: [{
-        seq: 1,
-        test_code: 'BC001',
-        test_name: 'Glucose',
-        specimen_code: 'PLASMA',
-        collected_at: '20260831081000',
-        received_at: '20260831082000',
-        receiver: '120170',
-        specimen_name: 'Plasma',
-        collector_code: '120164',
-        collector_name: 'Collector One',
-        lab_code: 'BC',
-      }],
-      visit_id: 'VN69000001',
-      requested_at: '20260831080000',
-      patient_prefix: 'นาย',
-      patient_first_name: 'สมชาย',
-      patient_last_name: 'ทดสอบ',
-      birth_date: '20000102',
-      sex: 'ชาย',
-      visit_type: 'ผู้ป่วยนอก',
-      doctor_name: 'พญ. แพทย์ ทดสอบ',
-      clinic_code: 'CL01',
-      clinic_name: 'คลินิกทดสอบ',
-      mongo_data_id: ids.item,
-    })
-
-    // The exact payload produced by Receive must also pass the real sender's
-    // contract validator before its mocked network boundary is reached.
-    let senderNetworkCalls = 0
-    const senderValidation = await SenderProcess(
-      { payload: calls.sentPayload },
+    assert.strictEqual(result.data.work_status, 'received')
+    assert.strictEqual(result.data.lab_no, '106908310001')
+    assert.strictEqual(result.data.outbound_readiness, 'ready')
+    assert.deepStrictEqual(harness.item, harness.originalItem, 'CPOE must remain unchanged')
+    assert.strictEqual(harness.workItems.get(ids.item).work_status, 'received')
+    assert.strictEqual(harness.workItems.get(ids.item).visit_id, 'VN0001')
+    assert.strictEqual(harness.outboundRows.size, 1)
+    const outbound = harness.outboundRows.get(ids.item)
+    assert.strictEqual(outbound.hl7_status, 'new')
+    assert.strictEqual(outbound.work_item_id, ids.item)
+    assert.strictEqual(outbound.source_cpoe_item_id, ids.item)
+    assert.strictEqual(outbound.last_error_code, '')
+    const noCollectionPayload = JSON.parse(outbound.request_payload_json)
+    assert.strictEqual(noCollectionPayload.labno, '106908310001')
+    assert.strictEqual(noCollectionPayload.items[0].received_at, '2026-08-31T08:20:00+07:00')
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(noCollectionPayload.items[0], 'collected_at'), false)
+    const noCollectionContract = await AgentProcess(
+      { payload: noCollectionPayload },
       harness.userInfo,
-      {
-        isAuth: () => true,
-        axios: {
-          post: async (url, payload) => {
-            senderNetworkCalls += 1
-            return {
-              status: 202,
-              data: {
-                ok: true,
-                order_no: payload.order_no,
-                order_ref: 'validated-order-ref',
-                duplicate: false,
-                routed_to: ['BC'],
-                dispatch_id: 'validated-dispatch',
-              },
-            }
-          },
-        },
-      },
+      { isAuth: () => true }
     )
-    assert.strictEqual(senderValidation.success, true)
-    assert.strictEqual(senderValidation.data.hl7_status, 'queued')
-    assert.strictEqual(senderNetworkCalls, 1)
+    assert.strictEqual(noCollectionContract.error, 'not_configured', 'collected_at must be optional for Agent dispatch')
+    assert.strictEqual(harness.calls().generatorCalls, 1)
+    assert.strictEqual(harness.calls().unexpectedSubprocessCalls, 0)
+
+    harness.setNow('2026-08-31 09:45:00')
+    const repeated = await Process.call(harness.context, { item_id: ids.item }, harness.userInfo, harness.app)
+    assert.strictEqual(repeated.success, true)
+    assert.strictEqual(repeated.data.already_received, true)
+    assert.strictEqual(repeated.data.received_at, '2026-08-31 08:20:00')
+    assert.strictEqual(harness.outboundRows.size, 1)
+    const repeatedPayload = JSON.parse(harness.outboundRows.get(ids.item).request_payload_json)
+    assert.strictEqual(
+      repeatedPayload.items[0].received_at,
+      '2026-08-31T08:20:00+07:00',
+      'idempotent retry must preserve the Work Item receipt timestamp'
+    )
+    assert.strictEqual(harness.calls().generatorCalls, 1)
   }
 
   {
     const harness = makeHarness({
-      senderResult: {
-        success: false,
-        error: 'agent_unreachable',
-        retryable: true,
-        hl7_status: 'new',
-        message: 'Agent unavailable',
-      },
+      workPatch: { work_status: 'received', received_at: '2026-08-31 08:20:00' }
     })
+    const result = await Process.call(harness.context, { item_id: ids.item }, harness.userInfo, harness.app)
+    assert.strictEqual(result.success, true)
+    assert.strictEqual(result.data.already_received, true)
+    assert.strictEqual(harness.workItems.get(ids.item).visit_id, 'VN0001', 'retry must backfill callback identity')
+    assert.strictEqual(harness.workItems.get(ids.item).received_at, '2026-08-31 08:20:00')
+  }
+
+  {
+    const harness = makeHarness({
+      itemPatch: { lab_data: {
+        spec_source: 'Clotted blood',
+        spec_source_code: 'CD',
+        specimen_at: '2026-08-31 08:10:00',
+        specimen_by: 'COLLECTOR-1'
+      } },
+      workPatch: {}
+    })
+    const result = await Process.call(harness.context, { item_id: ids.item }, harness.userInfo, harness.app)
+    assert.strictEqual(result.success, true)
+    assert.strictEqual(result.data.outbound_readiness, 'ready')
+    const outbound = harness.outboundRows.get(ids.item)
+    const payload = JSON.parse(outbound.request_payload_json)
+    assert.strictEqual(payload.order_no, ids.item)
+    assert.strictEqual(payload.items[0].test_code, '1087CD')
+    assert.strictEqual(payload.items[0].collected_at, '2026-08-31T08:10:00+07:00')
+    assert.strictEqual(outbound.last_error_code, '')
+    assert.strictEqual(harness.calls().generatorCalls, 0)
+    const contractCheck = await AgentProcess(
+      { payload },
+      harness.userInfo,
+      { isAuth: () => true }
+    )
+    assert.strictEqual(contractCheck.error, 'not_configured', 'ready snapshot must pass Agent schema validation')
+  }
+
+  {
+    const harness = makeHarness({ orderPatch: { priority: '1' }, workPatch: {} })
+    const result = await Process.call(harness.context, { item_id: ids.item }, harness.userInfo, harness.app)
+    assert.strictEqual(result.success, true)
+    assert.strictEqual(result.data.outbound_readiness, 'ready')
+    assert.strictEqual(result.data.missing_fields.includes('priority'), false)
+    assert.strictEqual(JSON.parse(harness.outboundRows.get(ids.item).request_payload_json).priority, 'R')
+  }
+
+  for (const [sourcePriority, expectedPriority] of [['2', 'A'], ['3', 'S'], ['4', 'S'], ['5', 'S'], ['routine', 'R'], ['urgent', 'A'], ['stat', 'S']]) {
+    const harness = makeHarness({ orderPatch: { priority: sourcePriority }, workPatch: {} })
+    const result = await Process.call(harness.context, { item_id: ids.item }, harness.userInfo, harness.app)
+    assert.strictEqual(result.success, true)
+    assert.strictEqual(result.data.outbound_readiness, 'ready')
+    assert.strictEqual(JSON.parse(harness.outboundRows.get(ids.item).request_payload_json).priority, expectedPriority)
+  }
+
+  {
+    const harness = makeHarness({ workPatch: { work_status: 'resulted' } })
     const result = await Process.call(harness.context, { item_id: ids.item }, harness.userInfo, harness.app)
     assert.strictEqual(result.success, false)
-    assert.strictEqual(result.received, true)
-    assert.strictEqual(result.retryable, true)
-    assert.strictEqual(harness.item.current_status, 'accepted')
-    assert.strictEqual(harness.item.hl7_status, 'new')
-    assert.strictEqual(harness.item.agent_transport_state, 'failed')
+    assert.strictEqual(result.error, 'invalid_status')
   }
 
   {
-    const harness = makeHarness({
-      itemPatch: { lab_data: { spec_source: 'Plasma' } },
-      orderPatch: { priority: '' },
-    })
+    const harness = makeHarness({ cancellation: { cancel_reason: 'แพทย์ยกเลิกคำสั่ง' } })
     const result = await Process.call(harness.context, { item_id: ids.item }, harness.userInfo, harness.app)
-    const calls = harness.calls()
-    assert.strictEqual(result.success, true)
-    assert.strictEqual(result.received, true)
-    assert.strictEqual(result.data.current_status, 'accepted')
-    assert.strictEqual(result.data.hl7_status, 'new')
-    assert.strictEqual(result.data.collected_at_source, '')
-    assert.strictEqual(result.data.collection_time_pending, true)
-    assert.strictEqual(result.data.agent_transport_state, 'awaiting_collection')
-    assert(result.data.agent_missing_fields.includes('order.priority'))
-    assert(result.data.agent_missing_fields.includes('item.lab_data.spec_source_code'))
-    assert(result.data.agent_missing_fields.includes('item.lab_data.specimen_at'))
-    assert.strictEqual(harness.item.current_status, 'accepted')
-    assert.strictEqual(harness.item.agent_collected_at_source, '')
-    assert.strictEqual(harness.item.agent_transport_state, 'awaiting_collection')
-    assert.strictEqual(harness.item.agent_error, 'collection_time_pending')
-    assert(harness.item.agent_missing_fields.includes('order.priority'))
-    assert.strictEqual(calls.generatorCalls, 1)
-    assert.strictEqual(calls.senderCalls, 0)
-    assert.strictEqual(calls.sentPayload, null)
-  }
-
-  {
-    const harness = makeHarness({ itemPatch: { current_status: 'accepted', lab_no: '1069000001', hl7_status: 'queued' } })
-    const result = await Process.call(harness.context, { item_id: ids.item }, harness.userInfo, harness.app)
-    assert.strictEqual(result.success, true)
-    assert.strictEqual(result.data.already_submitted, true)
+    assert.strictEqual(result.success, false)
+    assert.strictEqual(result.error, 'order_cancelled')
     assert.strictEqual(harness.calls().generatorCalls, 0)
-    assert.strictEqual(harness.calls().senderCalls, 0)
+    assert.strictEqual(harness.workItems.size, 0)
+    assert.strictEqual(harness.outboundRows.size, 0)
   }
 
   {
-    const harness = makeHarness({ sibling: { hl7_status: 'queued' } })
+    const harness = makeHarness({ generatorFailure: true })
     const result = await Process.call(harness.context, { item_id: ids.item }, harness.userInfo, harness.app)
-    assert.strictEqual(result.success, true)
-    assert.strictEqual(result.received, true)
-    assert.strictEqual(result.data.agent_transport_state, 'awaiting_agent_append')
-    assert.strictEqual(harness.item.current_status, 'accepted')
-    assert.strictEqual(harness.item.agent_error, 'agent_order_dedupe_conflict')
-    assert.strictEqual(harness.calls().generatorCalls, 1)
-    assert.strictEqual(harness.calls().senderCalls, 0)
+    assert.strictEqual(result.success, false)
+    assert.strictEqual(result.error, 'lab_no_failed')
+    assert.strictEqual(result.message, 'counter failed')
+    assert.strictEqual(harness.outboundRows.size, 0)
   }
 
   {
-    const harness = makeHarness({ masterPatch: { lab_item: { c_test: 'GLU', seq: 1 } } })
+    const harness = makeHarness({ generatorEnvelope: false })
     const result = await Process.call(harness.context, { item_id: ids.item }, harness.userInfo, harness.app)
-    assert.strictEqual(result.success, true)
-    assert.strictEqual(result.received, true)
-    assert.strictEqual(result.data.agent_transport_state, 'awaiting_outbound_data')
-    assert(result.data.agent_missing_fields.includes('master.lab_item.his_lab_code'))
-    assert.strictEqual(harness.item.current_status, 'accepted')
-    assert.strictEqual(harness.item.agent_transport_state, 'awaiting_outbound_data')
-    assert.strictEqual(harness.calls().generatorCalls, 1)
-    assert.strictEqual(harness.calls().senderCalls, 0)
+    assert.strictEqual(result.success, true, 'direct subprocess response must remain supported')
+    assert.strictEqual(result.data.lab_no, '106908310001')
   }
 
-  console.log('LAB CPOE receive API tests passed')
+  {
+    const harness = makeHarness({ workPatch: {}, standalone: true })
+    const result = await Process.call(harness.context, { item_id: ids.item }, harness.userInfo, harness.app)
+    assert.strictEqual(result.success, true, 'standalone MongoDB must persist receipt without a transaction')
+    assert.strictEqual(harness.workItems.get(ids.item).work_status, 'received')
+    assert.strictEqual(harness.outboundRows.size, 1)
+  }
+
+  {
+    const harness = makeHarness({ workPatch: {}, standalone: true })
+    const [first, second] = await Promise.all([
+      Process.call(harness.context, { item_id: ids.item }, harness.userInfo, harness.app),
+      Process.call(harness.context, { item_id: ids.item }, harness.userInfo, harness.app)
+    ])
+    assert.strictEqual(first.success, true)
+    assert.strictEqual(second.success, true)
+    assert.strictEqual(harness.workItems.get(ids.item).work_status, 'received')
+    assert.strictEqual(harness.outboundRows.size, 1, 'concurrent receive must keep one Outbound row')
+  }
+
+  assert(apiBody.includes("const OUTBOUND_COLLECTION = 'zdata_lab_outband_order'"))
+  assert(!apiBody.includes('AGENT_SUBMIT_PROCESS_ID'))
+  assert(!apiBody.includes('itemCollection.updateOne'))
+  console.log('LAB CPOE receive persistence API tests passed')
 })().catch(error => {
   console.error(error)
   process.exit(1)

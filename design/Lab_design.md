@@ -182,9 +182,10 @@ Every Order retains:
 - Contextual status time: เวลารับ, เวลาออกผล or เวลายกเลิก
 - Doctor name and truncated Diagnosis summary
 - Order status
-- PDF/context action, result/cancel action and EMR
+- PDF/context action, result/cancel action and EMR for active/result Orders
+- Cancelled/rejected Orders replace PDF and EMR with `ตรวจใหม่`
 
-EMR is available in every status. It exposes full patient/diagnosis detail but does not replace the concise Diagnosis line.
+EMR is available while an Order is active or resulted. It exposes full patient/diagnosis detail but does not replace the concise Diagnosis line. Cancelled/rejected rows do not show EMR or PDF.
 
 ### 5.3 Order detail tabs
 
@@ -269,7 +270,7 @@ One test can produce multiple result component rows. Long text wraps and increas
 - `รับ specimen` is hidden when no pending test can be received
 - `ปฏิเสธรายการที่เลือก` accepts exactly one pending item
 - `ยกเลิก order` acts on every test under the Order
-- `ตรวจใหม่` exists only on cancelled Orders and creates a linked new Order using current order time; Lab No. is generated only on receipt
+- `ตรวจใหม่` exists only on cancelled/rejected Orders. Until the Write API exists it is a mock notification only; the production action will create a linked new Order No. using current order time, while LAB NO. is generated only on receipt
 
 ### 6.3 Specimen combobox
 
@@ -315,8 +316,8 @@ One test can produce multiple result component rows. Long text wraps and increas
   - cancelled → cancellation time
 - Result popup supports Order-level all-test view and test-level view
 - Partial result view must include both completed components and `รอผล` rows
-- Order PDF is an order-document action before final results; result PDF remains visible but disabled until every accepted test is complete
-- EMR is available for every Order status
+- Order PDF is an order-document action before final results; result PDF remains visible but disabled until every accepted test is complete. Cancelled/rejected rows do not show PDF
+- EMR is available for active/result Orders; cancelled/rejected rows replace PDF and EMR with `ตรวจใหม่`
 
 ## 8. Voice & Brand
 
@@ -331,7 +332,7 @@ One test can produce multiple result component rows. Long text wraps and increas
 - Result action: `ดูผล` for every active Item; Manual entry for every LAB section starts from the pencil inside the popup after receipt
 - Result modes: `โหมดดูอย่างเดียว`, `โหมดแก้ไข`
 - Result status: `รอผล`, `ออกผลแล้ว`, `ออกผลบางส่วน`, `ออกผลครบ`
-- Cancellation actions: `ดู`, `ตรวจใหม่`
+- Cancellation action: `ตรวจใหม่` (mock only until the Write API exists; detail remains available through row expansion)
 - Confirmation language must name the exact affected Order/test and consequence
 
 ### 8.2 Writing rules
@@ -453,6 +454,7 @@ Snapshot on Order Item: `result_entry_mode`, `result_schema_id`, `unit_id`, `req
 - [ ] Result popup is readonly until pencil edit; save uses an in-page confirmation
 - [ ] Partial/complete aggregation uses accepted tests and required components
 - [ ] Partial PDF is visible-disabled; complete result PDF is enabled
-- [ ] EMR is available in every Order state
+- [ ] EMR is available for active/result Orders and absent from cancelled/rejected rows
+- [ ] Cancelled/rejected rows show `ตรวจใหม่` instead of PDF/EMR; the mock performs no write
 - [ ] No production identifiers/results, credentials or environment secrets are embedded
 - [ ] SDForm JSON passes the repository validator and is verified in Builder/Preview/runtime at the level required by the feature

@@ -5,6 +5,7 @@ import json
 
 
 SOURCE = 'Lab_Bio_Order_CRUD.json'
+CONTAINER_SOURCE = 'Lab_Result_Inbound_Receive.json'
 TARGET = 'Lab_Work_Item_CRUD.json'
 
 
@@ -64,17 +65,22 @@ def status_select():
 
 with open(SOURCE, encoding='utf-8') as source:
     form = json.load(source)
+with open(CONTAINER_SOURCE, encoding='utf-8') as source:
+    container_form = json.load(source)
 
 template = find_field(form, 'patient_name')
 fields = [
     text(template, 'source_order_id', 'Source Center Order ID', hidden=True),
     text(template, 'source_order_number', 'เลขที่ใบสั่งต้นทาง', hidden=True),
     text(template, 'source_specimen_record_id', 'Source Specimen Record ID', hidden=True),
-    text(template, 'lab_no', 'LAB NO.', readonly=True, required=True, span=8),
+    # A pre-receipt rejection owns a Work Item but intentionally has no LAB NO.
+    # Receipt remains the only flow that allocates a LAB NO.
+    text(template, 'lab_no', 'LAB NO.', readonly=True, required=False, span=8),
     text(template, 'section_code', 'รหัสห้อง Lab', readonly=True, required=True, span=8),
     text(template, 'section_name', 'ห้องปฏิบัติการ', readonly=True, required=True, span=8),
     status_select(),
     text(template, 'patient_hn', 'HN', readonly=True, required=True, span=8),
+    text(template, 'visit_id', 'VN / Visit ID', readonly=True, required=True, span=8),
     text(template, 'patient_name', 'ชื่อ-สกุลผู้ป่วย', readonly=True, required=True, span=16),
     text(template, 'ward_clinic', 'Ward / Clinic', readonly=True, span=12),
     text(template, 'ordered_at', 'เวลาสั่งตรวจ', readonly=True, span=12),
@@ -92,11 +98,25 @@ fields = [
     text(template, 'resulted_by', 'ผู้ออกผล', hidden=True),
     text(template, 'rejected_at', 'เวลาปฏิเสธ', hidden=True),
     text(template, 'rejected_by', 'ผู้ปฏิเสธ', hidden=True),
+    text(template, 'rejection_record_id', 'Rejection Log Record ID', hidden=True),
     text(template, 'reject_reason_code', 'รหัสเหตุผลปฏิเสธ', hidden=True),
     text(template, 'reject_reason_detail', 'รายละเอียดเหตุผลปฏิเสธ', hidden=True),
+    text(template, 'cancellation_record_id', 'Cancellation Log Record ID', hidden=True),
+    text(template, 'cancel_type', 'ชนิดการยกเลิก', hidden=True),
+    text(template, 'cancel_reason', 'เหตุผลการยกเลิก Order', hidden=True),
+    text(template, 'cancelled_at', 'เวลายกเลิก Order', hidden=True),
+    text(template, 'cancelled_by', 'ผู้ยกเลิก Order', hidden=True),
 ]
 
-form['fields'] = fields
+root = copy.deepcopy(container_form['fields'][0])
+root['id'] = 'grid-lab-work-item-root'
+root['options']['name'] = 'lab_work_item_root'
+root_col = root['cols'][0]
+root_col['id'] = 'grid-col-lab-work-item-root'
+root_col['options']['name'] = 'lab_work_item_root_col'
+root_col['fields'] = fields
+root['cols'] = [root_col]
+form['fields'] = [root]
 cfg = form['formConfig']
 cfg.update({
     'modelName': 'LabWorkItemForm', 'refName': 'labWorkItemFormRef',

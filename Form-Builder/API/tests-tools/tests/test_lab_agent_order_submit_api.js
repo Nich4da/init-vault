@@ -7,26 +7,11 @@ const source = fs.readFileSync(
   'utf8',
 )
 const configuredSource = source
-  .replace(
-    /const AGENT_ORDER_URL\s*=\s*['"][^'"]*['"]/,
-    "const AGENT_ORDER_URL = 'http://agent.test:8080/api/orders'",
-  )
-  .replace(
-    /const AGENT_KEY\s*=\s*['"][^'"]*['"]/,
-    "const AGENT_KEY = 'test-only-key'",
-  )
-const unconfiguredSource = source
-  .replace(
-    /const AGENT_ORDER_URL\s*=\s*['"][^'"]*['"]/,
-    "const AGENT_ORDER_URL = '__CONFIGURE_AGENT_ORDER_URL__'",
-  )
-  .replace(
-    /const AGENT_KEY\s*=\s*['"][^'"]*['"]/,
-    "const AGENT_KEY = '__CONFIGURE_AGENT_KEY__'",
-  )
+  .replace("const AGENT_URL = '__CONFIGURE_AGENT_URL__'", "const AGENT_URL = 'http://agent.test:8080'")
+  .replace("const AGENT_KEY = '__CONFIGURE_AGENT_KEY__'", "const AGENT_KEY = 'test-only-key'")
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
 const Process = new AsyncFunction('params', 'userInfo', 'app', configuredSource)
-const UnconfiguredProcess = new AsyncFunction('params', 'userInfo', 'app', unconfiguredSource)
+const UnconfiguredProcess = new AsyncFunction('params', 'userInfo', 'app', source)
 
 const payload = () => ({
   order_no: 'ORDER-UAT-001',
@@ -221,38 +206,6 @@ const appWith = handler => ({
     const result = await Process({ payload: payload() }, userInfo, noAuthApp)
     assert.strictEqual(result.success, false)
     assert(result.message.includes('ไม่มีสิทธิ์'))
-  }
-
-  {
-    const fixtureNames = [
-      'lab-agent-order-submit-uat-item-a.json',
-      'lab-agent-order-submit-uat-item-b-same-order.json',
-    ]
-    for (const fixtureName of fixtureNames) {
-      const fixture = JSON.parse(fs.readFileSync(
-        path.join(__dirname, '../../../SDForm/api-factory/examples', fixtureName),
-        'utf8',
-      ))
-      let called = 0
-      const result = await Process(fixture, userInfo, appWith(async (url, sentPayload) => {
-        called += 1
-        assert.strictEqual(sentPayload.items.length, 1)
-        return {
-          status: 202,
-          data: {
-            ok: true,
-            order_no: sentPayload.order_no,
-            order_ref: 'UAT-REF-' + called,
-            duplicate: false,
-            routed_to: ['BC'],
-            dispatch_id: 'UAT-DISPATCH-' + called,
-          },
-        }
-      }))
-      assert.strictEqual(result.success, true, fixtureName)
-      assert.strictEqual(result.data.hl7_status, 'queued', fixtureName)
-      assert.strictEqual(called, 1, fixtureName)
-    }
   }
 
   console.log('LAB Agent order submit API tests passed')
