@@ -28,6 +28,13 @@ const listTemplateForm = JSON.parse(fs.readFileSync(path.join(FORM_DIR, 'Lab_Res
 const personTemplateForm = JSON.parse(fs.readFileSync(path.join(FORM_DIR, 'person.json'), 'utf8'))
 const diseaseTemplateForm = JSON.parse(fs.readFileSync(path.join(FORM_DIR, 'disease.json'), 'utf8'))
 
+const correctedRule = schema.allOf.find(rule =>
+  rule?.if?.properties?.overall_status?.const === 'corrected'
+)
+assert(correctedRule, 'Schema must define the corrected callback branch')
+assert.deepStrictEqual(correctedRule.then.required, ['corrected_at', 'corrected_by'])
+assert(schema.properties.corrected_by, 'Schema must distinguish corrector from verifier')
+
 function walk(value, output = []) {
   if (Array.isArray(value)) {
     value.forEach(item => walk(item, output))

@@ -98,6 +98,7 @@ const reportBySeq = seq => rows(REPORT_FORM_ID).find(row => row.report_seq === S
 const reportByUid = uid => rows(REPORT_FORM_ID).find(row => row.result_uid === uid)
 const itemsByReport = reportId => rows(RESULT_ITEM_FORM_ID).filter(row => row.result_report_id === reportId)
 const itemByReportAndCode = (reportId, code) => itemsByReport(reportId).find(row => row.obs_code === code)
+const canonicalItemByCode = code => rows(RESULT_ITEM_FORM_ID).find(row => row.obs_code === code)
 const status = () => rows(WORK_ITEM_FORM_ID)[0]
 
 ;
@@ -133,6 +134,28 @@ const status = () => rows(WORK_ITEM_FORM_ID)[0]
   assert.strictEqual(invalidCriticalRule.code, 'INVALID_PAYLOAD')
   assert.ok(invalidCriticalRule.errors.some(message => message.includes('critical_low_rule')))
   assert.strictEqual(rows(RECEIPT_FORM_ID).length, 0, 'empty minLength field must not create a receipt')
+
+  const missingCorrectionActor = clone(finalResult)
+  missingCorrectionActor.result_uid = 'RESULT-TEST-CORRECTION-NO-ACTOR'
+  missingCorrectionActor.report_seq = '3'
+  missingCorrectionActor.stage = 'corrected'
+  missingCorrectionActor.overall_status = 'corrected'
+  const invalidCorrection = await Process(missingCorrectionActor, userInfo, mockApp)
+  assert.strictEqual(invalidCorrection.success, false)
+  assert.strictEqual(invalidCorrection.code, 'INVALID_PAYLOAD')
+  assert.ok(invalidCorrection.errors.some(message => message.includes('corrected_by')))
+  assert.ok(invalidCorrection.errors.some(message => message.includes('corrected_at')))
+  assert.strictEqual(rows(RECEIPT_FORM_ID).length, 0, 'invalid correction identity must not create a receipt')
+
+  const itemCorrectionWithoutActor = clone(finalResult)
+  itemCorrectionWithoutActor.result_uid = 'RESULT-TEST-ITEM-CORRECTION-NO-ACTOR'
+  itemCorrectionWithoutActor.items[0].obx_status = 'C'
+  itemCorrectionWithoutActor.items[0].change_kind = 'corrected'
+  const invalidItemCorrection = await Process(itemCorrectionWithoutActor, userInfo, mockApp)
+  assert.strictEqual(invalidItemCorrection.success, false)
+  assert.strictEqual(invalidItemCorrection.code, 'INVALID_PAYLOAD')
+  assert.ok(invalidItemCorrection.errors.some(message => message.includes('corrected_by')))
+  assert.strictEqual(rows(RECEIPT_FORM_ID).length, 0, 'item-level correction must identify the corrector')
 
   const first = await Process(clone(partial), userInfo, mockApp)
   assert.strictEqual(first.success, true)
@@ -188,9 +211,11 @@ const status = () => rows(WORK_ITEM_FORM_ID)[0]
   assert.strictEqual(completed.success, true)
   assert.strictEqual(rows(RECEIPT_FORM_ID).length, 3)
   assert.strictEqual(rows(REPORT_FORM_ID).length, 2, 'partial/final must be separate stage reports')
-  assert.strictEqual(rows(RESULT_ITEM_FORM_ID).length, 3, 'each stage keeps its own item snapshots')
+  // 2026-09-02: user confirmed clinical Result Item stores the latest value only;
+  // immutable Receipts/Report payloads remain the technical audit/idempotency trail.
+  assert.strictEqual(rows(RESULT_ITEM_FORM_ID).length, 2, 'one normalized clinical row per observation')
   const finalReport = reportBySeq('2')
-  const finalNa = itemByReportAndCode(finalReport._id, 'NA')
+  const finalNa = canonicalItemByCode('NA')
   const finalK = itemByReportAndCode(finalReport._id, 'K')
   assert.strictEqual(finalReport.internal_overall_status, 'completed')
   assert.strictEqual(finalReport.xparentx, status()._id)
@@ -198,9 +223,12 @@ const status = () => rows(WORK_ITEM_FORM_ID)[0]
   assert.strictEqual(finalReport.critical_count, 0)
   assert.strictEqual(finalNa.result_value, '136')
   assert.strictEqual(finalNa.result_version, '2')
-  assert.strictEqual(JSON.parse(finalNa.edit_history_json).length, 1)
+  assert.strictEqual(JSON.parse(finalNa.edit_history_json).length, 0)
+  assert.strictEqual(finalNa.previous_value, '')
   assert.strictEqual(finalK.result_value, '4.2')
-  assert.strictEqual(partialNa.result_value, '128', 'partial snapshot must remain unchanged')
+  assert.strictEqual(partialNa.result_value, '136', 'the same normalized row must advance to the latest value')
+  assert.strictEqual(completed.data.created_item_count, 1)
+  assert.strictEqual(completed.data.updated_item_count, 1)
   assert.strictEqual(status().work_status, 'completed')
   assert.strictEqual(status().resulted_at, finalResult.verified_at)
 
@@ -210,6 +238,11 @@ const status = () => rows(WORK_ITEM_FORM_ID)[0]
   correctedPayload.stage = 'corrected'
   correctedPayload.overall_status = 'corrected'
   correctedPayload.reported_at = '2026-08-25T10:20:00+07:00'
+  correctedPayload.corrected_at = '2026-08-25T10:20:00+07:00'
+  correctedPayload.corrected_by = {
+    source_id: 'LIS-CORRECT-TEST',
+    source_name: 'LIS Test Corrector',
+  }
   delete correctedPayload.verified_at
   delete correctedPayload.verified_by
   correctedPayload.items = [{
@@ -223,15 +256,20 @@ const status = () => rows(WORK_ITEM_FORM_ID)[0]
   const corrected = await Process(correctedPayload, userInfo, mockApp)
   assert.strictEqual(corrected.success, true)
   assert.strictEqual(rows(REPORT_FORM_ID).length, 3)
-  assert.strictEqual(rows(RESULT_ITEM_FORM_ID).length, 4)
+  assert.strictEqual(rows(RESULT_ITEM_FORM_ID).length, 2)
   const correctedReport = reportBySeq('3')
-  const correctedNa = itemByReportAndCode(correctedReport._id, 'NA')
+  const correctedNa = canonicalItemByCode('NA')
   assert.strictEqual(correctedReport.internal_overall_status, 'corrected')
   assert.strictEqual(correctedReport.xparentx, status()._id)
   assert.strictEqual(correctedNa.result_value, '137')
   assert.strictEqual(correctedNa.result_status, 'corrected')
-  assert.strictEqual(JSON.parse(correctedNa.edit_history_json).length, 2)
-  assert.strictEqual(finalNa.result_value, '136', 'final snapshot must remain unchanged')
+  assert.strictEqual(JSON.parse(correctedNa.edit_history_json).length, 0)
+  assert.strictEqual(correctedNa.previous_value, '')
+  assert.strictEqual(correctedNa.last_edited_by, 'LIS Test Corrector')
+  assert.strictEqual(correctedNa.last_edited_at, correctedPayload.corrected_at)
+  assert.strictEqual(finalNa.result_value, '137', 'correction updates the same normalized row')
+  assert.strictEqual(corrected.data.created_item_count, 0)
+  assert.strictEqual(corrected.data.updated_item_count, 1)
   assert.strictEqual(status().work_status, 'completed')
 
   const unmatchedPayload = clone(partial)
@@ -268,6 +306,11 @@ const status = () => rows(WORK_ITEM_FORM_ID)[0]
   conflictPayload.report_seq = '4'
   conflictPayload.stage = 'corrected'
   conflictPayload.overall_status = 'corrected'
+  conflictPayload.corrected_at = '2026-08-25T10:25:00+07:00'
+  conflictPayload.corrected_by = {
+    source_id: 'LIS-CORRECT-TEST',
+    source_name: 'LIS Test Corrector',
+  }
   conflictPayload.items[0] = {
     ...conflictPayload.items[0],
     value: '999',
@@ -367,11 +410,12 @@ const status = () => rows(WORK_ITEM_FORM_ID)[0]
   console.log('PASS: API Process body syntax')
   console.log('PASS: invalid wire types are rejected before write')
   console.log('PASS: JSON Schema v2 string lengths are enforced before write')
+  console.log('PASS: corrected result requires explicit corrector identity/time distinct from verifier')
   console.log('PASS: partial result creates Receipt -> Report -> Result Item and critical snapshot')
   console.log('PASS: duplicate result_uid creates no duplicate records')
   console.log('PASS: incomplete final is retained as unmatched receipt without clinical materialization')
-  console.log('PASS: final result appends a stage Report and item snapshots, then completes work status')
-  console.log('PASS: corrected result appends another stage and preserves prior snapshots/history')
+  console.log('PASS: final result appends a stage Report and updates normalized clinical items')
+  console.log('PASS: corrected result keeps latest value plus explicit editor/time without clinical value history')
   console.log('PASS: order_no/LAB NO./HN/VN mismatch keeps receipt unmatched only')
   console.log('PASS: retry of an unprocessed receipt is not falsely acknowledged as success')
   console.log('PASS: stage regression is blocked after corrected/completed results')

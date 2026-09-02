@@ -83,7 +83,12 @@ const manualItemId = 'cccccccccccccccccccccccc'
 const manualMasterId = 'dddddddddddddddddddddddd'
 const manualOrderId = 'eeeeeeeeeeeeeeeeeeeeeeee'
 
-const makeApp = (captures, { manualStatus = 'accepted', manualSectionCode = 'MY' } = {}) => ({
+const makeApp = (captures, {
+  manualStatus = 'accepted',
+  manualSectionCode = 'MY',
+  canonicalCurrent = [],
+  canonicalPrevious = [],
+} = {}) => ({
   isAuth: () => true,
   isSuper: roles => roles.includes('super'),
   isAdmin: roles => roles.includes('admin'),
@@ -230,10 +235,10 @@ const makeApp = (captures, { manualStatus = 'accepted', manualSectionCode = 'MY'
       return { success: true, data: [] }
     }
     if (provider.providerId === RESULT_ITEM_FORM_ID && provider.options.where.includes('order_no = :workItemId')) {
-      return { success: true, data: [] }
+      return { success: true, data: canonicalCurrent }
     }
     if (provider.providerId === RESULT_ITEM_FORM_ID && provider.options.where.includes('hn = :patientHn')) {
-      return { success: true, data: [] }
+      return { success: true, data: canonicalPrevious }
     }
     if (provider.providerId === LEGACY_RESULT_ITEM_FORM_ID && provider.options.where.includes('source_item_id = :itemId')) {
       return { success: true, data: [] }
@@ -243,7 +248,8 @@ const makeApp = (captures, { manualStatus = 'accepted', manualSectionCode = 'MY'
         success: true,
         data: [{
           source_item_id: 'OLD-ITEM',
-          result_status: 'entered',
+          result_status: 'final',
+          test_code: 'MY-CULTURE',
           result_value: 'Candida albicans',
           unit_symbol_snapshot: '',
           interpretation_code: 'POS',
@@ -448,6 +454,57 @@ const userAt = code => ({ roles: ['auth'], username: 'lab-test', unit: { code, n
     assert.strictEqual(result.data.reference_range, 'Not detected')
     assert.strictEqual(result.data.previous.value, 'Candida albicans')
     assert.strictEqual(result.data.previous.visit_vn, 'VN-OLD')
+    assert.strictEqual(result.data.results[0].previous.value, 'Candida albicans')
+    assert.strictEqual(result.data.results[0].result_value, '')
+  }
+
+  {
+    const captures = []
+    const result = await Process(
+      { action: 'get_manual_result', organization_code: 'm1005', item_id: manualItemId },
+      userAt('m1005'),
+      makeApp(captures, {
+        canonicalCurrent: [{
+          _id: 'CURRENT-RESULT',
+          result_definition_id: 'DEF-HGB',
+          order_no: '999999999999999999999999',
+          hn: 'HN-TEST',
+          visit_id: 'VN-NEW',
+          obs_code: 'HGB',
+          obs_name: 'Hemoglobin',
+          result_value: '12.4',
+          units: 'g/dL',
+          result_status: 'corrected',
+          result_version: '3',
+          entered_at: '2026-08-31 09:30:00',
+          last_edited_by: 'ผู้แก้ผล',
+          last_edited_at: '2026-08-31 09:40:00',
+          result_source: 'agent',
+        }],
+        canonicalPrevious: [{
+          _id: 'PREVIOUS-RESULT',
+          result_definition_id: 'DEF-HGB',
+          order_no: 'OLDER-WORK-ITEM',
+          hn: 'HN-TEST',
+          visit_id: 'VN-OLD-HGB',
+          obs_code: 'HGB',
+          obs_name: 'Hemoglobin',
+          result_value: '10.0',
+          units: 'g/dL',
+          result_status: 'final',
+          result_version: '1',
+          entered_at: '2026-07-31 08:00:00',
+          result_source: 'agent',
+        }],
+      }),
+    )
+    assert.strictEqual(result.success, true)
+    assert.strictEqual(result.data.results.length, 1)
+    assert.strictEqual(result.data.results[0].test_code, 'HGB')
+    assert.strictEqual(result.data.results[0].previous.value, '10.0')
+    assert.strictEqual(result.data.results[0].previous.visit_vn, 'VN-OLD-HGB')
+    assert.strictEqual(result.data.results[0].result_value, '12.4')
+    assert.strictEqual(result.data.results[0].last_edited_by, 'ผู้แก้ผล')
   }
 
   {
@@ -486,7 +543,7 @@ const userAt = code => ({ roles: ['auth'], username: 'lab-test', unit: { code, n
       makeApp(captures, { manualSectionCode: 'BC' }),
     )
     assert.strictEqual(result.success, true, 'non-MY Item must still allow read-only result lookup')
-    assert(result.message.includes('Agent/LIS'))
+    assert(result.message.includes('Agent/LIS'), result.message)
   }
 
   {
@@ -536,7 +593,8 @@ const userAt = code => ({ roles: ['auth'], username: 'lab-test', unit: { code, n
     assert.strictEqual(save.data.order_no, '999999999999999999999999')
     assert.strictEqual(save.data.hn, 'HN-TEST')
     assert.strictEqual(save.data.visit_id, 'VN-NEW')
-    assert.strictEqual(save.data.previous_value, 'Candida albicans')
+    assert.strictEqual(save.data.previous_value, '')
+    assert.strictEqual(save.data.edit_history_json, '[]')
     assert.strictEqual(save.data.result_value, 'Candida tropicalis')
     assert.strictEqual(save.data.unit_symbol_snapshot, 'CFU/mL')
     assert.strictEqual(save.data.interpretation_code, 'POS')

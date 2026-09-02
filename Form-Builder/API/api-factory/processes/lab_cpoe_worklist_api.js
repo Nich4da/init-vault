@@ -728,6 +728,7 @@ if (action === 'get_manual_result' || action === 'save_manual_result') {
   const orderId = valueText(context.order._id).trim()
   const orderNo = valueText(context.order.order_number).trim()
   const workItemId = valueText(context.workItem && context.workItem._id).trim()
+  const workOrderNo = valueText(context.workItem && context.workItem.dataid).trim() || itemId
   const labNo = valueText(context.workItem && context.workItem.lab_no).trim()
   const patientHn = valueText(context.order.vid && context.order.vid.pid && context.order.vid.pid.hn).trim()
   const visitVn = valueText(context.order.vid && context.order.vid.vn).trim()
@@ -742,10 +743,13 @@ if (action === 'get_manual_result' || action === 'save_manual_result') {
   let currentIsLegacy = false
   try {
     currentRows = await resultRows(
-      "order_no = :workItemId AND test_code = :testCode AND result_source = :resultSource AND xrstatx NOT IN (0,3)",
-      { workItemId, testCode, resultSource: 'manual' },
-      [{ column: 'xupdatx', sort: 'DESC' }],
-      10
+      '(order_no = :workItemId OR order_no = :workOrderNo OR order_no = :itemId) AND xrstatx NOT IN (0,3)',
+      { workItemId, workOrderNo, itemId },
+      [
+        { column: 'result_sequence', sort: 'ASC' },
+        { column: 'xupdatx', sort: 'DESC' }
+      ],
+      500
     )
     if (!currentRows.length) {
       currentRows = await legacyResultRows(
@@ -756,25 +760,25 @@ if (action === 'get_manual_result' || action === 'save_manual_result') {
       )
       currentIsLegacy = currentRows.length > 0
     }
-    if (patientHn && testCode) {
+    if (patientHn) {
       previousRows = await resultRows(
-        'hn = :patientHn AND test_code = :testCode AND order_no != :workItemId AND xrstatx NOT IN (0,3)',
-        { patientHn, testCode, workItemId },
+        'hn = :patientHn AND order_no != :workItemId AND order_no != :workOrderNo AND order_no != :itemId AND xrstatx NOT IN (0,3)',
+        { patientHn, workItemId, workOrderNo, itemId },
         [
           { column: 'entered_at', sort: 'DESC' },
           { column: 'xupdatx', sort: 'DESC' }
         ],
-        20
+        1000
       )
       if (!previousRows.length) {
         previousRows = await legacyResultRows(
-          'patient_hn = :patientHn AND test_code = :testCode AND source_item_id != :itemId AND xrstatx NOT IN (0,3)',
-          { patientHn, testCode, itemId },
+          'patient_hn = :patientHn AND source_item_id != :itemId AND xrstatx NOT IN (0,3)',
+          { patientHn, itemId },
           [
             { column: 'entered_at', sort: 'DESC' },
             { column: 'xupdatx', sort: 'DESC' }
           ],
-          20
+          1000
         )
       }
     }
@@ -782,53 +786,131 @@ if (action === 'get_manual_result' || action === 'save_manual_result') {
     return { success: false, message: 'ค้นหารายการผลตรวจเดิมไม่สำเร็จ' }
   }
 
-  const current = currentRows[0] || null
-  const previous = previousRows.find(row => {
+  const resultIdentity = row => valueText(
+    row && (row.result_definition_id || row.obs_code || row.test_code)
+  ).trim()
+  const rowVersion = row => valueText(row && row.result_version).trim() || '0'
+  const rowTime = row => valueText(row && (row.entered_at || row.xupdatx || row.xcreatx)).trim()
+  const timeValue = value => {
+    const parsed = new Date(valueText(value).replace(' ', 'T')).getTime()
+    return Number.isFinite(parsed) ? parsed : 0
+  }
+  const newerResult = (candidate, selected) => {
+    if (!selected) return true
+    const versionOrder = rowVersion(candidate).localeCompare(rowVersion(selected), undefined, { numeric: true })
+    if (versionOrder !== 0) return versionOrder > 0
+    return timeValue(rowTime(candidate)) > timeValue(rowTime(selected))
+  }
+  const latestByIdentity = rows => {
+    const latest = new Map()
+    for (const row of rows) {
+      const key = resultIdentity(row)
+      if (!key) continue
+      if (newerResult(row, latest.get(key))) latest.set(key, row)
+    }
+    return Array.from(latest.values()).sort((left, right) => {
+      const a = Number(valueText(left && left.result_sequence)) || 0
+      const b = Number(valueText(right && right.result_sequence)) || 0
+      return a - b || resultIdentity(left).localeCompare(resultIdentity(right))
+    })
+  }
+  const currentClinicalRows = latestByIdentity(currentRows)
+  const current = currentClinicalRows.find(row =>
+    valueText(row && row.result_source).trim().toLowerCase() === 'manual' &&
+    valueText(row && (row.test_code || row.obs_code)).trim() === testCode
+  ) || null
+  const currentOrderTime = timeValue(context.order.created_at || context.order.order_date || context.item.created_at)
+  const finalPreviousRows = previousRows.filter(row => {
     const status = valueText(row && row.result_status).trim().toLowerCase()
-    return !['pending', 'draft', 'void', 'cancelled'].includes(status)
-  }) || previousRows[0] || null
+    const obx = valueText(row && row.obx_status).trim().toUpperCase()
+    if (!['final', 'corrected', 'completed', 'resulted'].includes(status) && !['F', 'C'].includes(obx)) return false
+    const candidateTime = timeValue(rowTime(row))
+    return !(currentOrderTime && candidateTime && candidateTime >= currentOrderTime)
+  })
+  const previousByIdentity = new Map()
+  for (const row of finalPreviousRows) {
+    const key = resultIdentity(row)
+    if (key && newerResult(row, previousByIdentity.get(key))) previousByIdentity.set(key, row)
+    const code = valueText(row && (row.obs_code || row.test_code)).trim()
+    if (code && newerResult(row, previousByIdentity.get(code))) previousByIdentity.set(code, row)
+  }
+  const previousFor = row => {
+    const key = resultIdentity(row) || testCode
+    const code = valueText(row && (row.obs_code || row.test_code)).trim() || testCode
+    return previousByIdentity.get(key) || previousByIdentity.get(code) || null
+  }
+  const previous = previousFor(current || { test_code: testCode })
 
-  const responseData = savedRow => ({
-    item_id: itemId,
-    result_item_id: valueText(savedRow && (savedRow._id || savedRow.id)).trim(),
-    order_id: orderId,
-    order_no: orderNo,
-    lab_no: labNo,
-    patient_hn: patientHn,
-    visit_vn: visitVn,
-    visit_record_id: visitRecordId,
-    section_code: itemSectionCode,
-    test_code: testCode,
-    test_name: testName,
-    specimen_code: specimenCode,
-    specimen_name: specimenName,
-    result_value: valueText(savedRow && savedRow.result_value),
-    unit: valueText(savedRow && (savedRow.unit_symbol_snapshot || savedRow.unit_symbol || savedRow.units)),
-    interpretation: valueText(savedRow && savedRow.interpretation_code),
-    reference_range: valueText(savedRow && savedRow.reference_range_snapshot),
-    result_status: valueText(savedRow && savedRow.result_status),
-    entered_at: valueText(savedRow && (savedRow.entered_at || savedRow.xupdatx || savedRow.xcreatx)),
-    previous: previous ? {
-      value: valueText(previous.result_value),
-      unit: valueText(previous.unit_symbol_snapshot || previous.unit_symbol || previous.units),
-      interpretation: valueText(previous.interpretation_code),
-      reference_range: valueText(previous.reference_range_snapshot),
-      visit_vn: valueText(previous.visit_id || previous.visit_vn),
-      entered_at: valueText(previous.entered_at || previous.xupdatx || previous.xcreatx)
-    } : null
+  const previousData = row => row ? {
+    value: valueText(row.result_value),
+    unit: valueText(row.unit_symbol_snapshot || row.unit_symbol || row.units),
+    interpretation: valueText(row.interpretation_code),
+    reference_range: valueText(row.reference_range_snapshot || row.ref_range),
+    visit_vn: valueText(row.visit_id || row.visit_vn),
+    entered_at: rowTime(row)
+  } : null
+  const resultData = row => ({
+    result_item_id: valueText(row && (row._id || row.id)).trim(),
+    result_definition_id: valueText(row && row.result_definition_id),
+    test_code: valueText(row && (row.obs_code || row.test_code)) || testCode,
+    test_name: valueText(row && (row.obs_name || row.test_name)) || testName,
+    result_value: valueText(row && row.result_value),
+    unit: valueText(row && (row.unit_symbol_snapshot || row.unit_symbol || row.units)),
+    interpretation: valueText(row && row.interpretation_code),
+    reference_range: valueText(row && (row.reference_range_snapshot || row.ref_range)),
+    result_source: valueText(row && row.result_source),
+    result_status: valueText(row && row.result_status),
+    is_critical: row && row.is_critical === true,
+    entered_at: rowTime(row),
+    last_edited_by: valueText(row && row.last_edited_by),
+    last_edited_at: valueText(row && row.last_edited_at),
+    change_kind: valueText(row && row.change_kind),
+    previous: previousData(previousFor(row))
   })
 
-  if (action === 'get_manual_result') {
-    const defaults = {
+  const responseData = savedRow => {
+    const displayRows = savedRow
+      ? latestByIdentity([savedRow, ...currentClinicalRows])
+      : currentClinicalRows.slice()
+    if (!displayRows.length && previous) {
+      displayRows.push({ test_code: testCode, test_name: testName })
+    }
+    const base = savedRow || current || {
       result_value: '',
       unit_symbol_snapshot: valueText(masterLab.unit_symbol || masterLab.unit || context.master && context.master.unit),
       interpretation_code: '',
       reference_range_snapshot: valueText(masterLab.reference_range || masterLab.ref_range)
     }
     return {
+      item_id: itemId,
+      result_item_id: valueText(base && (base._id || base.id)).trim(),
+      order_id: orderId,
+      order_no: orderNo,
+      lab_no: labNo,
+      patient_hn: patientHn,
+      visit_vn: visitVn,
+      visit_record_id: visitRecordId,
+      section_code: itemSectionCode,
+      test_code: testCode,
+      test_name: testName,
+      specimen_code: specimenCode,
+      specimen_name: specimenName,
+      result_value: valueText(base && base.result_value),
+      unit: valueText(base && (base.unit_symbol_snapshot || base.unit_symbol || base.units)),
+      interpretation: valueText(base && base.interpretation_code),
+      reference_range: valueText(base && (base.reference_range_snapshot || base.ref_range)),
+      result_status: valueText(base && base.result_status),
+      entered_at: rowTime(base),
+      previous: previousData(previous),
+      results: displayRows.map(resultData)
+    }
+  }
+
+  if (action === 'get_manual_result') {
+    return {
       success: true,
-      data: responseData(current || defaults),
-      message: current
+      data: responseData(current || null),
+      message: currentClinicalRows.length
         ? 'อ่านผลตรวจแล้ว'
         : itemStatus === 'sent'
           ? 'ยังไม่มีผลตรวจ; รับ specimen ก่อนใช้ปุ่มดินสอกรอกผล'
@@ -948,12 +1030,13 @@ if (action === 'get_manual_result' || action === 'save_manual_result') {
     interpretation_code: clinical.interpretation_code,
     result_source: 'manual',
     result_status: hasClinicalValue ? 'entered' : 'draft',
-    previous_value: previous ? valueText(previous.result_value) : '',
+    change_kind: manualValueChanged ? 'corrected' : valueText(current && current.change_kind) || 'first',
+    previous_value: '',
     entered_at: hasClinicalValue ? valueText(current && current.entered_at) || now : '',
     entered_by: hasClinicalValue ? valueText(current && current.entered_by) || actor : '',
     last_edited_at: manualValueChanged ? now : '',
     last_edited_by: manualValueChanged ? actor : '',
-    edit_history_json: valueText(current && current.edit_history_json) || '[]'
+    edit_history_json: '[]'
   }
 
   let resultItemId = currentIsLegacy ? '' : valueText(current && (current._id || current.id)).trim()

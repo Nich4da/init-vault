@@ -19,6 +19,7 @@ const named = (form, name) => {
 
 const worklist = read('Form-Builder/SDForm/Lab/lab-cpoe-worklist-waiting-v1.json')
 const widget = named(worklist, 'lab_cpoe_worklist')
+const scanner = named(worklist, 'scan_code')
 const workItemForm = read('Form-Builder/SDForm/form-factory/forms/Lab_Work_Item_CRUD.json')
 assert.strictEqual(named(workItemForm, 'lab_no').required, false, 'pre-receipt rejected Work Item must not require a LAB NO.')
 assert.strictEqual(named(workItemForm, 'rejection_record_id').hidden, true)
@@ -53,7 +54,12 @@ assert(!widget.content.includes(':disabled="!canOpenResultTab(order)"'), 'result
 assert(widget.onCreated.includes("'ผลตรวจทางห้องปฏิบัติการ'"))
 assert(widget.content.includes('aria-label="กรอกหรือแก้ไขผล"'))
 assert(widget.content.includes('@click="openResult(item,order,false)"'))
-assert(widget.content.includes('ค่าก่อนหน้าของ Item · ประวัติการแก้ไข (อ่านอย่างเดียว)'))
+// 2026-09-02: prior result is longitudinal (previous encounter), not correction history.
+assert(widget.content.includes('<span>ผลก่อนหน้า</span>'))
+assert(widget.content.includes('<span>ผลปัจจุบัน</span>'))
+assert(widget.content.indexOf('<span>ผลก่อนหน้า</span>') < widget.content.indexOf('<span>ผลปัจจุบัน</span>'))
+assert(!widget.content.includes('ประวัติการแก้ไข (อ่านอย่างเดียว)'))
+assert(widget.content.includes('แก้ไขโดย {{ result.last_edited_by }}'))
 assert(widget.content.includes('<span>Unit</span><el-input v-model="manual.form.unit" clearable />'))
 assert(widget.content.includes('<span>ค่าปกติ / Reference range</span><el-input v-model="manual.form.reference_range" clearable />'))
 assert(widget.content.includes('การกรอกมือจะไม่สร้างสถานะค่าวิกฤติอัตโนมัติ'))
@@ -86,12 +92,26 @@ assert(widget.content.includes('Diagnosis:<template v-if="diagnosisText(order)">
 assert(!widget.content.includes('รอเชื่อม EMR'))
 assert(widget.content.includes('@click="openCreateOrder"'))
 assert(widget.content.includes('@click="openEmr(order)"'))
-assert(widget.content.includes('v-if="!isCancelledOrder(order)" class="lab-plain-action" size="small" @click="notifyPending(\'PDF ใบสั่งตรวจ\')"'))
+assert(widget.content.includes('v-if="!isCancelledOrder(order)" class="lab-plain-action" size="small"'))
+// 2026-09-02: user approved binding the verified live Report ID; PDF must now be row-scoped.
+assert(!widget.content.includes("@click=\"notifyPending('PDF ใบสั่งตรวจ')\""))
+assert(widget.content.includes('<sd-report'), 'Worklist must bind the verified LAB Order Report')
+assert(widget.content.includes('v-if="!isCancelledOrder(order)&&orderReportReady(order)"'))
+assert(widget.content.includes('title="Order นี้ไม่มี Order ID, Visit ID หรือ LAB Section สำหรับสร้าง PDF"'))
 assert(widget.content.includes('v-else class="lab-plain-action" type="primary" size="small" @click="mockRetest(order)">ตรวจใหม่</el-button>'))
 assert(widget.content.includes('v-if="!isCancelledOrder(order)" class="lab-plain-action" size="small" @click="openEmr(order)">EMR</el-button>'))
 assert(widget.content.includes('<span v-else class="lab-action-placeholder" aria-hidden="true"></span>'))
 assert(widget.content.includes("{{ statusKey==='cancelled' ? 'ดำเนินการ' : 'PDF' }}"))
 assert(widget.onCreated.includes("s.isCancelledOrder=o=>['cancelled','rejected'].includes(s.orderStatus(o))"))
+assert(widget.onCreated.includes("const ORDER_REQUEST_REPORT_ID='6a977ac8422c1ca959829f97'"))
+assert(widget.onCreated.includes("s.orderRequestReportList=ORDER_REQUEST_REPORT_ID?[{reportId:ORDER_REQUEST_REPORT_ID,label:'PDF',type:'pdf'}]:[]"))
+assert(widget.onCreated.includes('s.orderVisitId=o=>'))
+assert(widget.onCreated.includes('s.orderReportReady=o=>'))
+assert(widget.onCreated.includes('s.reportSectionCode=o=>'))
+assert(widget.onCreated.includes('s.orderReportParams=o=>'))
+assert(widget.onCreated.includes('order_id:s.text(o&&o.order_id)'))
+assert(widget.onCreated.includes('visit_id:s.orderVisitId(o)'))
+assert(widget.onCreated.includes('section_code:s.reportSectionCode(o)'))
 assert(widget.onCreated.includes('s.mockRetest=order=>'))
 assert(widget.content.includes(':disabled="!canReceiveOrder(order)||receiveLoading||rejectLoading||cancelDialog.loading"'))
 assert(widget.content.includes('@click="receiveSelected(order)"'))
@@ -108,6 +128,35 @@ assert(widget.onCreated.includes('organization_code:s.unitCode()'))
 assert(widget.onCreated.includes('section_codes:sectionCodes'))
 assert(widget.onCreated.includes("cancelled:['cancelled','rejected']"))
 assert(widget.onCreated.includes("all:['sent','accepted','prepared','ready','dispensed','resulted','completed','cancelled','rejected']"))
+assert(worklist.fields.some(field => field.component === 'scan-code-ui' && field.options && field.options.name === 'scan_code'))
+assert.strictEqual(scanner.target, 'document')
+assert.strictEqual(scanner.minLength, 6)
+assert.strictEqual(scanner.avgTimeByChar, 30)
+assert.deepStrictEqual(scanner.suffixKeyCodes, [13])
+assert(scanner.onScan.includes("getFieldRef('lab_cpoe_worklist')"))
+assert(scanner.onScan.includes('state.scanPatientHn(hn)'))
+const runScan = new Function('value', 'qty', scanner.onScan)
+let scannedHn = ''
+runScan.call({
+  getFormRef: () => ({
+    showPopupFlag: false,
+    getFieldRef: () => ({ vueState: { scanPatientHn: value => { scannedHn = value } } }),
+  }),
+  notify: message => { throw new Error(message) },
+}, 'HN 6900001', 1)
+assert.strictEqual(scannedHn, '6900001')
+runScan.call({
+  getFormRef: () => ({ showPopupFlag: true }),
+  notify: message => { throw new Error(message) },
+}, '6900002', 1)
+assert.strictEqual(scannedHn, '6900001', 'scanner must not switch patient behind an open popup')
+assert(widget.content.includes('โหมดผู้ป่วยจากการสแกน'))
+assert(widget.content.includes("statusKey==='complete'"))
+assert(widget.content.includes('แสดงประวัติออกผลครบทุกวัน'))
+assert(widget.content.includes('@click="clearScan"'))
+assert(widget.onCreated.includes('s.scanPatientHn=hn=>'))
+assert(widget.onCreated.includes("const allCompletedHistory=s.scanMode&&scopedStatuses.length===1&&scopedStatuses[0]==='completed'"))
+assert(widget.onCreated.includes("s.applyFilters=()=>{s.scanMode=false;s.scannedHn=''"))
 assert(widget.onCreated.includes('s.receiveSelected=async order=>'))
 assert(widget.onCreated.includes('s.selectedItems=order=>'))
 assert(widget.onCreated.includes('s.canReceiveOrder=order=>'))
@@ -258,6 +307,28 @@ assert.strictEqual(
 )
 assert(!Object.prototype.hasOwnProperty.call(s.params(['sent'], 30, 1), 'section_codes'))
 assert.strictEqual(s.params(['sent'], 30, 1).organization_code, '10')
+s.filters = { hn: 'MANUAL-HN', dates: ['2026-08-01', '2026-09-02'] }
+s.scanMode = true
+s.scannedHn = '6900001'
+const scannedActiveParams = s.params(['sent'], 30, 1)
+assert.strictEqual(scannedActiveParams.hn, '6900001')
+assert.strictEqual(scannedActiveParams.date_from, '2026-08-01')
+assert.strictEqual(scannedActiveParams.date_to, '2026-09-02')
+const scannedHistoryParams = s.params(['completed'], 30, 1)
+assert.strictEqual(scannedHistoryParams.hn, '6900001')
+assert(!Object.prototype.hasOwnProperty.call(scannedHistoryParams, 'date_from'))
+assert(!Object.prototype.hasOwnProperty.call(scannedHistoryParams, 'date_to'))
+const realLoadOrders = s.loadOrders
+const realRefreshCounts = s.refreshCounts
+s.loadOrders = () => {}
+s.refreshCounts = () => {}
+s.statusKey = 'all'
+s.setStatus('complete')
+assert.strictEqual(s.scanMode, true, 'switching status tabs must retain scanned patient context')
+s.applyFilters()
+assert.strictEqual(s.scanMode, false, 'manual Search must exit scanned patient context')
+s.loadOrders = realLoadOrders
+s.refreshCounts = realRefreshCounts
 assert.strictEqual(s.specimenMasterOptions.length, 0)
 const processCallCountBeforeRetestMock = processCalls.length
 s.mockRetest({ order_number: 'R2609010004' })
@@ -420,7 +491,22 @@ assert.strictEqual(opened[0][4].params.lab_scope, true)
 assert.strictEqual(opened[0][4].params.organization_code, '10')
 assert.deepStrictEqual(opened[0][4].params.section_codes, ['BC'])
 
-s.openEmr({ emr_context: { visit_id: 'VISIT-1', vn: 'VN-1' } })
+const reportScopedOrder = {
+  order_id: 'ORDER-REPORT-1',
+  emr_context: { visit_id: 'VISIT-1', vn: 'VN-1' },
+  visit: { visit_id: 'VISIT-FALLBACK', vn: 'VN-FALLBACK' },
+  items: [{ section: { code: 'BC' } }],
+}
+assert.strictEqual(s.orderReportReady(reportScopedOrder), true)
+const reportParams = s.orderReportParams(reportScopedOrder)
+assert.strictEqual(reportParams.order_id, 'ORDER-REPORT-1')
+assert.strictEqual(reportParams.visit_id, 'VISIT-1')
+assert.strictEqual(reportParams.section_code, 'BC')
+assert(reportParams.printed_by)
+assert(reportParams.printed_at)
+assert.strictEqual(s.orderReportReady({ ...reportScopedOrder, emr_context: {}, visit: {} }), false)
+
+s.openEmr(reportScopedOrder)
 assert.strictEqual(opened[1][0], '6a96557e422c1ca959829eae')
 assert.strictEqual(opened[1][2], '')
 assert.strictEqual(opened[1][4].params.lab_deep_link, true)

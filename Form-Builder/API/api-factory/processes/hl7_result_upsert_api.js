@@ -43,11 +43,6 @@ const parseArray = value => {
   }
 }
 
-const parseHistory = value => {
-  const parsed = parseArray(value)
-  return parsed.filter(entry => entry && typeof entry === 'object')
-}
-
 const firstText = values => {
   for (const value of values) {
     const result = trimmed(value)
@@ -139,7 +134,8 @@ const criticalDecision = item => {
 const allowedTopFields = new Set([
   'order_no', 'filler_order_no', 'hn', 'visit_id', 'result_uid',
   'report_seq', 'stage', 'overall_status', 'reported_at', 'reported_by',
-  'verified_at', 'verified_by', 'items', 'labno', 'lab_no',
+  'verified_at', 'verified_by', 'corrected_at', 'corrected_by',
+  'items', 'labno', 'lab_no',
 ])
 const allowedIdentityFields = new Set(['source_id', 'source_name'])
 const allowedItemFields = new Set([
@@ -227,6 +223,10 @@ const validatePayload = payload => {
     errors.push('verified_at ต้องเป็น ISO 8601 +07:00')
   }
   if (payload.verified_by != null) validateIdentity(payload.verified_by, 'verified_by', errors)
+  if (payload.corrected_at != null && !isoPattern.test(trimmed(payload.corrected_at))) {
+    errors.push('corrected_at ต้องเป็น ISO 8601 +07:00')
+  }
+  if (payload.corrected_by != null) validateIdentity(payload.corrected_by, 'corrected_by', errors)
   if (payload.overall_status === 'resulted') {
     if (!payload.verified_at) errors.push('resulted ต้องมี verified_at')
     if (!payload.verified_by) errors.push('resulted ต้องมี verified_by')
@@ -234,6 +234,16 @@ const validatePayload = payload => {
   if (!Array.isArray(payload.items) || !payload.items.length) {
     errors.push('items ต้องเป็น array ที่มีอย่างน้อย 1 รายการ')
     return errors
+  }
+  const hasCorrection = payload.overall_status === 'corrected' || payload.items.some(item =>
+    item && (
+      trimmed(item.obx_status).toUpperCase() === 'C' ||
+      lower(item.change_kind) === 'corrected'
+    )
+  )
+  if (hasCorrection) {
+    if (!payload.corrected_at) errors.push('corrected result ต้องมี corrected_at')
+    if (!payload.corrected_by) errors.push('corrected result ต้องมี corrected_by')
   }
   payload.items.forEach((item, index) => {
     const path = 'items[' + index + ']'
@@ -749,6 +759,7 @@ try {
 }
 
 let createdItemCount = 0
+let updatedItemCount = 0
 let unchangedVersionItemCount = 0
 const parentObjectId = app.dbObjectId(report.id)
 const parentLabel = 'LAB ' + payload.filler_order_no + ' · HN ' + payload.hn + ' · VN ' + payload.visit_id
@@ -774,19 +785,11 @@ if (payload.overall_status !== 'cancelled') {
     if (previous && versionOrder === 0) unchangedVersionItemCount += 1
 
     const decision = criticalDecision(item)
-    const history = previous ? parseHistory(previous.edit_history_json) : []
-    if (previous && (versionOrder > 0 || trimmed(previous.result_value) !== item.value)) {
-      history.push({
-        source: 'agent',
-        result_uid: payload.result_uid,
-        result_version: item.result_version,
-        changed_at: payload.reported_at,
-        changed_by: payload.reported_by.source_name,
-        old_value: text(previous.result_value),
-        new_value: item.value,
-        change_kind: item.change_kind,
-      })
-    }
+    const isCorrection = payload.overall_status === 'corrected' ||
+      trimmed(item.obx_status).toUpperCase() === 'C' ||
+      lower(item.change_kind) === 'corrected'
+    const correctionActor = isCorrection && payload.corrected_by ? payload.corrected_by.source_name : ''
+    const correctionTime = isCorrection ? payload.corrected_at : ''
 
     const orderedItem = orderedByCode.get(item.obs_code) || null
     const resultSequence = firstText([
@@ -838,23 +841,27 @@ if (payload.overall_status !== 'cancelled') {
       result_uid: payload.result_uid,
       obx_status: item.obx_status,
       change_kind: item.change_kind,
-      previous_value: item.previous_value != null
-        ? item.previous_value
-        : previous ? text(previous.result_value) : '',
+      previous_value: '',
       receipt_seq: item.receipt_seq,
       result_version: item.result_version,
       critical_low_rule: item.critical_low_rule || '',
       critical_high_rule: item.critical_high_rule || '',
       entered_by: previous ? trimmed(previous.entered_by) : payload.reported_by.source_name,
       entered_at: previous ? trimmed(previous.entered_at) : payload.reported_at,
-      last_edited_by: previous && versionOrder > 0 ? payload.reported_by.source_name : '',
-      last_edited_at: previous && versionOrder > 0 ? payload.reported_at : '',
-      edit_history_json: JSON.stringify(history),
+      last_edited_by: isCorrection ? correctionActor : previous ? trimmed(previous.last_edited_by) : '',
+      last_edited_at: isCorrection ? correctionTime : previous ? trimmed(previous.last_edited_at) : '',
+      edit_history_json: '[]',
     }
 
     try {
-      await createRecord(RESULT_ITEM_FORM_ID, rowData)
-      createdItemCount += 1
+      const previousId = trimmed(previous && (previous._id || previous.id))
+      if (previousId) {
+        await saveRecord(RESULT_ITEM_FORM_ID, previousId, rowData)
+        updatedItemCount += 1
+      } else {
+        await createRecord(RESULT_ITEM_FORM_ID, rowData)
+        createdItemCount += 1
+      }
     } catch (error) {
       return failAfterReceipt('ITEM_SAVE_FAILED', 'บันทึก ' + item.obs_code + ' ไม่สำเร็จ: ' + trimmed(error.message || error), 'error', {
         order_status_id: statusId,
@@ -943,7 +950,7 @@ return {
     unmatched_obs_codes: [],
     missing_expected_obs_codes: missingExpectedCodes,
     created_item_count: createdItemCount,
-    updated_item_count: 0,
+    updated_item_count: updatedItemCount,
     unchanged_version_item_count: unchangedVersionItemCount,
     report_item_count: allReportItems.length,
     critical_count: allReportItems.filter(row => row.is_critical === true).length,
