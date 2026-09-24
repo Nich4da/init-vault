@@ -416,3 +416,8 @@ Append-only, chronological. Newest at the bottom. Each entry header is
 - ปุ่ม EMR เปิด `6a4f64e7f8cdfc54cec16488` read-only; `EMR.json` รองรับ deep-link ไป Visit Tran `6a461235e521219e514d1c4b`
 - ยืนยันว่า CPOE/EMR ทั้งสองจุด reuse Form หลัก ID เดิม ไม่สร้าง Form ใหม่; JSON เป็น working definition สำหรับอัปเดต behavior ของ Form เดิมเท่านั้น
 - API/Form tests, lifecycle compile, JSON parse, `git diff --check` และ SDForm validator ผ่าน; Builder/Preview/deployed runtime ยังรอทดสอบ
+
+## [2026-09-24] ingest | export EMR History ก่อนออกแบบก้อนผล LAB
+- Export live Form `EMR History` `_id 6a96557e422c1ca959829eae` (v1) จาก initCraft Form Manage แล้วเก็บ snapshot ใหม่ที่ `Form-Builder/SDForm/backup/emr-history-6a96557e422c1ca959829eae-export-2026-09-24_18-03-01.json`; ต้นฉบับดาวน์โหลดอยู่ใน Downloads และ repo copy ลบ `feature_token` ตามกฎความปลอดภัย
+- ตรวจ JSON ผ่าน; snapshot SHA-256 `e4642149bcb15f545e193e36fb84b0a7b0240d4bf31a837eef9b8c593293ba9c`. `form_model` ใน export เป็น encrypted package ตามพฤติกรรม Form Manage
+- ยังไม่แก้ฟอร์ม รอผู้ใช้ยืนยันแบบ: ซ้อนการ์ดผล LAB pattern เดียวกับ EMR `treat_summary` ต่อใต้ order row ใน card Lab เดิมของ `emr_view`; อ่านผลจาก `emr-lab-board-get` แยก และจับคู่ด้วย CPOE Order id (`it.order_id` ↔ `source_order_id`) โดยไม่แตะ `emr-history-get` ที่เพิ่งกู้คืน

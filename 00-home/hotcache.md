@@ -1,10 +1,16 @@
 ---
 type: meta
 title: Hot Cache
-updated: 2026-09-15
+updated: 2026-09-24
 ---
 
 # 🔥 Hot Cache — read this first
+
+## EMR History — LAB result placement (awaiting confirmation)
+
+- Exported live Form `EMR History` (`6a96557e422c1ca959829eae`, v1) on 2026-09-24 and stored the new immutable snapshot at `Form-Builder/SDForm/backup/emr-history-6a96557e422c1ca959829eae-export-2026-09-24_18-03-01.json`. The exact downloaded export remains outside the repo in Downloads; the repo copy removes `feature_token` per repository safety rules. JSON syntax passes; SHA-256 `e4642149bcb15f545e193e36fb84b0a7b0240d4bf31a837eef9b8c593293ba9c`.
+- No EMR History implementation changed yet. Recommended design for user confirmation: inside the existing right-column `Lab` order card, append the completed EMR LAB result card pattern after the current order row, preserving its status/time, abnormal-first rows, comment, PDF, and LAB Worklist-style full-result popup.
+- Integrate only in vue-ui `emr_view`: call existing `emr-lab-board-get` separately with the selected visit/HN; do not modify restored `emr-history-get`. Match results exactly with `item_groups[].items[].order_id === lab_orders[].source_order_id`, never by display name. Prefix added state/helpers with `ehLab*`.
 
 > Cache; 500 max.
 
