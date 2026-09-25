@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LAB Result Visibility — Policy Mockup</title>
+<style>
+  :root{
+    color-scheme:light;
+    --bg:#eef2f6;--surface:#fff;--surface-2:#f7f9fc;--surface-3:#edf1f6;
+    --ink:#303133;--regular:#606266;--muted:#909399;--line:#dcdfe6;--line-soft:#ebeef5;
+    --primary:#337ecc;--primary-bg:#ecf5ff;--primary-line:#a0cfff;
+    --success:#529b2e;--success-bg:#f0f9eb;--success-line:#b3e19d;
+    --warning:#b88230;--warning-bg:#fdf6ec;--warning-line:#f3d19e;
+    --danger:#c45656;--danger-bg:#fef0f0;--danger-line:#fab6b6;
+    --violet:#6e5aa6;--violet-bg:#f2effa;--violet-line:#cfc6e8;
+    --shadow:0 10px 30px rgba(36,54,78,.09);
+    --font:"Noto Sans Thai","Leelawadee UI",Tahoma,Arial,sans-serif;
+    --mono:ui-monospace,"Cascadia Mono",Consolas,monospace;
+  }
+  @media(prefers-color-scheme:dark){
+    :root{color-scheme:dark;--bg:#111827;--surface:#1f2937;--surface-2:#172131;--surface-3:#293548;
+      --ink:#f3f4f6;--regular:#d1d5db;--muted:#9ca3af;--line:#4b5563;--line-soft:#374151;
+      --primary:#76b7ff;--primary-bg:#172b43;--primary-line:#315a83;
+      --success:#8bd265;--success-bg:#1d3121;--success-line:#3f6946;
+      --warning:#efb85f;--warning-bg:#3a2d18;--warning-line:#725424;
+      --danger:#ff9696;--danger-bg:#3c2226;--danger-line:#713c43;
+      --violet:#c1b3ee;--violet-bg:#29243b;--violet-line:#574d7d;--shadow:0 14px 40px rgba(0,0,0,.35)}
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.55 var(--font);-webkit-font-smoothing:antialiased}
+  button,input,textarea{font:inherit;color:inherit}
+  button{cursor:pointer}
+  button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+  .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .shell{max-width:1480px;margin:auto;padding:18px 20px 60px}
+  .notice{display:flex;gap:10px;align-items:flex-start;padding:10px 13px;border:1px solid var(--warning-line);border-radius:8px;background:var(--warning-bg);color:var(--regular);font-size:12px}
+  .notice strong{color:var(--ink)}
+  .top{display:flex;align-items:flex-end;gap:18px;margin:18px 0 13px}
+  .top h1{margin:0;font-size:23px;line-height:1.25;letter-spacing:-.02em}
+  .top p{margin:4px 0 0;color:var(--muted);font-size:12px}
+  .top .right{margin-left:auto;text-align:right;color:var(--muted);font-size:11px}
+  .scenario-bar{display:grid;grid-template-columns:repeat(4,minmax(180px,1fr));gap:8px;margin-bottom:14px}
+  .scenario{display:grid;grid-template-columns:28px 1fr;gap:9px;align-items:start;padding:10px 11px;border:1px solid var(--line);border-radius:8px;background:var(--surface);text-align:left;transition:border-color .15s,box-shadow .15s,transform .15s}
+  .scenario:hover{border-color:var(--primary-line);transform:translateY(-1px)}
+  .scenario[aria-pressed="true"]{border-color:var(--primary);box-shadow:0 0 0 1px var(--primary),var(--shadow);background:var(--primary-bg)}
+  .scenario .n{display:grid;width:28px;height:28px;place-items:center;border-radius:6px;background:var(--surface-3);font:700 12px var(--mono)}
+  .scenario strong{display:block;font-size:12px}
+  .scenario small{display:block;margin-top:2px;color:var(--muted);font-size:10.5px;line-height:1.4}
+  .simulator{display:flex;align-items:center;gap:12px;margin:-2px 0 14px;padding:9px 11px;border:1px dashed var(--primary-line);border-radius:8px;background:var(--primary-bg)}
+  .simulator .sim-copy{flex:1;min-width:0}.simulator strong{display:block;font-size:11.5px}.simulator small{display:block;color:var(--muted);font-size:10px}
+  .stage{display:grid;grid-template-columns:minmax(0,1fr) 70px minmax(0,1fr);gap:12px;align-items:stretch}
+  .panel{min-width:0;overflow:hidden;border:1px solid var(--line);border-radius:10px;background:var(--surface);box-shadow:var(--shadow)}
+  .panel-head{display:flex;align-items:center;gap:10px;min-height:54px;padding:10px 14px;border-bottom:1px solid var(--line-soft);background:var(--surface-2)}
+  .panel-head .mark{display:grid;width:31px;height:31px;place-items:center;border:1px solid var(--line);border-radius:7px;background:var(--surface);font-weight:800}
+  .panel-head h2{margin:0;font-size:14px}
+  .panel-head p{margin:1px 0 0;color:var(--muted);font-size:10.5px}
+  .panel-head .context{margin-left:auto;color:var(--muted);font:10.5px var(--mono);text-align:right}
+  .patient{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line-soft)}
+  .avatar{display:grid;width:42px;height:42px;place-items:center;border-radius:8px;background:var(--primary-bg);color:var(--primary);font-weight:800}
+  .patient strong{display:block;font-size:14px}
+  .patient small{color:var(--muted);font-size:10.5px}
+  .patient .labno{text-align:right;color:var(--regular)}
+  .content{padding:14px}
+  .item{overflow:hidden;border:1px solid var(--line);border-radius:8px}
+  .item-top{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--surface-2);border-bottom:1px solid var(--line-soft)}
+  .item-top .index{color:var(--muted);font:11px var(--mono)}
+  .item-name{flex:1;min-width:0}
+  .item-name strong{display:block;font-size:13px}
+  .item-name small{color:var(--muted);font-size:10.5px}
+  .badges{display:flex;justify-content:flex-end;gap:5px;flex-wrap:wrap;max-width:52%}
+  .badge{display:inline-flex;min-height:22px;align-items:center;padding:2px 7px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--regular);font-size:10px;font-weight:700;white-space:nowrap}
+  .badge.ok{border-color:var(--success-line);background:var(--success-bg);color:var(--success)}
+  .badge.hold{border-color:var(--warning-line);background:var(--warning-bg);color:var(--warning)}
+  .badge.sensitive{border-color:var(--violet-line);background:var(--violet-bg);color:var(--violet)}
+  .result-grid{display:grid;grid-template-columns:minmax(150px,1fr) 115px 90px 110px;min-width:500px}
+  .result-grid>div{padding:9px 10px;border-bottom:1px solid var(--line-soft)}
+  .result-grid.head{background:var(--surface-2);color:var(--muted);font-size:10px;font-weight:700}
+  .result-grid:last-child>div{border-bottom:0}
+  .value{font-size:16px;font-weight:800}
+  .abnormal{color:var(--warning)}
+  .meta-strip{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0 0;padding:8px 10px;border-radius:6px;background:var(--surface-2);color:var(--muted);font-size:10.5px}
+  .meta-strip b{color:var(--regular)}
+  .lab-actions{display:flex;gap:7px;align-items:center;margin-top:12px}
+  .btn{min-height:32px;padding:5px 11px;border:1px solid var(--line);border-radius:6px;background:var(--surface);font-size:11px;font-weight:700}
+  .btn:hover{border-color:var(--primary);color:var(--primary)}
+  .btn.primary{border-color:var(--primary);background:var(--primary);color:#fff}
+  .btn.warning{border-color:var(--warning-line);background:var(--warning-bg);color:var(--warning)}
+  .btn.violet{border-color:var(--violet-line);background:var(--violet);color:#fff}
+  .btn[disabled]{cursor:not-allowed;opacity:.48}
+  .hint{margin-left:auto;color:var(--muted);font-size:10px;text-align:right}
+  .bridge{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--muted);text-align:center;font-size:9.5px}
+  .bridge .line{position:relative;width:54px;height:2px;background:var(--line)}
+  .bridge .line::after{content:"";position:absolute;right:-1px;top:-4px;border:5px solid transparent;border-left-color:var(--line)}
+  .bridge .policy{padding:5px 6px;border:1px solid var(--line);border-radius:6px;background:var(--surface);font-weight:700;color:var(--regular)}
+  .emr-card{border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .emr-card-head{display:flex;gap:9px;align-items:center;padding:10px 12px;background:var(--surface-2);border-bottom:1px solid var(--line-soft)}
+  .emr-card-head strong{font-size:13px}
+  .emr-card-head small{display:block;color:var(--muted);font-size:10.5px}
+  .emr-card-head .status{margin-left:auto}
+  .visible-result{padding:14px 12px}
+  .visible-result .row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;align-items:center}
+  .visible-result .row strong{font-size:13px}
+  .visible-result .measured{font-size:18px;font-weight:800;color:var(--warning)}
+  .visible-result .unit{color:var(--muted)}
+  .visible-result .ref{margin-top:5px;color:var(--muted);font-size:10.5px}
+  .locked{display:grid;justify-items:center;gap:8px;padding:24px 18px;text-align:center;background:repeating-linear-gradient(135deg,var(--surface),var(--surface) 10px,var(--surface-2) 10px,var(--surface-2) 20px)}
+  .locked .lock-icon{display:grid;width:42px;height:42px;place-items:center;border:1px solid var(--line);border-radius:50%;background:var(--surface);font-size:18px}
+  .locked strong{font-size:13px}
+  .locked p{max-width:370px;margin:0;color:var(--muted);font-size:11px}
+  .locked.holding .lock-icon{border-color:var(--warning-line);background:var(--warning-bg);color:var(--warning)}
+  .locked.sensitive .lock-icon{border-color:var(--violet-line);background:var(--violet-bg);color:var(--violet)}
+  .security-note{display:flex;gap:8px;align-items:flex-start;margin-top:10px;padding:8px 10px;border:1px solid var(--line-soft);border-radius:6px;background:var(--surface-2);color:var(--muted);font-size:10px}
+  .audit{margin-top:12px;border-top:1px solid var(--line-soft);padding-top:10px}
+  .audit h3{margin:0 0 7px;font-size:11px}
+  .audit-list{display:grid;gap:5px}
+  .audit-row{display:grid;grid-template-columns:68px 8px 1fr;gap:7px;align-items:start;color:var(--muted);font-size:10px}
+  .audit-row .dot{width:7px;height:7px;margin-top:4px;border-radius:50%;background:var(--line)}
+  .audit-row.current .dot{background:var(--primary)}
+  .audit-row b{color:var(--regular)}
+  .revision-card{margin-top:14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);box-shadow:var(--shadow);overflow:hidden}
+  .revision-head{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--line-soft);background:var(--surface-2)}
+  .revision-head h2{margin:0;font-size:14px}.revision-head p{margin:2px 0 0;color:var(--muted);font-size:10.5px}.revision-head .badge{margin-left:auto}
+  .flow-strip{display:grid;grid-template-columns:1fr 34px 1fr 34px 1fr;gap:7px;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line-soft)}
+  .flow-node{display:grid;gap:3px;min-height:70px;align-content:center;padding:9px 11px;border:1px solid var(--line);border-radius:7px;background:var(--surface-2)}
+  .flow-node b{font-size:11.5px}.flow-node span{color:var(--muted);font-size:9.5px}.flow-arrow{text-align:center;color:var(--primary);font-size:18px;font-weight:800}
+  .revision-layout{display:grid;grid-template-columns:260px minmax(0,1fr);min-height:330px}
+  .revision-rail{border-right:1px solid var(--line-soft);background:var(--surface-2)}
+  .revision-rail-title{padding:9px 11px;border-bottom:1px solid var(--line-soft);color:var(--muted);font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+  .revision-list{display:grid;padding:8px}
+  .revision-node{display:grid;grid-template-columns:16px minmax(0,1fr);gap:8px;width:100%;padding:8px;border:0;border-radius:6px;background:transparent;text-align:left}
+  .revision-node:hover{background:var(--surface)}.revision-node.is-current{background:var(--primary-bg)}
+  .revision-mark{position:relative;display:flex;justify-content:center}.revision-mark::before{content:"";position:absolute;top:12px;bottom:-14px;width:1px;background:var(--line)}.revision-node:last-child .revision-mark::before{display:none}
+  .revision-dot{position:relative;z-index:1;width:9px;height:9px;margin-top:5px;border:2px solid var(--muted);border-radius:50%;background:var(--surface)}
+  .revision-node.is-latest .revision-dot{border-color:var(--success);background:var(--success)}.revision-node.is-held .revision-dot{border-color:var(--warning);background:var(--warning)}
+  .revision-node strong{display:block;font-size:11px}.revision-node small{display:block;color:var(--muted);font:9.5px/1.45 var(--mono)}
+  .revision-tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}.revision-tags .badge{min-height:18px;padding:0 5px;font-size:8.5px}
+  .revision-detail{min-width:0;padding:13px 14px}
+  .revision-detail-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:10px}.revision-detail-head h3{margin:0;font-size:13px}.revision-detail-head p{margin:2px 0 0;color:var(--muted);font-size:10px}.revision-detail-head .badges{margin-left:auto;max-width:none}
+  .old-alert{display:flex;justify-content:space-between;gap:10px;margin-bottom:10px;padding:7px 9px;border:1px solid var(--warning-line);border-radius:6px;background:var(--warning-bg);color:var(--warning);font-size:10px}
+  .snapshot{overflow-x:auto;border:1px solid var(--line);border-radius:7px}.snapshot-grid{display:grid;grid-template-columns:56px minmax(170px,1fr) 105px 105px 90px;min-width:600px}
+  .snapshot-grid>span{padding:7px 9px;border-bottom:1px solid var(--line-soft);font-size:10.5px}.snapshot-grid.head{background:var(--surface-2);color:var(--muted);font-weight:700}.snapshot-grid:last-child>span{border-bottom:0}.snapshot-grid .changed{color:var(--warning);font-weight:800}
+  .revision-meta{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:7px;margin-top:10px}.revision-meta div{min-width:0;padding:7px 9px;border-radius:6px;background:var(--surface-2)}.revision-meta span{display:block;color:var(--muted);font-size:8.5px}.revision-meta strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:10px var(--mono)}
+  .schema-wrap{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:8px;padding:12px 14px;border-top:1px solid var(--line-soft);background:var(--surface-2)}
+  .schema-group{padding:9px 10px;border:1px solid var(--line);border-radius:7px;background:var(--surface)}.schema-group b{display:block;margin-bottom:5px;font-size:10.5px}.schema-group code{display:block;color:var(--muted);font:9px/1.65 var(--mono)}
+  .policy-section{margin-top:14px;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(320px,.85fr);gap:12px}
+  .card{border:1px solid var(--line);border-radius:9px;background:var(--surface);box-shadow:var(--shadow);overflow:hidden}
+  .card h2{margin:0;padding:11px 13px;border-bottom:1px solid var(--line-soft);background:var(--surface-2);font-size:13px}
+  .matrix{width:100%;border-collapse:collapse;font-size:11px}
+  .matrix th,.matrix td{padding:9px 10px;border-bottom:1px solid var(--line-soft);text-align:left;vertical-align:top}
+  .matrix th{color:var(--muted);font-size:10px;background:var(--surface-2)}
+  .matrix tr:last-child td{border-bottom:0}
+  .matrix .yes{color:var(--success);font-weight:700}.matrix .no{color:var(--danger);font-weight:700}.matrix .auth{color:var(--violet);font-weight:700}
+  .contract{padding:12px 14px}
+  .contract ol{margin:0;padding-left:20px}
+  .contract li{margin:0 0 8px}
+  .contract li:last-child{margin-bottom:0}
+  .contract code{padding:1px 4px;border-radius:4px;background:var(--surface-3);font:10px var(--mono)}
+  .contract small{display:block;margin-top:2px;color:var(--muted);font-size:10px}
+  .dialog-backdrop{position:fixed;inset:0;z-index:30;display:none;place-items:center;padding:20px;background:rgba(17,24,39,.55)}
+  .dialog-backdrop.open{display:grid}
+  .dialog{width:min(430px,100%);overflow:hidden;border:1px solid var(--line);border-radius:10px;background:var(--surface);box-shadow:0 24px 70px rgba(0,0,0,.3)}
+  .dialog-head{display:flex;gap:10px;align-items:center;padding:13px 15px;border-bottom:1px solid var(--line-soft)}
+  .dialog-head .lock-icon{display:grid;width:34px;height:34px;place-items:center;border-radius:7px;background:var(--violet-bg);color:var(--violet)}
+  .dialog-head strong{display:block;font-size:14px}.dialog-head small{color:var(--muted);font-size:10px}
+  .dialog-body{padding:14px 15px}
+  .dialog-scope{padding:9px 10px;border:1px solid var(--violet-line);border-radius:6px;background:var(--violet-bg);color:var(--regular);font-size:10.5px}
+  .field{display:grid;gap:4px;margin-top:11px}.field label{font-size:10.5px;font-weight:700}.field input,.field textarea{width:100%;min-height:36px;padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+  .field input[readonly]{background:var(--surface-2);color:var(--muted)}
+  .dialog-help{margin:10px 0 0;color:var(--muted);font-size:10px}
+  .dialog-actions{display:flex;justify-content:flex-end;gap:7px;padding:10px 15px;border-top:1px solid var(--line-soft);background:var(--surface-2)}
+  .toast{position:fixed;right:18px;bottom:18px;z-index:40;max-width:420px;padding:10px 13px;border:1px solid var(--success-line);border-radius:7px;background:var(--success-bg);color:var(--success);box-shadow:var(--shadow);font-size:11px;font-weight:700;opacity:0;transform:translateY(10px);pointer-events:none;transition:.18s}
+  .toast.show{opacity:1;transform:none}
+  @media(max-width:1050px){.scenario-bar{grid-template-columns:repeat(2,minmax(0,1fr))}.stage{grid-template-columns:1fr}.bridge{min-height:62px}.bridge .line{transform:rotate(90deg)}.revision-layout{grid-template-columns:220px minmax(0,1fr)}.schema-wrap{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media(max-width:640px){.shell{padding:12px 10px 40px}.top{align-items:flex-start}.top .right{display:none}.scenario-bar{grid-template-columns:1fr}.simulator{align-items:stretch;flex-direction:column}.policy-section{grid-template-columns:1fr}.patient{grid-template-columns:auto 1fr}.patient .labno{grid-column:2;text-align:left}.badges{max-width:none}.item-top{display:grid;grid-template-columns:auto minmax(0,1fr)}.item-top .badges{grid-column:1/-1;justify-content:flex-start}.result-scroll{overflow-x:auto}.lab-actions{align-items:stretch;flex-direction:column}.hint{margin:0;text-align:left}.revision-layout{grid-template-columns:1fr}.revision-rail{border-right:0;border-bottom:1px solid var(--line-soft)}.revision-meta{grid-template-columns:repeat(2,minmax(0,1fr))}.schema-wrap{grid-template-columns:1fr}.flow-strip{grid-template-columns:1fr}.flow-arrow{transform:rotate(90deg)}.matrix-wrap{overflow-x:auto}.matrix{min-width:690px}}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<main class="shell">
+  <div class="notice"><span aria-hidden="true">◈</span><div><strong>Prototype เพื่อยืนยัน policy — ยังไม่ใช่หน้าจอ production</strong><br>ข้อมูลเป็นตัวอย่างสมมติ ปุ่มยืนยันตัวตนจำลองเฉพาะ interaction และไม่ส่ง username/password ไปที่ระบบใด</div></div>
+
+  <header class="top">
+    <div><h1>การมองเห็นผล LAB ระหว่าง LAB → EMR</h1><p>แยก “พักเผยแพร่ผลที่กำลังตรวจซ้ำ” ออกจาก “ผล Sensitive ที่ต้องยืนยันตัวตน”</p></div>
+    <div class="right">Policy draft · 25 ก.ย. 2569<br><span class="mono">result visibility / access control</span></div>
+  </header>
+
+  <nav class="scenario-bar" aria-label="เลือกกรณีทดสอบ">
+    <button class="scenario" data-scenario="normal" aria-pressed="true"><span class="n">01</span><span><strong>ผลทั่วไป</strong><small>LAB และ EMR เห็นผลล่าสุดตามปกติ</small></span></button>
+    <button class="scenario" data-scenario="hold" aria-pressed="false"><span class="n">02</span><span><strong>LAB กำลังตรวจซ้ำ</strong><small>พักเผยแพร่เฉพาะ revision ปัจจุบัน</small></span></button>
+    <button class="scenario" data-scenario="sensitive" aria-pressed="false"><span class="n">03</span><span><strong>ผล Sensitive</strong><small>LAB เห็น · EMR ต้องยืนยันตัวตน</small></span></button>
+    <button class="scenario" data-scenario="both" aria-pressed="false"><span class="n">04</span><span><strong>Sensitive + ตรวจซ้ำ</strong><small>พักเผยแพร่มีลำดับสูงกว่าการ re-auth</small></span></button>
+  </nav>
+
+  <aside class="simulator" aria-label="ตัวควบคุม Prototype">
+    <div class="sim-copy"><strong>ตัวควบคุม Prototype — ไม่ใช่ปุ่มในระบบงานจริง</strong><small>ใช้แทนเหตุการณ์ที่ LIS ส่ง callback ผลรายการเดิมเข้ามาใหม่ทั้งก้อนด้วย LAB No. และรหัสเดิม ระบบรับเข้าอัตโนมัติ</small></div>
+    <button class="btn primary" id="inboundBtn">จำลอง LIS callback ผลทั้งก้อนรอบถัดไป</button>
+  </aside>
+
+  <section class="stage" aria-label="เปรียบเทียบหน้าห้อง LAB และ EMR">
+    <article class="panel" aria-labelledby="labTitle">
+      <header class="panel-head"><span class="mark">L</span><div><h2 id="labTitle">LAB Workbench</h2><p>เจ้าหน้าที่ห้องปฏิบัติการ · เห็นค่าจริงเสมอ</p></div><div class="context">BC<br>today mode</div></header>
+      <div class="patient"><span class="avatar">กช</span><div><strong>ผู้ป่วยตัวอย่าง ก.</strong><small>HN SAMPLE-001 · OPD กุมารเวช</small></div><div class="labno"><b class="mono">LAB-TEST-029</b><br><small>ออกผล 13:41</small></div></div>
+      <div class="content">
+        <div class="item">
+          <div class="item-top"><span class="index">1</span><div class="item-name"><strong>Electrolyte panel · ผลทั้งก้อน</strong><small>4 observations · ข้อมูลตัวอย่างสมมติ</small></div><div class="badges" id="labBadges"></div></div>
+          <div class="result-scroll" id="labResults"></div>
+        </div>
+        <div class="meta-strip" id="labMeta"></div>
+        <div class="lab-actions">
+          <button class="btn warning" id="holdBtn">พักเผยแพร่ผลนี้</button>
+          <span class="hint" id="labHint"></span>
+        </div>
+        <div class="audit"><h3>Audit ที่ห้อง LAB เห็น</h3><div class="audit-list" id="auditList"></div></div>
+      </div>
+    </article>
+
+    <div class="bridge" aria-hidden="true"><span class="policy">API ตัดสิน</span><span class="line"></span><span>ส่ง state<br>ไม่ส่งค่าที่ถูกล็อก</span></div>
+
+    <article class="panel" aria-labelledby="emrTitle">
+      <header class="panel-head"><span class="mark">E</span><div><h2 id="emrTitle">EMR · ผลห้องปฏิบัติการ</h2><p>แพทย์/ผู้ใช้งาน EMR · อ่านตาม access policy</p></div><div class="context">current visit<br>read only</div></header>
+      <div class="patient"><span class="avatar">กช</span><div><strong>ผู้ป่วยตัวอย่าง ก.</strong><small>HN SAMPLE-001 · Visit SAMPLE-VN</small></div><div class="labno"><b class="mono">LAB-TEST-029</b><br><small>ผลล่าสุด revision <span data-revision>3</span></small></div></div>
+      <div class="content">
+        <div class="emr-card">
+          <div class="emr-card-head"><div><strong>เคมีคลินิก</strong><small>Electrolyte panel · ผลล่าสุดทั้งชุด</small></div><span class="status badge" id="emrStatus"></span></div>
+          <div id="emrBody"></div>
+        </div>
+        <div class="security-note"><span>ⓘ</span><span id="securityNote"></span></div>
+        <div class="audit"><h3>เหตุการณ์ฝั่ง EMR</h3><div class="audit-list" id="emrAudit"></div></div>
+      </div>
+    </article>
+  </section>
+
+  <section class="revision-card" aria-labelledby="revisionTitle">
+    <header class="revision-head"><div><h2 id="revisionTitle">LAB Result Revision Log</h2><p>ฟอร์มประวัติผลแบบ X-ray concept · เก็บ snapshot ที่รับสำเร็จแบบ immutable</p></div><span class="badge ok">1 callback = 1 revision</span></header>
+    <div class="flow-strip" aria-label="โครงสร้างข้อมูลผล LAB">
+      <div class="flow-node"><b>1 · Technical Receipt</b><span>raw inbound + dedupe ด้วย result_uid<br><span class="mono">zdata_lab_result_inbound</span></span></div><div class="flow-arrow">→</div>
+      <div class="flow-node"><b>2 · Result Revision Log</b><span>snapshot ผลทั้งก้อนทุกครั้งที่รับสำเร็จ<br><span class="mono">zdata_lab_result_revision_log</span></span></div><div class="flow-arrow">→</div>
+      <div class="flow-node"><b>3 · Current Result Items</b><span>projection ล่าสุดสำหรับหน้าทำงานและ EMR<br><span class="mono">zdata_lab_result_item</span></span></div>
+    </div>
+    <div class="revision-layout">
+      <aside class="revision-rail"><div class="revision-rail-title">ประวัติ callback ของ LAB No. นี้</div><div class="revision-list" id="revisionRail"></div></aside>
+      <div class="revision-detail" id="revisionDetail"></div>
+    </div>
+    <div class="schema-wrap" aria-label="ฟิลด์ที่เสนอสำหรับ LAB Result Revision Log">
+      <div class="schema-group"><b>Identity</b><code>revision_id</code><code>order_no</code><code>filler_order_no</code><code>result_uid</code></div>
+      <div class="schema-group"><b>Sequence / source</b><code>report_seq</code><code>stage</code><code>receipt_seq</code><code>source_reported_at</code></div>
+      <div class="schema-group"><b>Links / snapshot</b><code>receipt_id</code><code>report_id</code><code>previous_revision_id</code><code>items_snapshot_json</code><code>item_count / changed_item_count</code></div>
+      <div class="schema-group"><b>Audit / integrity</b><code>received_at</code><code>schema_version</code><code>payload_hash</code><code>ingest_status</code></div>
+    </div>
+  </section>
+
+  <section class="policy-section">
+    <article class="card"><h2>ตารางตัดสินใจที่เสนอ</h2><div class="matrix-wrap"><table class="matrix">
+      <thead><tr><th>LAB hold ตรงกับ revision ปัจจุบัน</th><th>Sensitive จาก CPOE master</th><th>LAB เห็นค่า</th><th>EMR เห็นค่า</th><th>การทำงานของเจ้าหน้าที่</th></tr></thead>
+      <tbody>
+        <tr><td>ไม่</td><td>ไม่</td><td class="yes">เห็น</td><td class="yes">เห็นทันที</td><td>ไม่มีงานเพิ่ม</td></tr>
+        <tr><td>ใช่</td><td>ไม่</td><td class="yes">เห็น</td><td class="no">ไม่เห็น · แจ้งกำลังตรวจสอบ</td><td>กด “พักเผยแพร่” 1 ครั้ง; callback revision ใหม่เปิดเอง</td></tr>
+        <tr><td>ไม่</td><td>ใช่</td><td class="yes">เห็น</td><td class="auth">ยืนยันตัวตนก่อนดู</td><td>LAB ไม่ต้องทำอะไรเพิ่ม</td></tr>
+        <tr><td>ใช่</td><td>ใช่</td><td class="yes">เห็น</td><td class="no">ไม่เห็น แม้ re-auth แล้ว</td><td>รอผลใหม่/ยกเลิกพัก; จากนั้น EMR จึง re-auth</td></tr>
+      </tbody>
+    </table></div></article>
+    <article class="card"><h2>Contract เชื่อม LAB กับ EMR/CPOE</h2><div class="contract"><ol>
+      <li><b>Snapshot policy ตอนสั่งตรวจ</b><small>อ่าน flag เดิม <code>pick_master.is_hide_result</code> แล้ว normalize เป็น <code>sensitive=true</code>; ห้ามให้ LAB เปลี่ยน policy นี้</small></li>
+      <li><b>เก็บประวัติเป็นผลทั้งก้อน</b><small>ทุก accepted callback สร้าง immutable row ใน <code>zdata_lab_result_revision_log</code> แล้วจึงอัปเดต current Result Items ใน transaction เดียวกัน</small></li>
+      <li><b>พักเผยแพร่ต้องผูก revision</b><small>เก็บ <code>held_revision_id</code> + เหตุผล/ผู้ทำ/เวลาแยกจาก immutable log; effective hold เมื่อเท่ากับ <code>active_revision_id</code> เท่านั้น</small></li>
+      <li><b>EMR รับ state ก่อนรับค่า</b><small>API คืน <code>withheld</code>, <code>reauth_required</code> หรือ <code>visible</code>; กรณีล็อกห้ามส่ง raw value มาแค่ซ่อนด้วย CSS</small></li>
+      <li><b>Re-auth ผ่าน API กลาง</b><small>server ตรวจรหัสผ่านและออก grant อายุสั้น ผูก user + patient + order + revision พร้อม audit การเปิดดู</small></li>
+    </ol></div></article>
+  </section>
+</main>
+
+<div class="dialog-backdrop" id="authDialog" role="presentation">
+  <section class="dialog" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+    <header class="dialog-head"><span class="lock-icon">▣</span><div><strong id="authTitle">ยืนยันตัวตนเพื่อดูผล Sensitive</strong><small>ยืนยันบัญชีผู้ใช้งานปัจจุบันอีกครั้ง</small></div></header>
+    <div class="dialog-body">
+      <div class="dialog-scope"><b>ขอบเขตการอนุญาต</b><br>ผู้ป่วยตัวอย่าง ก. · Electrolyte panel · revision <span data-revision>3</span><br>อนุญาตเฉพาะหน้าจอนี้เป็นเวลา 5 นาที</div>
+      <div class="field"><label for="username">Username</label><input id="username" value="current.user" readonly autocomplete="username"></div>
+      <div class="field"><label for="password">Password</label><input id="password" type="password" placeholder="กรอกรหัสผ่านอีกครั้ง" autocomplete="current-password"></div>
+      <div class="field"><label for="purpose">เหตุผลการเปิดดู</label><textarea id="purpose" rows="2">ใช้ประกอบการรักษาผู้ป่วยใน visit ปัจจุบัน</textarea></div>
+      <p class="dialog-help">Prototype นี้ตรวจเพียงว่ากรอกช่องครบ ในระบบจริงต้องส่งผ่าน API ยืนยันตัวตนกลางเท่านั้น และห้ามบันทึกรหัสผ่านลง audit/log</p>
+    </div>
+    <footer class="dialog-actions"><button class="btn" id="cancelAuth">ยกเลิก</button><button class="btn violet" id="confirmAuth">ยืนยันและดูผล</button></footer>
+  </section>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  const baseRevisions=[
+    {id:1,uid:'LAB-TEST-029-R01',reportSeq:1,receiptSeq:1,stage:'PRELIMINARY',receivedAt:'13:26',reportedAt:'13:25',receiptId:'RCPT-029-01',reportId:'RPT-029-01',items:[
+      {code:'NA',name:'Sodium',value:'137',unit:'mmol/L',ref:'136 – 145',flag:''},{code:'K',name:'Potassium',value:'6.4 H',unit:'mmol/L',ref:'3.5 – 5.1',flag:'H'},{code:'CL',name:'Chloride',value:'102',unit:'mmol/L',ref:'98 – 107',flag:''},{code:'CO2',name:'CO₂',value:'22',unit:'mmol/L',ref:'21 – 31',flag:''}
+    ]},
+    {id:2,uid:'LAB-TEST-029-R02',reportSeq:2,receiptSeq:2,stage:'FINAL',receivedAt:'13:34',reportedAt:'13:33',receiptId:'RCPT-029-02',reportId:'RPT-029-02',items:[
+      {code:'NA',name:'Sodium',value:'137',unit:'mmol/L',ref:'136 – 145',flag:''},{code:'K',name:'Potassium',value:'6.1 H',unit:'mmol/L',ref:'3.5 – 5.1',flag:'H'},{code:'CL',name:'Chloride',value:'102',unit:'mmol/L',ref:'98 – 107',flag:''},{code:'CO2',name:'CO₂',value:'23',unit:'mmol/L',ref:'21 – 31',flag:''}
+    ]},
+    {id:3,uid:'LAB-TEST-029-R03',reportSeq:3,receiptSeq:3,stage:'FINAL',receivedAt:'13:41',reportedAt:'13:40',receiptId:'RCPT-029-03',reportId:'RPT-029-03',items:[
+      {code:'NA',name:'Sodium',value:'137',unit:'mmol/L',ref:'136 – 145',flag:''},{code:'K',name:'Potassium',value:'6.2 H',unit:'mmol/L',ref:'3.5 – 5.1',flag:'H'},{code:'CL',name:'Chloride',value:'103',unit:'mmol/L',ref:'98 – 107',flag:''},{code:'CO2',name:'CO₂',value:'23',unit:'mmol/L',ref:'21 – 31',flag:''}
+    ]}
+  ];
+  let revisions=[];
+  const state={scenario:'normal',revision:3,holdRevision:null,sensitive:false,authorizedRevision:null,selectedRevision:3};
+  const $=id=>document.getElementById(id);
+  const all=(q)=>Array.from(document.querySelectorAll(q));
+  const cloneBase=()=>JSON.parse(JSON.stringify(baseRevisions));
+  const active=()=>revisions.find(row=>row.id===state.revision);
+  let toastTimer=null;
+  const toast=(message)=>{const el=$('toast');el.textContent=message;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),2600)};
+  const effectiveHold=()=>state.holdRevision===state.revision;
+  const isAuthorized=()=>state.sensitive&&state.authorizedRevision===state.revision&&!effectiveHold();
+  const setScenario=(name)=>{
+    revisions=cloneBase();state.scenario=name;state.revision=3;state.selectedRevision=3;state.authorizedRevision=null;
+    state.sensitive=name==='sensitive'||name==='both';
+    state.holdRevision=name==='hold'||name==='both'?3:null;
+    all('.scenario').forEach(btn=>btn.setAttribute('aria-pressed',String(btn.dataset.scenario===name)));
+    render();
+  };
+  const auditRow=(time,text,current=false)=>`<div class="audit-row${current?' current':''}"><span class="mono">${time}</span><span class="dot"></span><span>${text}</span></div>`;
+  const resultRows=(items)=>'<div class="result-grid head"><div>รายการตรวจ</div><div>ค่าที่ตรวจได้</div><div>หน่วย</div><div>Ref. Range</div></div>'+items.map(item=>`<div class="result-grid"><div><strong>${item.name}</strong><br><small class="mono" style="color:var(--muted)">${item.code}</small></div><div><span class="value${item.flag?' abnormal':''}">${item.value}</span></div><div>${item.unit}</div><div class="mono">${item.ref}</div></div>`).join('');
+  const changedCount=(row)=>{
+    const previous=revisions.find(item=>item.id===row.id-1);
+    if(!previous)return row.items.length;
+    return row.items.filter(item=>previous.items.find(old=>old.code===item.code)?.value!==item.value).length;
+  };
+  const renderRevisionLog=()=>{
+    $('revisionRail').innerHTML=[...revisions].reverse().map(row=>{
+      const latest=row.id===state.revision,selected=row.id===state.selectedRevision,held=row.id===state.holdRevision;
+      return `<button class="revision-node${selected?' is-current':''}${latest?' is-latest':''}${held?' is-held':''}" data-revision-select="${row.id}"><span class="revision-mark"><span class="revision-dot"></span></span><span><strong>Revision ${row.id} · ${row.receivedAt}</strong><small>${row.stage} · report_seq ${row.reportSeq}</small><span class="revision-tags">${latest?'<span class="badge ok">CURRENT</span>':'<span class="badge">ถูกแทนที่</span>'}${held?'<span class="badge hold">เคย/กำลังพัก</span>':''}</span></span></button>`;
+    }).join('');
+    all('[data-revision-select]').forEach(button=>button.addEventListener('click',()=>{state.selectedRevision=Number(button.dataset.revisionSelect);renderRevisionLog()}));
+    const row=revisions.find(item=>item.id===state.selectedRevision)||active();
+    const previous=revisions.find(item=>item.id===row.id-1);
+    const latest=row.id===state.revision;
+    const rows='<div class="snapshot-grid head"><span>#</span><span>รายการตรวจ</span><span>ค่าใน revision</span><span>ค่ารอบก่อน</span><span>สถานะ</span></div>'+row.items.map((item,index)=>{
+      const old=previous?.items.find(value=>value.code===item.code);const changed=!old||old.value!==item.value;
+      return `<div class="snapshot-grid"><span>${index+1}</span><span><b>${item.name}</b> <small class="mono">${item.code}</small></span><span class="${changed?'changed':''}">${item.value} ${item.unit}</span><span>${old?old.value:'—'}</span><span>${changed?'เปลี่ยน':'คงเดิม'}</span></div>`;
+    }).join('');
+    $('revisionDetail').innerHTML=`<div class="revision-detail-head"><div><h3>Revision ${row.id} · snapshot ผลทั้งก้อน</h3><p>อ่านย้อนหลังเท่านั้น · ${row.items.length} observations · เปลี่ยนจากรอบก่อน ${changedCount(row)} รายการ</p></div><div class="badges"><span class="badge ${latest?'ok':''}">${latest?'CURRENT':'HISTORY'}</span><span class="badge">${row.stage}</span></div></div>${latest?'':`<div class="old-alert"><span>นี่คือผลประวัติที่ถูก revision ใหม่แทนที่แล้ว</span><b>ไม่ใช้แสดงเป็นผลปัจจุบัน</b></div>`}<div class="snapshot">${rows}</div><div class="revision-meta"><div><span>result_uid</span><strong>${row.uid}</strong></div><div><span>report_seq / receipt_seq</span><strong>${row.reportSeq} / ${row.receiptSeq}</strong></div><div><span>received / source reported</span><strong>${row.receivedAt} / ${row.reportedAt}</strong></div><div><span>receipt_id / report_id</span><strong>${row.receiptId} / ${row.reportId}</strong></div></div>`;
+  };
+  const render=()=>{
+    const bundle=active();
+    all('[data-revision]').forEach(el=>el.textContent=state.revision);
+    const held=effectiveHold(),auth=isAuthorized();
+    const badges=[];
+    badges.push(`<span class="badge ok">ออกผลแล้ว · revision ${state.revision}</span>`);
+    if(state.sensitive)badges.push('<span class="badge sensitive">Sensitive · EMR re-auth</span>');
+    if(held)badges.push(`<span class="badge hold">พักเผยแพร่ revision ${state.holdRevision}</span>`);
+    $('labBadges').innerHTML=badges.join('');
+    $('labResults').innerHTML=resultRows(bundle.items);
+    $('labMeta').innerHTML=`<span><b>LAB เห็นค่า:</b> เสมอ</span><span><b>active revision:</b> ${state.revision}</span><span><b>policy:</b> ${state.sensitive?'sensitive':'standard'}</span><span><b>effective hold:</b> ${held?'yes · revision '+state.holdRevision:'no'}</span>`;
+    $('holdBtn').textContent=held?'ยกเลิกพักเผยแพร่':'พักเผยแพร่ผลนี้';
+    $('holdBtn').className='btn '+(held?'':'warning');
+    $('labHint').textContent=held?'ไม่มีปุ่มส่ง/ตรวจซ้ำ · รอ LIS callback ทั้งก้อน แล้ว revision ใหม่เปิดเผยเอง':'งานจริงไม่มีปุ่มส่งซ้ำ · ระบบรับ callback จาก LIS อัตโนมัติ';
+    $('auditList').innerHTML=
+      auditRow(bundle.receivedAt,`รับ callback revision ${state.revision} ทั้งก้อนจาก LIS · ${bundle.items.length} observations`,!held)+
+      (state.sensitive?auditRow('เมื่อสั่ง','CPOE snapshot: <b>Sensitive</b> · policy คงเดิม'):'')+
+      (state.holdRevision?auditRow('13:50',`LAB พักเผยแพร่ revision ${state.holdRevision} · เหตุผล: รอตรวจซ้ำ`,held):'')+
+      (!held&&state.holdRevision?auditRow('ล่าสุด',`revision ${state.revision} ใหม่กว่า held revision ${state.holdRevision} · เปิดเผยอัตโนมัติ`,true):'');
+    if(held){
+      $('emrStatus').className='status badge hold';$('emrStatus').textContent='กำลังตรวจสอบ';
+      $('emrBody').innerHTML='<div class="locked holding"><span class="lock-icon">↻</span><strong>ห้องปฏิบัติการกำลังตรวจสอบผลชุดนี้</strong><p>revision ปัจจุบันยังไม่เผยแพร่ เมื่อ LIS ส่งผลเดิมเข้ามาใหม่ทั้งก้อน ระบบจะแสดง revision ล่าสุดให้อัตโนมัติ</p></div>';
+      $('securityNote').textContent=state.sensitive?'รายการนี้เป็น Sensitive ด้วย แต่ยังไม่เปิดขั้นยืนยันตัวตนจนกว่า LAB จะเผยแพร่ผลล่าสุด':'EMR ได้รับเพียงสถานะ withheld และ metadata ที่จำเป็น โดยไม่ได้รับค่าผลตรวจดิบ';
+      $('emrAudit').innerHTML=auditRow('ล่าสุด','API ตอบ <b>withheld</b> · ไม่ส่ง raw result',true);
+    }else if(state.sensitive&&!auth){
+      $('emrStatus').className='status badge sensitive';$('emrStatus').textContent='Sensitive';
+      $('emrBody').innerHTML='<div class="locked sensitive"><span class="lock-icon">▣</span><strong>ผลรายการนี้ต้องยืนยันตัวตนก่อนเปิดดู</strong><p>ยืนยันบัญชีผู้ใช้งานปัจจุบันอีกครั้ง ระบบจะบันทึกผู้เปิดดู เหตุผล และวันเวลา</p><button class="btn violet" id="openAuth">ยืนยันตัวตนเพื่อดูผล</button></div>';
+      $('openAuth').addEventListener('click',openAuth);
+      $('securityNote').textContent='ห้อง LAB เห็นผลได้ตามปกติ; EMR API ยังไม่ส่งค่าจริงจนกว่าจะได้รับ access grant ที่ถูกต้อง';
+      $('emrAudit').innerHTML=auditRow('ล่าสุด','API ตอบ <b>reauth_required</b> · ยังไม่ส่ง raw result',true);
+    }else{
+      $('emrStatus').className='status badge '+(state.sensitive?'sensitive':'ok');$('emrStatus').textContent=state.sensitive?'ยืนยันแล้ว · 05:00':'เผยแพร่แล้ว';
+      $('emrBody').innerHTML='<div class="visible-result">'+bundle.items.map(item=>`<div class="row"><div><strong>${item.name}</strong><br><small class="mono" style="color:var(--muted)">${item.code} · revision ${state.revision}</small></div><span class="measured">${item.value}</span><span class="unit">${item.unit}</span></div>`).join('')+'<div class="ref">ผลทั้งชุดจาก LIS · active revision '+state.revision+'</div></div>';
+      $('securityNote').textContent=state.sensitive?'สิทธิ์ดูผลผูกกับผู้ใช้ ผู้ป่วย order และ revision; ปิด popup/เปลี่ยนผู้ป่วย/หมดเวลาแล้วต้องล็อกใหม่':'ผลทั่วไปแสดงจาก active revision โดยไม่เพิ่มขั้นตอนให้ผู้ใช้งาน';
+      $('emrAudit').innerHTML=state.sensitive
+        ?auditRow('เมื่อสักครู่','re-auth สำเร็จ · ออก grant เฉพาะ revision นี้',true)+auditRow('ล่าสุด','API ตอบ <b>visible</b> พร้อมผลที่อนุญาต')
+        :auditRow('ล่าสุด','API ตอบ <b>visible</b> · แสดงผลตามปกติ',true);
+    }
+    renderRevisionLog();
+  };
+  const openAuth=()=>{$('password').value='';$('authDialog').classList.add('open');setTimeout(()=>$('password').focus(),0)};
+  const closeAuth=()=>$('authDialog').classList.remove('open');
+  all('.scenario').forEach(btn=>btn.addEventListener('click',()=>setScenario(btn.dataset.scenario)));
+  $('holdBtn').addEventListener('click',()=>{
+    if(effectiveHold()){state.holdRevision=null;toast('ยกเลิกพักเผยแพร่แล้ว · EMR ประเมิน policy ใหม่ทันที')}
+    else{state.holdRevision=state.revision;state.authorizedRevision=null;toast(`พักเผยแพร่ revision ${state.revision} แล้ว`)}
+    render();
+  });
+  $('inboundBtn').addEventListener('click',()=>{
+    const next=state.revision+1;const previous=active();
+    const values=next===4?['138','4.8','103','24']:[String(138+(next%2)),(4.7+(next%3)/10).toFixed(1),'103','24'];
+    const items=previous.items.map((item,index)=>({...item,value:values[index],flag:''}));
+    revisions.push({id:next,uid:`LAB-TEST-029-R${String(next).padStart(2,'0')}`,reportSeq:next,receiptSeq:next,stage:'CORRECTED',receivedAt:next===4?'14:08':'14:'+(8+next),reportedAt:next===4?'14:07':'14:'+(7+next),receiptId:`RCPT-029-${String(next).padStart(2,'0')}`,reportId:`RPT-029-${String(next).padStart(2,'0')}`,items});
+    state.revision=next;state.selectedRevision=next;state.authorizedRevision=null;
+    toast(`รับ LIS callback revision ${next} ทั้งก้อน · held revision เดิมไม่ตามมาล็อก`);render();
+  });
+  $('cancelAuth').addEventListener('click',closeAuth);
+  $('authDialog').addEventListener('click',e=>{if(e.target===$('authDialog'))closeAuth()});
+  $('confirmAuth').addEventListener('click',()=>{
+    if(!$('password').value||!$('purpose').value.trim()){toast('กรุณากรอกรหัสผ่านและเหตุผลการเปิดดู');return}
+    state.authorizedRevision=state.revision;closeAuth();toast('จำลองยืนยันตัวตนสำเร็จ · เปิดดูผลได้ 5 นาที');render();
+  });
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')closeAuth()});
+  setScenario('normal');
+})();
+</script>
+</body>
+</html>
