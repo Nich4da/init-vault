@@ -31,4 +31,5 @@ updated: 2026-09-25
 
 - Immutable export: `Form-Builder/SDForm/backup/emr-history-6a96557e422c1ca959829eae-export-2026-09-24_18-03-01.json`.
 - NALO LAB/image: HN `6900023`, visit `6900317`; X-ray: HN `6900031`, visit `6900256`.
-- Mongo is read-only. Commits `c770208`, `b82b548` are on `origin/main`; current component work is uncommitted in a heavily dirty shared worktree.
+- Mongo is read-only. Commit `03f9b5d` on `origin/main` carries the X-ray/LAB/EMR checkpoint; `tmp/` is now gitignored. Staged-tree suite baseline: 33 pass / 10 pre-existing fails.
+- `origin` is a **PUBLIC** repo (`Nich4da/init-vault`) — never commit the localhost print-agent token. Held back on disk, uncommitted: `build_xray_cpoe_worklist_ui.js`, `xray-cpoe-worklist-v1.json`, `lab-cpoe-worklist-waiting-v1.json`, `test_xray_cpoe_worklist_form.js`, the 6 tests that read them, and the finance-gate edits in `update_lab_cpoe_worklist_ui.js`. Sanitize the token to a placeholder/env before committing them.

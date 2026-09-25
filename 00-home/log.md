@@ -4200,3 +4200,9 @@ Append-only, chronological. Newest at the bottom. Each entry header is
 - Runtime ยืนยันว่าไฟล์ทั้ง 2 ถูกบันทึกจริง แต่ direct `v-model:file-list` ทำให้ Components widget ขึ้น `Unable to display this content` หลัง callback จบ; refresh แล้วข้อมูลกลับมาเพราะ persistence สำเร็จ.
 - ถอดทั้ง `:file-list`/`v-model:file-list` และ Element `limit` ออกจาก uploader เพื่อให้ pending list เป็น internal state; กฎ 10 ไฟล์/10 MB ต่อไฟล์/50 MB รวมยังบังคับใน `beforeResultUpload` และคิวบันทึกเดิมไม่เปลี่ยน.
 - ถอด argument ตัวเลขจาก batch notification เพราะ runtime แสดง `3000` เป็น title. Form/API tests, SDForm validator, generated-artifact checks และ `git diff --check` ผ่าน; ต้อง re-import Form JSON และยืนยัน runtime.
+
+## [2026-09-25] note | commit + push checkpoint X-ray/LAB/EMR
+- Commit `03f9b5d`: 202 ไฟล์ (X-ray CPOE/RIS, LAB cancellation + attachments, EMR LAB result card, Report Factory builders, design/handoff docs).
+- ตรวจ tree ที่ staged ด้วย `git checkout-index` ก่อน commit: 33 เทสผ่าน / 10 แดง ซึ่งเป็น 10 ตัวเดิมที่แดงอยู่ก่อนแล้วใน worktree; SDForm validator ผ่านทุกฟอร์มที่เราเขียนเอง (ไม่ใช้กับ module/SQL export ที่ดึงจากระบบจริง).
+- กันไว้ไม่ commit เพราะ `origin` เป็น repo public และไฟล์เตือนเองว่า "ห้าม push ขึ้นที่สาธารณะ": 4 ไฟล์ที่มี print-agent token + 6 เทสที่อ่านไฟล์เหล่านั้น (ไม่งั้น tree ที่ push จะมีเทสพัง) + ส่วน finance gate ใน `update_lab_cpoe_worklist_ui.js` ที่ design ยังรออนุมัติ. ทุกไฟล์ยังอยู่ในเครื่องครบ.
+- `tmp/` (3 MB scratch) ถอดออกจาก commit และใส่ `.gitignore` แทน.
