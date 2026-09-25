@@ -1,0 +1,663 @@
+{
+  "_readme": "ชุด parameter สำหรับทดสอบ RIS Order endpoint (POST application/json) สัญญาทั้งหมดดึงมาจาก Form-Builder/SDForm/X-ray/xray_order.json ไม่ได้แต่งขึ้นเอง ข้อมูลผู้ป่วยทุกตัวเป็นค่าสมมติล้วน ห้ามแทนที่ด้วยข้อมูลจริงในไฟล์นี้",
+  "contract": {
+    "source": "Form-Builder/SDForm/X-ray/xray_order.json",
+    "transport": "POST application/json",
+    "required": [
+      "Hn",
+      "PatientFName",
+      "PatientGender",
+      "PatientDob",
+      "PatientSsn",
+      "PatientClassUid",
+      "VisitNo",
+      "AdmissionNo",
+      "AccessionNo",
+      "ExamUid",
+      "ExamName"
+    ],
+    "defaults": {
+      "Priority": "R",
+      "Status": "A",
+      "IsDeleted": "false"
+    },
+    "enums": {
+      "PatientGender": {
+        "M": "Male",
+        "F": "Female",
+        "U": "Unknown"
+      },
+      "PatientClassUid": {
+        "O": "OPD",
+        "I": "IPD",
+        "E": "ER"
+      },
+      "Priority": {
+        "R": "Routine (default)",
+        "S": "State",
+        "U": "Urgent"
+      },
+      "Status": {
+        "N": "Request",
+        "A": "Arrival (default)",
+        "C": "Cancel — โค้ดฝั่ง API รับ แต่ฟอร์มไม่ได้ประกาศไว้ (ต้องยืนยันความหมาย)"
+      },
+      "IsDeleted": {
+        "true": "ยกเลิก/ลบ",
+        "false": "ปกติ"
+      }
+    },
+    "suggested_values": {
+      "PatientStatusText": [
+        "Walk",
+        "Wheelchair",
+        "Stretcher",
+        "Portable"
+      ]
+    },
+    "limits": {
+      "AccessionNo": 16
+    },
+    "date_fields": {
+      "PatientDob": "YYYY-MM-DD",
+      "PatientLmp": "YYYY-MM-DD"
+    },
+    "number_fields": [
+      "ExamRate",
+      "Qty",
+      "OrderDtlRate"
+    ]
+  },
+  "transport": {
+    "_note": "endpoint จริงและ token ไม่ถูกเก็บในรีโป — ส่งผ่าน env var ตอนรันเท่านั้น",
+    "method": "POST",
+    "content_type": "application/json",
+    "endpoint_env": "XRAY_RIS_URL",
+    "token_env": "XRAY_RIS_TOKEN",
+    "endpoint_shape": "POST <XRAY_RIS_URL> · header Authorization: Bearer <XRAY_RIS_TOKEN> · body {\"params\":{…}}",
+    "process_id": "6a8f1ef87632d182ef6914fe",
+    "body_primary": "{\"params\": { …ฟิลด์ของเคส… }}",
+    "body_alternate": "ไม่มีแล้ว — params.input ใช้ไม่ได้ (ดู unwrap_keys)",
+    "body_shape_evidence": "อ่านจากซอร์สของทีมโดยตรง: process แกะ wrapper เฉพาะชื่อใน unwrap_keys ลึกได้ 3 ชั้น และรับ query แบบ params[Field] / params.Field ได้ด้วย · \"input\" ไม่อยู่ในลิสต์ ดังนั้น {\"params\":{\"input\":{…}}} จะทำให้ required หายทั้งหมด",
+    "runner": "node Form-Builder/API/tests-tools/scripts/post_xray_order_case.js <case_name> [--send]",
+    "unwrap_keys": [
+      "params",
+      "body",
+      "data",
+      "payload",
+      "New item"
+    ],
+    "unwrap_depth": 3,
+    "auth_header": "Authorization: Bearer <XRAY_RIS_TOKEN>",
+    "auth_evidence": "ตรวจกับ endpoint จริง 2026-09-01: ?token= / token: / x-token: ตอบ \"Missing token header\" ทั้งสามแบบ · Authorization: Bearer ตอบ \"Token not valid\" แปลว่า gateway อ่านค่าจาก Authorization เท่านั้น",
+    "gateway_body_rule": "body ต้องมี property `params` ที่ระดับบนสุดเสมอ · ยิง {} ได้ \"body must have required property 'params'\" และ gateway ตรวจข้อนี้ \"ก่อน\" ตรวจ token",
+    "in_app_call": "ไม่ต้องใช้ public token — ฟอร์มเรียกผ่าน runProcess(processId, params) ด้วย session ของผู้ใช้ที่ล็อกอิน · ถ้ายิงดิบให้ใช้ POST <apiHost>/v1/process/<id> header Authorization: Bearer <api.user.token> body {params:{…}} (อ้างอิง 02-initcraft/skills/initcraft-basic-training/references/build-a-process.md)",
+    "public_token_scope": "ใช้เฉพาะผู้เรียกจากนอก initCraft และการทดสอบด้วย curl"
+  },
+  "response_contract": {
+    "_status": "observed = เห็นจริงจากการยิง · from_source = อ่านจากซอร์สของทีม 2026-09-01",
+    "envelope": {
+      "message": "API run success",
+      "data": "<ACK>",
+      "error": ""
+    },
+    "ack_fields": [
+      "message",
+      "MessageControlId",
+      "AccessionNo",
+      "Status",
+      "Operation",
+      "AcknowledgementCode",
+      "TextMessage",
+      "ReceivedRootKeys",
+      "ReceivedInputKeys"
+    ],
+    "acknowledgement_code": {
+      "AE": "observed + from_source — validation ไม่ผ่าน หรือเขียน DB ไม่สำเร็จ",
+      "AA": "from_source — สำเร็จ · TextMessage = \"Order created\" หรือ \"Order updated\" · Operation = insert/update",
+      "AR": "from_source — process นี้ไม่เคยคืน AR เลย"
+    },
+    "diagnostics": {
+      "ReceivedRootKeys": "key ที่ process เห็นที่ระดับ root ของ params",
+      "ReceivedInputKeys": "key ที่ process เห็นใต้ params.input",
+      "_use": "ทั้งคู่ว่าง = payload ไปไม่ถึง process ไม่ใช่ค่าผิด"
+    },
+    "observed_example": {
+      "_when": "2026-08-31 · ยิงด้วย body ว่าง",
+      "AcknowledgementCode": "AE",
+      "TextMessage": "Missing required field(s): Hn, PatientFName, PatientGender, PatientDob, PatientSsn, PatientClassUid, VisitNo, AdmissionNo, AccessionNo, ExamUid, ExamName",
+      "ReceivedRootKeys": [],
+      "ReceivedInputKeys": []
+    },
+    "_finding": "รายชื่อฟิลด์บังคับที่ RIS ตอบกลับ ตรงกับ required 11 ตัวที่ derive จาก xray_order.json ทุกตัว — สัญญาในฟอร์มกับ validator ฝั่ง RIS ตรงกัน",
+    "operation_field": "มีค่าเฉพาะตอน AA · insert = ใบใหม่ · update = ทับใบเดิมที่ AccessionNo ตรงกัน"
+  },
+  "cases": [
+    {
+      "name": "minimal_required_only",
+      "expect": "accept",
+      "reason": "ส่งเฉพาะ 9 ฟิลด์บังคับหลังทีมผ่อน AdmissionNo/PatientSsn · Priority/Status/IsDeleted ให้ RIS เติม default",
+      "params": {
+        "Hn": "TEST-000001",
+        "PatientFName": "ทดสอบ",
+        "PatientGender": "M",
+        "PatientDob": "1990-01-01",
+        "PatientClassUid": "O",
+        "VisitNo": "TEST-VN-0001",
+        "AccessionNo": "20260831CT001",
+        "ExamUid": "XR-CHEST-PA",
+        "ExamName": "Chest PA"
+      }
+    },
+    {
+      "name": "full_opd_routine",
+      "expect": "accept",
+      "reason": "ทุกฟิลด์ในสัญญา ใช้ตรวจว่า RIS รับ optional ครบหรือไม่",
+      "params": {
+        "Hn": "TEST-000001",
+        "PatientTitle": "นาย",
+        "PatientFName": "ทดสอบ",
+        "PatientLName": "ระบบรังสี",
+        "PatientGender": "M",
+        "PatientDob": "1990-01-01",
+        "PatientSsn": "0000000000000",
+        "PatientClassUid": "O",
+        "VisitNo": "TEST-VN-0001",
+        "AdmissionNo": "TEST-AN-0001",
+        "AccessionNo": "20260831CT001",
+        "ExamUid": "XR-CHEST-PA",
+        "ExamName": "Chest PA",
+        "MessageControlId": "TEST-MSG-0001",
+        "PatientMName": "กลาง",
+        "PatientTitleEng": "Mr.",
+        "PatientFNameEng": "Thodsob",
+        "PatientLNameEng": "Rangsri",
+        "PatientPhone1": "000-000-0000",
+        "PatientEmail": "test@example.invalid",
+        "PatientAddr1": "ที่อยู่ทดสอบ 1",
+        "PatientAddr2": "แขวงทดสอบ",
+        "PatientLmp": "2026-08-01",
+        "PatientStatusUid": "ST-WALK",
+        "PatientStatusText": "Walk",
+        "InsuranceTypeUid": "UC",
+        "InsuranceTypeDesc": "สิทธิบัตรทอง",
+        "ReferenceUnitUid": "OPD-01",
+        "ReferenceUnitName": "คลินิกทดสอบ",
+        "ReferringDoctorUid": "DR-0001",
+        "ReferringDoctorTitle": "นพ.",
+        "ReferringDoctorFName": "ทดสอบ",
+        "ReferringDoctorLName": "แพทย์",
+        "ClinicalInstruction": "R/O pneumonia · ทดสอบระบบเท่านั้น",
+        "ScheduleUid": "SCH-0001",
+        "RequestNo": "20260831011",
+        "QNo": "Q-001",
+        "Priority": "R",
+        "Status": "A",
+        "ModalityUid": "MOD-CT-01",
+        "ModalityName": "CT Room 1",
+        "ModalityTypeUid": "CT",
+        "ModalityTypeName": "CT-Computed Tomography",
+        "ExamRate": 1200,
+        "ExamTypeUid": "EX-CT",
+        "ExamTypeText": "CT Scan",
+        "Qty": 1,
+        "OrderDtlRate": 1200,
+        "RadiologistUid": "RAD-0001",
+        "RadiologistTitle": "พญ.",
+        "RadiologistFName": "ทดสอบ",
+        "RadiologistLName": "รังสีแพทย์",
+        "IsDeleted": "false",
+        "OrganizationUid": "m0901",
+        "OrganizationName": "งานรังสีวิทยา",
+        "OrganizationAlias": "XR"
+      }
+    },
+    {
+      "name": "ipd_stretcher_urgent",
+      "expect": "accept",
+      "reason": "ผู้ป่วยใน · เปลนอน · ด่วน — ตรวจ enum PatientClassUid=I และ Priority=U",
+      "params": {
+        "Hn": "TEST-000001",
+        "PatientTitle": "นาย",
+        "PatientFName": "ทดสอบ",
+        "PatientLName": "ระบบรังสี",
+        "PatientGender": "M",
+        "PatientDob": "1990-01-01",
+        "PatientSsn": "0000000000000",
+        "PatientClassUid": "I",
+        "VisitNo": "TEST-VN-0001",
+        "AdmissionNo": "TEST-AN-0001",
+        "AccessionNo": "20260831CR002",
+        "ExamUid": "XR-CHEST-PA",
+        "ExamName": "Chest PA",
+        "PatientStatusText": "Stretcher",
+        "Priority": "U"
+      }
+    },
+    {
+      "name": "er_state_priority",
+      "expect": "accept",
+      "reason": "ห้องฉุกเฉิน · Priority=S",
+      "params": {
+        "Hn": "TEST-000001",
+        "PatientTitle": "นาย",
+        "PatientFName": "ทดสอบ",
+        "PatientLName": "ระบบรังสี",
+        "PatientGender": "M",
+        "PatientDob": "1990-01-01",
+        "PatientSsn": "0000000000000",
+        "PatientClassUid": "E",
+        "VisitNo": "TEST-VN-0001",
+        "AdmissionNo": "TEST-AN-0001",
+        "AccessionNo": "20260831DX003",
+        "ExamUid": "XR-CHEST-PA",
+        "ExamName": "Chest PA",
+        "Priority": "S"
+      }
+    },
+    {
+      "name": "status_request_before_arrival",
+      "expect": "accept",
+      "reason": "Status=N คือสั่งไว้แต่ผู้ป่วยยังไม่มาถึง — ต่างจาก default A",
+      "params": {
+        "Hn": "TEST-000001",
+        "PatientTitle": "นาย",
+        "PatientFName": "ทดสอบ",
+        "PatientLName": "ระบบรังสี",
+        "PatientGender": "M",
+        "PatientDob": "1990-01-01",
+        "PatientSsn": "0000000000000",
+        "PatientClassUid": "O",
+        "VisitNo": "TEST-VN-0001",
+        "AdmissionNo": "TEST-AN-0001",
+        "AccessionNo": "20260831US004",
+        "ExamUid": "XR-CHEST-PA",
+        "ExamName": "Chest PA",
+        "Status": "N"
+      }
+    },
+    {
+      "name": "cancel_by_is_deleted",
+      "expect": "accept",
+      "reason": "ยกเลิกใบด้วย IsDeleted=true โดยส่ง AccessionNo เดิม",
+      "note": "ยังไม่ยืนยันว่า RIS ใช้ IsDeleted เป็นช่องทางยกเลิกจริงหรือต้องยิง endpoint อื่น",
+      "params": {
+        "Hn": "TEST-000001",
+        "PatientTitle": "นาย",
+        "PatientFName": "ทดสอบ",
+        "PatientLName": "ระบบรังสี",
+        "PatientGender": "M",
+        "PatientDob": "1990-01-01",
+        "PatientSsn": "0000000000000",
+        "PatientClassUid": "O",
+        "VisitNo": "TEST-VN-0001",
+        "AdmissionNo": "TEST-AN-0001",
+        "AccessionNo": "20260831CT001",
+        "ExamUid": "XR-CHEST-PA",
+        "ExamName": "Chest PA",
+        "IsDeleted": "true"
+      }
+    },
+    {
+      "name": "accession_from_generator_4char_code",
+      "expect": "accept",
+      "reason": "เลขจาก xray_accession_generate_api ที่ code ยาว 4 ตัว (15 อักษร) ยังอยู่ในลิมิต 16",
+      "params": {
+        "Hn": "TEST-000001",
+        "PatientTitle": "นาย",
+        "PatientFName": "ทดสอบ",
+        "PatientLName": "ระบบรังสี",
+        "PatientGender": "M",
+        "PatientDob": "1990-01-01",
+        "PatientSsn": "0000000000000",
+        "PatientClassUid": "O",
+        "VisitNo": "TEST-VN-0001",
+        "AdmissionNo": "TEST-AN-0001",
+        "AccessionNo": "20260831VCUG001",
+        "ExamUid": "XR-VCUG",
+        "ExamName": "VCUG"
+      }
+    },
+    {
+      "name": "accession_at_limit_16",
+      "expect": "accept",
+      "reason": "ขอบบนพอดี 16 อักษร",
+      "params": {
+        "Hn": "TEST-000001",
+        "PatientTitle": "นาย",
+        "PatientFName": "ทดสอบ",
+        "PatientLName": "ระบบรังสี",
+        "PatientGender": "M",
+        "PatientDob": "1990-01-01",
+        "PatientSsn": "0000000000000",
+        "PatientClassUid": "O",
+        "VisitNo": "TEST-VN-0001",
+        "AdmissionNo": "TEST-AN-0001",
+        "AccessionNo": "2026083112345678",
+        "ExamUid": "XR-CHEST-PA",
+        "ExamName": "Chest PA"
+      }
+    },
+    {
+      "name": "foreign_patient_without_ssn",
+      "expect": "accept",
+      "reason": "ผู้ป่วยต่างชาติไม่มีเลขบัตร — หลังทีมผ่อน PatientSsn เป็น optional ให้ไม่ต้องส่งเลย ห้ามใส่เลขปลอม",
+      "note": "เคยต้องใส่ placeholder 13 หลัก · กฎ format ถูกถอดออกแล้ว",
+      "params": {
+        "Hn": "TEST-000001",
+        "PatientTitle": "นาย",
+        "PatientFName": "ทดสอบ",
+        "PatientLName": "ระบบรังสี",
+        "PatientGender": "M",
+        "PatientDob": "1990-01-01",
+        "PatientClassUid": "O",
+        "VisitNo": "TEST-VN-0001",
+        "AccessionNo": "20260831MG005",
+        "ExamUid": "XR-CHEST-PA",
+        "ExamName": "Chest PA",
+        "PatientTitleEng": "Mr.",
+        "PatientFNameEng": "Test",
+        "PatientLNameEng": "Foreigner"
+      }
+    },
+    {
+      "name": "missing_accession_no",
+      "expect": "reject",
+      "reason": "ขาด AccessionNo ซึ่งเป็นฟิลด์บังคับ",
+      "params": {
+        "Hn": "TEST-000001",
+        "PatientTitle": "นาย",
+        "PatientFName": "ทดสอบ",
+        "PatientLName": "ระบบรังสี",
+        "PatientGender": "M",
+        "PatientDob": "1990-01-01",
+        "PatientSsn": "0000000000000",
+        "PatientClassUid": "O",
+        "VisitNo": "TEST-VN-0001",
+        "AdmissionNo": "TEST-AN-0001",
+        "ExamUid": "XR-CHEST-PA",
+        "ExamName": "Chest PA"
+      }
+    },
+    {
+      "name": "missing_exam_uid",
+      "expect": "reject",
+      "reason": "ขาด ExamUid ซึ่งเป็นฟิลด์บังคับ",
+      "params": {
+        "Hn": "TEST-000001",
+        "PatientTitle": "นาย",
+        "PatientFName": "ทดสอบ",
+        "PatientLName": "ระบบรังสี",
+        "PatientGender": "M",
+        "PatientDob": "1990-01-01",
+        "PatientSsn": "0000000000000",
+        "PatientClassUid": "O",
+        "VisitNo": "TEST-VN-0001",
+        "AdmissionNo": "TEST-AN-0001",
+        "AccessionNo": "20260831CT001",
+        "ExamName": "Chest PA"
+      }
+    },
+    {
+      "name": "opd_without_admission_no",
+      "expect": "accept",
+      "reason": "ผู้ป่วยนอกไม่มีเลข AN — หลังทีมผ่อน AdmissionNo เป็น optional เคสนี้ต้องผ่าน",
+      "note": "เคสนี้เคยเป็น reject ก่อนทีมแก้ 2026-09-01 · เก็บไว้เพื่อกันการถอยกลับ",
+      "params": {
+        "Hn": "TEST-000001",
+        "PatientTitle": "นาย",
+        "PatientFName": "ทดสอบ",
+        "PatientLName": "ระบบรังสี",
+        "PatientGender": "M",
+        "PatientDob": "1990-01-01",
+        "PatientSsn": "0000000000000",
+        "PatientClassUid": "O",
+        "VisitNo": "TEST-VN-0001",
+        "AccessionNo": "20260831CT001",
+        "ExamUid": "XR-CHEST-PA",
+        "ExamName": "Chest PA"
+      }
+    },
+    {
+      "name": "empty_string_required",
+      "expect": "reject",
+      "reason": "ส่งค่าว่างเท่ากับไม่ส่ง",
+      "params": {
+        "Hn": "",
+        "PatientTitle": "นาย",
+        "PatientFName": "ทดสอบ",
+        "PatientLName": "ระบบรังสี",
+        "PatientGender": "M",
+        "PatientDob": "1990-01-01",
+        "PatientSsn": "0000000000000",
+        "PatientClassUid": "O",
+        "VisitNo": "TEST-VN-0001",
+        "AdmissionNo": "TEST-AN-0001",
+        "AccessionNo": "20260831CT001",
+        "ExamUid": "XR-CHEST-PA",
+        "ExamName": "Chest PA"
+      }
+    },
+    {
+      "name": "bad_gender_code",
+      "expect": "reject",
+      "reason": "PatientGender ต้องเป็น M / F / U เท่านั้น",
+      "params": {
+        "Hn": "TEST-000001",
+        "PatientTitle": "นาย",
+        "PatientFName": "ทดสอบ",
+        "PatientLName": "ระบบรังสี",
+        "PatientGender": "X",
+        "PatientDob": "1990-01-01",
+        "PatientSsn": "0000000000000",
+        "PatientClassUid": "O",
+        "VisitNo": "TEST-VN-0001",
+        "AdmissionNo": "TEST-AN-0001",
+        "AccessionNo": "20260831CT001",
+        "ExamUid": "XR-CHEST-PA",
+        "ExamName": "Chest PA"
+      }
+    },
+    {
+      "name": "bad_patient_class",
+      "expect": "reject",
+      "reason": "PatientClassUid ต้องเป็น O / I / E เท่านั้น",
+      "params": {
+        "Hn": "TEST-000001",
+        "PatientTitle": "นาย",
+        "PatientFName": "ทดสอบ",
+        "PatientLName": "ระบบรังสี",
+        "PatientGender": "M",
+        "PatientDob": "1990-01-01",
+        "PatientSsn": "0000000000000",
+        "PatientClassUid": "A",
+        "VisitNo": "TEST-VN-0001",
+        "AdmissionNo": "TEST-AN-0001",
+        "AccessionNo": "20260831CT001",
+        "ExamUid": "XR-CHEST-PA",
+        "ExamName": "Chest PA"
+      }
+    },
+    {
+      "name": "bad_priority",
+      "expect": "reject",
+      "reason": "Priority ต้องเป็น R / S / U เท่านั้น",
+      "params": {
+        "Hn": "TEST-000001",
+        "PatientTitle": "นาย",
+        "PatientFName": "ทดสอบ",
+        "PatientLName": "ระบบรังสี",
+        "PatientGender": "M",
+        "PatientDob": "1990-01-01",
+        "PatientSsn": "0000000000000",
+        "PatientClassUid": "O",
+        "VisitNo": "TEST-VN-0001",
+        "AdmissionNo": "TEST-AN-0001",
+        "AccessionNo": "20260831CT001",
+        "ExamUid": "XR-CHEST-PA",
+        "ExamName": "Chest PA",
+        "Priority": "Z"
+      }
+    },
+    {
+      "name": "bad_status",
+      "expect": "reject",
+      "reason": "Status ต้องเป็น N / A เท่านั้น",
+      "params": {
+        "Hn": "TEST-000001",
+        "PatientTitle": "นาย",
+        "PatientFName": "ทดสอบ",
+        "PatientLName": "ระบบรังสี",
+        "PatientGender": "M",
+        "PatientDob": "1990-01-01",
+        "PatientSsn": "0000000000000",
+        "PatientClassUid": "O",
+        "VisitNo": "TEST-VN-0001",
+        "AdmissionNo": "TEST-AN-0001",
+        "AccessionNo": "20260831CT001",
+        "ExamUid": "XR-CHEST-PA",
+        "ExamName": "Chest PA",
+        "Status": "X"
+      }
+    },
+    {
+      "name": "bad_dob_format",
+      "expect": "reject",
+      "reason": "PatientDob ต้องเป็น YYYY-MM-DD ตาม valueFormat ของฟอร์ม",
+      "params": {
+        "Hn": "TEST-000001",
+        "PatientTitle": "นาย",
+        "PatientFName": "ทดสอบ",
+        "PatientLName": "ระบบรังสี",
+        "PatientGender": "M",
+        "PatientDob": "31/08/2026",
+        "PatientSsn": "0000000000000",
+        "PatientClassUid": "O",
+        "VisitNo": "TEST-VN-0001",
+        "AdmissionNo": "TEST-AN-0001",
+        "AccessionNo": "20260831CT001",
+        "ExamUid": "XR-CHEST-PA",
+        "ExamName": "Chest PA"
+      }
+    },
+    {
+      "name": "accession_too_long_17",
+      "expect": "reject",
+      "reason": "AccessionNo เกินลิมิต 16 อักษร",
+      "params": {
+        "Hn": "TEST-000001",
+        "PatientTitle": "นาย",
+        "PatientFName": "ทดสอบ",
+        "PatientLName": "ระบบรังสี",
+        "PatientGender": "M",
+        "PatientDob": "1990-01-01",
+        "PatientSsn": "0000000000000",
+        "PatientClassUid": "O",
+        "VisitNo": "TEST-VN-0001",
+        "AdmissionNo": "TEST-AN-0001",
+        "AccessionNo": "20260831123456789",
+        "ExamUid": "XR-CHEST-PA",
+        "ExamName": "Chest PA"
+      }
+    },
+    {
+      "name": "non_numeric_qty",
+      "expect": "reject",
+      "reason": "Qty เป็นฟิลด์ตัวเลข",
+      "params": {
+        "Hn": "TEST-000001",
+        "PatientTitle": "นาย",
+        "PatientFName": "ทดสอบ",
+        "PatientLName": "ระบบรังสี",
+        "PatientGender": "M",
+        "PatientDob": "1990-01-01",
+        "PatientSsn": "0000000000000",
+        "PatientClassUid": "O",
+        "VisitNo": "TEST-VN-0001",
+        "AdmissionNo": "TEST-AN-0001",
+        "AccessionNo": "20260831CT001",
+        "ExamUid": "XR-CHEST-PA",
+        "ExamName": "Chest PA",
+        "Qty": "หนึ่ง"
+      }
+    }
+  ],
+  "needs_confirmation": [
+    "IsDeleted=true เป็นช่องทางยกเลิกใบจริงหรือไม่ และยกเลิกหลังถ่ายแล้วได้หรือไม่ (X9)",
+    "MessageControlId ต้อง unique ต่อข้อความหรือไม่ และซ้ำแล้วเกิดอะไร",
+    "เรียก Process ของทีมผ่าน HTTP หรือให้ dispatch เขียน zdata_xray_order ตรงในเครื่องเดียวกัน (ดู server_logic) — ยังไม่เคาะ"
+  ],
+  "source_mapping_proposal": {
+    "_status": "ข้อเสนอ ยังไม่ยืนยัน — ใช้เป็นจุดตั้งต้นตอนเขียน xray-cpoe-dispatch (X3)",
+    "Hn": "order.patient.hn",
+    "PatientTitle": "order.patient.prename",
+    "PatientFName": "order.patient.first_name",
+    "PatientLName": "order.patient.last_name",
+    "PatientGender": "order.patient.gender_text → map เป็น M/F/U",
+    "PatientDob": "order.patient.birth_date",
+    "VisitNo": "order.visit.vn",
+    "AdmissionNo": "order.visit.an (ว่างเมื่อเป็น OPD — ดู needs_confirmation)",
+    "PatientClassUid": "order.visit.an ? 'I' : 'O' (ER ยังไม่มีที่มา)",
+    "InsuranceTypeDesc": "order.finance.coverage",
+    "ReferringDoctorFName": "order.requester.visit_doctor",
+    "ClinicalInstruction": "order.order_comment",
+    "RequestNo": "order.order_number",
+    "AccessionNo": "item.accession_no (จาก xray_accession_generate_api)",
+    "Priority": "order.priority → map เป็น R/S/U",
+    "ModalityTypeUid": "item.modality.code",
+    "ModalityTypeName": "item.modality.label",
+    "ExamUid": "item.item_code",
+    "ExamName": "item.item_name",
+    "Qty": "item.quantity",
+    "OrganizationUid": "organization_code ของหน่วยรังสี (m0901)"
+  },
+  "server_logic": {
+    "_source": "Form-Builder/API/api-factory/xray_api_order.js (ทีมเขียน · Process 6a8f1ef87632d182ef6914fe)",
+    "form_id": "6a8f1ea97632d182ef6914fd",
+    "table": "zdata_xray_order",
+    "business_key": "AccessionNo",
+    "upsert": "พบ AccessionNo เดิม = update · ไม่พบ = insert · MessageControlId ไม่มีผลต่อการเลือก",
+    "retry_safety": "ยิงซ้ำด้วย AccessionNo เดิมจะทับของเดิม ไม่เกิดใบซ้ำ ⇒ dispatch retry ได้อย่างปลอดภัย",
+    "no_message_log": "ตารางนี้เก็บ \"สถานะปัจจุบันของใบสั่ง\" ไม่ใช่ log ของทุกข้อความ — update ทับของเดิม ถ้าต้องการ audit trail ต้องทำตารางแยก",
+    "validation": [
+      "required 11 ฟิลด์ ตรงกับที่ derive จากฟอร์มเป๊ะ",
+      "PatientGender ∈ M/F/U",
+      "PatientClassUid ∈ O/I/E",
+      "AccessionNo ยาวไม่เกิน 16",
+      "Priority ∈ R/S/U (default R)",
+      "Status ∈ N/A/C (default A)",
+      "ExamRate, Qty, OrderDtlRate ต้องเป็นตัวเลข ≥ 0 · Qty ต้องเป็นจำนวนเต็ม",
+      "IsDeleted แปลงเป็น boolean จาก true/1/\"true\"",
+      "PatientSsn ไม่มี format check แล้ว (กฎ 13 หลักถูกถอดออก 2026-09-01)"
+    ],
+    "allowed_fields_count": 71,
+    "unknown_fields": "ฟิลด์ที่ไม่อยู่ใน allowedFields ถูกตัดทิ้งเงียบๆ ไม่ error",
+    "write_helpers": "ใช้ app.dbInsert / app.dbUpdate ไม่ใช่ sdformSetOne เพราะฟอร์มที่ import มาแล้ว sdformSetOne จะคืน \"Cannot Update data.\"",
+    "ws_broadcast": "app.wsSend('gridform', FORM_ID, 'ris-order-api', …) หลัง commit สำเร็จเท่านั้น และห่อ try/catch ไว้ — WS ล้มเหลวห้ามทำให้ใบที่บันทึกแล้วกลายเป็น AE",
+    "required": [
+      "Hn",
+      "PatientFName",
+      "PatientGender",
+      "PatientDob",
+      "PatientClassUid",
+      "VisitNo",
+      "AccessionNo",
+      "ExamUid",
+      "ExamName"
+    ],
+    "relaxed_2026_09_01": [
+      "AdmissionNo",
+      "PatientSsn"
+    ],
+    "required_note": "ฟอร์ม xray_order.json ยังทำเครื่องหมาย 11 ฟิลด์เป็นบังคับ แต่ API ผ่อนเหลือ 9 แล้ว — เวลาส่งจริงยึด API เป็นหลัก · AdmissionNo และ PatientSsn ยังอยู่ใน allowedFields จึงถูกบันทึกถ้าส่งมา แค่ไม่บังคับ"
+  },
+  "resolved": [
+    "params root vs params.input — เคาะแล้ว 2026-09-01: ส่งที่ params root เท่านั้น (unwrap_keys ไม่มี input)",
+    "AA/AR — เคาะแล้วจากซอร์ส: AA คือสำเร็จ · AR ไม่ถูกใช้",
+    "AccessionNo ซ้ำ — เคาะแล้ว: upsert ทับของเดิม ไม่เกิดใบซ้ำ",
+    "AdmissionNo และ PatientSsn — ทีมผ่อนเป็น optional แล้ว 2026-09-01 และถอดกฎ SSN 13 หลักออกด้วย ยืนยันจากซอร์สที่ผู้ใช้อัปมาใหม่"
+  ],
+  "pending_on_team": [
+    "public token ของ Process 6a8f1ef87632d182ef6914fe ที่ได้มา 2026-09-01 ถูกปฏิเสธ (\"Token not valid\") ต้องขอ token ใหม่ก่อนจึงจะยิงทดสอบได้"
+  ]
+}

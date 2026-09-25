@@ -1,0 +1,246 @@
+[
+  {
+    "_id": {
+      "$oid": "6a97754d422c1ca959829f96"
+    },
+    "xparentx": {
+      "$oid": "6a730b17c26bf53d1bac3b21"
+    },
+    "xsitex": {
+      "code": "0000",
+      "name": "0000"
+    },
+    "xunitx": {
+      "code": "A103",
+      "name": "คลินิกทันตกรรม"
+    },
+    "xrstatx": 1,
+    "xversionx": "v1",
+    "xerrorx": null,
+    "updated_by": {
+      "id": {
+        "$oid": "6a58678ad448dfc9d33e2ba8"
+      },
+      "name": "Nichada Patcharasumransuk (marnichacha27@gmail.com)"
+    },
+    "updated_at": "2026-09-02 09:30:00",
+    "created_by": {
+      "id": {
+        "$oid": "6a58678ad448dfc9d33e2ba8"
+      },
+      "name": "Nichada Patcharasumransuk (marnichacha27@gmail.com)"
+    },
+    "created_at": "2026-09-02 08:01:01",
+    "dataid": "6a97754d422c1ca959829f96",
+    "nosql_collections": "[\"zdata_cpoe_order_item\"]",
+    "nosql_filter": null,
+    "nosql_options": null,
+    "nosql_pipeline": "[{\"$addFields\":{\"_order_key\":{\"$toString\":{\"$ifNull\":[\"$order_id.value\",\"$xparentx\"]}},\"_item_key\":{\"$toString\":\"$_id\"}}},{\"$match\":{\"xrstatx\":{\"$nin\":[0,3]},\"_order_key\":\"{{order_id}}\",\"$or\":[{\"service_type.value\":\"lab\"},{\"service_type\":\"lab\"}]}},{\"$lookup\":{\"from\":\"zdata_cpoe_order\",\"localField\":\"order_id.value\",\"foreignField\":\"_id\",\"as\":\"_order_rows\"}},{\"$lookup\":{\"from\":\"zdata_master_item_order\",\"localField\":\"item_data_id\",\"foreignField\":\"_id\",\"as\":\"_master_rows\"}},{\"$addFields\":{\"_order\":{\"$arrayElemAt\":[\"$_order_rows\",0]},\"_master\":{\"$arrayElemAt\":[\"$_master_rows\",0]}}},{\"$addFields\":{\"_section_id\":{\"$ifNull\":[\"$section_snapshot.value\",\"$_master.section.value\"]},\"_visit_key\":{\"$toString\":{\"$ifNull\":[\"$_order.xparentx\",\"$_order.vid.value\"]}}}},{\"$lookup\":{\"from\":\"zdata_section\",\"localField\":\"_section_id\",\"foreignField\":\"_id\",\"as\":\"_section_rows\"}},{\"$lookup\":{\"from\":\"zdata_lab_work_item\",\"localField\":\"_item_key\",\"foreignField\":\"source_specimen_record_id\",\"as\":\"_work_rows\"}},{\"$lookup\":{\"from\":\"zdata_diagnosis\",\"localField\":\"_order.xparentx\",\"foreignField\":\"vid.value\",\"as\":\"_diagnosis_rows\"}},{\"$addFields\":{\"_section\":{\"$arrayElemAt\":[\"$_section_rows\",0]},\"_work\":{\"$arrayElemAt\":[\"$_work_rows\",0]},\"_diagnosis\":{\"$arrayElemAt\":[\"$_diagnosis_rows\",0]}}},{\"$addFields\":{\"_section_code\":{\"$ifNull\":[\"$_work.section_code\",{\"$ifNull\":[\"$section_snapshot.code\",{\"$ifNull\":[\"$_section.code\",\"$_master.section.code\"]}]}]}}},{\"$match\":{\"_order.xrstatx\":{\"$nin\":[0,3]},\"_visit_key\":\"{{visit_id}}\",\"_section_code\":\"{{section_code}}\"}},{\"$addFields\":{\"_sort_key\":{\"$concat\":[{\"$ifNull\":[\"$created_at\",\"\"]},\"|\",{\"$ifNull\":[\"$item_code\",\"\"]},\"|\",{\"$toString\":\"$_id\"}]}}},{\"$sort\":{\"_sort_key\":1}},{\"$setWindowFields\":{\"sortBy\":{\"_sort_key\":1},\"output\":{\"_row_no\":{\"$documentNumber\":{}}}}},{\"$project\":{\"_id\":1,\"row_no\":\"$_row_no\",\"order_id\":{\"$toString\":\"$_order._id\"},\"order_number\":{\"$ifNull\":[\"$_order.order_number\",\"\"]},\"order_date\":{\"$substrCP\":[{\"$ifNull\":[\"$_order.created_at\",\"\"]},0,10]},\"order_time\":{\"$substrCP\":[{\"$ifNull\":[\"$_order.created_at\",\"\"]},11,8]},\"patient_name\":{\"$trim\":{\"input\":{\"$concat\":[{\"$ifNull\":[\"$_order.vid.pid.prename.label\",\"\"]},\" \",{\"$ifNull\":[\"$_order.vid.pid.p_fname\",\"\"]},\" \",{\"$ifNull\":[\"$_order.vid.pid.p_lname\",\"\"]}]}}},\"hn\":{\"$ifNull\":[\"$_order.vid.pid.hn\",\"\"]},\"age_display\":{\"$convert\":{\"input\":\"$_order.vid.pid.age\",\"to\":\"string\",\"onError\":\"\",\"onNull\":\"\"}},\"an\":{\"$ifNull\":[\"$_order.vid.an\",\"\"]},\"ward_clinic\":{\"$ifNull\":[\"$_order.vid.ward.label\",{\"$ifNull\":[\"$_order.vid.visit_clinic.label\",\"\"]}]},\"insurance_display\":{\"$reduce\":{\"input\":{\"$ifNull\":[\"$_order.inscl_hos\",[]]},\"initialValue\":\"\",\"in\":{\"$let\":{\"vars\":{\"label\":{\"$ifNull\":[\"$$this.inscl_item_main.label\",\"\"]}},\"in\":{\"$cond\":[{\"$eq\":[\"$$label\",\"\"]},\"$$value\",{\"$cond\":[{\"$eq\":[\"$$value\",\"\"]},\"$$label\",{\"$concat\":[\"$$value\",\", \",\"$$label\"]}]}]}}}}},\"prior_medication_display\":{\"$ifNull\":[\"$_order.prior_specify\",{\"$ifNull\":[\"$_order.prior_medication.label\",\"\"]}]},\"diagnosis_display\":{\"$ifNull\":[\"$_diagnosis.primary_dx.label\",{\"$ifNull\":[\"$_diagnosis.primary_dx.value\",\"\"]}]},\"source_specimen\":{\"$ifNull\":[\"$_work.source_specimen\",{\"$ifNull\":[\"$lab_data.source_specimen\",\"\"]}]},\"collected_at\":{\"$ifNull\":[\"$_work.collected_at\",\"\"]},\"collected_by\":{\"$ifNull\":[\"$_work.collected_by.name\",{\"$ifNull\":[\"$_work.collected_by.label\",\"\"]}]},\"storage_display\":{\"$ifNull\":[\"$_work.storage_before_transport\",{\"$ifNull\":[\"$lab_data.storage_before_transport\",\"\"]}]},\"requester_name\":{\"$ifNull\":[\"$_order.vid.visit_doctor.label\",{\"$ifNull\":[\"$_order.cosign_user.name\",{\"$ifNull\":[\"$_order.cosign_user.label\",\"\"]}]}]},\"submitter_name\":{\"$ifNull\":[\"$_order.created_by.name\",\"\"]},\"lab_no\":{\"$ifNull\":[\"$_work.lab_no\",\"\"]},\"item_code\":{\"$ifNull\":[\"$item_code\",\"\"]},\"item_name\":{\"$ifNull\":[\"$item_name\",\"\"]},\"test_display\":{\"$trim\":{\"input\":{\"$concat\":[{\"$ifNull\":[\"$item_code\",\"\"]},\" \",{\"$ifNull\":[\"$item_name\",\"\"]}]}}},\"specimen_name\":{\"$ifNull\":[\"$_work.specimen_name\",{\"$ifNull\":[\"$lab_data.specimen.label\",{\"$ifNull\":[\"$_master.lab_item.specimen.label\",\"\"]}]}]},\"section_code\":\"$_section_code\",\"section_name\":{\"$ifNull\":[\"$_work.section_name\",{\"$ifNull\":[\"$section_snapshot.name\",{\"$ifNull\":[\"$_section.name_th\",{\"$ifNull\":[\"$_section.name\",\"\"]}]}]}]},\"section_unit\":{\"$ifNull\":[\"$_section.unit.label\",\"\"]},\"printed_by\":\"{{printed_by}}\",\"printed_at\":\"{{printed_at}}\"}},{\"$sort\":{\"row_no\":1}}]",
+    "nosql_type": "aggregate",
+    "pg_sql": null,
+    "sql_assign_roles": null,
+    "sql_category": null,
+    "sql_desc": "ใบสั่งตรวจ LAB: 1 แถวต่อ CPOE LAB item ภายใน Order, Visit และ Section ที่ระบุ",
+    "sql_form_id": {
+      "value": "6a6f7db2265885c2377cc222",
+      "label": "CPOE Order Item"
+    },
+    "sql_from": "zdata_cpoe_order_item",
+    "sql_group_by": null,
+    "sql_join": [],
+    "sql_limit": null,
+    "sql_name": "LAB Order Request PDF v1",
+    "sql_note": "NoSQL aggregate based on an initCraft backup export. Fail-closed by order_id + visit_id + section_code; LAB NO. remains blank before receipt.",
+    "sql_options": {
+      "variable": [
+        {
+          "vname": "row_no",
+          "origin": "row_no",
+          "as": null
+        },
+        {
+          "vname": "order_id",
+          "origin": "order_id",
+          "as": null
+        },
+        {
+          "vname": "order_number",
+          "origin": "order_number",
+          "as": null
+        },
+        {
+          "vname": "order_date",
+          "origin": "order_date",
+          "as": null
+        },
+        {
+          "vname": "order_time",
+          "origin": "order_time",
+          "as": null
+        },
+        {
+          "vname": "patient_name",
+          "origin": "patient_name",
+          "as": null
+        },
+        {
+          "vname": "hn",
+          "origin": "hn",
+          "as": null
+        },
+        {
+          "vname": "age_display",
+          "origin": "age_display",
+          "as": null
+        },
+        {
+          "vname": "an",
+          "origin": "an",
+          "as": null
+        },
+        {
+          "vname": "ward_clinic",
+          "origin": "ward_clinic",
+          "as": null
+        },
+        {
+          "vname": "insurance_display",
+          "origin": "insurance_display",
+          "as": null
+        },
+        {
+          "vname": "prior_medication_display",
+          "origin": "prior_medication_display",
+          "as": null
+        },
+        {
+          "vname": "diagnosis_display",
+          "origin": "diagnosis_display",
+          "as": null
+        },
+        {
+          "vname": "source_specimen",
+          "origin": "source_specimen",
+          "as": null
+        },
+        {
+          "vname": "collected_at",
+          "origin": "collected_at",
+          "as": null
+        },
+        {
+          "vname": "collected_by",
+          "origin": "collected_by",
+          "as": null
+        },
+        {
+          "vname": "storage_display",
+          "origin": "storage_display",
+          "as": null
+        },
+        {
+          "vname": "requester_name",
+          "origin": "requester_name",
+          "as": null
+        },
+        {
+          "vname": "submitter_name",
+          "origin": "submitter_name",
+          "as": null
+        },
+        {
+          "vname": "lab_no",
+          "origin": "lab_no",
+          "as": null
+        },
+        {
+          "vname": "item_code",
+          "origin": "item_code",
+          "as": null
+        },
+        {
+          "vname": "item_name",
+          "origin": "item_name",
+          "as": null
+        },
+        {
+          "vname": "test_display",
+          "origin": "test_display",
+          "as": null
+        },
+        {
+          "vname": "specimen_name",
+          "origin": "specimen_name",
+          "as": null
+        },
+        {
+          "vname": "section_code",
+          "origin": "section_code",
+          "as": null
+        },
+        {
+          "vname": "section_name",
+          "origin": "section_name",
+          "as": null
+        },
+        {
+          "vname": "section_unit",
+          "origin": "section_unit",
+          "as": null
+        },
+        {
+          "vname": "printed_by",
+          "origin": "printed_by",
+          "as": null
+        },
+        {
+          "vname": "printed_at",
+          "origin": "printed_at",
+          "as": null
+        }
+      ],
+      "param": [
+        {
+          "pname": "order_id",
+          "ptype": "text",
+          "pdefault": null
+        },
+        {
+          "pname": "visit_id",
+          "ptype": "text",
+          "pdefault": null
+        },
+        {
+          "pname": "section_code",
+          "ptype": "text",
+          "pdefault": null
+        },
+        {
+          "pname": "printed_by",
+          "ptype": "text",
+          "pdefault": null
+        },
+        {
+          "pname": "printed_at",
+          "ptype": "text",
+          "pdefault": null
+        }
+      ]
+    },
+    "sql_order_by": [],
+    "sql_rstat": false,
+    "sql_select": [],
+    "sql_share": "public",
+    "sql_tags": [
+      "LAB",
+      "order-request",
+      "pdf",
+      "CPOE"
+    ],
+    "sql_type": "nosql",
+    "sql_where": null,
+    "tool_license": "6a3113a619ee74c8f82854a0",
+    "xclonex": null,
+    "tool_feature": "sql"
+  }
+]

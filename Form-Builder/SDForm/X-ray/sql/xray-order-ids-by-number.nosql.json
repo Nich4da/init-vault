@@ -1,0 +1,40 @@
+[
+  {
+    "$match": {
+      "xrstatx": { "$nin": [0, 3] },
+      "order_number": "{{order_number}}"
+    }
+  },
+  {
+    "$addFields": {
+      "order_id": { "$toString": "$_id" },
+      "visit_id": { "$toString": { "$ifNull": ["$xparentx", "$vid.value"] } },
+      "patient_name": {
+        "$trim": {
+          "input": {
+            "$concat": [
+              { "$ifNull": ["$vid.pid.prename.label", ""] },
+              " ",
+              { "$ifNull": ["$vid.pid.p_fname", ""] },
+              " ",
+              { "$ifNull": ["$vid.pid.p_lname", ""] }
+            ]
+          }
+        }
+      }
+    }
+  },
+  { "$limit": 5 },
+  {
+    "$project": {
+      "_id": 0,
+      "order_id": 1,
+      "visit_id": 1,
+      "patient_name": 1,
+      "order_number": { "$ifNull": ["$order_number", ""] },
+      "order_created_at": { "$ifNull": ["$created_at", ""] },
+      "hn": { "$ifNull": ["$vid.pid.hn", ""] },
+      "vn": { "$ifNull": ["$vid.vn", ""] }
+    }
+  }
+]

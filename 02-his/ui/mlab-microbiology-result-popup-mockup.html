@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HIS Microbiology Result Viewer — MLab</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #eef2f7; --surface: #fff; --surface-soft: #f7f9fc; --surface-blue: #f4f9ff;
+      --ink: #303133; --muted: #667085; --subtle: #909399; --border: #dcdfe6; --border-soft: #ebeef5;
+      --primary: #409eff; --primary-dark: #1677d2; --primary-soft: #ecf5ff;
+      --success: #67c23a; --success-soft: #f0f9eb; --warning-soft: #fdf6ec; --danger-soft: #fef0f0;
+      --shadow: 0 22px 68px rgba(23,43,77,.20); --radius: 12px;
+    }
+    body.dark {
+      color-scheme: dark;
+      --bg:#111827; --surface:#1f2937; --surface-soft:#182231; --surface-blue:#172638;
+      --ink:#f3f4f6; --muted:#c0c4cc; --subtle:#9ca3af; --border:#4b5563; --border-soft:#374151;
+      --primary-soft:#173552; --success-soft:#233b26; --warning-soft:#44351e; --danger-soft:#47282c;
+      --shadow:0 24px 80px rgba(0,0,0,.48);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin:0; min-height:100vh; font-family:"Noto Sans Thai","Leelawadee UI",Tahoma,Arial,sans-serif;
+      color:var(--ink); background:radial-gradient(circle at 15% 10%,rgba(64,158,255,.12),transparent 30%),var(--bg);
+    }
+    button { font:inherit; }
+    button:focus-visible,[tabindex]:focus-visible { outline:3px solid rgba(64,158,255,.35); outline-offset:2px; }
+    .demo-shell { min-height:100vh; display:grid; place-items:center; padding:24px; }
+    .launch-card { width:min(620px,100%); padding:28px; border:1px solid var(--border-soft); border-radius:18px; background:var(--surface); box-shadow:var(--shadow); text-align:center; }
+    .launch-card h1 { margin:0 0 8px; font-size:22px; }
+    .launch-card p { margin:0 0 20px; color:var(--muted); line-height:1.65; }
+    .btn { min-height:36px; padding:7px 14px; border:1px solid var(--border); border-radius:7px; color:var(--ink); background:var(--surface); cursor:pointer; transition:.16s ease; }
+    .btn:hover { border-color:var(--primary); color:var(--primary); }
+    .btn.primary { border-color:var(--primary); color:#fff; background:var(--primary); }
+    .btn.primary:hover { background:var(--primary-dark); }
+    .btn.icon { width:36px; padding:0; display:inline-grid; place-items:center; font-size:18px; }
+    .backdrop { position:fixed; inset:0; z-index:10; display:grid; place-items:center; padding:24px; background:rgba(15,23,42,.52); backdrop-filter:blur(3px); }
+    .backdrop.hidden { display:none; }
+    .dialog { width:min(1180px,calc(100vw - 48px)); height:min(880px,calc(100vh - 48px)); display:grid; grid-template-rows:auto auto 1fr auto; overflow:hidden; border:1px solid var(--border); border-radius:14px; background:var(--surface); box-shadow:var(--shadow); }
+    .dialog-header { min-height:68px; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:14px 20px; border-bottom:1px solid var(--border-soft); }
+    .title-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .title-row h2 { margin:0; font-size:20px; line-height:1.3; }
+    .title-meta { margin-top:4px; color:var(--muted); font-size:13px; }
+    .header-actions { display:flex; gap:8px; flex:0 0 auto; }
+    .tag { display:inline-flex; align-items:center; justify-content:center; min-height:24px; padding:2px 9px; border:1px solid var(--border); border-radius:999px; color:var(--muted); background:var(--surface-soft); font-size:12px; font-weight:700; white-space:nowrap; }
+    .tag.primary { color:var(--primary-dark); border-color:#b3d8ff; background:var(--primary-soft); }
+    .tag.success { color:#3c8c22; border-color:#c2e7b0; background:var(--success-soft); }
+    .tag.warning { color:#b88230; border-color:#f5dab1; background:var(--warning-soft); }
+    .tag.danger { color:#d64b4b; border-color:#fbc4c4; background:var(--danger-soft); }
+    .patient-strip { display:grid; grid-template-columns:minmax(270px,1.45fr) repeat(3,minmax(140px,1fr)); gap:12px; padding:14px 20px; border-bottom:1px solid var(--border-soft); background:var(--surface-soft); }
+    .patient-main { display:flex; align-items:center; gap:12px; min-width:0; }
+    .avatar { width:42px; height:42px; flex:0 0 42px; display:grid; place-items:center; border-radius:50%; color:#fff; background:linear-gradient(145deg,#409eff,#337ecc); font-weight:800; }
+    .patient-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:800; }
+    .patient-sub { margin-top:3px; color:var(--muted); font-size:12px; }
+    .meta-box { min-width:0; }
+    .meta-label { margin-bottom:3px; color:var(--subtle); font-size:11px; }
+    .meta-value { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; font-weight:700; }
+    .dialog-content { min-height:0; overflow:auto; padding:18px 20px 24px; }
+    .summary-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:16px; }
+    .summary-card { padding:12px 14px; border:1px solid var(--border-soft); border-radius:9px; background:var(--surface); }
+    .summary-card .label { color:var(--subtle); font-size:11px; }
+    .summary-card .value { margin-top:4px; font-size:14px; font-weight:800; }
+    .notice { display:flex; align-items:flex-start; gap:10px; margin-bottom:16px; padding:10px 12px; border:1px solid #b3d8ff; border-radius:8px; color:var(--primary-dark); background:var(--primary-soft); font-size:12px; line-height:1.55; }
+    .notice strong { white-space:nowrap; }
+    .section-heading { display:flex; align-items:center; justify-content:space-between; gap:14px; margin:0 0 10px; }
+    .section-heading h3 { margin:0; font-size:15px; }
+    .count { color:var(--muted); font-size:12px; }
+    .result-list { display:grid; gap:12px; }
+    .result-card { overflow:hidden; border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); }
+    .result-card.open { border-color:#a0cfff; box-shadow:0 0 0 1px rgba(64,158,255,.07); }
+    .result-card-head { width:100%; display:grid; grid-template-columns:34px minmax(220px,1.6fr) minmax(160px,1fr) minmax(160px,.9fr) auto 26px; align-items:center; gap:12px; padding:13px 14px; border:0; color:var(--ink); background:var(--surface); text-align:left; cursor:pointer; }
+    .result-card.open .result-card-head { background:var(--surface-blue); }
+    .ordinal { color:var(--subtle); font-size:12px; font-weight:800; }
+    .test-name { font-size:14px; font-weight:800; }
+    .test-code,.test-time { color:var(--muted); font-size:12px; }
+    .test-code strong,.test-time strong { display:block; margin-bottom:2px; color:var(--ink); font-size:12px; }
+    .chevron { color:var(--subtle); font-size:17px; transition:transform .18s ease; }
+    .result-card.open .chevron { transform:rotate(180deg); }
+    .result-card-body { display:none; padding:0 14px 16px 60px; background:var(--surface-blue); }
+    .result-card.open .result-card-body { display:block; }
+    .micro-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .field-card { padding:12px 14px; border:1px solid var(--border-soft); border-radius:8px; background:var(--surface); }
+    .field-label { margin-bottom:6px; color:var(--subtle); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; }
+    .field-value { font-size:13px; font-weight:700; line-height:1.55; }
+    .organism { margin-top:12px; overflow:hidden; border:1px solid var(--border-soft); border-radius:9px; background:var(--surface); }
+    .organism-head { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:12px 14px; border-bottom:1px solid var(--border-soft); }
+    .organism-title { min-width:0; }
+    .organism-title small { display:block; margin-bottom:3px; color:var(--subtle); }
+    .organism-title strong { display:block; overflow-wrap:anywhere; font-size:14px; }
+    .sir-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 14px; background:var(--surface-soft); }
+    .sir-legend { display:flex; align-items:center; gap:7px; flex-wrap:wrap; color:var(--muted); font-size:11px; }
+    .sir-filter { display:flex; gap:5px; }
+    .filter-btn { min-width:30px; height:27px; border:1px solid var(--border); border-radius:6px; color:var(--muted); background:var(--surface); cursor:pointer; font-size:11px; font-weight:800; }
+    .filter-btn.active { color:#fff; border-color:var(--primary); background:var(--primary); }
+    .table-wrap { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; font-size:12px; }
+    th,td { padding:9px 12px; border-top:1px solid var(--border-soft); text-align:left; white-space:nowrap; }
+    th { color:var(--muted); background:var(--surface-soft); font-weight:700; }
+    td:first-child { width:54%; white-space:normal; font-weight:700; }
+    .sir { width:28px; height:24px; display:inline-grid; place-items:center; border-radius:6px; font-weight:900; }
+    .sir.s { color:#3c8c22; background:var(--success-soft); }
+    .sir.i { color:#b88230; background:var(--warning-soft); }
+    .sir.r { color:#d64b4b; background:var(--danger-soft); }
+    .raw-block { margin-top:12px; }
+    .raw-toggle { width:100%; display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border:1px solid var(--border-soft); border-radius:8px; color:var(--ink); background:var(--surface); cursor:pointer; text-align:left; font-weight:700; }
+    .raw-content { display:none; margin:0; padding:14px; overflow:auto; border:1px solid var(--border-soft); border-top:0; border-radius:0 0 8px 8px; color:var(--muted); background:var(--surface-soft); font:12px/1.65 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; white-space:pre-wrap; }
+    .raw-block.open .raw-toggle { border-radius:8px 8px 0 0; }
+    .raw-block.open .raw-content { display:block; }
+    .pending { display:flex; align-items:center; gap:12px; padding:16px; border:1px dashed var(--border); border-radius:8px; color:var(--muted); background:var(--surface); font-size:13px; }
+    .pending-icon { font-size:20px; }
+    .dialog-footer { min-height:62px; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 20px; border-top:1px solid var(--border-soft); background:var(--surface); }
+    .footer-note { color:var(--subtle); font-size:11px; }
+    .footer-actions { display:flex; gap:8px; }
+    .toast { position:fixed; left:50%; bottom:28px; z-index:30; transform:translateX(-50%) translateY(20px); padding:10px 14px; border-radius:8px; color:#fff; background:rgba(48,49,51,.92); opacity:0; pointer-events:none; transition:.2s ease; font-size:13px; }
+    .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+    @media (max-width:900px) {
+      .backdrop { padding:0; } .dialog { width:100vw; height:100vh; border-radius:0; border:0; }
+      .patient-strip { grid-template-columns:1fr 1fr; } .patient-main { grid-column:1/-1; }
+      .summary-grid { grid-template-columns:1fr 1fr; }
+      .result-card-head { grid-template-columns:28px 1fr auto 24px; } .test-code { display:none; } .test-time { grid-column:2; }
+      .result-card-body { padding-left:14px; }
+    }
+    @media (max-width:620px) {
+      .dialog-header { align-items:flex-start; padding:12px 14px; }
+      .patient-strip,.dialog-content,.dialog-footer { padding-left:14px; padding-right:14px; }
+      .patient-strip,.summary-grid,.micro-grid { grid-template-columns:1fr; } .patient-main { grid-column:auto; }
+      .result-card-head { grid-template-columns:24px 1fr auto 22px; gap:8px; } .test-time { display:none; }
+      .sir-toolbar,.dialog-footer { align-items:flex-start; flex-direction:column; }
+      .footer-actions { width:100%; justify-content:flex-end; } .notice { flex-direction:column; gap:3px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="demo-shell">
+    <section class="launch-card">
+      <h1>HIS Result Viewer</h1>
+      <p>ตัวอย่างหน้าดูผลจุลชีววิทยาจาก MLab โดยใช้โครงเดียวกับผล LAB มาตรฐาน และเพิ่มรายละเอียดที่จำเป็นแบบเป็นชั้น</p>
+      <button class="btn primary" id="openDialog">เปิดดูผลตรวจ</button>
+    </section>
+  </main>
+
+  <div class="backdrop" id="backdrop">
+    <section class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
+      <header class="dialog-header">
+        <div>
+          <div class="title-row">
+            <h2 id="dialogTitle">ผลตรวจทางห้องปฏิบัติการ</h2>
+            <span class="tag primary">จุลชีววิทยา · MLab</span>
+            <span class="tag">โหมดดูอย่างเดียว</span>
+          </div>
+          <div class="title-meta">Result 2 รายการ · ออกผลแล้ว 1 · รอผล 1</div>
+        </div>
+        <div class="header-actions">
+          <button class="btn icon" id="themeButton" title="สลับโหมดสี" aria-label="สลับโหมดสี">◐</button>
+          <button class="btn icon" data-close title="ปิด" aria-label="ปิดหน้าต่าง">×</button>
+        </div>
+      </header>
+
+      <section class="patient-strip" aria-label="ข้อมูลผู้ป่วยและสิ่งส่งตรวจ">
+        <div class="patient-main">
+          <div class="avatar">ตย</div>
+          <div style="min-width:0">
+            <div class="patient-name">ด.ช. ผู้ป่วยตัวอย่าง ระบบทดสอบ</div>
+            <div class="patient-sub">HN00000002 · ชาย · อายุ 5 ปี 3 เดือน · SICU</div>
+          </div>
+        </div>
+        <div class="meta-box"><div class="meta-label">LAB NO.</div><div class="meta-value">MB-TEST-0241</div></div>
+        <div class="meta-box"><div class="meta-label">สิ่งส่งตรวจ</div><div class="meta-value">Blood (Peripheral Line)</div></div>
+        <div class="meta-box"><div class="meta-label">สถานะใบสั่ง</div><div class="meta-value"><span class="tag warning">Partial result</span></div></div>
+      </section>
+
+      <section class="dialog-content">
+        <div class="summary-grid" aria-label="ช่วงเวลาการตรวจ">
+          <div class="summary-card"><div class="label">เก็บสิ่งส่งตรวจ</div><div class="value">11/09/2026 15:10</div></div>
+          <div class="summary-card"><div class="label">รับสิ่งส่งตรวจ</div><div class="value">11/09/2026 15:41</div></div>
+          <div class="summary-card"><div class="label">ออกรายงานล่าสุด</div><div class="value">14/09/2026 09:14</div></div>
+          <div class="summary-card"><div class="label">Time to positive</div><div class="value">12 ชั่วโมง 21 นาที</div></div>
+        </div>
+
+        <div class="notice" role="note"><strong>หลักการแสดงผล</strong><span>หน้านี้แสดงค่า Gram stain, organism, MIC และ S/I/R ตามข้อมูลที่ได้รับจาก MLab โดยตรง ไม่ตีความหรือคำนวณค่าวิกฤตเพิ่มใน HIS</span></div>
+
+        <div class="section-heading"><h3>รายการตรวจ</h3><div class="count">กดแต่ละรายการเพื่อดูรายละเอียด</div></div>
+
+        <div class="result-list">
+          <article class="result-card open">
+            <button class="result-card-head" type="button" aria-expanded="true">
+              <span class="ordinal">01</span><span><span class="test-name">Aerobic Culture</span></span>
+              <span class="test-code"><strong>รหัสรายการ</strong>400199</span>
+              <span class="test-time"><strong>เวลารายงาน</strong>14/09/2026 09:14</span>
+              <span class="tag success">Final</span><span class="chevron">⌄</span>
+            </button>
+            <div class="result-card-body">
+              <div class="micro-grid">
+                <div class="field-card"><div class="field-label">Gram stain</div><div class="field-value">Gram Negative Bacilli</div></div>
+                <div class="field-card"><div class="field-label">Culture summary</div><div class="field-value">พบเชื้อ 1 รายการ</div></div>
+              </div>
+
+              <section class="organism" aria-label="ผลเชื้อและความไวต่อยา">
+                <div class="organism-head">
+                  <div class="organism-title"><small>Organism 1</small><strong><em>Acinetobacter baumannii</em> (CRAB_PXDR)</strong></div>
+                  <span class="tag danger">R 13</span>
+                </div>
+                <div class="sir-toolbar">
+                  <div class="sir-legend"><strong>ผลความไวต่อยา</strong><span>S = Susceptible</span><span>·</span><span>I = Intermediate</span><span>·</span><span>R = Resistant</span></div>
+                  <div class="sir-filter" aria-label="กรองผลความไวต่อยา">
+                    <button class="filter-btn active" data-filter="all">ทั้งหมด</button><button class="filter-btn" data-filter="S">S</button><button class="filter-btn" data-filter="I">I</button><button class="filter-btn" data-filter="R">R</button>
+                  </div>
+                </div>
+                <div class="table-wrap">
+                  <table>
+                    <thead><tr><th>ยาต้านจุลชีพ</th><th>MIC</th><th>ผล</th></tr></thead>
+                    <tbody id="sirRows">
+                      <tr data-sir="R"><td>Piperacillin/Tazobactam</td><td>&gt; 128*</td><td><span class="sir r">R</span></td></tr>
+                      <tr data-sir="R"><td>Cefotaxime</td><td>—</td><td><span class="sir r">R</span></td></tr>
+                      <tr data-sir="R"><td>Ceftazidime</td><td>&gt; 64*</td><td><span class="sir r">R</span></td></tr>
+                      <tr data-sir="R"><td>Ceftriaxone</td><td>&gt; 64*</td><td><span class="sir r">R</span></td></tr>
+                      <tr data-sir="R"><td>Cefepime</td><td>&gt; 64*</td><td><span class="sir r">R</span></td></tr>
+                      <tr data-sir="R"><td>Doripenem</td><td>&gt; 8*</td><td><span class="sir r">R</span></td></tr>
+                      <tr data-sir="R"><td>Imipenem</td><td>&gt; 16*</td><td><span class="sir r">R</span></td></tr>
+                      <tr data-sir="R"><td>Meropenem</td><td>&gt; 16*</td><td><span class="sir r">R</span></td></tr>
+                      <tr data-sir="R"><td>Amikacin</td><td>—</td><td><span class="sir r">R</span></td></tr>
+                      <tr data-sir="R"><td>Gentamicin</td><td>—</td><td><span class="sir r">R</span></td></tr>
+                      <tr data-sir="R"><td>Ciprofloxacin</td><td>&gt; 4*</td><td><span class="sir r">R</span></td></tr>
+                      <tr data-sir="R"><td>Levofloxacin</td><td>&gt; 8*</td><td><span class="sir r">R</span></td></tr>
+                      <tr data-sir="I"><td>Tigecycline</td><td>—</td><td><span class="sir i">I</span></td></tr>
+                      <tr data-sir="I"><td>Colistin</td><td>&lt;= 0.5*</td><td><span class="sir i">I</span></td></tr>
+                      <tr data-sir="R"><td>Trimethoprim/Sulfamethoxazole</td><td>—</td><td><span class="sir r">R</span></td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              <div class="raw-block">
+                <button class="raw-toggle" type="button" aria-expanded="false"><span>ข้อความต้นฉบับจาก MLab</span><span>แสดง ▾</span></button>
+                <pre class="raw-content">* Aerobic Culture *
+
+Gram Stain: Gram Negative Bacilli
+CULTURE: 1. Acinetobacter baumannii (CRAB_PXDR)
+
+หมายเหตุ: ส่วนนี้เก็บข้อความต้นฉบับเพื่อให้รายละเอียดที่ยังแยกโครงสร้างไม่ได้ไม่สูญหาย</pre>
+              </div>
+            </div>
+          </article>
+
+          <article class="result-card">
+            <button class="result-card-head" type="button" aria-expanded="false">
+              <span class="ordinal">02</span><span><span class="test-name">Anaerobic Culture</span></span>
+              <span class="test-code"><strong>รหัสรายการ</strong>400999</span>
+              <span class="test-time"><strong>รับสิ่งส่งตรวจ</strong>11/09/2026 15:41</span>
+              <span class="tag warning">รอผล</span><span class="chevron">⌄</span>
+            </button>
+            <div class="result-card-body"><div class="pending"><span class="pending-icon">◷</span><span><strong>ยังไม่มีผลจาก MLab</strong><br>ระบบจะแสดงรายละเอียดในรายการนี้เมื่อได้รับ partial หรือ final result</span></div></div>
+          </article>
+        </div>
+      </section>
+
+      <footer class="dialog-footer">
+        <div class="footer-note">ข้อมูลทั้งหมดใน mockup เป็นข้อมูลสังเคราะห์เพื่อออกแบบหน้าจอ</div>
+        <div class="footer-actions"><button class="btn" id="copyButton">คัดลอกผลที่แสดง</button><button class="btn primary" data-close>ปิด</button></div>
+      </footer>
+    </section>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite">คัดลอกผลที่แสดงแล้ว</div>
+
+  <script>
+    const backdrop = document.getElementById('backdrop');
+    const toast = document.getElementById('toast');
+    document.getElementById('openDialog').addEventListener('click', () => backdrop.classList.remove('hidden'));
+    document.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => backdrop.classList.add('hidden')));
+    document.getElementById('themeButton').addEventListener('click', () => document.body.classList.toggle('dark'));
+    document.querySelectorAll('.result-card-head').forEach(button => button.addEventListener('click', () => {
+      const card = button.closest('.result-card'); const expanded = card.classList.toggle('open'); button.setAttribute('aria-expanded', String(expanded));
+    }));
+    document.querySelector('.raw-toggle').addEventListener('click', event => {
+      const block = event.currentTarget.closest('.raw-block'); const expanded = block.classList.toggle('open');
+      event.currentTarget.setAttribute('aria-expanded', String(expanded)); event.currentTarget.lastElementChild.textContent = expanded ? 'ซ่อน ▴' : 'แสดง ▾';
+    });
+    document.querySelectorAll('.filter-btn').forEach(button => button.addEventListener('click', () => {
+      document.querySelectorAll('.filter-btn').forEach(item => item.classList.remove('active')); button.classList.add('active');
+      const filter = button.dataset.filter; document.querySelectorAll('#sirRows tr').forEach(row => row.hidden = filter !== 'all' && row.dataset.sir !== filter);
+    }));
+    document.getElementById('copyButton').addEventListener('click', async () => {
+      const visibleRows = [...document.querySelectorAll('#sirRows tr:not([hidden])')].map(row => [...row.cells].map(cell => cell.innerText.trim()).join('\t'));
+      const result = ['Aerobic Culture — Final','Gram Stain: Gram Negative Bacilli','Organism: Acinetobacter baumannii (CRAB_PXDR)','Drug\tMIC\tS/I/R',...visibleRows].join('\n');
+      try { await navigator.clipboard.writeText(result); } catch (_) {}
+      toast.classList.add('show'); window.setTimeout(() => toast.classList.remove('show'), 1600);
+    });
+    document.addEventListener('keydown', event => { if (event.key === 'Escape') backdrop.classList.add('hidden'); });
+  </script>
+</body>
+</html>

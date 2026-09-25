@@ -2,12 +2,14 @@ const assert = require("assert");
 const fs = require("fs");
 const path = require("path");
 
-const workspace = __dirname;
-const outputPath = path.join(workspace, "Lab_Result_Inbound_Receive.json");
-const personPath = path.join(workspace, "person.json");
-const textareaSourcePath = path.join(workspace, "disease.json");
+const workspace = path.resolve(__dirname, "../../../SDForm");
+const formsPath = path.join(workspace, "form-factory", "forms");
+const outputPath = path.join(formsPath, "Lab_Result_Inbound_Receive.json");
+const personPath = path.join(formsPath, "person.json");
+const textareaSourcePath = path.join(formsPath, "disease.json");
 const resultSchemaPath = path.join(
   workspace,
+  "api-factory",
   "schemas",
   "agent-to-his-result.schema.json",
 );
@@ -157,6 +159,11 @@ for (const requiredName of [
 ]) {
   assert.strictEqual(byName.get(requiredName).options.required, true, requiredName);
 }
+assert.strictEqual(
+  byName.get("result_uid").options.validation,
+  "",
+  "result_uid must not use collection-global Unique Value; the API enforces scoped idempotency",
+);
 assert.strictEqual(byName.get("report_seq").component, "text-input");
 assert.strictEqual(byName.get("report_seq").fieldType, "String");
 assert.strictEqual(byName.get("items_json").component, "textarea-input");
@@ -213,4 +220,5 @@ console.log("PASS Layout -> Grid Col -> Card -> Layout -> Grid Col -> Widget hie
 console.log("PASS 29 visible widgets, unique ids/names, non-empty containers");
 console.log("PASS wire types, required matching keys, defaults, and inert events");
 console.log("PASS required/maxLength mapping against agent-to-his-result schema");
+console.log("PASS result_uid uniqueness is scoped by Order identity in the API");
 console.log("NOTE live initCraft Builder/Preview verification is still required");

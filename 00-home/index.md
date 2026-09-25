@@ -124,6 +124,7 @@ _Overviews, comparisons, evolving theses, and filed query outputs._
 - [[his-opd-flow]] — end-to-end HIS OPD patient journey (register → EMR → billing → claims → data feeds) + module/transaction-table map. `2026-07-19`
 - [[his-lab-module-plan]] — ⚠ **SUPERSEDED 2026-08-16** by [[his-lab-workbench-handoff]] and siblings — LAB module scope/plan: 9 screens, proposed `zdata_lab_*` model, 18 blocking decisions. Kept for history. `2026-07-31` (revised `2026-08-04`)
 - [[his-lab-worklist-ui]] — **the 3-tab LAB worklist UI design** (S2/S3/S4) for งานชีวเคมี; clickable mockup at `02-his/ui/lab-worklist-mockup.html`. `2026-08-04`
+- [[lab-cbc-his-lab-code-mapping]] — 🔴 รายการ CBC ทุกตัวใน master ผูกกับ `2201EB` (Hb Typing) แทน `2001EB`/`2101EB`; outbound 7 ใบส่งรหัสผิดไปแล้ว. `2026-09-23`
 
 ## Design and implementation contracts
 _User-approved artifact specifications outside the maintained knowledge-base layer._
@@ -132,7 +133,12 @@ _User-approved artifact specifications outside the maintained knowledge-base lay
 - [LAB design decision record](../design/Lab_design-contract.md) — evidence, keep/change/do-not-copy boundaries, risks and quality gate. `2026-08-30`
 - [LAB implementation handoff](../design/Lab_implementation-handoff.md) — concise instructions for the first SDForm build. `2026-08-30`
 - [LAB CPOE integration checklist](../design/lab-cpoe-integration-checklist.md) — confirmed Order/Item decisions, panel evidence, worklist API contract, CPOE fixes, and staged path to the first real-data LAB SDForm. `2026-08-30`
-- [LAB SDForm working area](../Form-Builder/SDForm/Lab/README.md) — user-approved destination and JSON safety guardrails. `2026-08-30`
+- [LAB SDForm working area](../Form-Builder/SDForm/Lab/README.md) — user-approved destination, JSON guardrails, and local CPOE Item status-sync state. `2026-09-02`
+- [X-ray design and functional specification](../design/Xray_design.md) — binding X-ray visual/workflow spec, modality dropdown contract, two-number rule (Order No. vs Accession No.), open decisions X2–X17. `2026-08-31`
+- [X-ray SDForm working area](../Form-Builder/SDForm/X-ray/design.md) — build spec plus the first artifact `xray-cpoe-worklist-v1.json`, its generator and behaviour test. `2026-08-31`
+- [LAB Order Request PDF import](../02-his/handoff/lab-order-request-report-v1-import.md) — staged SQL Factory / Report Factory / Worklist import for `LAB Order Request v1`. `2026-09-02`
+- [X-ray Order Request PDF import](../02-his/handoff/xray-order-request-report-v1-import.md) — same pattern for X-ray with the specimen block removed and no `section_code` scope. `2026-09-02`
+- [LAB/X-ray integration auto-diagnostic tool](../02-his/api-factory/docs/INTEGRATION_AUTODIAG_TOOL.md) — safe-by-default CLI for LAB/X-ray Order/Result smoke, schema, auth, transport, ACK, correlation, evidence checks, and redacted Markdown/JSON reports. `2026-09-23`
 
 ---
 

@@ -1344,6 +1344,14 @@
                     "value": "accepted"
                   },
                   {
+                    "label": "ปฏิเสธ",
+                    "value": "rejected"
+                  },
+                  {
+                    "label": "ออกผลแล้ว",
+                    "value": "completed"
+                  },
+                  {
                     "value": "prepared",
                     "label": "Prepared"
                   },

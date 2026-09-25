@@ -1,0 +1,131 @@
+[
+  {
+    "_id": {
+      "$oid": "6a98a1c2422c1ca95982a1c2"
+    },
+    "xparentx": {
+      "$oid": "6a730b17c26bf53d1bac3b21"
+    },
+    "xsitex": {
+      "code": "0000",
+      "name": "0000"
+    },
+    "xunitx": {
+      "code": "A103",
+      "name": "คลินิกทันตกรรม"
+    },
+    "xrstatx": 1,
+    "xversionx": "v1",
+    "xerrorx": null,
+    "updated_by": {
+      "id": {
+        "$oid": "6a58678ad448dfc9d33e2ba8"
+      },
+      "name": "Nichada Patcharasumransuk (marnichacha27@gmail.com)"
+    },
+    "updated_at": "2026-09-02 16:40:00",
+    "created_by": {
+      "id": {
+        "$oid": "6a58678ad448dfc9d33e2ba8"
+      },
+      "name": "Nichada Patcharasumransuk (marnichacha27@gmail.com)"
+    },
+    "created_at": "2026-09-02 16:40:00",
+    "dataid": "6a98a1c2422c1ca95982a1c2",
+    "nosql_collections": "[\"zdata_cpoe_order\"]",
+    "nosql_filter": null,
+    "nosql_options": null,
+    "nosql_pipeline": "[{\"$match\":{\"xrstatx\":{\"$nin\":[0,3]},\"order_number\":\"{{order_number}}\"}},{\"$lookup\":{\"from\":\"zdata_cpoe_order_item\",\"localField\":\"_id\",\"foreignField\":\"order_id.value\",\"as\":\"_items\"}},{\"$addFields\":{\"_live_items\":{\"$filter\":{\"input\":{\"$ifNull\":[\"$_items\",[]]},\"as\":\"item\",\"cond\":{\"$not\":[{\"$in\":[\"$$item.xrstatx\",[0,3]]}]}}}}},{\"$addFields\":{\"order_id\":{\"$toString\":\"$_id\"},\"visit_id\":{\"$toString\":{\"$ifNull\":[\"$xparentx\",\"$vid.value\"]}},\"hn\":{\"$ifNull\":[\"$vid.pid.hn\",\"\"]},\"vn\":{\"$ifNull\":[\"$vid.vn\",\"\"]},\"order_created_at\":{\"$ifNull\":[\"$created_at\",\"\"]},\"patient_name\":{\"$trim\":{\"input\":{\"$concat\":[{\"$ifNull\":[\"$vid.pid.prename.label\",\"\"]},\" \",{\"$ifNull\":[\"$vid.pid.p_fname\",\"\"]},\" \",{\"$ifNull\":[\"$vid.pid.p_lname\",\"\"]}]}}},\"item_count\":{\"$size\":\"$_live_items\"},\"xray_item_count\":{\"$size\":{\"$filter\":{\"input\":\"$_live_items\",\"as\":\"item\",\"cond\":{\"$eq\":[{\"$toLower\":{\"$convert\":{\"input\":{\"$ifNull\":[\"$$item.service_type.value\",\"$$item.service_type\"]},\"to\":\"string\",\"onError\":\"(not a string)\",\"onNull\":\"(no service_type)\"}}},\"xray\"]}}}},\"service_types\":{\"$reduce\":{\"input\":{\"$setUnion\":[{\"$map\":{\"input\":\"$_live_items\",\"as\":\"item\",\"in\":{\"$convert\":{\"input\":{\"$ifNull\":[\"$$item.service_type.value\",\"$$item.service_type\"]},\"to\":\"string\",\"onError\":\"(not a string)\",\"onNull\":\"(no service_type)\"}}}}]},\"initialValue\":\"\",\"in\":{\"$cond\":[{\"$eq\":[\"$$value\",\"\"]},\"$$this\",{\"$concat\":[\"$$value\",\", \",\"$$this\"]}]}}}}},{\"$limit\":5},{\"$project\":{\"_id\":0,\"order_id\":1,\"visit_id\":1,\"order_number\":{\"$ifNull\":[\"$order_number\",\"\"]},\"order_created_at\":1,\"hn\":1,\"vn\":1,\"patient_name\":1,\"item_count\":1,\"xray_item_count\":1,\"service_types\":1}}]",
+    "nosql_type": "aggregate",
+    "pg_sql": null,
+    "sql_assign_roles": null,
+    "sql_category": null,
+    "sql_desc": "หา order_id + visit_id จากเลขที่ใบสั่ง (Order No.) ที่เห็นบนหน้า X-ray Workbench ไว้ป้อนให้ X-ray Order Request PDF v1",
+    "sql_form_id": {
+      "value": "6a6f5cd1265885c2377cc218",
+      "label": "CPOE Order"
+    },
+    "sql_from": "zdata_cpoe_order",
+    "sql_group_by": null,
+    "sql_join": [],
+    "sql_limit": null,
+    "sql_name": "X-ray Order ID Finder v1",
+    "sql_note": "อ่าน zdata_cpoe_order ตรง ๆ ไม่พึ่ง service_type จึงใช้ได้แม้ตอนที่ X-ray Order Request คืน 0 แถว คอลัมน์ service_types บอกค่าที่ item ใช้จริง",
+    "sql_options": {
+      "variable": [
+        {
+          "vname": "order_id",
+          "origin": "order_id",
+          "as": null
+        },
+        {
+          "vname": "visit_id",
+          "origin": "visit_id",
+          "as": null
+        },
+        {
+          "vname": "order_number",
+          "origin": "order_number",
+          "as": null
+        },
+        {
+          "vname": "order_created_at",
+          "origin": "order_created_at",
+          "as": null
+        },
+        {
+          "vname": "hn",
+          "origin": "hn",
+          "as": null
+        },
+        {
+          "vname": "vn",
+          "origin": "vn",
+          "as": null
+        },
+        {
+          "vname": "patient_name",
+          "origin": "patient_name",
+          "as": null
+        },
+        {
+          "vname": "item_count",
+          "origin": "item_count",
+          "as": null
+        },
+        {
+          "vname": "xray_item_count",
+          "origin": "xray_item_count",
+          "as": null
+        },
+        {
+          "vname": "service_types",
+          "origin": "service_types",
+          "as": null
+        }
+      ],
+      "param": [
+        {
+          "pname": "order_number",
+          "ptype": "text",
+          "pdefault": null
+        }
+      ]
+    },
+    "sql_order_by": [],
+    "sql_rstat": false,
+    "sql_select": [],
+    "sql_share": "public",
+    "sql_tags": [
+      "XRAY",
+      "order-request",
+      "lookup",
+      "CPOE"
+    ],
+    "sql_type": "nosql",
+    "sql_where": null,
+    "tool_license": "6a3113a619ee74c8f82854a0",
+    "xclonex": null,
+    "tool_feature": "sql"
+  }
+]

@@ -2,11 +2,11 @@
 
 สถานะเอกสาร: implementation baseline จาก mockup ที่ผู้ใช้ตรวจทานแล้ว
 
-อัปเดต: 2026-08-30
+อัปเดต: 2026-09-21
 
 หน้าต้นแบบ: `../02-his/ui/lab-workbench-stock-pattern-mockup.html`
 
-ขอบเขต: Desktop-first one-page LAB workbench สำหรับรับ specimen, ปฏิเสธ/ยกเลิก, ดูและลงผล Manual, ติดตามผลบางส่วน/ผลครบ และค้นคืนผล
+ขอบเขต: Desktop-first one-page LAB workbench สำหรับรับ specimen, ปฏิเสธ/ยกเลิก, ดูและลงผล Manual, ติดตามผลบางส่วน/ผลครบ และสืบค้นข้ามห้อง LAB แบบอ่านอย่างเดียว
 
 > เอกสารนี้เป็นสเปก UI/interaction และ business-state สำหรับเริ่มสร้าง SDForm ไม่ใช่หลักฐานว่า integration พร้อม production ค่าผล หน่วย Ref. Range ชื่อบุคคล และจำนวนรายการใน HTML เป็น mock เท่านั้น ห้าม hard-code ลงระบบจริง
 
@@ -19,6 +19,10 @@
 - hierarchy ต้องชัดด้วยน้ำหนักตัวอักษร เส้นแบ่ง และพื้นที่—not card shadow จำนวนมาก
 - พื้นผิวต้องดูเป็นระบบโรงพยาบาล: แม่นยำ ไม่ตกแต่งเกินจำเป็น ไม่มี gradient ไม่มี glass effect และไม่มี animation รบกวน
 - Worklist ถูกกำหนดจาก organization/lab section ของผู้ใช้ที่ login; UI ไม่แสดงตัวเลือกห้อง LAB ให้ผู้ใช้เลือกเอง
+- Organization `M1000` ชื่อ `กลุ่มงานพยาธิวิทยาคลินิกและเทคนิคการแพทย์` route เข้า Section `MY` เท่านั้น; `M1005` ชื่อ `งานจุลชีววิทยา` route เข้า `MB` เท่านั้น. หน้า `รายการวันนี้`, การสร้าง LAB NO. และการปฏิเสธ Item ต้องใช้ scope เดียวกัน
+- `MY` เป็นห้องลงผล Manual ตาม workflow ปกติ 100%; หลังรับ specimen ผู้ใช้ลง/แก้ผลผ่าน Order-level result popup ได้โดยไม่ต้องรอผลจาก MLab. ข้อนี้ไม่เปลี่ยนสิทธิอ่านข้ามทุกห้องในโหมด `สืบค้นผลแลป`
+- CPOE Order ที่มี Item หลาย Section ต้องแสดงเป็นหนึ่งแถวต่อ `order_id + section_code`;
+  ทุกแถวคง Order ID/No. เดิม แต่มีเฉพาะ Item ของ Section นั้น
 
 ## 2. Color
 
@@ -54,7 +58,7 @@
 
 | State/component | Border | Background | Text |
 |---|---|---|---|
-| รอรับ / รอผล / ออกผลบางส่วน | `warning-200` | `warning-50` | `#b88230` |
+| รอรับ / ออกผลบางส่วน | `warning-200` | `warning-50` | `#b88230` |
 | รับแล้ว / ออกผลแล้ว / ออกผลครบ | `success-200` | `success-50` | `#529b2e` |
 | ปฏิเสธ / ยกเลิก / เร่งด่วน | `danger-200` | `danger-50` | `#c45656` |
 | Neutral/mixed | `#c8c9cc` | `#f4f4f5` | `#73767a` |
@@ -135,7 +139,7 @@ minmax(140px,1fr)
 62px
 ```
 
-Column order: expand, patient, context pills, item count, specimen count, order time/order no., status time, doctor/diagnosis, order status, PDF/detail action, result/cancel action, EMR.
+Column order: expand, patient, context pills, item count, specimen count, order time/order no., status time, doctor/diagnosis, order status, PDF/detail action, HN action, result/cancel action, EMR.
 
 ### 4.3 Expanded detail
 
@@ -170,6 +174,18 @@ Column order: expand, patient, context pills, item count, specimen count, order 
 5. Implementation remark panel in prototype/documentation context only
 6. Dialog layers for results, save confirmation, rejection, cancellation detail and retest confirmation
 
+### 5.1.1 Main modes and cross-room lookup
+
+- `รายการวันนี้` is the default mode and preserves the existing organization-scoped worklist, status filters, specimen actions, result entry, Create Order, reports, HN direct print and EMR behavior.
+- `สืบค้นผลแลป` opens with no rows and the instruction `โปรดระบุ HN / เลือกวันที่`; entering the tab alone must not query or show the current-day list.
+- Lookup accepts either an exact HN with all dates, or a complete Date Range without HN. `ทั้งหมด` without HN is invalid.
+- Lookup is available to a user whose organization maps to any enabled LAB Section and reads every enabled LAB Section. The room is shown as a compact Section code column on every Order row.
+- Lookup subtabs are `ผลห้องแลป` and `รายการที่สั่ง`:
+  - `ผลห้องแลป` includes an Order+Section group when at least one mapped Item is `resulted` or `completed`; every sibling Item remains visible and incomplete siblings display `รอผล`.
+  - `รายการที่สั่ง` includes Items that were sent into LAB workflow, including later `cancelled` or `rejected` Items.
+- Lookup is read-only. Hide/disable Create Order, specimen receive/edit, reject, cancel, Retest, manual result edit, result visibility changes and result-file upload. PDF, direct HN print, EMR and result viewing remain available.
+- List requests use `cross_section:true` plus `lookup_mode:results|orders`. Opening a result from this mode calls `get_manual_result` with `cross_section:true` and `lookup_mode:results`, so a LAB user may read Result Items owned by another enabled LAB Section. This exception is read-only: the server rejects `save_manual_result`, `save_result_edits`, `save_result_attachments`, `set_result_visibility` and every other write action carrying `cross_section:true` before any data access.
+
 ### 5.2 Order summary content
 
 Every Order retains:
@@ -182,8 +198,8 @@ Every Order retains:
 - Contextual status time: เวลารับ, เวลาออกผล or เวลายกเลิก
 - Doctor name and truncated Diagnosis summary
 - Order status
-- PDF/context action, result/cancel action and EMR for active/result Orders
-- Cancelled/rejected Orders replace PDF and EMR with `ตรวจใหม่`
+- PDF/context action, HN action, result/cancel action and EMR for active/result Orders
+- Cancelled/rejected Section rows replace PDF and EMR with `ตรวจใหม่`
 
 EMR is available while an Order is active or resulted. It exposes full patient/diagnosis detail but does not replace the concise Diagnosis line. Cancelled/rejected rows do not show EMR or PDF.
 
@@ -266,11 +282,19 @@ One test can produce multiple result component rows. Long text wraps and increas
 - Receive: green tinted outline/fill
 - Reject/cancel: red tinted outline/fill
 - Neutral actions: white with gray border
-- Disabled buttons remain visible where the user needs to understand that the action exists, e.g. partial-result PDF
-- `รับ specimen` is hidden when no pending test can be received
+- The result-PDF action appears only in the standard LAB Order-level result popup; Item-level and `MB`/MLab popups do not show it
+- Result viewing and editing are Order-level actions. In daily mode, the expanded Item result list uses its action column only for audited `ปกปิดผล` / `ยกเลิกปกปิด` and loads the persisted result before the required-reason confirmation. Read-only lookup removes the entire action column, including its header and cells, and expands the remaining result grid
+- Item result status and Critical indication are independent: an Item with `resulted_at` shows `ออกผลแล้ว`, otherwise `รอผล`; add a separate `ค่าวิกฤติ` badge only when `is_critical=true`. Do not display `ไม่พบค่าวิกฤติ` or infer normality from `false`/missing because many tests have no Critical rule
+- A partial result may print when the Order resolves to exactly one canonical Result Report parent; keep the action disabled when there is no printable parent or when multiple parents would make a single PDF incomplete
+- `รับ specimen` remains visible but is enabled only when every selected CPOE Item is
+  `current_status=ready`. Here `ready` means Finance has cleared the Item. A selected `sent`
+  Item keeps the button disabled; hovering the disabled control shows `ยังไม่ผ่านการเงิน`.
+  The Receive API and LAB NO. generator enforce the same rule server-side. An already-persisted
+  `received` Work Item may retry idempotently after its CPOE projection advances to `accepted`
+  or a later terminal state
 - `ปฏิเสธรายการที่เลือก` accepts exactly one pending item
-- `ยกเลิก order` acts on every test under the Order
-- `ตรวจใหม่` exists only on cancelled/rejected Orders. Until the Write API exists it is a mock notification only; the production action will create a linked new Order No. using current order time, while LAB NO. is generated only on receipt
+- `ยกเลิก order` acts on eligible tests in the Section row that was clicked; tests in other Sections under the same Order remain unchanged
+- `ตรวจใหม่` ระดับ Section/Order คง action เดิมไว้; Item ที่ถูกปฏิเสธมี `ตรวจใหม่` ของตัวเองเพื่อเปิด Work Item attempt ใหม่ใต้ CPOE Order/Item เดิม โดยสร้าง LAB NO. ใหม่เมื่อรับ specimen
 
 ### 6.3 Specimen combobox
 
@@ -278,17 +302,25 @@ One test can produce multiple result component rows. Long text wraps and increas
 - Search filters specimen names case-insensitively
 - User must select a valid master option before receipt
 - Dropdown renders above Order rows: menu z-index `120`; active Order z-index `60`
+- Item checkboxes support independent multi-select; the header checkbox selects/clears all
+  pre-receive `sent` or `ready` Items in the expanded Order and shows indeterminate state for a
+  partial selection. Selection remains available for specimen correction/rejection, but receipt
+  requires every selected Item to be `ready`
+- Specimen correction uses the same effective waiting rule as the list: raw `sent` or `ready`,
+  or legacy `accepted/prepared/dispensed` only while there is no LAB NO., receipt time, or
+  received Work Item. `ready` must remain distinct and must never be normalized back to `sent`
 - After item receipt/rejection/cancellation, checkbox and specimen input are disabled and the selected/recorded value is preserved
 
 ### 6.4 Result editor
 
 - Default popup is readonly and labels itself `โหมดดูอย่างเดียว`
-- Pencil is available after specimen receipt and toggles edit mode on/off even when no result has arrived yet
+- Pencil is available after specimen receipt in the Order result view and toggles edit mode on/off even when no result has arrived yet; Order mode preserves each row's source Item and saves only changed Items
 - Edit mode changes result, Unit, interpretation and reference range to inputs according to schema/value length and reveals `บันทึกผล`; the Item-level previous value/audit remains readonly
 - First Manual entry requires non-empty content
 - Save uses an in-page confirmation dialog; do not depend on native browser confirmation
 - Later corrections must require reason and create a new immutable revision; never overwrite prior values
 - Values, units, reference ranges and interpretation come from API/master/result contract—not mock HTML
+- Result-file upload is Order-only, remains below the table, and is available before specimen receipt; upload alone never changes LAB/CPOE status
 
 ### 6.5 Accessibility
 
@@ -314,10 +346,16 @@ One test can produce multiple result component rows. Long text wraps and increas
   - received → receive time
   - partial/complete → result time
   - cancelled → cancellation time
+- เมื่อขึ้นวันใหม่ตามเวลา Asia/Bangkok รายการและตัวเลขบน Worklist ต้องโหลด scope วันใหม่;
+  รายการรอรับจากวันก่อนต้องไม่ค้างบนหน้าเริ่มต้น แต่ record ทุกตัวคงอยู่ในฐานข้อมูล
+  และ exact-HN completed history ยังค้นย้อนหลังข้ามวันได้
 - Result popup supports Order-level all-test view and test-level view
 - Partial result view must include both completed components and `รอผล` rows
-- Order PDF is an order-document action before final results; result PDF remains visible but disabled until every accepted test is complete. Cancelled/rejected rows do not show PDF
-- EMR is available for active/result Orders; cancelled/rejected rows replace PDF and EMR with `ตรวจใหม่`
+- Order PDF is an order-document action before final results and is implemented by Report Factory `LAB Order Request v1` (`6a977ac8422c1ca959829f97`). Worklist passes the row's CPOE `order_id`, the same Visit record `visit_id` used by EMR, and the visible LAB `section_code`; SQL returns data only when all three match. A missing Order/Visit/Section disables PDF rather than opening an unscoped report. Order No. always comes from CPOE, while LAB NO. is blank until specimen receipt creates it in LAB Work Item. Result PDF remains a separate result-document action and must stay disabled until every accepted test is complete. Cancelled/rejected rows do not show PDF
+- Order rows also expose Report Factory `ป้ายติดแฟ้ม (HN)` (`6a9a355c422c1ca95982a1a2`) as button `HN`; it passes the clicked Order's `hn` as required parameter `hn` and is disabled when HN is missing (moved from `5256d813009293b480d0a15c` + `xparentx` on user instruction 2026-09-04, same as X-ray)
+- EMR is available for active/result Orders; cancelled/rejected Section rows replace PDF and EMR with `ตรวจใหม่`
+- `cancel_order` sends the Section code of the clicked row, keeps the CPOE Order header read-only,
+  and cancels only eligible Items in that Section
 
 ## 8. Voice & Brand
 
@@ -332,7 +370,7 @@ One test can produce multiple result component rows. Long text wraps and increas
 - Result action: `ดูผล` for every active Item; Manual entry for every LAB section starts from the pencil inside the popup after receipt
 - Result modes: `โหมดดูอย่างเดียว`, `โหมดแก้ไข`
 - Result status: `รอผล`, `ออกผลแล้ว`, `ออกผลบางส่วน`, `ออกผลครบ`
-- Cancellation action: `ตรวจใหม่` (mock only until the Write API exists; detail remains available through row expansion)
+- Cancellation action: `ตรวจใหม่` ระดับ Section/Order; rejected Item ใช้ปุ่ม `ตรวจใหม่` ในคอลัมน์ผู้ดำเนินการของ Item นั้น
 - Confirmation language must name the exact affected Order/test and consequence
 
 ### 8.2 Writing rules
@@ -356,7 +394,8 @@ One test can produce multiple result component rows. Long text wraps and increas
 - Do not silently overwrite Manual results with later LIS results or overwrite corrected results
 - Do not silently retry authentication/configuration/data errors
 - Do not infer criticality from low/high rule text alone
-- Do not enable final-result PDF before all accepted tests are complete
+- Do not pass Order ID, LAB No. or attachment-record ID as the result report `xparentx`; Report Factory `Lab result` requires the canonical `zdata_lab_report_manual_entry._id`
+- Do not silently choose one parent when the Order-level viewer contains results from multiple Result Report parents
 - Do not use native browser confirmation for essential save/reject/cancel flows
 - Do not allow dropdowns to render underneath adjacent Order rows
 - Do not truncate long result text or squeeze the worklist into unreadable mobile cards
@@ -373,7 +412,7 @@ One test can produce multiple result component rows. Long text wraps and increas
 | ทั้งหมด | Current date scope across every state, plus search exceptions |
 | รอรับ / ออกผลบางส่วน | waiting, partially received, received-awaiting-result and result-partial |
 | ออกผลครบ | result-complete |
-| ยกเลิก | whole-Order cancelled only |
+| ยกเลิก | cancelled/rejected Section rows |
 
 The filter label remains as approved even though its internal `active` bucket includes received-awaiting-result Orders.
 
@@ -381,11 +420,12 @@ The filter label remains as approved even though its internal `active` bucket in
 
 1. Physician Order creates `order_no` and starts in `waiting`.
 2. User selects one or more waiting tests.
-3. `รับ specimen` generates Lab No. on first receipt, records per-test receipt time and actor, and preserves the same Lab No. for later receipts under that Order. Physical receipt must not be blocked by fields used only for Agent submission. If collection time is missing, keep it empty and mark transport as `awaiting_collection`; if fields such as priority, test code, or specimen code are missing, mark transport as `awaiting_outbound_data`. Wait for the ordering source to provide the real values before transmission; never substitute receive time for collection time.
-4. Item rejection is one test at a time, uses the LAB-section reason master, and records reason/detail/actor/time.
-5. Rejected items remain under the Order but do not count as pending result or complete-result requirements.
-6. Whole-Order cancellation cancels all tests, records reason/actor/time and moves the Order to `ยกเลิก`.
-7. Retest preserves the cancelled Order, creates a linked Order with a new Order No. and current request time, and waits to create Lab No. until receipt.
+3. `รับ specimen` generates Lab No. on first receipt, records per-test receipt time and actor, commits the Outbound snapshot, then sends that Item to Agent automatically. Physical receipt must not be blocked or rolled back by Agent transport failure. If collection time is missing, omit it without inventing a value; if required fields such as priority, test code, or specimen code are missing, mark transport as `awaiting_outbound_data` and do not call Agent. Preserve the same Lab No. and stable per-Item `order_no` for retry/idempotency.
+4. Item rejection is one test at a time, uses the LAB-section reason master, and records reason/detail/actor/time. Before receipt it creates/updates the waiting Work Item without allocating a LAB NO. After receipt it is allowed only while no result exists and the durable Outbound has not been attempted; that Outbound is cancelled locally while LAB NO. and receipt audit remain unchanged. If Agent/LIS transmission has started, fail closed with `lis_cancel_required` until the LIS cancellation contract is implemented.
+5. Rejected items remain under the same Order but do not count as pending-result or complete-result requirements. `ตรวจใหม่` at Item level keeps the rejected Work Item immutable, marks it as the prior attempt, creates a linked current Work Item attempt with a new identity, and changes only that CPOE Item back to `sent`. The new LAB NO. and Outbound are created when the new specimen is received; the new Work Item ID is the new Agent idempotency `order_no`.
+6. Section-row cancellation cancels eligible tests in the clicked Section, records reason/actor/time,
+   and leaves Items from other Sections under the same Order unchanged.
+7. Section/Order-level `ตรวจใหม่` remains a separate legacy flow and is not changed by the Item-level recollection implementation.
 
 ## A.3 Result channel
 
@@ -403,15 +443,18 @@ Snapshot on Order Item: `result_entry_mode`, `result_schema_id`, `unit_id`, `req
 - at least one resulted accepted test and at least one accepted test incomplete → result-partial
 - every accepted test has every required component complete → result-complete
 - rejected tests are excluded from the denominator but remain in audit history
-- every inbound receipt is deduplicated by `result_uid`
+- every inbound receipt is deduplicated by Order identity + `result_uid`; an unchanged failed
+  retry reuses the same Receipt, while a changed payload under that identity is rejected
 - final/corrected reports append stages and versions; prior reports/items remain immutable
 - Machine/LIS `reference_range` and explicit critical decision are displayed from the inbound result contract. HIS does not calculate criticality from the range/rule text. Manual-only ranges require an approved Lab master/rule and are not invented in the UI.
 
 # Appendix B — Search and Date Rules
 
 - Default lists show current-day events.
-- Exact HN search retrieves every historical resulted Order for that HN.
-- Date Range, when explicitly selected, narrows all searches including exact HN history.
+- In `รายการวันนี้`, exact HN + completed status can retrieve historical completed Orders as before.
+- In `สืบค้นผลแลป`, exact HN without a Date Range retrieves all dates; a complete Date Range may search without HN. Blank HN + all dates is forbidden.
+- Lookup Date Range uses CPOE Order `created_at` as its stable indexed axis; the end date is inclusive to the user and implemented as `< next day`.
+- `ผลห้องแลป` is result-presence based, not Order-completed based: one mapped resulted/completed Item qualifies the Order+Section group and pending siblings remain visible.
 - Searchable identifiers: HN, VN, Lab No., Order No. and patient name.
 - Cancelled Orders use cancellation time; waiting uses request time; received uses receipt time; resulted uses result time.
 - Timezone must be Thailand local or ISO 8601 with `+07:00`; never reinterpret UTC `Z` as local.
@@ -430,15 +473,16 @@ Snapshot on Order Item: `result_entry_mode`, `result_schema_id`, `unit_id`, `req
 
 | ID | Decision required | Recommended baseline |
 |---|---|---|
-| D1 | Product requires immediate per-Item submission: each LAB section receives and sends only its selected Item(s), and a later Item under the same CPOE Order must be submitted when received | Agent contract must support idempotent Item append/transition under an existing `order_no` (for example an explicit Item/submission key). Current whole-Order deduplication by `order_no` would discard the later submission, so do not wire the button until Agent confirms the revised contract |
+| D1 | Resolved: each LAB section receives and sends only its selected Item(s); a later Item under the same CPOE Order is submitted when received | Use the Lab Work Item ID as the stable Agent `order_no`, so every CPOE Item has its own idempotency key while retaining the original CPOE Order/Item references separately |
 | D2 | Order label while some tests are received and others waiting | Keep in active filter and display progress such as `รอรับ · รับแล้ว 1/3` |
 | D3 | Rejecting every item individually | Prevent rejection of the last unresolved item when no accepted test exists; require `ยกเลิก order` |
-| D4 | Recollection of one rejected test | Confirm item-level `ตรวจใหม่` versus a new CPOE Order |
+| D4 | Resolved: recollection of one rejected test | Keep the CPOE Order/Item, preserve the rejected Work Item as audit, create a linked current Work Item attempt, and allocate a new LAB NO./Outbound only on receipt |
 | D5 | `requires_verification=true` | Save without publishing until an authorized verifier confirms; do not add a new primary filter |
 | D6 | LIS result after Manual fallback | Store a new receipt/version and require reconciliation; never auto-overwrite |
 | D7 | Partial Order with result events on multiple dates | Include when any relevant result event falls in range; display the latest result time |
 | D8 | Cancellation after Agent submission | Unsent: cancel locally; sent/no result: request LIS cancel; existing result: preserve cancel rejection |
 | D9 | Code mappings and completeness | Agent/API must confirm order code, observation code, specimen code and required result components |
+| D10 | Resolved: Finance gate before specimen receipt | Finance projects the CPOE Item to `ready`; LAB disables Receive and shows `ยังไม่ผ่านการเงิน` until then, while the server rejects any bypass before LAB NO./receipt persistence |
 
 # Appendix E — Acceptance Checklist for the First SDForm
 
@@ -448,13 +492,13 @@ Snapshot on Order Item: `result_entry_mode`, `result_schema_id`, `unit_id`, `req
 - [ ] Order rows expand/collapse and dropdowns render above adjacent rows
 - [ ] Receipt uses checkboxes and records per-test receipt time
 - [ ] Lab No. is absent before receipt and generated by the approved server flow
-- [ ] Single-item rejection and whole-Order cancellation are distinct and audited
+- [ ] Single-item rejection and Section-row cancellation are distinct and audited
 - [ ] Manual/machine/fallback behavior is driven by Order Item snapshot
 - [ ] Result viewer renders multiple components, previous result and long text
 - [ ] Result popup is readonly until pencil edit; save uses an in-page confirmation
 - [ ] Partial/complete aggregation uses accepted tests and required components
-- [ ] Partial PDF is visible-disabled; complete result PDF is enabled
+- [ ] Standard LAB Order popup enables `รายงานผล` for partial/final data only when one canonical Result Report parent is available; Item and MB popups never show it
 - [ ] EMR is available for active/result Orders and absent from cancelled/rejected rows
-- [ ] Cancelled/rejected rows show `ตรวจใหม่` instead of PDF/EMR; the mock performs no write
+- [ ] Cancelled/rejected Section rows show the existing `ตรวจใหม่`; each rejected Item also exposes its own reason-required `ตรวจใหม่` action without removing it from the Order
 - [ ] No production identifiers/results, credentials or environment secrets are embedded
 - [ ] SDForm JSON passes the repository validator and is verified in Builder/Preview/runtime at the level required by the feature

@@ -1,0 +1,251 @@
+[
+  {
+    "_id": {
+      "$oid": "6a98a1c0422c1ca95982a1c0"
+    },
+    "xparentx": {
+      "$oid": "6a730b17c26bf53d1bac3b21"
+    },
+    "xsitex": {
+      "code": "0000",
+      "name": "0000"
+    },
+    "xunitx": {
+      "code": "A103",
+      "name": "คลินิกทันตกรรม"
+    },
+    "xrstatx": 1,
+    "xversionx": "v1",
+    "xerrorx": null,
+    "updated_by": {
+      "id": {
+        "$oid": "6a58678ad448dfc9d33e2ba8"
+      },
+      "name": "Nichada Patcharasumransuk (marnichacha27@gmail.com)"
+    },
+    "updated_at": "2026-09-03 00:35:00",
+    "created_by": {
+      "id": {
+        "$oid": "6a58678ad448dfc9d33e2ba8"
+      },
+      "name": "Nichada Patcharasumransuk (marnichacha27@gmail.com)"
+    },
+    "created_at": "2026-09-03 00:35:00",
+    "dataid": "6a98a1c0422c1ca95982a1c0",
+    "nosql_collections": "[\"zdata_cpoe_order_item\"]",
+    "nosql_filter": null,
+    "nosql_options": null,
+    "nosql_pipeline": "[{\"$addFields\":{\"_order_key\":{\"$toString\":{\"$ifNull\":[\"$order_id.value\",\"$xparentx\"]}},\"_item_key\":{\"$toString\":\"$_id\"}}},{\"$match\":{\"xrstatx\":{\"$nin\":[0,3]},\"_order_key\":\"{{order_id}}\",\"$or\":[{\"service_type.value\":\"xray\"},{\"service_type\":\"xray\"}]}},{\"$lookup\":{\"from\":\"zdata_cpoe_order\",\"localField\":\"order_id.value\",\"foreignField\":\"_id\",\"as\":\"_order_rows\"}},{\"$lookup\":{\"from\":\"zdata_master_item_order\",\"localField\":\"item_data_id\",\"foreignField\":\"_id\",\"as\":\"_master_rows\"}},{\"$addFields\":{\"_order\":{\"$arrayElemAt\":[\"$_order_rows\",0]},\"_master\":{\"$arrayElemAt\":[\"$_master_rows\",0]}}},{\"$addFields\":{\"_route_section\":{\"$ifNull\":[\"$section_snapshot\",{\"$ifNull\":[\"$xray_context_snapshot.section\",\"$_master.section\"]}]},\"_visit_key\":{\"$toString\":{\"$ifNull\":[\"$_order.xparentx\",\"$_order.vid.value\"]}}}},{\"$lookup\":{\"from\":\"zdata_section\",\"localField\":\"_route_section.value\",\"foreignField\":\"_id\",\"as\":\"_section_rows\"}},{\"$lookup\":{\"from\":\"zdata_diagnosis\",\"localField\":\"_order.xparentx\",\"foreignField\":\"vid.value\",\"as\":\"_diagnosis_rows\"}},{\"$addFields\":{\"_section\":{\"$ifNull\":[{\"$arrayElemAt\":[\"$_section_rows\",0]},\"$_route_section\"]},\"_diagnosis\":{\"$arrayElemAt\":[\"$_diagnosis_rows\",0]}}},{\"$addFields\":{\"_modality_raw\":{\"$ifNull\":[\"$_master.xray_item.modality.value\",{\"$ifNull\":[\"$_master.xray_item.modality\",{\"$ifNull\":[\"$_master.xray_item.modality_type\",{\"$ifNull\":[\"$_section.modality_type\",\"\"]}]}]}]},\"_body_part_raw\":{\"$ifNull\":[\"$_master.xray_item.body_path\",{\"$ifNull\":[\"$_master.xray_item.bordy_path\",\"\"]}]}}},{\"$addFields\":{\"_modality_code\":{\"$let\":{\"vars\":{\"raw\":\"$_modality_raw\"},\"in\":{\"$cond\":[{\"$eq\":[{\"$type\":\"$$raw\"},\"string\"]},{\"$toUpper\":{\"$trim\":{\"input\":\"$$raw\"}}},\"\"]}}}}},{\"$match\":{\"_order.xrstatx\":{\"$nin\":[0,3]},\"_visit_key\":\"{{visit_id}}\"}},{\"$addFields\":{\"_sort_key\":{\"$concat\":[{\"$ifNull\":[\"$created_at\",\"\"]},\"|\",{\"$ifNull\":[\"$item_code\",\"\"]},\"|\",{\"$toString\":\"$_id\"}]}}},{\"$sort\":{\"_sort_key\":1}},{\"$setWindowFields\":{\"sortBy\":{\"_sort_key\":1},\"output\":{\"_row_no\":{\"$documentNumber\":{}}}}},{\"$project\":{\"_id\":1,\"row_no\":\"$_row_no\",\"order_id\":{\"$toString\":\"$_order._id\"},\"order_number\":{\"$ifNull\":[\"$_order.order_number\",\"\"]},\"order_date\":{\"$substrCP\":[{\"$ifNull\":[\"$_order.created_at\",\"\"]},0,10]},\"order_time\":{\"$substrCP\":[{\"$ifNull\":[\"$_order.created_at\",\"\"]},11,8]},\"patient_name\":{\"$trim\":{\"input\":{\"$concat\":[{\"$ifNull\":[\"$_order.vid.pid.prename.label\",\"\"]},\" \",{\"$ifNull\":[\"$_order.vid.pid.p_fname\",\"\"]},\" \",{\"$ifNull\":[\"$_order.vid.pid.p_lname\",\"\"]}]}}},\"hn\":{\"$ifNull\":[\"$_order.vid.pid.hn\",\"\"]},\"age_display\":{\"$convert\":{\"input\":\"$_order.vid.pid.age\",\"to\":\"string\",\"onError\":\"\",\"onNull\":\"\"}},\"gender_display\":{\"$let\":{\"vars\":{\"raw\":\"$_order.vid.gender_text\"},\"in\":{\"$ifNull\":[\"$$raw.label\",{\"$convert\":{\"input\":{\"$ifNull\":[\"$$raw.value\",{\"$ifNull\":[\"$$raw.code\",\"$$raw\"]}]},\"to\":\"string\",\"onError\":\"\",\"onNull\":\"\"}}]}}},\"an\":{\"$let\":{\"vars\":{\"raw\":{\"$let\":{\"vars\":{\"raw\":\"$_order.vid.an\"},\"in\":{\"$ifNull\":[\"$$raw.label\",{\"$convert\":{\"input\":{\"$ifNull\":[\"$$raw.value\",{\"$ifNull\":[\"$$raw.code\",\"$$raw\"]}]},\"to\":\"string\",\"onError\":\"\",\"onNull\":\"\"}}]}}}},\"in\":{\"$cond\":[{\"$in\":[{\"$toLower\":{\"$trim\":{\"input\":\"$$raw\"}}},[\"\",\"0\",\"0.0\",\"null\",\"undefined\"]]},\"\",{\"$trim\":{\"input\":\"$$raw\"}}]}}},\"ward_clinic\":{\"$ifNull\":[\"$_order.vid.ward.label\",{\"$ifNull\":[\"$_order.vid.visit_clinic.label\",\"\"]}]},\"insurance_display\":{\"$reduce\":{\"input\":{\"$ifNull\":[\"$_order.inscl_hos\",[]]},\"initialValue\":\"\",\"in\":{\"$let\":{\"vars\":{\"label\":{\"$ifNull\":[\"$$this.inscl_item_main.label\",\"\"]}},\"in\":{\"$cond\":[{\"$eq\":[\"$$label\",\"\"]},\"$$value\",{\"$cond\":[{\"$eq\":[\"$$value\",\"\"]},\"$$label\",{\"$concat\":[\"$$value\",\", \",\"$$label\"]}]}]}}}}},\"prior_medication_display\":{\"$ifNull\":[\"$_order.prior_specify\",{\"$ifNull\":[\"$_order.prior_medication.label\",\"\"]}]},\"diagnosis_display\":{\"$ifNull\":[\"$_diagnosis.primary_dx.label\",{\"$ifNull\":[\"$_diagnosis.primary_dx.value\",\"\"]}]},\"priority_display\":{\"$let\":{\"vars\":{\"value\":{\"$trim\":{\"input\":{\"$let\":{\"vars\":{\"raw\":\"$_order.priority\"},\"in\":{\"$ifNull\":[\"$$raw.label\",{\"$convert\":{\"input\":{\"$ifNull\":[\"$$raw.value\",{\"$ifNull\":[\"$$raw.code\",\"$$raw\"]}]},\"to\":\"string\",\"onError\":\"\",\"onNull\":\"\"}}]}}}}}},\"in\":{\"$let\":{\"vars\":{\"row\":{\"$arrayElemAt\":[{\"$filter\":{\"input\":[{\"code\":\"1\",\"label\":\"ปกติ\"},{\"code\":\"2\",\"label\":\"ด่วน\"},{\"code\":\"3\",\"label\":\"ด่วนที่สุด\"},{\"code\":\"4\",\"label\":\"ด่วน OR\"},{\"code\":\"5\",\"label\":\"ด่วน อุบัติเหตุ\"}],\"as\":\"row\",\"cond\":{\"$eq\":[\"$$row.code\",\"$$value\"]}}},0]}},\"in\":{\"$ifNull\":[\"$$row.label\",\"$$value\"]}}}}},\"order_note\":{\"$ifNull\":[\"$_order.order_comment\",{\"$ifNull\":[\"$comment\",\"\"]}]},\"requester_name\":{\"$let\":{\"vars\":{\"raw\":{\"$let\":{\"vars\":{\"raw\":{\"$ifNull\":[\"$_order.vid.visit_doctor.label\",{\"$ifNull\":[\"$_order.cosign_user.name\",{\"$ifNull\":[\"$_order.cosign_user.label\",\"\"]}]}]}},\"in\":{\"$ifNull\":[\"$$raw.label\",{\"$convert\":{\"input\":{\"$ifNull\":[\"$$raw.value\",{\"$ifNull\":[\"$$raw.code\",\"$$raw\"]}]},\"to\":\"string\",\"onError\":\"\",\"onNull\":\"\"}}]}}}},\"in\":{\"$trim\":{\"input\":{\"$arrayElemAt\":[{\"$split\":[\"$$raw\",\"(\"]},0]}}}}},\"submitter_name\":{\"$let\":{\"vars\":{\"raw\":{\"$let\":{\"vars\":{\"raw\":\"$_order.created_by.name\"},\"in\":{\"$ifNull\":[\"$$raw.label\",{\"$convert\":{\"input\":{\"$ifNull\":[\"$$raw.value\",{\"$ifNull\":[\"$$raw.code\",\"$$raw\"]}]},\"to\":\"string\",\"onError\":\"\",\"onNull\":\"\"}}]}}}},\"in\":{\"$trim\":{\"input\":{\"$arrayElemAt\":[{\"$split\":[\"$$raw\",\"(\"]},0]}}}}},\"accession_no\":{\"$ifNull\":[\"$accession_no\",\"\"]},\"item_code\":{\"$ifNull\":[\"$item_code\",\"\"]},\"item_name\":{\"$ifNull\":[\"$item_name\",\"\"]},\"test_display\":{\"$trim\":{\"input\":{\"$concat\":[{\"$ifNull\":[\"$item_code\",\"\"]},\" \",{\"$ifNull\":[\"$item_name\",\"\"]}]}}},\"modality_code\":\"$_modality_code\",\"modality_display\":{\"$let\":{\"vars\":{\"row\":{\"$arrayElemAt\":[{\"$filter\":{\"input\":[{\"code\":\"DX\",\"label\":\"DX-Digital Radiography\"},{\"code\":\"MG\",\"label\":\"MG-Mammography\"},{\"code\":\"US\",\"label\":\"US-Ultrasound\"},{\"code\":\"CT\",\"label\":\"CT-Computed Tomography\"},{\"code\":\"RF\",\"label\":\"RF-Radiofluoroscopy\"},{\"code\":\"CR\",\"label\":\"CR-Computed Radiography\"},{\"code\":\"VCUG\",\"label\":\"VCUG-Voiding Cystourethrogram\"},{\"code\":\"MR\",\"label\":\"Magnetic Resonance\"},{\"code\":\"IO\",\"label\":\"Intra-oral Radiography\"},{\"code\":\"UN\",\"label\":\"Unspecified\"},{\"code\":\"OT\",\"label\":\"Other\"}],\"as\":\"row\",\"cond\":{\"$eq\":[\"$$row.code\",\"$_modality_code\"]}}},0]}},\"in\":{\"$ifNull\":[\"$$row.label\",\"$_modality_code\"]}}},\"body_part\":{\"$let\":{\"vars\":{\"raw\":\"$_body_part_raw\"},\"in\":{\"$ifNull\":[\"$$raw.label\",{\"$convert\":{\"input\":{\"$ifNull\":[\"$$raw.value\",{\"$ifNull\":[\"$$raw.code\",\"$$raw\"]}]},\"to\":\"string\",\"onError\":\"\",\"onNull\":\"\"}}]}}},\"item_status\":{\"$convert\":{\"input\":\"$current_status\",\"to\":\"string\",\"onError\":\"\",\"onNull\":\"\"}},\"section_code\":{\"$ifNull\":[\"$_section.code\",{\"$ifNull\":[\"$section_snapshot.code\",\"\"]}]},\"section_name\":{\"$ifNull\":[\"$_section.name_th\",{\"$ifNull\":[\"$_section.name\",{\"$ifNull\":[\"$section_snapshot.name\",\"\"]}]}]},\"section_unit\":{\"$ifNull\":[\"$_section.unit.label\",\"\"]},\"printed_by\":\"{{printed_by}}\",\"printed_at\":\"{{printed_at}}\"}},{\"$sort\":{\"row_no\":1}}]",
+    "nosql_type": "aggregate",
+    "pg_sql": null,
+    "sql_assign_roles": null,
+    "sql_category": null,
+    "sql_desc": "ใบสั่งตรวจ X-ray: 1 แถวต่อ CPOE X-ray item ภายใน Order และ Visit ที่ระบุ (ไม่มี specimen)",
+    "sql_form_id": {
+      "value": "6a6f7db2265885c2377cc222",
+      "label": "CPOE Order Item"
+    },
+    "sql_from": "zdata_cpoe_order_item",
+    "sql_group_by": null,
+    "sql_join": [],
+    "sql_limit": null,
+    "sql_name": "X-ray Order Request PDF v1",
+    "sql_note": "NoSQL aggregate ตามแบบ LAB Order Request PDF v1. Fail-closed ด้วย order_id + visit_id; X-ray ไม่แบ่ง section_code เหมือน LAB. Accession No. ว่างจนกว่าจะส่งเข้าเครื่อง",
+    "sql_options": {
+      "variable": [
+        {
+          "vname": "row_no",
+          "origin": "row_no",
+          "as": null
+        },
+        {
+          "vname": "order_id",
+          "origin": "order_id",
+          "as": null
+        },
+        {
+          "vname": "order_number",
+          "origin": "order_number",
+          "as": null
+        },
+        {
+          "vname": "order_date",
+          "origin": "order_date",
+          "as": null
+        },
+        {
+          "vname": "order_time",
+          "origin": "order_time",
+          "as": null
+        },
+        {
+          "vname": "patient_name",
+          "origin": "patient_name",
+          "as": null
+        },
+        {
+          "vname": "hn",
+          "origin": "hn",
+          "as": null
+        },
+        {
+          "vname": "age_display",
+          "origin": "age_display",
+          "as": null
+        },
+        {
+          "vname": "gender_display",
+          "origin": "gender_display",
+          "as": null
+        },
+        {
+          "vname": "an",
+          "origin": "an",
+          "as": null
+        },
+        {
+          "vname": "ward_clinic",
+          "origin": "ward_clinic",
+          "as": null
+        },
+        {
+          "vname": "insurance_display",
+          "origin": "insurance_display",
+          "as": null
+        },
+        {
+          "vname": "prior_medication_display",
+          "origin": "prior_medication_display",
+          "as": null
+        },
+        {
+          "vname": "diagnosis_display",
+          "origin": "diagnosis_display",
+          "as": null
+        },
+        {
+          "vname": "priority_display",
+          "origin": "priority_display",
+          "as": null
+        },
+        {
+          "vname": "order_note",
+          "origin": "order_note",
+          "as": null
+        },
+        {
+          "vname": "requester_name",
+          "origin": "requester_name",
+          "as": null
+        },
+        {
+          "vname": "submitter_name",
+          "origin": "submitter_name",
+          "as": null
+        },
+        {
+          "vname": "accession_no",
+          "origin": "accession_no",
+          "as": null
+        },
+        {
+          "vname": "item_code",
+          "origin": "item_code",
+          "as": null
+        },
+        {
+          "vname": "item_name",
+          "origin": "item_name",
+          "as": null
+        },
+        {
+          "vname": "test_display",
+          "origin": "test_display",
+          "as": null
+        },
+        {
+          "vname": "modality_code",
+          "origin": "modality_code",
+          "as": null
+        },
+        {
+          "vname": "modality_display",
+          "origin": "modality_display",
+          "as": null
+        },
+        {
+          "vname": "body_part",
+          "origin": "body_part",
+          "as": null
+        },
+        {
+          "vname": "item_status",
+          "origin": "item_status",
+          "as": null
+        },
+        {
+          "vname": "section_code",
+          "origin": "section_code",
+          "as": null
+        },
+        {
+          "vname": "section_name",
+          "origin": "section_name",
+          "as": null
+        },
+        {
+          "vname": "section_unit",
+          "origin": "section_unit",
+          "as": null
+        },
+        {
+          "vname": "printed_by",
+          "origin": "printed_by",
+          "as": null
+        },
+        {
+          "vname": "printed_at",
+          "origin": "printed_at",
+          "as": null
+        }
+      ],
+      "param": [
+        {
+          "pname": "order_id",
+          "ptype": "text",
+          "pdefault": null
+        },
+        {
+          "pname": "visit_id",
+          "ptype": "text",
+          "pdefault": null
+        },
+        {
+          "pname": "printed_by",
+          "ptype": "text",
+          "pdefault": null
+        },
+        {
+          "pname": "printed_at",
+          "ptype": "text",
+          "pdefault": null
+        }
+      ]
+    },
+    "sql_order_by": [],
+    "sql_rstat": false,
+    "sql_select": [],
+    "sql_share": "public",
+    "sql_tags": [
+      "XRAY",
+      "order-request",
+      "pdf",
+      "CPOE"
+    ],
+    "sql_type": "nosql",
+    "sql_where": null,
+    "tool_license": "6a3113a619ee74c8f82854a0",
+    "xclonex": null,
+    "tool_feature": "sql"
+  }
+]

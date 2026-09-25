@@ -1,0 +1,143 @@
+[
+  {
+    "_id": {
+      "$oid": "6a980831422c1ca95982a054"
+    },
+    "xparentx": {
+      "$oid": "6a734f21c26bf53d1bac3c10"
+    },
+    "xsitex": {
+      "code": "0000",
+      "name": "0000"
+    },
+    "xunitx": {
+      "code": "A103",
+      "name": "คลินิกทันตกรรม"
+    },
+    "xrstatx": 1,
+    "xversionx": "v1",
+    "xerrorx": null,
+    "updated_by": {
+      "id": {
+        "$oid": "6a58678ad448dfc9d33e2ba8"
+      },
+      "name": "Nichada Patcharasumransuk (marnichacha27@gmail.com)"
+    },
+    "updated_at": "2026-09-02 19:10:00",
+    "created_by": {
+      "id": {
+        "$oid": "6a58678ad448dfc9d33e2ba8"
+      },
+      "name": "Nichada Patcharasumransuk (marnichacha27@gmail.com)"
+    },
+    "created_at": "2026-09-02 18:27:45",
+    "dataid": "6a980831422c1ca95982a054",
+    "pdf_assign_roles": null,
+    "pdf_bg": null,
+    "pdf_category": null,
+    "pdf_column": [],
+    "pdf_content": [
+      {
+        "content_widget": "html",
+        "content_var": "hn_accession_sticker",
+        "content_align": "left",
+        "content_decoration": "",
+        "content_linestyle": "dotted",
+        "content_bold": false,
+        "content_italics": false,
+        "content_color": "#000000",
+        "content_bgcolor": null,
+        "content_fontsize": 8,
+        "content_ml": null,
+        "content_mt": null,
+        "content_mr": null,
+        "content_mb": 0,
+        "content_width": null,
+        "content_height": null,
+        "content_value": "<table style=\"width:100%;border-collapse:collapse;border:none;table-layout:fixed;font-size:8px;line-height:9px;margin:0;padding:0\"><colgroup><col style=\"width:57%\"><col style=\"width:43%\"></colgroup><tr><td style=\"border:none;padding:0;font-size:7px;font-weight:bold;white-space:nowrap\">{{hospital_name}}</td><td style=\"border:none;padding:0;text-align:right;font-size:7px;font-weight:bold;white-space:nowrap\">{{accession_no}}</td></tr><tr><td colspan=\"2\" style=\"border:none;padding:0;font-size:8px;font-weight:bold;white-space:nowrap\">{{patient_name}}</td></tr><tr><td style=\"border:none;padding:0;white-space:nowrap\"><b>วันเกิด</b> {{birth_date_display}}</td><td style=\"border:none;padding:0;white-space:nowrap\"><b>อายุ</b> {{age_display}}</td></tr><tr><td style=\"border:none;padding:0;white-space:nowrap\"><b>วันที่</b> {{print_date}}</td><td style=\"border:none;padding:0;white-space:nowrap\"><b>HN</b> {{hn}}</td></tr></table>"
+      }
+    ],
+    "pdf_custom_size": {
+      "width": 240.94488188976376,
+      "height": 56.69291338582677
+    },
+    "pdf_desc": "สติ๊กเกอร์ HN ผู้ป่วย X-ray พร้อม Accession No. ของรายการที่กด ขนาด 8.5 × 2 ซม.",
+    "pdf_fontsize": 8,
+    "pdf_form_id": "6a6f7db2265885c2377cc222",
+    "pdf_from": "zdata_cpoe_order_item",
+    "pdf_latex": null,
+    "pdf_mb": 2,
+    "pdf_ml": 4,
+    "pdf_mr": 4,
+    "pdf_mt": 2,
+    "pdf_name": "X-ray HN Accession Sticker 8.5x2 cm v2",
+    "pdf_note": "พิมพ์จากปุ่มระดับ X-ray item ได้ก่อนมี Accession; เมื่อมีเลขต้องแสดงของ item ที่กดเท่านั้น; ใช้คำว่า วันเกิดแทน DOB",
+    "pdf_orientation": "landscape",
+    "pdf_page_date": false,
+    "pdf_page_num": false,
+    "pdf_page_size": "custom",
+    "pdf_params": [
+      {
+        "param_var": "order_id",
+        "param_label": "Order ID",
+        "param_default": null,
+        "param_required": true,
+        "param_type": "text",
+        "param_sform": null,
+        "param_svalue": null,
+        "param_slabel": null
+      },
+      {
+        "param_var": "visit_id",
+        "param_label": "Visit ID",
+        "param_default": null,
+        "param_required": true,
+        "param_type": "text",
+        "param_sform": null,
+        "param_svalue": null,
+        "param_slabel": null
+      },
+      {
+        "param_var": "item_id",
+        "param_label": "Item ID",
+        "param_default": null,
+        "param_required": true,
+        "param_type": "text",
+        "param_sform": null,
+        "param_svalue": null,
+        "param_slabel": null
+      },
+      {
+        "param_var": "printed_date",
+        "param_label": "วันที่พิมพ์",
+        "param_default": null,
+        "param_required": true,
+        "param_type": "text",
+        "param_sform": null,
+        "param_svalue": null,
+        "param_slabel": null
+      }
+    ],
+    "pdf_share": "private",
+    "pdf_showheader": "firstPage",
+    "pdf_sql": {
+      "value": {
+        "$oid": "6a980809422c1ca95982a053"
+      },
+      "label": "X-ray HN Accession Sticker v1"
+    },
+    "pdf_tags": [
+      "XRAY",
+      "HN",
+      "accession",
+      "sticker"
+    ],
+    "pdf_tb_header": [],
+    "pdf_tb_layout": "",
+    "pdf_temp": null,
+    "pdf_title": null,
+    "pdf_type": "report",
+    "pdf_watermark": null,
+    "tool_license": "6a3113a619ee74c8f82854a0"
+  }
+]

@@ -1,0 +1,97 @@
+{
+  "formConfig": {
+    "modelName": "formData",
+    "refName": "sdForm",
+    "rulesName": "rules",
+    "labelWidth": 120,
+    "labelPosition": "top",
+    "size": "",
+    "labelAlign": "label-right-align",
+    "cssCode": ".xray-doc-library{--xd-blue:var(--el-color-primary,#409eff);--xd-ink:var(--el-text-color-primary,#303133);--xd-muted:var(--el-text-color-secondary,#909399);--xd-line:var(--el-border-color-light,#e4e7ed);--xd-bg:var(--el-bg-color,#fff);--xd-soft:var(--el-fill-color-light,#f5f7fa);box-sizing:border-box;width:100%;padding:18px 20px 28px;background:var(--xd-bg);color:var(--xd-ink);font-family:\"Leelawadee UI\",\"Noto Sans Thai\",Tahoma,\"Segoe UI\",sans-serif}\n.xray-doc-library *{box-sizing:border-box}\n.xray-doc-library .xd-header{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:20px}\n.xray-doc-library .xd-title{margin:0;font-size:22px;font-weight:750}\n.xray-doc-library .xd-subtitle{margin:5px 0 0;color:var(--xd-muted);font-size:13px}\n.xray-doc-library .xd-search{width:min(340px,100%)}\n.xray-doc-library .xd-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px 24px}\n.xray-doc-library .xd-folder{display:flex;min-height:160px;flex-direction:column;align-items:flex-start;justify-content:space-between;width:100%;padding:19px 20px 17px;border:1px solid var(--xd-line);border-radius:14px;background:var(--xd-bg);box-shadow:0 3px 8px rgba(18,38,63,.08);color:var(--xd-ink);font:inherit;text-align:left;cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .15s}\n.xray-doc-library .xd-folder:hover,.xray-doc-library .xd-folder:focus-visible{border-color:var(--xd-blue);box-shadow:0 6px 14px rgba(18,38,63,.14);transform:translateY(-1px);outline:none}\n.xray-doc-library .xd-folder.is-active{border-color:var(--xd-blue);box-shadow:0 0 0 2px var(--el-color-primary-light-7,#a0cfff)}\n.xray-doc-library .xd-folder-icon{display:block;width:34px;height:34px;color:#347ecc}\n.xray-doc-library .xd-folder-name{display:block;margin-top:17px;font-size:17px;font-weight:700;line-height:1.3;overflow-wrap:anywhere}\n.xray-doc-library .xd-folder-count{display:block;margin-top:5px;color:var(--xd-muted);font-size:12px}\n.xray-doc-library .xd-panel{margin-top:22px;padding:16px 18px;border:1px solid var(--xd-line);border-radius:12px;background:var(--xd-bg)}\n.xray-doc-library .xd-panel-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:10px}\n.xray-doc-library .xd-panel-title{margin:0;font-size:16px;font-weight:700}\n.xray-doc-library .xd-panel-hint{color:var(--xd-muted);font-size:12px}\n.xray-doc-library .xd-file{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;min-height:62px;padding:10px 0;border-top:1px solid var(--xd-line)}\n.xray-doc-library .xd-file-name{display:block;font-size:13px;font-weight:650;overflow-wrap:anywhere}\n.xray-doc-library .xd-file-language{display:block;margin-top:3px;color:var(--xd-muted);font-size:11px}\n.xray-doc-library .xd-empty{padding:30px 15px;border:1px dashed var(--xd-line);border-radius:12px;background:var(--xd-soft);color:var(--xd-muted);text-align:center}\n@media(max-width:900px){.xray-doc-library .xd-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}\n@media(max-width:600px){.xray-doc-library{padding:12px}.xray-doc-library .xd-header{display:block}.xray-doc-library .xd-search{margin-top:12px;width:100%}.xray-doc-library .xd-grid{grid-template-columns:1fr;gap:12px}.xray-doc-library .xd-folder{min-height:120px}.xray-doc-library .xd-panel-head{display:block}.xray-doc-library .xd-panel-hint{display:block;margin-top:4px}.xray-doc-library .xd-file{grid-template-columns:1fr}}\n@media(prefers-reduced-motion:reduce){.xray-doc-library *{transition-duration:.001ms!important}}",
+    "customClass": [],
+    "functions": "",
+    "layoutType": "PC",
+    "jsonVersion": 3,
+    "onFormCreated": "",
+    "onFormMounted": "",
+    "onParentChange": "",
+    "onFormDataChange": "",
+    "onFormUnmounted": ""
+  },
+  "fields": [
+    {
+      "key": 69632,
+      "name": "Layout",
+      "component": "grid",
+      "category": "container",
+      "icon": "grid",
+      "fieldType": "None",
+      "fieldLength": null,
+      "children": false,
+      "enable": true,
+      "options": {
+        "name": "xray_document_library_root",
+        "hidden": false,
+        "gutter": 16,
+        "colHeight": null,
+        "customClass": ""
+      },
+      "id": "grid-xray-document-library-root",
+      "cols": [
+        {
+          "key": 44168,
+          "name": "Grid Col",
+          "component": "grid-col",
+          "category": "container",
+          "icon": "grid-col",
+          "fieldType": "None",
+          "fieldLength": null,
+          "children": true,
+          "enable": true,
+          "options": {
+            "name": "xray_document_library_col",
+            "hidden": false,
+            "span": 24,
+            "offset": 0,
+            "push": 0,
+            "pull": 0,
+            "responsive": false,
+            "md": 12,
+            "sm": 24,
+            "xs": 24,
+            "bgColor": null,
+            "customClass": ""
+          },
+          "id": "grid-col-xray-document-library",
+          "fields": [
+            {
+              "key": 91005,
+              "name": "Components",
+              "component": "vue-ui",
+              "category": "display_ui",
+              "icon": "components-ui",
+              "fieldType": "None",
+              "fieldLength": null,
+              "children": false,
+              "enable": true,
+              "formItemFlag": false,
+              "options": {
+                "name": "xray_document_library",
+                "label": "คลังเอกสาร X-ray",
+                "columnSpan": 24,
+                "hidden": false,
+                "content": "<div class=\"xray-doc-library\">\n  <header class=\"xd-header\">\n    <div><h2 class=\"xd-title\">คลังเอกสาร X-ray</h2>\n      <p class=\"xd-subtitle\">เลือกชุดเอกสารเพื่อดูตัวอย่างและพิมพ์รายงาน PDF</p></div>\n    <el-input class=\"xd-search\" :model-value=\"search\" clearable prefix-icon=\"Search\"\n      placeholder=\"ค้นหาชื่อไฟล์\" aria-label=\"ค้นหาชื่อไฟล์เอกสาร X-ray\"\n      @input=\"setSearch\" @clear=\"setSearch('')\" />\n  </header>\n  <div v-if=\"visibleFolders().length\" class=\"xd-grid\" role=\"group\" aria-label=\"ชุดเอกสาร\">\n    <button v-for=\"folder in visibleFolders()\" :key=\"folder.id\" type=\"button\"\n      class=\"xd-folder\" :class=\"{'is-active':selectedFolderId===folder.id}\"\n      :aria-pressed=\"selectedFolderId===folder.id\" @click=\"selectFolder(folder.id)\">\n      <svg class=\"xd-folder-icon\" viewBox=\"0 0 36 36\" fill=\"none\" aria-hidden=\"true\">\n        <path d=\"M4 9.5A4.5 4.5 0 0 1 8.5 5h6.8l3.5 3.7h8.7A4.5 4.5 0 0 1 32 13.2v15.3a4.5 4.5 0 0 1-4.5 4.5h-19A4.5 4.5 0 0 1 4 28.5v-19Z\" fill=\"currentColor\"/>\n        <path d=\"M12.5 21h11\" stroke=\"#fff\" stroke-width=\"2.6\" stroke-linecap=\"round\"/>\n      </svg>\n      <span><span class=\"xd-folder-name\">{{ folder.name }}</span>\n        <span class=\"xd-folder-count\">{{ folder.files.length }} ไฟล์ · ไทย / English</span></span>\n    </button>\n  </div>\n  <div v-else class=\"xd-empty\">ไม่พบชื่อไฟล์ที่ค้นหา</div>\n  <section v-if=\"visibleFiles().length\" class=\"xd-panel\" aria-label=\"ไฟล์ในชุดเอกสาร\">\n    <div class=\"xd-panel-head\">\n      <h3 class=\"xd-panel-title\">{{ search && !selectedFolderId ? 'ผลการค้นหา' : selectedFolderName() }}</h3>\n      <span class=\"xd-panel-hint\">พรีวิว PDF ก่อนเลือกพิมพ์ได้</span>\n    </div>\n    <div v-for=\"file in visibleFiles()\" :key=\"file.id\" class=\"xd-file\">\n      <div><span class=\"xd-file-name\">{{ file.title }}</span>\n        <span class=\"xd-file-language\">{{ file.name }} · {{ file.language }}</span></div>\n      <sd-report :report-list=\"file.reportList\" :params=\"{}\" size=\"small\" />\n    </div>\n  </section>\n</div>",
+                "customClass": "",
+                "onCreated": "const s=this.vueState;\ns.folders=[{\"id\":\"1\",\"name\":\"รับทราบและยินยอมตรวจพิเศษ\",\"files\":[{\"id\":\"6aa3b2df8f9a0e702f2deacf\",\"name\":\"Xray static report 1 TH\",\"title\":\"หนังสือรับทราบข้อมูลและยินยอมตรวจพิเศษทางรังสี\",\"language\":\"ภาษาไทย\",\"search\":\"xray static report 1 th ไทย รับทราบและยินยอมตรวจพิเศษ หนังสือรับทราบข้อมูลและยินยอมตรวจพิเศษทางรังสี\",\"reportList\":[{\"reportId\":\"6aa3b2df8f9a0e702f2deacf\",\"label\":\"ดูตัวอย่าง / พิมพ์\",\"type\":\"pdf\"}]},{\"id\":\"6aa3ba38b92813319a86e9d7\",\"name\":\"Xray static report 1 EN\",\"title\":\"Acknowledgement and Consent for Special Radiological Examination\",\"language\":\"English\",\"search\":\"xray static report 1 en english อังกฤษ รับทราบและยินยอมตรวจพิเศษ acknowledgement and consent for special radiological examination\",\"reportList\":[{\"reportId\":\"6aa3ba38b92813319a86e9d7\",\"label\":\"ดูตัวอย่าง / พิมพ์\",\"type\":\"pdf\"}]}]},{\"id\":\"2\",\"name\":\"ยินยอมตรวจ FLU / IVP / CT\",\"files\":[{\"id\":\"6aa3c0556c01b91cd929807a\",\"name\":\"Xray static report 2 TH\",\"title\":\"ใบยินยอมตรวจพิเศษทางรังสีวิทยา (FLU, IVP, CT)\",\"language\":\"ภาษาไทย\",\"search\":\"xray static report 2 th ไทย ยินยอมตรวจ flu / ivp / ct ใบยินยอมตรวจพิเศษทางรังสีวิทยา (flu, ivp, ct)\",\"reportList\":[{\"reportId\":\"6aa3c0556c01b91cd929807a\",\"label\":\"ดูตัวอย่าง / พิมพ์\",\"type\":\"pdf\"}]},{\"id\":\"6aa3c059951e69eaf6f574c0\",\"name\":\"Xray static report 2 EN\",\"title\":\"Consent for Special Radiological Examinations (FLU, IVP, CT)\",\"language\":\"English\",\"search\":\"xray static report 2 en english อังกฤษ ยินยอมตรวจ flu / ivp / ct consent for special radiological examinations (flu, ivp, ct)\",\"reportList\":[{\"reportId\":\"6aa3c059951e69eaf6f574c0\",\"label\":\"ดูตัวอย่าง / พิมพ์\",\"type\":\"pdf\"}]}]},{\"id\":\"3\",\"name\":\"ยินยอมรับการรักษา\",\"files\":[{\"id\":\"6aa3c05c4450eda3107a5bcd\",\"name\":\"Xray static report 3 TH\",\"title\":\"คำยินยอมให้ทำการรักษา\",\"language\":\"ภาษาไทย\",\"search\":\"xray static report 3 th ไทย ยินยอมรับการรักษา คำยินยอมให้ทำการรักษา\",\"reportList\":[{\"reportId\":\"6aa3c05c4450eda3107a5bcd\",\"label\":\"ดูตัวอย่าง / พิมพ์\",\"type\":\"pdf\"}]},{\"id\":\"6aa3c05f91aa378567d9cdbd\",\"name\":\"Xray static report 3 EN\",\"title\":\"Consent for Medical Treatment\",\"language\":\"English\",\"search\":\"xray static report 3 en english อังกฤษ ยินยอมรับการรักษา consent for medical treatment\",\"reportList\":[{\"reportId\":\"6aa3c05f91aa378567d9cdbd\",\"label\":\"ดูตัวอย่าง / พิมพ์\",\"type\":\"pdf\"}]}]},{\"id\":\"4\",\"name\":\"ประวัติก่อนตรวจ MRI / สารทึบ\",\"files\":[{\"id\":\"6aa3c06118ba3bc2899b37ec\",\"name\":\"Xray static report 4 TH\",\"title\":\"ใบซักประวัติก่อนตรวจ MRI และฉีดสารทึบรังสี\",\"language\":\"ภาษาไทย\",\"search\":\"xray static report 4 th ไทย ประวัติก่อนตรวจ mri / สารทึบ ใบซักประวัติก่อนตรวจ mri และฉีดสารทึบรังสี\",\"reportList\":[{\"reportId\":\"6aa3c06118ba3bc2899b37ec\",\"label\":\"ดูตัวอย่าง / พิมพ์\",\"type\":\"pdf\"}]},{\"id\":\"6aa3c0696943d27dbf198b07\",\"name\":\"Xray static report 4 EN\",\"title\":\"MRI and Contrast Media Pre-Examination History\",\"language\":\"English\",\"search\":\"xray static report 4 en english อังกฤษ ประวัติก่อนตรวจ mri / สารทึบ mri and contrast media pre-examination history\",\"reportList\":[{\"reportId\":\"6aa3c0696943d27dbf198b07\",\"label\":\"ดูตัวอย่าง / พิมพ์\",\"type\":\"pdf\"}]}]},{\"id\":\"5\",\"name\":\"ยินยอมบันทึกภาพและข้อมูล\",\"files\":[{\"id\":\"6aa3c06f23e6140d107bc6c3\",\"name\":\"Xray static report 5 TH\",\"title\":\"ยินยอมบันทึกภาพและเสียงและใช้ข้อมูลด้านสุขภาพ\",\"language\":\"ภาษาไทย\",\"search\":\"xray static report 5 th ไทย ยินยอมบันทึกภาพและข้อมูล ยินยอมบันทึกภาพและเสียงและใช้ข้อมูลด้านสุขภาพ\",\"reportList\":[{\"reportId\":\"6aa3c06f23e6140d107bc6c3\",\"label\":\"ดูตัวอย่าง / พิมพ์\",\"type\":\"pdf\"}]},{\"id\":\"6aa3c076d0cf5dff9d8d716a\",\"name\":\"Xray static report 5 EN\",\"title\":\"Consent for Photography, Audio/Video and Health Information Use\",\"language\":\"English\",\"search\":\"xray static report 5 en english อังกฤษ ยินยอมบันทึกภาพและข้อมูล consent for photography, audio/video and health information use\",\"reportList\":[{\"reportId\":\"6aa3c076d0cf5dff9d8d716a\",\"label\":\"ดูตัวอย่าง / พิมพ์\",\"type\":\"pdf\"}]}]}];\ns.search='';\ns.selectedFolderId='';\ns.normalize=value=>String(value==null?'':value).trim().toLowerCase();\ns.setSearch=value=>{s.search=String(value==null?'':value);s.selectedFolderId='';};\ns.matches=file=>!s.normalize(s.search)||file.search.includes(s.normalize(s.search));\ns.visibleFolders=()=>s.folders.map(folder=>({...folder,files:folder.files.filter(s.matches)})).filter(folder=>folder.files.length);\ns.selectFolder=id=>{s.selectedFolderId=s.selectedFolderId===id?'':id;};\ns.selectedFolderName=()=>{const folder=s.folders.find(item=>item.id===s.selectedFolderId);return folder?folder.name:'';};\ns.visibleFiles=()=>{\n  const folders=s.visibleFolders();\n  if(s.selectedFolderId){const selected=folders.find(folder=>folder.id===s.selectedFolderId);return selected?selected.files:[];}\n  return s.normalize(s.search)?folders.flatMap(folder=>folder.files):[];\n};",
+                "onMounted": "",
+                "onUnmount": ""
+              },
+              "id": "vue-ui-xray-document-library"
+            }
+          ]
+        }
+      ],
+      "fields": []
+    }
+  ]
+}

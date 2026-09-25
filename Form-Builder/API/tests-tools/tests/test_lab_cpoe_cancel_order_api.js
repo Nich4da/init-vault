@@ -16,6 +16,9 @@ const ids = {
   item2: '222222222222222222222222',
   master1: 'bbbbbbbbbbbbbbbbbbbbbbbb',
   master2: 'cccccccccccccccccccccccc',
+  bill1: '333333333333333333333333',
+  billItem1: '444444444444444444444444',
+  billItem2: '555555555555555555555555',
 }
 
 const userInfo = {
@@ -76,6 +79,8 @@ const makeHarness = ({
   itemSections = ['BC', 'BC'],
   workItems = [],
   outboundRows = [],
+  bills = [],
+  billItems = [],
   outboundRace = false,
 } = {}) => {
   const order = {
@@ -128,6 +133,8 @@ const makeHarness = ({
     zdata_lab_work_item: mapCollection(workItems.map(row => ({ xrstatx: 1, ...row }))),
     zdata_lab_outband_order: mapCollection(outboundRows.map(row => ({ xrstatx: 1, ...row }))),
     zdata_lab_order_cancellation: mapCollection([]),
+    zdata_fa_bill: mapCollection(bills.map(row => ({ xrstatx: 1, ...row }))),
+    zdata_fa_bill_item: mapCollection(billItems.map(row => ({ xrstatx: 1, item_status: 'active', ...row }))),
   }
   if (outboundRace) {
     const originalUpdate = collections.zdata_lab_outband_order.updateOne
@@ -167,11 +174,18 @@ const makeHarness = ({
 const run = (harness, overrides = {}) => Process({
   action: 'cancel_order',
   organization_code: '10',
+  section_codes: ['BC'],
   order_id: ids.order,
   order_number: 'R2609010001',
   cancel_reason: 'แพทย์ยกเลิกการตรวจทั้ง Order',
   ...overrides,
 }, userInfo, harness.app)
+
+const checkFinance = (harness, overrides = {}) => run(harness, {
+  action: 'check_cancel_finance',
+  cancel_reason: undefined,
+  ...overrides,
+})
 
 ;(async () => {
   {
@@ -180,7 +194,9 @@ const run = (harness, overrides = {}) => Process({
     assert.strictEqual(result.success, true)
     assert.strictEqual(result.data.cancelled_item_count, 2)
     assert.strictEqual(result.data.preserved_terminal_item_count, 0)
-    assert.strictEqual(result.data.cpoe_unchanged, true)
+    assert.strictEqual(result.data.current_status, 'cancelled')
+    assert.strictEqual(result.data.cpoe_cancelled_item_count, 2)
+    assert.strictEqual(result.data.finance_status, 'not_billed')
     assert.strictEqual(harness.collections.zdata_lab_order_cancellation.data.size, 1)
     const cancellation = harness.collections.zdata_lab_order_cancellation.data.get(ids.order)
     assert.strictEqual(cancellation.cancel_status, 'applied')
@@ -190,7 +206,8 @@ const run = (harness, overrides = {}) => Process({
     assert.strictEqual(harness.collections.zdata_lab_work_item.data.get(ids.item1).work_status, 'cancelled')
     assert.strictEqual(harness.collections.zdata_lab_work_item.data.get(ids.item2).work_status, 'cancelled')
     assert.deepStrictEqual(harness.order, harness.originalOrder, 'CPOE Order must remain read-only')
-    assert.deepStrictEqual(harness.items, harness.originalItems, 'CPOE Items must remain read-only')
+    assert.strictEqual(harness.collections.zdata_cpoe_order_item.data.get(ids.item1).current_status, 'cancelled')
+    assert.strictEqual(harness.collections.zdata_cpoe_order_item.data.get(ids.item2).current_status, 'cancelled')
 
     const retry = await run(harness, { cancel_reason: 'เหตุผลใหม่ต้องไม่ทับ audit เดิม' })
     assert.strictEqual(retry.success, true)
@@ -210,6 +227,20 @@ const run = (harness, overrides = {}) => Process({
     assert.strictEqual(result.data.preserved_terminal_item_count, 1)
     assert.strictEqual(harness.collections.zdata_lab_work_item.data.get(ids.item1).work_status, 'rejected')
     assert.strictEqual(harness.collections.zdata_lab_work_item.data.get(ids.item2).work_status, 'cancelled')
+    assert.strictEqual(harness.collections.zdata_cpoe_order_item.data.get(ids.item1).current_status, 'sent')
+    assert.strictEqual(harness.collections.zdata_cpoe_order_item.data.get(ids.item2).current_status, 'cancelled')
+  }
+
+  {
+    const harness = makeHarness({
+      itemStatuses: ['completed', 'sent'],
+      workItems: [{ _id: ids.item1, source_specimen_record_id: ids.item1, work_status: 'received', lab_no: '106909010001' }],
+    })
+    const result = await run(harness)
+    assert.strictEqual(result.success, true)
+    assert.strictEqual(result.data.cpoe_preserved_terminal_item_count, 1)
+    assert.strictEqual(harness.collections.zdata_cpoe_order_item.data.get(ids.item1).current_status, 'completed')
+    assert.strictEqual(harness.collections.zdata_cpoe_order_item.data.get(ids.item2).current_status, 'cancelled')
   }
 
   {
@@ -233,10 +264,12 @@ const run = (harness, overrides = {}) => Process({
       outboundRows: [{ _id: ids.item1, work_item_id: ids.item1, attempt_count: 1, hl7_status: 'sent', sent_at: '2026-09-01 12:00:00' }],
     })
     const result = await run(harness)
-    assert.strictEqual(result.success, false)
-    assert.strictEqual(result.error, 'lis_cancel_required')
-    assert.strictEqual(harness.collections.zdata_lab_order_cancellation.data.size, 0)
-    assert.strictEqual(harness.collections.zdata_lab_work_item.data.get(ids.item1).work_status, 'received')
+    // 2026-09-25 user-confirmed contract: cancellation is HIS-only. A sent
+    // Outbound row stays untouched and does not block CPOE/LAB cancellation.
+    assert.strictEqual(result.success, true)
+    assert.strictEqual(harness.collections.zdata_lab_outband_order.data.get(ids.item1).hl7_status, 'sent')
+    assert.strictEqual(harness.collections.zdata_lab_work_item.data.get(ids.item1).work_status, 'cancelled')
+    assert.strictEqual(harness.collections.zdata_cpoe_order_item.data.get(ids.item1).current_status, 'cancelled')
   }
 
   {
@@ -246,10 +279,9 @@ const run = (harness, overrides = {}) => Process({
       outboundRace: true,
     })
     const result = await run(harness)
-    assert.strictEqual(result.success, false)
-    assert.strictEqual(result.error, 'cancel_race_lost')
-    assert.strictEqual(harness.collections.zdata_lab_order_cancellation.data.get(ids.order).cancel_status, 'conflict')
-    assert.strictEqual(harness.collections.zdata_lab_work_item.data.get(ids.item1).work_status, 'received')
+    assert.strictEqual(result.success, true)
+    assert.strictEqual(harness.collections.zdata_lab_outband_order.data.get(ids.item1).hl7_status, 'sent')
+    assert.strictEqual(harness.collections.zdata_lab_work_item.data.get(ids.item1).work_status, 'cancelled')
   }
 
   {
@@ -265,9 +297,85 @@ const run = (harness, overrides = {}) => Process({
   {
     const harness = makeHarness({ itemSections: ['BC', 'HM'] })
     const result = await run(harness)
+    // 2026-09-03: user clarified that the same Order is split into one row per
+    // Section. Cancelling the BC row must not cancel the HM Item.
+    assert.strictEqual(result.success, true)
+    assert.strictEqual(result.data.section_code, 'BC')
+    assert.strictEqual(result.data.cancelled_item_count, 1)
+    assert.strictEqual(harness.collections.zdata_cpoe_order_item.data.get(ids.item1).current_status, 'cancelled')
+    assert.strictEqual(harness.collections.zdata_cpoe_order_item.data.get(ids.item2).current_status, 'sent')
+    assert.strictEqual(harness.collections.zdata_lab_work_item.data.has(ids.item2), false)
+    const cancellation = harness.collections.zdata_lab_order_cancellation.data.get(ids.item1)
+    assert(cancellation, 'multi-Section cancellation uses a Section-scoped audit record')
+    assert.strictEqual(cancellation.cancel_scope, 'section')
+    assert.deepStrictEqual(cancellation.section_codes, ['BC'])
+    assert.deepStrictEqual(cancellation.item_ids, [ids.item1])
+  }
+
+  {
+    const harness = makeHarness({
+      bills: [{ _id: ids.bill1, bill_status: 'paid', is_refund: false, receipt_number: 'RC-TEST-001' }],
+      billItems: [{ _id: ids.billItem1, bill_id: { value: ids.bill1 }, order_item: { value: ids.item1 } }],
+    })
+    const checked = await checkFinance(harness)
+    assert.strictEqual(checked.success, true)
+    assert.strictEqual(checked.data.can_cancel, false)
+    assert.strictEqual(checked.data.finance_status, 'paid_receipt_active')
+    assert.deepStrictEqual(checked.data.receipt_numbers, ['RC-TEST-001'])
+    assert.strictEqual(harness.collections.zdata_lab_order_cancellation.data.size, 0, 'Finance preflight must be read-only')
+    assert.strictEqual(harness.collections.zdata_lab_work_item.data.size, 0, 'Finance preflight must not create Work Items')
+
+    const result = await run(harness)
     assert.strictEqual(result.success, false)
-    assert.strictEqual(result.error, 'section_forbidden')
+    assert.strictEqual(result.error, 'finance_receipt_active')
     assert.strictEqual(harness.collections.zdata_lab_order_cancellation.data.size, 0)
+    assert.strictEqual(harness.collections.zdata_cpoe_order_item.data.get(ids.item1).current_status, 'sent')
+    assert.strictEqual(harness.collections.zdata_fa_bill_item.data.get(ids.billItem1).item_status, 'active')
+  }
+
+  {
+    const harness = makeHarness({
+      bills: [{ _id: ids.bill1, bill_status: 'issued', is_refund: false, receipt_number: '' }],
+      billItems: [
+        { _id: ids.billItem1, bill_id: { value: ids.bill1 }, order_item: { value: ids.item1 } },
+        { _id: ids.billItem2, bill_id: { value: ids.bill1 }, order_item: { value: ids.item2 } },
+      ],
+    })
+    const checked = await checkFinance(harness)
+    assert.strictEqual(checked.data.can_cancel, true)
+    assert.strictEqual(checked.data.finance_status, 'unpaid')
+    const result = await run(harness)
+    assert.strictEqual(result.success, true)
+    assert.strictEqual(result.data.finance_cancelled_item_count, 2)
+    assert.strictEqual(harness.collections.zdata_fa_bill_item.data.get(ids.billItem1).item_status, 'cancelled')
+    assert.strictEqual(harness.collections.zdata_fa_bill_item.data.get(ids.billItem2).item_status, 'cancelled')
+  }
+
+  {
+    const harness = makeHarness({
+      bills: [{ _id: ids.bill1, bill_status: 'paid', is_refund: true, receipt_number: 'RC-TEST-002' }],
+      billItems: [{ _id: ids.billItem1, bill_id: { value: ids.bill1 }, order_item: { value: ids.item1 } }],
+    })
+    const checked = await checkFinance(harness)
+    assert.strictEqual(checked.data.can_cancel, true)
+    assert.strictEqual(checked.data.finance_status, 'receipt_withdrawn')
+    const result = await run(harness)
+    assert.strictEqual(result.success, true)
+    assert.strictEqual(result.data.finance_withdrawn_item_count, 1)
+    assert.strictEqual(harness.collections.zdata_fa_bill_item.data.get(ids.billItem1).item_status, 'active', 'Refunded bill history remains unchanged')
+    assert.strictEqual(harness.collections.zdata_cpoe_order_item.data.get(ids.item1).current_status, 'cancelled')
+  }
+
+  {
+    const harness = makeHarness({
+      billItems: [{ _id: ids.billItem1, bill_id: { value: ids.bill1 }, order_item: { value: ids.item1 } }],
+    })
+    const checked = await checkFinance(harness)
+    assert.strictEqual(checked.data.can_cancel, false)
+    assert.strictEqual(checked.data.finance_status, 'review_required')
+    const result = await run(harness)
+    assert.strictEqual(result.success, false)
+    assert.strictEqual(result.error, 'finance_state_unknown')
   }
 
   {
@@ -279,8 +387,11 @@ const run = (harness, overrides = {}) => Process({
   }
 
   assert(source.includes("const ORDER_CANCELLATION_COLLECTION = 'zdata_lab_order_cancellation'"))
+  assert(source.includes("const BILL_COLLECTION = 'zdata_fa_bill'"))
+  assert(source.includes("action === 'check_cancel_finance'"))
+  assert(source.includes('cancellation is intentionally HIS-only'))
   assert(!source.includes('orderCollection.updateOne'), 'CPOE Order must remain read-only')
-  assert(!source.includes('itemCollection.updateOne'), 'CPOE Items must remain read-only')
+  assert(source.includes('itemCollection.updateOne'), 'Cancel must compare-and-set affected CPOE Items')
   console.log('LAB CPOE cancel Order API tests passed')
 })().catch(error => {
   console.error(error)

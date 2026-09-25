@@ -2,14 +2,17 @@ const fs = require('fs')
 const path = require('path')
 
 const ROOT = __dirname
-const VIEW_TEMPLATE = path.join(ROOT, 'Lab_Result_Inbound_Receive_User_View_EMR_Person_v2.json')
-const PERSON_TEMPLATE = path.join(ROOT, 'person.json')
-const DISEASE_TEMPLATE = path.join(ROOT, 'disease.json')
+const FORM_DIR = path.join(ROOT, '../../../SDForm/form-factory/forms')
+const LAB_DIR = path.join(ROOT, '../../../SDForm/Lab')
+const VIEW_TEMPLATE = path.join(FORM_DIR, 'Lab_Result_Inbound_Receive_User_View_EMR_Person_v2.json')
+const PERSON_TEMPLATE = path.join(FORM_DIR, 'person.json')
+const DISEASE_TEMPLATE = path.join(FORM_DIR, 'disease.json')
+const UPLOAD_TEMPLATE = path.join(ROOT, '../../../SDForm/sdform_module/test_widget_uploadfile.json')
 
 const OUTPUTS = {
-  report: path.join(ROOT, 'Result_Report_Manual_Entry_Agent_Result_v1.json'),
-  item: path.join(ROOT, 'Lab_Result_Item_Agent_Result_v1.json'),
-  receipt: path.join(ROOT, 'Lab_Result_Inbound_Receive_Agent_Result_v1.json'),
+  report: path.join(FORM_DIR, 'Result_Report_Manual_Entry_Agent_Result_v1.json'),
+  item: path.join(FORM_DIR, 'Lab_Result_Item_Agent_Result_v1.json'),
+  receipt: path.join(FORM_DIR, 'Lab_Result_Inbound_Receive_Agent_Result_v1.json'),
 }
 
 const FORM_IDS = {
@@ -24,6 +27,7 @@ const clone = value => JSON.parse(JSON.stringify(value))
 const viewTemplate = readJson(VIEW_TEMPLATE)
 const personTemplate = readJson(PERSON_TEMPLATE)
 const diseaseTemplate = readJson(DISEASE_TEMPLATE)
+const uploadTemplate = readJson(UPLOAD_TEMPLATE)
 
 function walk(value, callback) {
   if (Array.isArray(value)) {
@@ -77,6 +81,11 @@ const templates = {
     viewTemplate.fields,
     node => node.component === 'list-ui' && node.options?.name === 'inbound_result_items_list',
     'runtime-verified list-ui',
+  ),
+  upload: findNode(
+    uploadTemplate.fields,
+    node => node.component === 'file-upload-input',
+    'Builder-exported file-upload-input',
   ),
 }
 
@@ -227,6 +236,30 @@ function makeNumber(spec) {
     max: 100000000000,
     precision: 0,
     step: 1,
+  })
+  clearEvents(node.options)
+  return setIdentity(node)
+}
+
+function makeUpload(spec) {
+  const node = stripChildren(clone(templates.upload))
+  Object.assign(node.options, {
+    name: spec.name,
+    label: spec.label,
+    columnSpan: spec.span,
+    labelHidden: true,
+    disabled: false,
+    hidden: spec.hidden === true,
+    required: false,
+    uploadURL: '',
+    uploadTip: 'PDF / JPG / JPEG / PNG · ไม่เกิน 10 MB ต่อไฟล์ · สูงสุด 3 ไฟล์',
+    withCredentials: false,
+    multipleSelect: true,
+    showFileList: true,
+    limit: 3,
+    fileMaxSize: 10,
+    fileTypes: ['pdf', 'jpg', 'jpeg', 'png'],
+    customClass: '',
   })
   clearEvents(node.options)
   return setIdentity(node)
@@ -600,20 +633,31 @@ function buildReportForm() {
     if (fieldSpec.hidden) hidden.push(widget)
     else cols.push(makeCol(`report_${spec.name}_col`, fieldSpec.span, [widget]))
   }
+  hidden.push(makeText({ name: 'result_mode', label: 'Result Mode', span: 24, hidden: true }))
+  hidden.push(makeText({ name: 'confirmed_by', label: 'ผู้รับรองไฟล์แนบล่าสุด', span: 24, hidden: true }))
+  hidden.push(makeText({ name: 'confirmed_at', label: 'เวลารับรองไฟล์แนบล่าสุด', span: 24, hidden: true }))
+  hidden.push(makeUpload({ name: 'result_attachments', label: 'ไฟล์แนบผลตรวจ', span: 24, hidden: true }))
   cols.push(makeCol('report_internal_storage_col', 24, hidden))
   cols.push(makeCol('report_result_items_col', 24, [makeResultList()]))
   const form = makeForm(makeRoot('result_report_manual_entry_agent_v1_root', cols))
   return form
 }
 
-const generated = {
-  report: buildReportForm(),
-  item: buildItemForm(),
-  receipt: buildReceiptForm(),
-}
+// Keep each form's historical widget-id range stable. Result Report can grow
+// without renumbering the already deployed Result Item and Receipt forms.
+sequence = 92000
+const report = buildReportForm()
+sequence = 92044
+const item = buildItemForm()
+sequence = 92090
+const receipt = buildReceiptForm()
+
+const generated = { report, item, receipt }
 
 for (const [name, outputPath] of Object.entries(OUTPUTS)) {
-  fs.writeFileSync(outputPath, `${JSON.stringify(generated[name], null, 2)}\n`)
+  const json = `${JSON.stringify(generated[name], null, 2)}\n`
+  fs.writeFileSync(outputPath, json)
+  if (name === 'report') fs.writeFileSync(path.join(LAB_DIR, 'Result_Report_Manual_Entry.json'), json)
   JSON.parse(fs.readFileSync(outputPath, 'utf8'))
   console.log(`WROTE ${path.basename(outputPath)}`)
 }

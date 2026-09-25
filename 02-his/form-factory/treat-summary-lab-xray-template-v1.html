@@ -1,0 +1,373 @@
+<!-- treat_summary · Template — บล็อกแท็บ Lab / X-Ray แบบจัดกลุ่มตามใบสั่ง
+     ฟอร์ม EMR 6a4f64e7f8cdfc54cec16488 · widget vue-ui `treat_summary` (การ์ด card62530)
+
+     วิธีติดตั้ง: ใน Template เดิม แทนที่ **เฉพาะ 2 บล็อกนี้**
+       <el-tab-pane label="Lab" name="lab"> … </el-tab-pane>
+       <el-tab-pane label="X-Ray" name="xray"> … </el-tab-pane>
+     ด้วยสองบล็อกข้างล่าง
+
+     🔴 ห้ามแตะ el-tab-pane "ยา" / "หัตถการ" · หัวการ์ด · ปุ่ม "ดูทั้งใบ" · บล็อก CC/HPI/PE/Dx
+        ทั้งหมดใช้ state ชุดเดิม ไม่เกี่ยวกับไฟล์นี้
+     🔴 ต้องวางบล็อก JS `treat-summary-lab-xray-oncreated-v1.js` ต่อท้าย onCreated ก่อน
+        ไม่งั้น key ที่เทมเพลตอ้าง (tsLgOn/tsLgSections/…) ไม่มีค่า = error box ทั้ง widget
+     🔴 ถ้า process ยังไม่ส่ง lab_orders/xray_results → tsLgOn/tsXgOn = false
+        แต่ละบล็อกจะตกไปแสดง "ลิสต์แบบเดิม" ที่อยู่ใน <template v-else> ซึ่งคัดลอกมาเป๊ะ ๆ ห้ามแก้
+     🔴 inline style ทั้งหมด — Form CSS ของ EMR เป็นของกลางทั้งฟอร์ม การ์ดนี้ไม่ฝากคลาสไว้ที่นั่น -->
+
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     ① แทนที่บล็อก Lab เดิมทั้งก้อนด้วยอันนี้
+     ════════════════════════════════════════════════════════════════════════ -->
+      <el-tab-pane label="Lab" name="lab">
+
+        <template v-if="tsLgOn">
+
+          <!-- โหมดดู — โผล่เฉพาะตอน process ส่งข้อมูลแนวโน้มมาจริง ไม่มีก็ไม่ต้องมีปุ่มตาย -->
+          <div v-if="tsTrends.length" style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+            <div style="display:flex;border:1px solid var(--el-border-color);border-radius:6px;overflow:hidden">
+              <span @click="tsLgSetMode('order')"
+                :style="{ padding:'4px 8px', fontSize:'11px', cursor:'pointer', userSelect:'none',
+                          background: tsLgUi.mode === 'order' ? 'var(--el-color-primary)' : 'var(--el-bg-color)',
+                          color: tsLgUi.mode === 'order' ? '#fff' : 'var(--el-text-color-regular)' }">ตามใบสั่ง</span>
+              <span @click="tsLgSetMode('test')"
+                :style="{ padding:'4px 8px', fontSize:'11px', cursor:'pointer', userSelect:'none',
+                          background: tsLgUi.mode === 'test' ? 'var(--el-color-primary)' : 'var(--el-bg-color)',
+                          color: tsLgUi.mode === 'test' ? '#fff' : 'var(--el-text-color-regular)' }">ตามค่าตรวจ</span>
+            </div>
+          </div>
+
+          <!-- ══ มุมมอง "ตามใบสั่ง" — ก้อนผลต่อ 1 ใบ ══ -->
+          <template v-if="tsLgUi.mode === 'order'">
+            <div v-for="sec in tsLgSections" :key="'ls' + sec.key">
+
+              <div style="display:flex;align-items:center;gap:6px;margin:10px 0 6px;font-size:10.5px;color:var(--el-text-color-placeholder)">
+                <span style="flex:none">{{ sec.title }}</span>
+                <span style="flex:1;height:1px;background:var(--el-border-color-lighter)"></span>
+              </div>
+
+              <div v-if="!sec.list.length && sec.empty" style="padding:8px 0;text-align:center;font-size:11.5px;color:var(--el-text-color-placeholder)">{{ sec.empty }}</div>
+
+              <div v-for="o in sec.list" :key="o.key"
+                :style="{ border:'1px solid ' + (o.criticals.length ? 'var(--el-color-danger-light-8)' : 'var(--el-border-color-lighter)'),
+                          borderRadius:'7px', marginBottom:'8px', overflow:'hidden',
+                          background:'var(--el-bg-color)', opacity: o.cancelled ? .6 : 1 }">
+
+                <!-- หัวก้อน 2 แถว — chip อยู่แถวเดียวกับข้อความของมัน ข้อความตัด … ก่อนถึง chip ไม่ทับกัน -->
+                <div style="display:flex;align-items:center;gap:8px;padding:8px 9px;cursor:pointer" @click="tsOgToggle(o.key)">
+                  <span :style="{ flex:'none', width:'3px', alignSelf:'stretch', borderRadius:'2px', background:o.bar }"></span>
+
+                  <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+                    <span style="display:flex;align-items:center;gap:6px;min-width:0">
+                      <span :style="{ flex:1, minWidth:0, fontSize:'12.5px', fontWeight:700, lineHeight:1.3,
+                                      whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
+                                      textDecoration: o.cancelled ? 'line-through' : 'none' }">{{ o.section }}</span>
+                      <el-tag :type="o.chip_type" size="small" effect="light" style="flex:none">{{ o.chip_text }}</el-tag>
+                    </span>
+                    <span v-if="o.time_text" style="font-size:10.5px;color:var(--el-text-color-secondary)">{{ o.time_text }}</span>
+                    <span style="display:flex;align-items:center;gap:6px;min-width:0">
+                      <span style="flex:1;min-width:0;font-size:10.5px;color:var(--el-text-color-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.sub_text }}</span>
+                      <el-tag v-if="o.abn_text" :type="o.abn_type" size="small" effect="light" style="flex:none">{{ o.abn_text }}</el-tag>
+                    </span>
+                  </span>
+
+                  <span style="flex:none;color:var(--el-text-color-placeholder);font-size:12px">{{ tsOgOpen[o.key] ? '⌄' : '›' }}</span>
+                </div>
+
+                <!-- ค่าวิกฤติต้องเห็นตั้งแต่ก้อนยังไม่กาง — ไม่งั้นหมอเลื่อนผ่านค่าที่ต้องสั่งการทันที -->
+                <div v-for="(c, ci) in o.criticals" :key="'c' + ci"
+                  style="display:flex;align-items:flex-start;gap:6px;margin:0 9px 8px;padding:5px 7px;border-radius:5px;
+                         background:var(--el-color-danger-light-9);border:1px solid var(--el-color-danger-light-8);
+                         font-size:11px;line-height:1.45;color:var(--el-color-danger)">
+                  <span style="flex:none">🔴</span>
+                  <span style="flex:1;min-width:0;overflow-wrap:anywhere">
+                    <b>{{ c.name }}</b>
+                    <template v-if="c.text"> · <b>มีรายงานผลวิกฤติ</b> — กางก้อนนี้เพื่ออ่านรายงาน</template>
+                    <template v-else> · <b>{{ c.value }}<span v-if="c.unit"> {{ c.unit }}</span></b> {{ c.arrow }}
+                      <span v-if="c.ref" style="color:var(--el-text-color-secondary);white-space:nowrap">ปกติ {{ c.ref }}</span>
+                    </template>
+                  </span>
+                </div>
+
+                <!-- ก้อนที่กางแล้ว -->
+                <div v-if="tsOgOpen[o.key]" style="padding:0 9px 9px;border-top:1px dashed var(--el-border-color-lighter)">
+
+                  <div v-if="o.lab_no" style="padding:7px 0 1px;font-size:10px;color:var(--el-text-color-placeholder)">LAB NO. {{ o.lab_no }}</div>
+
+                  <!-- ใบที่ถูกยกเลิก/ปฏิเสธ — ไม่ซ่อนทิ้ง หมออีกคนต้องเห็นว่าเคยมีใบนี้ ไม่งั้นสั่งซ้ำ -->
+                  <div v-if="o.cancelled" style="padding:8px 0;font-size:11.5px;line-height:1.5;color:var(--el-text-color-secondary)">
+                    ใบนี้ถูกยกเลิก<span v-if="o.cancel_reason"> · เหตุผล: {{ o.cancel_reason }}</span>
+                  </div>
+
+                  <!-- ยังไม่มีผล → บอกว่าค้างตรงไหน (stepper ขึ้นเฉพาะกรณีนี้เท่านั้น) -->
+                  <template v-else-if="o.pending">
+                    <div style="display:flex;align-items:flex-start;margin:8px 0 4px">
+                      <div v-for="(st, si) in o.steps" :key="'s' + si" style="flex:1;min-width:0;text-align:center">
+                        <div style="display:flex;align-items:center;width:100%">
+                          <span :style="tsStepLine(o.steps, si, 'l')"></span>
+                          <span :style="tsStepDot(st)"></span>
+                          <span :style="tsStepLine(o.steps, si, 'r')"></span>
+                        </div>
+                        <div :style="{ marginTop:'3px', fontSize:'9.5px', lineHeight:1.25,
+                                       color: st.state === 'now' ? 'var(--el-color-warning)' : 'var(--el-text-color-secondary)',
+                                       fontWeight: st.state === 'now' ? 700 : 400 }">{{ st.label }}</div>
+                        <div style="font-size:9px;color:var(--el-text-color-placeholder)">{{ st.time || '—' }}</div>
+                      </div>
+                    </div>
+                    <div style="text-align:center;font-size:10.5px;color:var(--el-text-color-placeholder)">ยังไม่มีผล — ค่าจะขึ้นที่ก้อนนี้เมื่อห้องแลปออกผล</div>
+                  </template>
+
+                  <!-- มีผลแล้ว — โชว์เฉพาะค่าที่ผิดปกติ/วิกฤติ ค่าปกติพับไว้ (CBC ใบเดียว 15-20 บรรทัด) -->
+                  <template v-else>
+                    <div v-for="(r, ri) in o.abnormals" :key="'a' + ri" style="padding:5px 0;border-bottom:1px dashed var(--el-border-color-lighter)">
+                      <div style="display:flex;align-items:flex-start;gap:6px">
+                        <span style="flex:1;min-width:0;font-size:12px">
+                          <span style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</span>
+                          <small v-if="r.code" style="display:block;margin-top:1px;color:var(--el-text-color-placeholder);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.code }}</small>
+                          <small v-if="r.ref" style="display:block;margin-top:1px;color:var(--el-text-color-placeholder);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">ปกติ {{ r.ref }}</small>
+                        </span>
+                        <span :style="{ flex:'none', fontSize:'13px', fontWeight:800,
+                                        color: r.flag === 'C' ? 'var(--el-color-danger)' : 'var(--el-color-warning)' }">{{ r.value }}</span>
+                        <small v-if="r.unit" style="flex:none;color:var(--el-text-color-secondary)">{{ r.unit }}</small>
+                        <span :style="{ flex:'none', fontSize:'10px', fontWeight:800,
+                                        color: r.flag === 'C' ? 'var(--el-color-danger)' : 'var(--el-color-warning)' }">{{ r.arrow }}<span v-if="r.flag === 'C'"> วิกฤติ</span></span>
+                      </div>
+                    </div>
+
+                    <!-- ผลที่เป็นรายงานความเรียง (MB / MLab) — ค่าเดี่ยวใส่ท้ายบรรทัดไม่ได้
+                         🔴 ต้องเห็นเสมอ ไม่พับรวมกับค่าปกติ เพราะ LIS ไม่ได้บอกว่าปกติ -->
+                    <div v-for="(r, ti) in o.texts" :key="'t' + ti" style="padding:6px 0;border-bottom:1px dashed var(--el-border-color-lighter)">
+                      <div style="display:flex;align-items:baseline;gap:6px">
+                        <span style="flex:1;min-width:0;font-size:12px;font-weight:700">
+                          <span style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</span>
+                          <small v-if="r.code" style="display:block;margin-top:1px;font-weight:400;color:var(--el-text-color-placeholder);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.code }}</small>
+                        </span>
+                        <el-tag size="small" type="info" effect="plain" style="flex:none">รายงาน</el-tag>
+                      </div>
+                      <div :style="tsTxtClamp(o.key + '|' + ti)">{{ r.value }}</div>
+                      <el-button text size="small" style="width:100%;margin-top:2px;font-size:10.5px;height:22px;color:var(--el-text-color-secondary)"
+                        @click.stop="tsOgToggle('r|' + o.key + '|' + ti)">
+                        {{ tsOgOpen['r|' + o.key + '|' + ti] ? 'ย่อรายงาน' : 'อ่านรายงานเต็ม' }}
+                      </el-button>
+                    </div>
+
+                    <div v-if="tsOgOpen['n|' + o.key]">
+                      <div v-for="(r, ri) in o.normals" :key="'n' + ri" style="padding:5px 0;border-bottom:1px dashed var(--el-border-color-lighter)">
+                        <div style="display:flex;align-items:flex-start;gap:6px">
+                          <span style="flex:1;min-width:0;font-size:12px">
+                            <span style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</span>
+                            <small v-if="r.code" style="display:block;margin-top:1px;color:var(--el-text-color-placeholder);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.code }}</small>
+                            <small v-if="r.ref" style="display:block;margin-top:1px;color:var(--el-text-color-placeholder);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">ปกติ {{ r.ref }}</small>
+                          </span>
+                          <span style="flex:none;font-size:13px;font-weight:800">{{ r.value }}</span>
+                          <small v-if="r.unit" style="flex:none;color:var(--el-text-color-secondary)">{{ r.unit }}</small>
+                        </div>
+                      </div>
+                    </div>
+
+                    <el-button v-if="o.normals.length" text size="small" style="width:100%;margin-top:6px;font-size:10.5px;height:24px;color:var(--el-text-color-secondary)"
+                      @click.stop="tsOgToggle('n|' + o.key)">
+                      {{ tsOgOpen['n|' + o.key] ? 'ซ่อนค่าปกติ' : 'ค่าปกติอีก ' + o.normals.length + ' รายการ' }}
+                    </el-button>
+
+                    <!-- รายงานผล PDF — คอมโพเนนต์และ Report ชุดเดียวกับ LAB Worklist
+                         🔴 ผูกกับ Result Report (`xparentx`) ไม่ใช่ใบสั่ง · ใบที่มีผลหลายชุดไม่พิมพ์ให้อัตโนมัติ
+                         🔴 ปุ่มที่กดแล้วไม่เกิดอะไร แย่กว่าไม่มีปุ่ม ⇒ ไม่พร้อมก็บอกเหตุแทน -->
+                    <div style="display:flex;gap:6px;margin-top:8px" @click.stop>
+                      <sd-report v-if="o.report_ready" :report-list="o.report_list" :params="o.report_params" size="small" />
+                      <el-button v-if="tsOrderTarget(o)" size="small" :type="o.report_ready ? 'default' : 'primary'" style="flex:1" @click.stop="tsOpenOrder(o)">ดูผลทั้งใบ</el-button>
+                    </div>
+                    <div v-if="o.report_hint" style="margin-top:4px;font-size:10px;line-height:1.45;color:var(--el-text-color-placeholder)">{{ o.report_hint }}</div>
+                  </template>
+
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <!-- โหลดใหม่ — การ์ดนี้โหลดตอนเปลี่ยนคนไข้ ไม่ได้รู้เองเมื่อมีการสั่งตรวจเพิ่มระหว่างเปิดค้างไว้
+               (การ์ด "ใบสั่งยา"/"ใบสั่งตรวจ" ก็มีปุ่มนี้ด้วยเหตุผลเดียวกัน) -->
+          <div v-if="tsLgUi.mode === 'order'" style="text-align:right;margin-top:4px">
+            <el-button text size="small" style="font-size:11px;height:22px;color:var(--el-text-color-secondary)" @click="tsReload()">โหลดใหม่</el-button>
+          </div>
+
+          <!-- ══ มุมมอง "ตามค่าตรวจ" — แนวโน้มข้ามใบของ HN นี้ ══ -->          <!-- ══ มุมมอง "ตามค่าตรวจ" — แนวโน้มข้ามใบของ HN นี้ ══ -->
+          <template v-else>
+            <div style="display:flex;align-items:center;gap:6px;margin:10px 0 6px;font-size:10.5px;color:var(--el-text-color-placeholder)">
+              <span style="flex:none">แนวโน้มของค่าที่ออกผลวันนี้ · เทียบผลเก่าของ HN นี้</span>
+              <span style="flex:1;height:1px;background:var(--el-border-color-lighter)"></span>
+            </div>
+            <div v-for="t in tsTrends" :key="t.key" style="padding:7px 0;border-bottom:1px dashed var(--el-border-color-lighter)">
+              <div style="display:flex;align-items:baseline;gap:6px">
+                <span style="flex:1;min-width:0;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+                  {{ t.name }}<small v-if="t.unit" style="margin-left:4px;font-weight:400;color:var(--el-text-color-placeholder)">{{ t.unit }}</small>
+                </span>
+                <span :style="{ flex:'none', fontSize:'13px', fontWeight:800, color: t.flag === 'N' ? 'inherit' : t.color }">{{ t.last_value }}</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;margin-top:3px">
+                <svg width="64" height="18" style="flex:none;display:block" aria-hidden="true">
+                  <polyline fill="none" :stroke="t.color" stroke-width="1.6" stroke-linejoin="round" :points="t.points"></polyline>
+                  <circle :cx="t.last_x" :cy="t.last_y" r="2.4" :fill="t.color"></circle>
+                </svg>
+                <span style="flex:1;min-width:0;font-size:10px;color:var(--el-text-color-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.series_text }}</span>
+              </div>
+              <div v-if="t.ref" style="margin-top:2px;font-size:10px;color:var(--el-text-color-placeholder)">ปกติ {{ t.ref }}</div>
+            </div>
+          </template>
+
+        </template>
+
+        <!-- ══ ของเดิมทุกประการ — ใช้เมื่อ process ยังไม่ส่ง lab_orders มา · ห้ามแก้บล็อกนี้ ══ -->
+        <template v-else>
+          <div v-if="!tsLab.length" style="padding:8px 0;font-size:12px;color:var(--el-text-color-placeholder)">— ยังไม่มีผล Lab —</div>
+          <div v-else>
+            <div v-for="(l, i) in tsLab" :key="'lab' + i" :title="l.ref ? ('ค่าปกติ ' + l.ref) : l.name"
+              style="display:flex;align-items:baseline;gap:8px;padding:5px 0;border-bottom:1px solid var(--el-border-color-lighter);cursor:pointer"
+              @click="tsOpen(tsLabFormId, l.data_id)">
+              <div style="flex:1;min-width:0">
+                <div style="font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ l.name }}</div>
+                <div v-if="l.ref || l.when" style="font-size:11px;color:var(--el-text-color-placeholder)">
+                  <span v-if="l.ref">ค่าปกติ {{ l.ref }}</span><span v-if="l.ref && l.when"> · </span><span v-if="l.when">{{ tsWhen(l.when) }}</span>
+                </div>
+              </div>
+              <div style="flex:none;text-align:right">
+                <span :style="{ fontSize: '14px', fontWeight: 700, color: l.critical ? 'var(--el-color-danger)' : 'inherit' }">{{ l.value || '—' }}</span>
+                <small v-if="l.unit" style="margin-left:3px;color:var(--el-text-color-secondary)">{{ l.unit }}</small>
+                <el-tag v-if="l.flag" size="small" :type="l.critical ? 'danger' : 'warning'" effect="light" style="margin-left:4px">{{ l.flag }}</el-tag>
+              </div>
+            </div>
+          </div>
+          </template>
+
+          <!-- ใช้ viewer โครงเดียวกับ LAB Worklist > สืบค้นผลแลป > เปิดดูผล -->
+          <el-dialog v-model="tsLabDialog.visible" class="lab-result-dialog" width="min(1320px,calc(100vw - 48px))"
+            top="24px" :close-on-click-modal="false" destroy-on-close @closed="tsCloseLabDialog()"
+            style="max-height:calc(100vh - 48px);overflow:hidden;border-radius:12px;font-family:'Noto Sans Thai','Leelawadee UI',Tahoma,Arial,sans-serif">
+            <template #header>
+              <div v-if="tsLabDialog.order" class="lab-result-dialog-head" style="display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding-right:42px">
+                <div style="min-width:0">
+                  <div class="lab-result-title-row" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                    <strong style="color:var(--el-text-color-primary);font-size:20px;line-height:1.25">ผลตรวจทางห้องปฏิบัติการ</strong>
+                    <span class="lab-result-mode" style="display:inline-flex;min-height:23px;align-items:center;padding:2px 8px;border:1px solid #a0cfff;border-radius:999px;background:#ecf5ff;color:#337ecc;font-size:10px;font-weight:700">โหมดดูอย่างเดียว</span>
+                    <span v-if="tsResultStatusValue() !== 'pending'" class="lab-result-summary-tag" :class="'is-' + tsResultStatusValue()"
+                      :style="tsResultStatusValue() === 'final' ? {borderColor:'#b3e19d',background:'#f0f9eb',color:'#529b2e'} : {borderColor:'#f3d19e',background:'#fdf6ec',color:'#b88230'}"
+                      style="display:inline-flex;min-height:23px;align-items:center;padding:2px 8px;border:1px solid;border-radius:999px;font-size:10px;font-weight:700">{{ tsResultStatusText() }}</span>
+                    <span v-if="tsResultCriticalCount()" class="lab-result-summary-tag is-critical" style="display:inline-flex;min-height:23px;align-items:center;padding:2px 8px;border:1px solid #fab6b6;border-radius:999px;background:#fef0f0;color:#c45656;font-size:10px;font-weight:700">วิกฤติ {{ tsResultCriticalCount() }}</span>
+                    <span v-if="tsResultAbnormalCount()" class="lab-result-summary-tag is-abnormal" style="display:inline-flex;min-height:23px;align-items:center;padding:2px 8px;border:1px solid #f3d19e;border-radius:999px;background:#fdf6ec;color:#b88230;font-size:10px;font-weight:700">ผิดปกติ {{ tsResultAbnormalCount() }}</span>
+                  </div>
+                  <small style="display:block;margin-top:5px;color:var(--el-text-color-secondary);font-size:12px"><span class="lab-mono">{{ tsLabDialog.order.patient_hn || tsHn || '-' }}</span> · {{ tsResultTestCount() }} tests · ผลล่าสุด</small>
+                  <div v-if="tsLabDialog.order.reported_by || tsLabDialog.order.verified_by || tsLabDialog.order.reported_at || tsLabDialog.order.resulted_at" class="lab-result-byline"
+                    style="display:flex;align-items:center;gap:6px 14px;flex-wrap:wrap;margin-top:7px;color:var(--el-text-color-regular);font-size:11px">
+                    <span v-if="tsLabDialog.order.reported_by" style="display:inline-flex;gap:4px"><b style="color:var(--el-text-color-secondary);font-size:10px">Reported by:</b><strong>{{ tsLabDialog.order.reported_by }}</strong></span>
+                    <span v-if="tsLabDialog.order.verified_by" style="display:inline-flex;gap:4px"><b style="color:var(--el-text-color-secondary);font-size:10px">Approve name:</b><strong>{{ tsLabDialog.order.verified_by }}</strong></span>
+                    <span v-if="tsLabDialog.order.reported_at || tsLabDialog.order.resulted_at" style="display:inline-flex;gap:4px"><b style="color:var(--el-text-color-secondary);font-size:10px">ออกผลเมื่อ:</b><strong class="lab-mono">{{ tsCompactDateTime(tsLabDialog.order.reported_at || tsLabDialog.order.resulted_at) }}</strong></span>
+                  </div>
+                </div>
+                <sd-report v-if="tsLabDialog.order.report_ready" class="lab-result-report-action" :report-list="tsLabDialog.order.report_list" :params="tsLabDialog.order.report_params" size="small" />
+                <el-button v-else class="lab-result-report-action" type="danger" size="small" disabled :title="tsLabDialog.order.report_hint || 'ยังไม่มีรายงานผล'">รายงานผล</el-button>
+              </div>
+            </template>
+
+            <div v-if="tsLabDialog.order" class="lab-manual-form lab-result-viewer" style="min-height:300px;color:var(--el-text-color-regular)">
+              <div class="lab-result-profile-toolbar" style="display:flex;align-items:center;gap:10px;margin:2px 0 9px">
+                <div style="display:flex;min-width:0;align-items:baseline;gap:10px"><strong style="font-size:15px">รายการผลตรวจ</strong><small style="color:var(--el-text-color-secondary);font-size:11px">{{ tsResultTestCount() }} รายการสั่งตรวจ · {{ tsResultRowsCount() }} ผลย่อย</small></div>
+                <div v-if="tsResultProfileCount()" class="lab-result-section-actions" style="display:flex;align-items:center;gap:2px;margin-left:auto">
+                  <el-button text type="primary" size="small" @click="tsExpandAllResultGroups()">กาง Profile ทั้งหมด</el-button>
+                  <el-button text type="primary" size="small" @click="tsCollapseAllResultGroups()">พับทั้งหมด</el-button>
+                </div>
+              </div>
+
+              <div class="lab-result-values" style="overflow-x:auto;border:1px solid var(--el-border-color);border-radius:8px">
+                <div class="lab-result-value-head" style="display:grid;grid-template-columns:44px 34px minmax(230px,1.5fr) 125px 130px 92px 115px 145px;min-width:920px;min-height:42px;align-items:center;background:#f5f7fa;color:var(--el-text-color-secondary);font-size:11px;font-weight:700">
+                  <span style="padding:10px">#</span><span></span><span style="padding:10px">รายการ</span><span style="padding:10px">ค่าก่อนหน้า</span><span style="padding:10px">ค่าที่ตรวจได้</span><span style="padding:10px">หน่วย</span><span style="padding:10px">แปลผล</span><span style="padding:10px">ค่าปกติ</span>
+                </div>
+                <template v-for="(group, groupIndex) in tsResultGroups()" :key="tsResultGroupKey(group, groupIndex)">
+                  <button v-if="tsResultGroupIsProfile(group)" type="button" class="lab-result-profile-row" :aria-expanded="tsResultGroupExpanded(group, groupIndex)" @click="tsToggleResultGroup(group, groupIndex)"
+                    :style="{background:tsResultGroupExpanded(group,groupIndex)?'#f2f7ff':'#f7f9fc'}"
+                    style="display:grid;width:100%;grid-template-columns:32px minmax(260px,1fr) 28px;gap:10px;min-width:920px;min-height:54px;align-items:center;padding:10px 13px;border:0;border-top:1px solid var(--el-border-color);color:var(--el-text-color-regular);font:inherit;text-align:left;cursor:pointer">
+                    <span class="lab-result-profile-index lab-mono" style="color:var(--el-text-color-secondary)">{{ groupIndex + 1 }}</span>
+                    <span class="lab-result-profile-main" style="display:block;min-width:0"><strong style="display:block;overflow:hidden;color:var(--el-text-color-primary);font-size:13px;text-overflow:ellipsis;white-space:nowrap">{{ group.test_name || '-' }}</strong><small style="display:block;margin-top:2px;color:var(--el-text-color-secondary);font-size:10px">Profile · คลิกเพื่อ{{ tsResultGroupExpanded(group, groupIndex) ? 'พับ' : 'กาง' }}ผลย่อย {{ group.results.length }} รายการ</small></span>
+                    <i aria-hidden="true" :style="{transform:tsResultGroupExpanded(group,groupIndex)?'rotate(180deg)':'none'}" style="justify-self:end;color:var(--el-text-color-secondary);font-size:17px;font-style:normal">⌄</i>
+                  </button>
+                  <template v-if="!tsResultGroupIsProfile(group) || tsResultGroupExpanded(group, groupIndex)">
+                    <div v-for="(r, rowIndex) in group.results" :key="r.result_item_id || r.code || rowIndex" class="lab-result-value-row" :class="{'is-profile-child':tsResultGroupIsProfile(group),'is-critical':r.flag==='C'}"
+                      :style="{paddingLeft:tsResultGroupIsProfile(group)?'16px':'0',background:r.flag==='C'?'#fff8f8':'var(--el-bg-color)'}"
+                      style="display:grid;grid-template-columns:44px 34px minmax(230px,1.5fr) 125px 130px 92px 115px 145px;min-width:920px;min-height:52px;align-items:center;border-top:1px solid var(--el-border-color-light)">
+                      <div class="lab-result-index lab-mono" style="min-width:0;padding:10px 6px;color:var(--el-text-color-secondary);white-space:nowrap">{{ tsResultRowNumber(group, groupIndex, rowIndex) }}</div>
+                      <div style="min-width:0;padding:10px"><i v-if="tsHasResultValue(r)" class="lab-result-signal" :class="tsResultSignalClass(r)" :style="tsResultSignalStyle(r)" :title="tsResultSignalText(r)"></i></div>
+                      <div class="lab-result-test-name" style="min-width:0;padding:10px;color:var(--el-text-color-primary);font-size:13px;font-weight:700"><strong style="display:block;overflow-wrap:anywhere">{{ r.name || group.test_name || '-' }}</strong><small style="display:block;margin-top:2px;color:var(--el-text-color-secondary);font-size:10px;font-weight:400">{{ r.code || group.test_code || '-' }}<template v-if="tsResultSourceText(r.source)"> · ผลจาก {{ tsResultSourceText(r.source) }}</template></small></div>
+                      <div class="lab-result-previous lab-mono" style="min-width:0;padding:10px;color:var(--el-text-color-secondary)">{{ r.previous && r.previous.value || '-' }}</div>
+                      <div style="min-width:0;padding:10px"><strong class="lab-result-measured" :class="tsResultMeasuredClass(r)" :style="tsResultMeasuredStyle(r)">{{ r.value || 'รอผล' }}</strong></div>
+                      <div style="min-width:0;padding:10px">{{ r.unit || '-' }}</div>
+                      <div style="min-width:0;padding:10px"><span class="lab-result-interpretation" :class="tsResultInterpretationClass(r)" :style="tsResultInterpretationStyle(r)">{{ tsLabFlagLabel(r.flag) }}</span></div>
+                      <div class="lab-mono" style="min-width:0;padding:10px">{{ r.ref || '-' }}</div>
+                      <div v-if="r.comment" class="lab-result-comment" role="note" style="grid-column:3/-1;display:grid;gap:3px;align-self:stretch;padding:0 10px 10px"><span style="color:var(--el-text-color-secondary);font-size:10px;font-weight:700">หมายเหตุผลตรวจ</span><p style="margin:0;padding:8px 10px;border-left:3px solid var(--el-color-primary);border-radius:4px;background:var(--el-color-primary-light-9);font-size:12px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere">{{ r.comment }}</p></div>
+                    </div>
+                  </template>
+                </template>
+              </div>
+
+              <section class="lab-result-attachments" style="display:grid;gap:10px;margin-top:12px;padding:10px 12px;border:1px solid var(--el-border-color-light);border-radius:7px;background:#f7f9fc">
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px"><div style="display:grid;gap:3px"><strong style="font-size:13px">ไฟล์แนบผลตรวจ</strong><small style="color:var(--el-text-color-secondary);font-size:10px">PDF / JPG / JPEG / PNG · ไม่เกิน 10 MB ต่อไฟล์ · สูงสุด 3 ไฟล์</small></div><span style="color:var(--el-text-color-secondary);font-size:11px">{{ tsLabDialog.order.attachments.length }}/3</span></div>
+                <div v-if="tsLabDialog.order.attachments.length" style="display:grid;gap:6px"><a v-for="(file, fi) in tsLabDialog.order.attachments" :key="'lab-file-' + fi" :href="tsLabFileUrl(file)" target="_blank" rel="noopener" style="display:grid;grid-template-columns:58px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--el-border-color-light);border-radius:6px;background:var(--el-bg-color);color:var(--el-text-color-regular);text-decoration:none"><span style="color:#337ecc;font-size:10px;font-weight:700">เอกสาร</span><strong style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ tsLabFileName(file) }}</strong><small style="color:var(--el-text-color-secondary);font-size:10px">{{ tsLabFileSize(file) }}</small></a></div>
+              </section>
+            </div>
+
+            <template #footer><el-button @click="tsCloseLabDialog()">ปิด</el-button></template>
+          </el-dialog>
+
+      </el-tab-pane>
+
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     ② แทนที่บล็อก X-Ray เดิมทั้งก้อนด้วยอันนี้
+     ════════════════════════════════════════════════════════════════════════ -->
+      <el-tab-pane label="X-Ray" name="xray">
+
+        <template v-if="tsXgOn">
+          <div v-for="sec in tsXgSections" :key="'xs' + sec.key">
+
+            <div style="display:flex;align-items:center;gap:6px;margin:10px 0 6px;font-size:10.5px;color:var(--el-text-color-placeholder)">
+              <span style="flex:none">{{ sec.title }}</span>
+              <span style="flex:1;height:1px;background:var(--el-border-color-lighter)"></span>
+            </div>
+
+            <div v-if="!sec.list.length && sec.empty" style="padding:8px 0;text-align:center;font-size:11.5px;color:var(--el-text-color-placeholder)">{{ sec.empty }}</div>
+
+            <div v-for="x in sec.list" :key="x.key"
+              style="border:1px solid var(--el-border-color-lighter);border-radius:7px;margin-bottom:8px;padding:8px 9px">
+              <div style="display:flex;align-items:baseline;gap:6px">
+                <span style="flex:1;min-width:0;font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ x.name }}</span>
+                <span v-if="x.time_text" style="flex:none;font-size:10.5px;color:var(--el-text-color-secondary)">{{ x.time_text }}</span>
+                <el-tag v-if="x.severity" :type="x.sev_type" size="small" effect="light" style="flex:none">{{ x.severity }}</el-tag>
+              </div>
+              <div v-if="x.sub_text" style="margin-top:2px;font-size:10.5px;color:var(--el-text-color-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ x.sub_text }}</div>
+
+              <!-- รายงานรังสีเป็นความเรียง ไม่ใช่ตัวเลข — พับ 3 บรรทัดไว้ก่อน ไม่งั้นก้อนเดียวกินการ์ดทั้งใบ -->
+              <div v-if="x.text" :style="tsXrClamp(x.key)">{{ x.text }}</div>
+
+              <div v-if="x.text || x.data_id" style="display:flex;gap:6px;margin-top:6px">
+                <el-button v-if="x.text" size="small" style="flex:1" @click.stop="tsOgToggle('x|' + x.key)">
+                  {{ tsOgOpen['x|' + x.key] ? 'ย่อรายงาน' : 'อ่านรายงานเต็ม' }}
+                </el-button>
+                <el-button v-if="x.data_id" size="small" type="primary" style="flex:1" @click.stop="tsOpenXr(x)">ดูผลทั้งใบ</el-button>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- ══ ของเดิมทุกประการ — ใช้เมื่อ process ยังไม่ส่ง xray_results มา · ห้ามแก้บล็อกนี้ ══ -->
+        <template v-else>
+          <div v-if="!tsXray.length" style="padding:8px 0;font-size:12px;color:var(--el-text-color-placeholder)">— ยังไม่มีผล X-ray —</div>
+          <div v-else>
+            <div v-for="(x, i) in tsXray" :key="'xr' + i"
+              style="padding:6px 0;border-bottom:1px solid var(--el-border-color-lighter);cursor:pointer" @click="tsOpen(tsXrayFormId, x.data_id)">
+              <div style="display:flex;align-items:baseline;gap:6px">
+                <span style="flex:1;min-width:0;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ x.name }}</span>
+                <small v-if="x.when" style="flex:none;color:var(--el-text-color-placeholder)">{{ tsWhen(x.when) }}</small>
+              </div>
+              <div v-if="x.result" style="margin-top:2px;font-size:12px;line-height:1.45;color:var(--el-text-color-regular);overflow-wrap:anywhere">{{ x.result }}</div>
+            </div>
+          </div>
+        </template>
+
+      </el-tab-pane>

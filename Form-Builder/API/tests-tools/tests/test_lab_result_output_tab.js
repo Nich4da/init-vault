@@ -2,9 +2,9 @@ const fs = require('fs')
 const path = require('path')
 const vm = require('vm')
 
-const ROOT = __dirname
+const ROOT = path.resolve(__dirname, '../../../SDForm/form-factory/forms')
 const FILE = path.join(ROOT, 'Lab_Result_Output_Tab_ListView_EMR_Person.json')
-const AGENT_SCHEMA = JSON.parse(fs.readFileSync(path.join(ROOT, 'schemas/agent-to-his-result.schema.json'), 'utf8'))
+const AGENT_SCHEMA = JSON.parse(fs.readFileSync(path.resolve(ROOT, '../../api-factory/schemas/agent-to-his-result.schema.json'), 'utf8'))
 const EMR = JSON.parse(fs.readFileSync(path.join(ROOT, 'EMR.json'), 'utf8'))
 const REPORT_FORM = JSON.parse(fs.readFileSync(path.join(ROOT, 'Lab_Result_Report_Manual_Entry.json'), 'utf8'))
 const ITEM_FORM = JSON.parse(fs.readFileSync(path.join(ROOT, 'Lab_Result_Item_Filtered_LIS_Validated.json'), 'utf8'))

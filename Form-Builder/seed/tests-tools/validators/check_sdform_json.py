@@ -38,6 +38,12 @@ SNAPSHOT = {'list-ui': 62, 'select-form-input': 54, 'select-path-input': 46, 'au
 
 CONTAINERS = {'grid', 'card', 'tab', 'sub-form', 'table', 'collapse', 'affix', 'object-group', 'space'}
 
+# component ที่ไม่มีแม่แบบของตัวเองในรีโป แต่มีวิดเจ็ต "พี่น้อง" ที่ชุด options เหมือนกัน
+# เพิ่ม 2026-09-10: checkbox-input ไม่มีแม่แบบให้เทียบเลย validator จึงได้แค่เตือนแล้วปล่อยผ่าน
+# ผลคือ checkbox 22 คีย์ (ขาด 7 คีย์) หลุดไปถึงผู้ใช้ และ Builder ไม่เรนเดอร์ทั้ง 5 กลุ่ม
+# radio-input เป็นวิดเจ็ตพี่น้อง มีแม่แบบของระบบ 13 ตัว คีย์ตรงกันหมด 29 คีย์
+SIBLING = {'checkbox-input': 'radio-input'}
+
 
 def walk(lst, out=None):
     out = out if out is not None else []
@@ -147,15 +153,17 @@ def check(path, ref, keyless=frozenset()):
         ids[f.get('id')] += 1
         if opts.get('name'):
             names[opts['name']] += 1
-        if comp in ref:
-            miss = sorted(ref[comp] - set(opts))
+        base_comp = comp if (comp in ref or comp in SNAPSHOT) else SIBLING.get(comp, comp)
+        via = '' if base_comp == comp else f" (เทียบจากแม่แบบ {base_comp} ซึ่งเป็นวิดเจ็ตพี่น้อง)"
+        if base_comp in ref:
+            miss = sorted(ref[base_comp] - set(opts))
             if miss:
                 errs.append(f"options ไม่ครบ · {comp} “{label}” ขาด {len(miss)} ช่อง: "
-                            f"{', '.join(miss[:8])}{' …' if len(miss) > 8 else ''}")
-        elif comp in SNAPSHOT:
-            if len(opts) < SNAPSHOT[comp]:
+                            f"{', '.join(miss[:8])}{' …' if len(miss) > 8 else ''}{via}")
+        elif base_comp in SNAPSHOT:
+            if len(opts) < SNAPSHOT[base_comp]:
                 errs.append(f"options ไม่ครบ · {comp} “{label}” มี {len(opts)} ช่อง "
-                            f"ควรมีอย่างน้อย {SNAPSHOT[comp]} (เทียบจาก snapshot ไม่ใช่ไฟล์แม่แบบ)")
+                            f"ควรมีอย่างน้อย {SNAPSHOT[base_comp]} (เทียบจาก snapshot ไม่ใช่ไฟล์แม่แบบ){via}")
         else:
             warns.append(f"{comp} “{label}” ไม่มีฟอร์มแม่แบบให้เทียบ — ยืนยันเองในระบบจริงก่อนส่ง")
         if 'key' not in f:

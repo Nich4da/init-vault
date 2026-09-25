@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LAB result popup · order header + collapsible profile</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #eef2f7;
+      --surface: #ffffff;
+      --surface-soft: #f7f9fc;
+      --surface-blue: #f2f7ff;
+      --ink: #303133;
+      --text: #606266;
+      --muted: #909399;
+      --border: #dcdfe6;
+      --border-light: #e4e7ed;
+      --primary: #409eff;
+      --primary-dark: #337ecc;
+      --success: #529b2e;
+      --success-bg: #f0f9eb;
+      --warning: #b88230;
+      --warning-bg: #fdf6ec;
+      --danger: #c45656;
+      --danger-bg: #fef0f0;
+      --shadow: 0 24px 72px rgba(31, 45, 61, .22);
+      --radius: 10px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Noto Sans Thai", "Leelawadee UI", Tahoma, Arial, sans-serif;
+      font-size: 13px;
+    }
+    button { font: inherit; }
+    button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+    .demo-page {
+      min-height: 100vh;
+      padding: 28px;
+      background:
+        linear-gradient(rgba(238,242,247,.92), rgba(238,242,247,.92)),
+        repeating-linear-gradient(90deg, transparent 0 79px, rgba(144,147,153,.08) 80px);
+    }
+    .demo-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 13px 16px;
+      border: 1px solid var(--border-light);
+      border-radius: 8px;
+      background: rgba(255,255,255,.9);
+    }
+    .demo-bar strong { display: block; font-size: 14px; }
+    .demo-bar small { display: block; margin-top: 2px; color: var(--muted); }
+    .button {
+      min-height: 34px;
+      padding: 6px 14px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+    }
+    .button:hover { border-color: #a0cfff; color: var(--primary-dark); }
+    .button.primary { border-color: var(--primary); background: var(--primary); color: #fff; }
+    .button.primary:hover { background: #66b1ff; }
+
+    .overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: rgba(28, 38, 52, .58);
+    }
+    .overlay[hidden] { display: none; }
+    .dialog {
+      width: min(1320px, calc(100vw - 48px));
+      max-height: calc(100vh - 48px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,.65);
+      border-radius: 12px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .dialog-head {
+      display: flex;
+      align-items: flex-start;
+      gap: 18px;
+      padding: 16px 20px 14px;
+      border-bottom: 1px solid var(--border-light);
+    }
+    .dialog-title { flex: 1; min-width: 0; }
+    .title-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .dialog-title h1 { margin: 0; font-size: 20px; line-height: 1.25; }
+    .dialog-title p { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
+    .result-byline { display: flex; align-items: center; gap: 6px 14px; flex-wrap: wrap; margin-top: 7px; color: var(--text); font-size: 11px; }
+    .result-byline span { display: inline-flex; align-items: baseline; gap: 4px; }
+    .result-byline b { color: var(--muted); font-size: 10px; font-weight: 650; }
+    .head-actions { display: flex; align-items: center; gap: 8px; }
+    .icon-button {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 20px;
+    }
+    .icon-button:hover { border-color: var(--border); background: var(--surface-soft); color: var(--ink); }
+
+    .tag {
+      display: inline-flex;
+      min-height: 23px;
+      align-items: center;
+      padding: 2px 8px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--surface-soft);
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .tag.success { border-color: #b3e19d; background: var(--success-bg); color: var(--success); }
+    .tag.warning { border-color: #f3d19e; background: var(--warning-bg); color: var(--warning); }
+    .tag.danger { border-color: #fab6b6; background: var(--danger-bg); color: var(--danger); }
+    .tag.primary { border-color: #a0cfff; background: #ecf5ff; color: var(--primary-dark); }
+
+    .dialog-body { padding: 16px 20px 20px; overflow: auto; }
+
+    .section-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 18px 0 9px;
+    }
+    .section-head h2 { margin: 0; font-size: 15px; }
+    .section-head small { color: var(--muted); }
+    .section-actions { display: flex; gap: 6px; margin-left: auto; }
+    .text-button {
+      padding: 4px 7px;
+      border: 0;
+      border-radius: 4px;
+      background: transparent;
+      color: var(--primary-dark);
+      cursor: pointer;
+      font-size: 11px;
+    }
+    .text-button:hover { background: #ecf5ff; }
+
+    .result-grid {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .grid-row {
+      display: grid;
+      grid-template-columns: 44px 34px minmax(230px, 1.5fr) 125px 130px 92px 115px 145px;
+      min-width: 920px;
+      align-items: center;
+    }
+    .grid-head {
+      min-height: 42px;
+      background: #f5f7fa;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .grid-row > div { min-width: 0; padding: 10px; }
+    .result-row { min-height: 52px; border-top: 1px solid var(--border-light); background: var(--surface); }
+    .result-row:hover { background: #fbfcfe; }
+    .result-row.critical { background: #fff8f8; }
+    .mono { font-variant-numeric: tabular-nums; }
+    .signal {
+      width: 10px;
+      height: 10px;
+      display: block;
+      margin: auto;
+      border: 1px solid;
+      border-radius: 50%;
+    }
+    .signal.normal { border-color: #4e9631; background: #2f761e; box-shadow: 0 0 0 3px rgba(103,194,58,.1); }
+    .signal.abnormal { border-color: #cf8f2b; background: #e6a23c; box-shadow: 0 0 0 3px rgba(230,162,60,.11); }
+    .signal.critical { border-color: #d46a6a; background: #b84d4d; box-shadow: 0 0 0 3px rgba(245,108,108,.12); }
+    .test-name strong { display: block; font-size: 13px; }
+    .test-name small { display: block; margin-top: 2px; color: var(--muted); font-size: 10px; }
+    .value { font-size: 15px; font-weight: 800; }
+    .value.abnormal { color: var(--warning); }
+    .value.critical { color: var(--danger); }
+    .previous { color: var(--muted); }
+    .profile { border-top: 1px solid var(--border); }
+    .profile:first-of-type { border-top: 0; }
+    .profile-trigger {
+      width: 100%;
+      min-width: 920px;
+      display: grid;
+      grid-template-columns: 32px minmax(260px, 1.35fr) 150px 130px 130px 28px;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 13px;
+      border: 0;
+      background: var(--surface-soft);
+      color: var(--text);
+      text-align: left;
+      cursor: pointer;
+    }
+    .profile-trigger:hover { background: #edf4ff; }
+    .profile.open .profile-trigger { background: var(--surface-blue); }
+    .profile-index { color: var(--muted); font-variant-numeric: tabular-nums; }
+    .profile-title { min-width: 0; }
+    .profile-title strong { display: block; overflow: hidden; color: var(--ink); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+    .profile-title small { display: block; margin-top: 2px; color: var(--muted); font-size: 10px; }
+    .profile-meta span { display: block; color: var(--muted); font-size: 9px; }
+    .profile-meta strong { display: block; margin-top: 2px; color: var(--ink); font-size: 11px; }
+    .chevron { color: var(--muted); font-size: 17px; transition: transform .16s ease; }
+    .profile.open .chevron { transform: rotate(180deg); }
+    .profile-body { display: none; }
+    .profile.open .profile-body { display: block; }
+    .profile .result-row { padding-left: 16px; }
+    .profile .result-row > div:first-child { color: var(--muted); }
+
+    .attachment {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 12px;
+      padding: 10px 12px;
+      border: 1px solid var(--border-light);
+      border-radius: 7px;
+      background: var(--surface-soft);
+    }
+    .attachment strong { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .attachment span { color: var(--muted); }
+
+    .dialog-foot {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 20px;
+      border-top: 1px solid var(--border-light);
+      background: var(--surface-soft);
+    }
+    .foot-note { flex: 1; min-width: 0; color: var(--muted); font-size: 10px; }
+    .foot-note strong { color: var(--text); }
+
+    .toast {
+      position: fixed;
+      right: 28px;
+      bottom: 28px;
+      z-index: 30;
+      max-width: 360px;
+      padding: 10px 13px;
+      border: 1px solid #a0cfff;
+      border-radius: 7px;
+      background: var(--surface);
+      color: var(--text);
+      box-shadow: 0 10px 30px rgba(31,45,61,.16);
+      opacity: 0;
+      transform: translateY(8px);
+      pointer-events: none;
+      transition: opacity .15s ease, transform .15s ease;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    @media (max-width: 980px) {
+      .overlay { padding: 10px; }
+      .dialog { width: calc(100vw - 20px); max-height: calc(100vh - 20px); }
+      .head-actions .button { display: none; }
+    }
+    @media (max-width: 620px) {
+      .dialog-head, .dialog-body, .dialog-foot { padding-left: 12px; padding-right: 12px; }
+      .dialog-title h1 { font-size: 17px; }
+      .section-head { align-items: flex-start; flex-wrap: wrap; }
+      .section-actions { width: 100%; margin-left: 0; }
+      .dialog-foot { align-items: flex-end; }
+    }
+  </style>
+</head>
+<body>
+  <main class="demo-page">
+    <div class="demo-bar">
+      <div>
+        <strong>LAB Result Popup · Mockup v1</strong>
+        <small>ข้อมูลทั้งหมดเป็นข้อมูลจำลองสำหรับยืนยัน UI — ยังไม่ใช่ฟอร์ม production</small>
+      </div>
+      <button class="button primary" id="openDialog">เปิด Popup ตัวอย่าง</button>
+    </div>
+  </main>
+
+  <div class="overlay" id="overlay" role="presentation">
+    <section class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
+      <header class="dialog-head">
+        <div class="dialog-title">
+          <div class="title-line">
+            <h1 id="dialogTitle">ผลตรวจทางห้องปฏิบัติการ</h1>
+            <span class="tag primary">โหมดดูอย่างเดียว</span>
+            <span class="tag success">Final</span>
+            <span class="tag danger">วิกฤติ 1</span>
+            <span class="tag warning">ผิดปกติ 2</span>
+          </div>
+          <!-- Production mapping: reported_by_source_name + reported_at.
+               verified_by_source_name + verified_at ยังรับจาก Agent แต่ไม่แสดงใน mockup ตามขอบเขตที่ผู้ใช้เลือก -->
+          <div class="result-byline" aria-label="ข้อมูลผู้ออกผล">
+            <span><b>ผู้ออกผล:</b> <strong title="รหัสจาก LIS: TECH001">ผู้รายงานผล</strong></span>
+            <span><b>ออกผลเมื่อ:</b> <strong class="mono">23/09/2569 12:08</strong></span>
+          </div>
+        </div>
+        <div class="head-actions">
+          <button class="button" type="button" data-toast="ตัวอย่างปุ่ม Report Factory">▣ รายงานผล</button>
+          <button class="icon-button" type="button" id="closeIcon" aria-label="ปิด">×</button>
+        </div>
+      </header>
+
+      <div class="dialog-body">
+        <div class="section-head">
+          <h2>รายการผลตรวจ</h2>
+          <small>3 รายการสั่งตรวจ · 7 ผลย่อย</small>
+          <div class="section-actions">
+            <button class="text-button" type="button" id="expandAll">กาง Profile ทั้งหมด</button>
+            <button class="text-button" type="button" id="collapseAll">พับทั้งหมด</button>
+          </div>
+        </div>
+
+        <section class="result-grid" aria-label="ผลตรวจ">
+          <div class="grid-row grid-head" aria-hidden="true">
+            <div>#</div><div></div><div>รายการ</div><div>ค่าก่อนหน้า</div><div>ค่าที่ตรวจได้</div><div>หน่วย</div><div>แปลผล</div><div>ค่าปกติ</div>
+          </div>
+
+          <article class="profile open" data-profile>
+            <button class="profile-trigger" type="button" aria-expanded="true">
+              <span class="profile-index">01</span>
+              <span class="profile-title"><strong>Electrolyte จาก Clotted blood</strong><small>Profile · คลิกเพื่อพับ/กางผลย่อย 4 รายการ</small></span>
+              <span class="profile-meta"><span>สถานะ</span><strong><i class="tag success">ครบ 4/4</i></strong></span>
+              <span class="profile-meta"><span>สิ่งส่งตรวจ</span><strong>Clotted blood</strong></span>
+              <span class="profile-meta"><span>ผลล่าสุด</span><strong>12:08</strong></span>
+              <span class="chevron" aria-hidden="true">⌃</span>
+            </button>
+            <div class="profile-body">
+              <div class="grid-row result-row critical">
+                <div class="mono">1.1</div><div><i class="signal critical" title="ค่าวิกฤติ"></i></div>
+                <div class="test-name"><strong>Potassium</strong><small>K · ผลจาก Agent/LIS</small></div>
+                <div class="previous mono">4.9</div><div class="value critical mono">6.8 ▲</div><div>mmol/L</div>
+                <div><span class="tag danger">วิกฤติ</span></div><div class="mono">ตาม LIS</div>
+              </div>
+              <div class="grid-row result-row">
+                <div class="mono">1.2</div><div><i class="signal abnormal" title="ผิดปกติ"></i></div>
+                <div class="test-name"><strong>Sodium</strong><small>Na · ผลจาก Agent/LIS</small></div>
+                <div class="previous mono">138</div><div class="value abnormal mono">133 ▼</div><div>mmol/L</div>
+                <div><span class="tag warning">ต่ำ</span></div><div class="mono">ตาม LIS</div>
+              </div>
+              <div class="grid-row result-row">
+                <div class="mono">1.3</div><div><i class="signal normal" title="ปกติ"></i></div>
+                <div class="test-name"><strong>Chloride</strong><small>Cl · ผลจาก Agent/LIS</small></div>
+                <div class="previous mono">102</div><div class="value mono">101</div><div>mmol/L</div>
+                <div><span class="tag success">ปกติ</span></div><div class="mono">ตาม LIS</div>
+              </div>
+              <div class="grid-row result-row">
+                <div class="mono">1.4</div><div><i class="signal normal" title="ปกติ"></i></div>
+                <div class="test-name"><strong>Total CO₂</strong><small>tCO₂ · ผลจาก Agent/LIS</small></div>
+                <div class="previous mono">25</div><div class="value mono">24</div><div>mmol/L</div>
+                <div><span class="tag success">ปกติ</span></div><div class="mono">ตาม LIS</div>
+              </div>
+            </div>
+          </article>
+
+          <div class="grid-row result-row">
+            <div class="mono">02</div><div><i class="signal abnormal" title="ผิดปกติ"></i></div>
+            <div class="test-name"><strong>Creatinine</strong><small>รายการเดี่ยว · ไม่ต้องกาง</small></div>
+            <div class="previous mono">1.42</div><div class="value abnormal mono">1.92 ▲</div><div>mg/dL</div>
+            <div><span class="tag warning">สูง</span></div><div class="mono">ตาม LIS</div>
+          </div>
+
+          <article class="profile" data-profile>
+            <button class="profile-trigger" type="button" aria-expanded="false">
+              <span class="profile-index">03</span>
+              <span class="profile-title"><strong>Liver Function Test</strong><small>Profile · คลิกเพื่อกางผลย่อย 2 รายการ</small></span>
+              <span class="profile-meta"><span>สถานะ</span><strong><i class="tag success">ครบ 2/2</i></strong></span>
+              <span class="profile-meta"><span>สิ่งส่งตรวจ</span><strong>Clotted blood</strong></span>
+              <span class="profile-meta"><span>ผลล่าสุด</span><strong>11:56</strong></span>
+              <span class="chevron" aria-hidden="true">⌃</span>
+            </button>
+            <div class="profile-body">
+              <div class="grid-row result-row">
+                <div class="mono">3.1</div><div><i class="signal normal" title="ปกติ"></i></div>
+                <div class="test-name"><strong>AST</strong><small>SGOT · ผลจาก Agent/LIS</small></div>
+                <div class="previous mono">—</div><div class="value mono">32</div><div>U/L</div>
+                <div><span class="tag success">ปกติ</span></div><div class="mono">ตาม LIS</div>
+              </div>
+              <div class="grid-row result-row">
+                <div class="mono">3.2</div><div><i class="signal normal" title="ปกติ"></i></div>
+                <div class="test-name"><strong>ALT</strong><small>SGPT · ผลจาก Agent/LIS</small></div>
+                <div class="previous mono">—</div><div class="value mono">28</div><div>U/L</div>
+                <div><span class="tag success">ปกติ</span></div><div class="mono">ตาม LIS</div>
+              </div>
+            </div>
+          </article>
+        </section>
+
+        <div class="attachment">
+          <span aria-hidden="true">📎</span>
+          <strong>ไฟล์แนบผลตรวจ — lab-report-demo.pdf</strong>
+          <span>248 KB · อ่านอย่างเดียว</span>
+        </div>
+      </div>
+
+      <footer class="dialog-foot">
+        <div class="foot-note">ข้อมูลตัวอย่างจำลอง · ยังไม่ใช่หน้าจอ production</div>
+        <button class="button" type="button" id="closeButton">ปิด</button>
+      </footer>
+    </section>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+
+  <script>
+    (function () {
+      var overlay = document.getElementById('overlay');
+      var toast = document.getElementById('toast');
+      var toastTimer;
+
+      function setProfile(profile, open) {
+        profile.classList.toggle('open', open);
+        var trigger = profile.querySelector('.profile-trigger');
+        if (trigger) trigger.setAttribute('aria-expanded', String(open));
+      }
+
+      document.querySelectorAll('[data-profile]').forEach(function (profile) {
+        profile.querySelector('.profile-trigger').addEventListener('click', function () {
+          setProfile(profile, !profile.classList.contains('open'));
+        });
+      });
+
+      document.getElementById('expandAll').addEventListener('click', function () {
+        document.querySelectorAll('[data-profile]').forEach(function (profile) { setProfile(profile, true); });
+      });
+      document.getElementById('collapseAll').addEventListener('click', function () {
+        document.querySelectorAll('[data-profile]').forEach(function (profile) { setProfile(profile, false); });
+      });
+
+      function closeDialog() { overlay.hidden = true; }
+      document.getElementById('closeIcon').addEventListener('click', closeDialog);
+      document.getElementById('closeButton').addEventListener('click', closeDialog);
+      document.getElementById('openDialog').addEventListener('click', function () { overlay.hidden = false; });
+      document.addEventListener('keydown', function (event) { if (event.key === 'Escape') closeDialog(); });
+
+      document.querySelectorAll('[data-toast]').forEach(function (button) {
+        button.addEventListener('click', function () {
+          window.clearTimeout(toastTimer);
+          toast.textContent = button.getAttribute('data-toast');
+          toast.classList.add('show');
+          toastTimer = window.setTimeout(function () { toast.classList.remove('show'); }, 1800);
+        });
+      });
+    }());
+  </script>
+</body>
+</html>

@@ -1,0 +1,48 @@
+[
+  {
+    "$group": {
+      "_id": {
+        "$ifNull": [
+          "$service_type.value",
+          { "$ifNull": ["$service_type", "(no service_type)"] }
+        ]
+      },
+      "items": { "$sum": 1 },
+      "alive_items": {
+        "$sum": { "$cond": [{ "$in": ["$xrstatx", [0, 3]] }, 0, 1] }
+      },
+      "with_accession": {
+        "$sum": {
+          "$cond": [
+            { "$gt": [{ "$strLenCP": { "$ifNull": ["$accession_no", ""] } }, 0] },
+            1,
+            0
+          ]
+        }
+      }
+    }
+  },
+  {
+    "$addFields": {
+      "service_type": {
+        "$convert": {
+          "input": "$_id",
+          "to": "string",
+          "onError": "(not a string)",
+          "onNull": "(no service_type)"
+        }
+      }
+    }
+  },
+  { "$sort": { "items": -1 } },
+  { "$limit": 20 },
+  {
+    "$project": {
+      "_id": 0,
+      "service_type": 1,
+      "items": 1,
+      "alive_items": 1,
+      "with_accession": 1
+    }
+  }
+]

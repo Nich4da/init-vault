@@ -5,6 +5,7 @@ const vm = require('vm')
 
 const FORM_DIR = path.join(__dirname, '../../../SDForm/form-factory/forms')
 const SCHEMA_DIR = path.join(__dirname, '../../../SDForm/api-factory/schemas')
+const SDFORM_DIR = path.join(__dirname, '../../../SDForm')
 
 const FILES = {
   report: 'Result_Report_Manual_Entry_Agent_Result_v1.json',
@@ -27,13 +28,16 @@ const schema = JSON.parse(fs.readFileSync(path.join(SCHEMA_DIR, 'agent-to-his-re
 const listTemplateForm = JSON.parse(fs.readFileSync(path.join(FORM_DIR, 'Lab_Result_Inbound_Receive_User_View_EMR_Person_v2.json'), 'utf8'))
 const personTemplateForm = JSON.parse(fs.readFileSync(path.join(FORM_DIR, 'person.json'), 'utf8'))
 const diseaseTemplateForm = JSON.parse(fs.readFileSync(path.join(FORM_DIR, 'disease.json'), 'utf8'))
+const uploadTemplateForm = JSON.parse(fs.readFileSync(path.join(SDFORM_DIR, 'sdform_module/test_widget_uploadfile.json'), 'utf8'))
 
 const correctedRule = schema.allOf.find(rule =>
   rule?.if?.properties?.overall_status?.const === 'corrected'
 )
 assert(correctedRule, 'Schema must define the corrected callback branch')
-assert.deepStrictEqual(correctedRule.then.required, ['corrected_at', 'corrected_by'])
-assert(schema.properties.corrected_by, 'Schema must distinguish corrector from verifier')
+assert.strictEqual(correctedRule.then.required, undefined, 'Agent correction must not require HIS manual-editor audit fields')
+assert.strictEqual(schema.properties.corrected_by, undefined)
+assert.strictEqual(schema.properties.corrected_at, undefined)
+assert(!schema.allOf.some(rule => (rule.then?.required || []).some(field => field === 'corrected_by' || field === 'corrected_at')))
 
 function walk(value, output = []) {
   if (Array.isArray(value)) {
@@ -66,6 +70,7 @@ const templates = {
   'switch-input': findTemplate(personTemplateForm, 'switch-input', node => node.options?.name === 'p_twin'),
   'number-input': findTemplate(personTemplateForm, 'number-input', node => node.options?.name === 'birth_order'),
   'list-ui': findTemplate(listTemplateForm, 'list-ui'),
+  'file-upload-input': findTemplate(uploadTemplateForm, 'file-upload-input'),
 }
 
 function assertCommonStructure(form, fileName) {
@@ -134,10 +139,21 @@ assert(byName(forms.report, 'report_key'))
 assert(byName(forms.receipt, 'result_report_id'))
 assert(byName(forms.report, 'order_status_id'))
 assert(byName(forms.report, 'lab_section'))
+assert(byName(forms.report, 'result_attachments'))
+assert(byName(forms.report, 'confirmed_by'))
+assert(byName(forms.report, 'confirmed_at'))
+assert(byName(forms.report, 'result_mode'))
 assert(byName(forms.item, 'lab_section'))
 assert.strictEqual(byName(forms.receipt, 'raw_payload_json').options.hidden, true)
 assert.strictEqual(byName(forms.receipt, 'items_json').options.hidden, true)
 assert.strictEqual(byName(forms.receipt, 'report_seq').fieldType, 'String')
+const attachmentUpload = byName(forms.report, 'result_attachments')
+assert.strictEqual(attachmentUpload.component, 'file-upload-input')
+assert.strictEqual(attachmentUpload.options.hidden, true)
+assert.strictEqual(attachmentUpload.options.multipleSelect, true)
+assert.deepStrictEqual(attachmentUpload.options.fileTypes, ['pdf', 'jpg', 'jpeg', 'png'])
+assert.strictEqual(attachmentUpload.options.limit, 3)
+assert.strictEqual(attachmentUpload.options.fileMaxSize, 10)
 for (const countName of ['item_count', 'critical_count', 'matched_item_count', 'unmatched_item_count']) {
   assert.strictEqual(byName(forms.receipt, countName).component, 'number-input')
   assert.strictEqual(byName(forms.receipt, countName).fieldType, 'Number')
@@ -269,6 +285,7 @@ assert.strictEqual(openArgs[4].readonly, false, 'Result popup must allow Result 
 console.log('PASS three JSON files parse with grid -> cols[].fields[] hierarchy')
 console.log('PASS every node/options axis and component key matches its real exported template')
 console.log('PASS Agent receipt covers required callback fields and raw append-only payload')
+console.log('PASS Agent corrected contract excludes HIS manual-editor identity/time')
 console.log('PASS Result Report ListView matches the 62-option keyless working template')
 console.log('PASS ListView filters child items by current receipt/report _id without getFieldValue crash')
 console.log('PASS only result_value is editable; test/unit/interpretation/ref/critical are readonly')

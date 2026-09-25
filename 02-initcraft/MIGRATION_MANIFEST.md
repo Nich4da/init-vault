@@ -107,3 +107,14 @@ description check; this limitation is recorded rather than hidden.
 `checksums.sha256` records SHA-256 hashes for the migrated library. It verifies
 file integrity only; Builder/Preview/runtime behavior still requires the real
 initCraft application.
+
+## Post-migration tools
+
+- `Form-Builder/API/tests-tools/scripts/integration_autodiag.js` — added
+  2026-09-23 as a repository-native, zero-dependency LAB/X-ray Order/Result
+  diagnostic CLI. Its regression test is
+  `Form-Builder/API/tests-tools/tests/test_integration_autodiag.js`; usage and
+  evidence contract are documented in
+  `02-his/api-factory/docs/INTEGRATION_AUTODIAG_TOOL.md`.
+- This tool is not part of the 2026-08-27 migrated snapshot and therefore does
+  not change the historical file counts above.

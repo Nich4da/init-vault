@@ -94,6 +94,7 @@ fields = [
     text(template, 'received_by', 'ผู้รับสิ่งส่งตรวจ', hidden=True),
     text(template, 'processing_at', 'เวลาเริ่มตรวจ', hidden=True),
     text(template, 'processing_by', 'ผู้เริ่มตรวจ', hidden=True),
+    text(template, 'latest_result_at', 'เวลารับผลล่าสุด', hidden=True),
     text(template, 'resulted_at', 'เวลาออกผล', hidden=True),
     text(template, 'resulted_by', 'ผู้ออกผล', hidden=True),
     text(template, 'rejected_at', 'เวลาปฏิเสธ', hidden=True),

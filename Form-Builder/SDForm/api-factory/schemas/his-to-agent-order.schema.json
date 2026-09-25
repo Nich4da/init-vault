@@ -11,6 +11,7 @@
     "hn",
     "ordered_at",
     "priority",
+    "sex",
     "items"
   ],
   "properties": {
@@ -67,7 +68,7 @@
     },
     "sex": {
       "type": "string",
-      "maxLength": 20
+      "enum": ["M", "F"]
     },
     "visit_type": {
       "type": "string",

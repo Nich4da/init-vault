@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://qsnich.example/schemas/agent-to-his-result-v2.schema.json",
   "title": "Agent to HIS Lab Result v2",
-  "description": "Agent result callback. One message creates one immutable receipt and one stage report. filler_order_no/labno/lab_no is the LAB NO. originally issued by HIS.",
+  "description": "Agent result callback. One message creates one immutable receipt and one stage report. filler_order_no/labno/lab_no is the LAB NO. originally issued by HIS. HIS manual-editor identity/time are not Agent fields.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -33,7 +33,7 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 200,
-      "description": "Idempotency key for exactly one inbound Agent message."
+      "description": "Idempotency key for exactly one inbound Agent message within its order identity."
     },
     "report_seq": { "$ref": "#/$defs/sequenceString" },
     "stage": {
@@ -48,11 +48,6 @@
     "reported_by": { "$ref": "#/$defs/sourceIdentity" },
     "verified_at": { "$ref": "#/$defs/thailandDateTime" },
     "verified_by": { "$ref": "#/$defs/sourceIdentity" },
-    "corrected_at": { "$ref": "#/$defs/thailandDateTime" },
-    "corrected_by": {
-      "$ref": "#/$defs/sourceIdentity",
-      "description": "Explicit person/system responsible for a corrected result; distinct from verifier."
-    },
     "items": {
       "type": "array",
       "minItems": 1,
@@ -74,26 +69,8 @@
     {
       "if": { "properties": { "overall_status": { "const": "corrected" } }, "required": ["overall_status"] },
       "then": {
-        "required": ["corrected_at", "corrected_by"],
         "properties": { "stage": { "const": "corrected" } }
       }
-    },
-    {
-      "if": {
-        "properties": {
-          "items": {
-            "contains": {
-              "type": "object",
-              "anyOf": [
-                { "properties": { "obx_status": { "const": "C" } }, "required": ["obx_status"] },
-                { "properties": { "change_kind": { "const": "corrected" } }, "required": ["change_kind"] }
-              ]
-            }
-          }
-        },
-        "required": ["items"]
-      },
-      "then": { "required": ["corrected_at", "corrected_by"] }
     },
     {
       "if": { "properties": { "overall_status": { "const": "cancelled" } }, "required": ["overall_status"] },
@@ -145,6 +122,10 @@
         },
         "obs_name": { "type": "string", "minLength": 1, "maxLength": 300 },
         "value": { "type": "string", "description": "Always text; results may be numeric or qualitative." },
+        "comment": {
+          "type": "string",
+          "description": "Optional observation comment from HL7 NTE. Multiple NTE lines are joined with a newline character. Omitted when the observation has no comment."
+        },
         "units": { "type": "string", "maxLength": 100 },
         "ref_range": { "type": "string", "maxLength": 500 },
         "obx_status": { "type": "string", "minLength": 1, "maxLength": 20 },
@@ -173,8 +154,16 @@
           "maxLength": 200,
           "description": "Rule snapshot only; it does not by itself mean this result is critical."
         },
-        "panel_code": { "type": "string", "maxLength": 100 },
-        "panel_name": { "type": "string", "maxLength": 300 },
+        "panel_code": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Optional LIS/Agent source grouping context for this observation. HIS stores it for display/audit but does not use it as the order-to-result matching key."
+        },
+        "panel_name": {
+          "type": "string",
+          "maxLength": 300,
+          "description": "Optional display name for the LIS/Agent panel context."
+        },
         "group_role": { "type": "string", "maxLength": 100 },
         "organism": { "type": "string", "maxLength": 300 }
       }

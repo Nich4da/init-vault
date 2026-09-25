@@ -1,0 +1,369 @@
+[
+  {
+    "_id": {
+      "$oid": "6a977ac8422c1ca959829f97"
+    },
+    "xparentx": {
+      "$oid": "6a734f21c26bf53d1bac3c10"
+    },
+    "xsitex": {
+      "code": "0000",
+      "name": "0000"
+    },
+    "xunitx": {
+      "code": "A103",
+      "name": "คลินิกทันตกรรม"
+    },
+    "xrstatx": 1,
+    "xversionx": "v1",
+    "xerrorx": null,
+    "updated_by": {
+      "id": {
+        "$oid": "6a58678ad448dfc9d33e2ba8"
+      },
+      "name": "Nichada Patcharasumransuk (marnichacha27@gmail.com)"
+    },
+    "updated_at": "2026-09-03 11:55:00",
+    "created_by": {
+      "id": {
+        "$oid": "6a58678ad448dfc9d33e2ba8"
+      },
+      "name": "Nichada Patcharasumransuk (marnichacha27@gmail.com)"
+    },
+    "created_at": "2026-09-02 08:24:24",
+    "dataid": "6a977ac8422c1ca959829f97",
+    "pdf_assign_roles": null,
+    "pdf_bg": null,
+    "pdf_category": null,
+    "pdf_column": [
+      {
+        "col_field": "row_no",
+        "col_label": "#",
+        "col_alignment": "center",
+        "col_width": 26,
+        "col_format": "",
+        "col_sum": "",
+        "col_group": false,
+        "col_html": false,
+        "col_value": null,
+        "col_expressions": null,
+        "col_fillcolor": null
+      },
+      {
+        "col_field": "lab_no",
+        "col_label": "Lab Number",
+        "col_alignment": "left",
+        "col_width": 104,
+        "col_format": "",
+        "col_sum": "",
+        "col_group": false,
+        "col_html": false,
+        "col_value": null,
+        "col_expressions": null,
+        "col_fillcolor": null
+      },
+      {
+        "col_field": "test_display",
+        "col_label": "รายการตรวจ",
+        "col_alignment": "left",
+        "col_width": "*",
+        "col_format": "",
+        "col_sum": "",
+        "col_group": false,
+        "col_html": false,
+        "col_value": null,
+        "col_expressions": null,
+        "col_fillcolor": null
+      },
+      {
+        "col_field": "specimen_name",
+        "col_label": "Specimen",
+        "col_alignment": "left",
+        "col_width": 120,
+        "col_format": "",
+        "col_sum": "",
+        "col_group": false,
+        "col_html": false,
+        "col_value": null,
+        "col_expressions": null,
+        "col_fillcolor": null
+      }
+    ],
+    "pdf_content": [
+      {
+        "content_widget": "image",
+        "content_var": "hospital_logo",
+        "content_align": "left",
+        "content_decoration": "",
+        "content_linestyle": "dotted",
+        "content_bold": false,
+        "content_italics": false,
+        "content_color": "#000000",
+        "content_bgcolor": null,
+        "content_fontsize": 13,
+        "content_ml": 12,
+        "content_mt": 10,
+        "content_mr": null,
+        "content_mb": 0,
+        "content_width": 62,
+        "content_height": 86,
+        "content_value": "https://apihis.softmax-one.com/assets/sdform/6a607f2ba608039c539ebb7c/picture/2026/2026_07/2026_07_27/6a58678ad448dfc9d33e2ba8/logo_2026_07_27_15_07_3392455.jpeg"
+      },
+      {
+        "content_widget": "html",
+        "content_var": "lab_order_header",
+        "content_align": "left",
+        "content_decoration": "",
+        "content_linestyle": "dotted",
+        "content_bold": false,
+        "content_italics": false,
+        "content_color": "#000000",
+        "content_bgcolor": null,
+        "content_fontsize": 16,
+        "content_ml": null,
+        "content_mt": -96,
+        "content_mr": null,
+        "content_mb": 0,
+        "content_width": null,
+        "content_height": null,
+        "content_value": "<table style=\"width:100%;border-collapse:collapse;border:none;table-layout:fixed;font-size:16px\"><colgroup><col style=\"width:22%\"><col style=\"width:56%\"><col style=\"width:22%\"></colgroup><tr><td style=\"border:none;padding:0\"></td><td style=\"border:none;padding:28px 0 0;text-align:center;vertical-align:top\"><div style=\"font-size:26px;font-weight:bold;margin-bottom:-7px\">สถาบันสุขภาพเด็กแห่งชาติมหาราชินี</div><div style=\"font-size:17px;font-weight:bold;margin-bottom:-5px\">QUEEN SIRIKIT NATIONAL INSTITUTE OF CHILD HEALTH</div><div style=\"font-size:17px;font-weight:bold\">กรมการแพทย์ กระทรวงสาธารณสุข</div></td><td style=\"border:none;padding:0;text-align:right;vertical-align:top\"><div><b>Order No. :</b> {{order_number}}<br><b>วันที่ :</b> {{order_date}}<br><b>เวลา :</b> {{order_time}}</div></td></tr></table>"
+      },
+      {
+        "content_widget": "barcode",
+        "content_var": "order_barcode",
+        "content_align": "right",
+        "content_decoration": "",
+        "content_linestyle": "dotted",
+        "content_bold": false,
+        "content_italics": false,
+        "content_color": "#000000",
+        "content_bgcolor": null,
+        "content_fontsize": 12,
+        "content_ml": null,
+        "content_mt": 0,
+        "content_mr": 2,
+        "content_mb": 0,
+        "content_width": 104,
+        "content_height": 22,
+        "content_value": "{{order_number}}"
+      },
+      {
+        "content_widget": "html",
+        "content_var": "lab_section_title",
+        "content_align": "left",
+        "content_decoration": "",
+        "content_linestyle": "dotted",
+        "content_bold": false,
+        "content_italics": false,
+        "content_color": "#000000",
+        "content_bgcolor": null,
+        "content_fontsize": 17,
+        "content_ml": 0,
+        "content_mt": 28,
+        "content_mr": null,
+        "content_mb": 8,
+        "content_width": null,
+        "content_height": null,
+        "content_value": "<div style=\"font-size:19px;font-weight:bold\"><span>{{section_unit}}</span> <span>{{section_name}}</span></div>"
+      },
+      {
+        "content_widget": "html",
+        "content_var": "patient_order_info",
+        "content_align": "left",
+        "content_decoration": "",
+        "content_linestyle": "dotted",
+        "content_bold": false,
+        "content_italics": false,
+        "content_color": "#000000",
+        "content_bgcolor": null,
+        "content_fontsize": 17,
+        "content_ml": 0,
+        "content_mt": null,
+        "content_mr": null,
+        "content_mb": 6,
+        "content_width": null,
+        "content_height": null,
+        "content_value": "<table style=\"width:100%;border-collapse:collapse;border:none;table-layout:fixed;font-size:17px\"><colgroup><col style=\"width:52%\"><col style=\"width:48%\"></colgroup><tr><td style=\"border:none;padding:0 8px 0 0\"><b>ชื่อ :</b> {{patient_name}}</td><td style=\"border:none;padding:0 0 0 12px\"><b>อายุ :</b> {{age_display}} &nbsp;&nbsp; <b>HN :</b> {{hn}}</td></tr><tr><td style=\"border:none;padding:0 8px 0 0\"><b>คลินิกที่ส่ง :</b> {{ward_clinic}}</td><td style=\"border:none;padding:0 0 0 12px\"><b>วันที่ :</b> {{order_date}} &nbsp;&nbsp; <b>AN :</b> {{an}}</td></tr><tr><td style=\"border:none;padding:0 8px 0 0;vertical-align:top\"><b>ยาที่เคยได้รับ :</b> {{prior_medication_display}}</td><td style=\"border:none;padding:0 0 0 12px;vertical-align:top\"><b>สิทธิการรักษา :</b> {{insurance_display}}</td></tr><tr><td style=\"border:none;padding:0 8px 0 0;vertical-align:top\"><b>Diagnosis :</b> {{diagnosis_display}}</td><td style=\"border:none;padding:0 0 0 12px\"></td></tr></table>"
+      },
+      {
+        "content_widget": "html",
+        "content_var": "specimen_info",
+        "content_align": "left",
+        "content_decoration": "",
+        "content_linestyle": "dotted",
+        "content_bold": false,
+        "content_italics": false,
+        "content_color": "#000000",
+        "content_bgcolor": null,
+        "content_fontsize": 17,
+        "content_ml": 0,
+        "content_mt": null,
+        "content_mr": null,
+        "content_mb": 12,
+        "content_width": null,
+        "content_height": null,
+        "content_value": "<table style=\"width:100%;border-collapse:collapse;border:none;table-layout:fixed;font-size:17px\"><colgroup><col style=\"width:52%\"><col style=\"width:48%\"></colgroup><tr><td style=\"border:none;padding:0 8px 0 0\"><b>Source of specimen :</b> {{source_specimen}}</td><td style=\"border:none;padding:0 0 0 12px\"><b>เก็บวันที่ :</b> {{collected_at}}</td></tr><tr><td style=\"border:none;padding:0 8px 0 0\"><b>Collected by :</b> {{collected_by}}</td><td style=\"border:none;padding:0 0 0 12px\"><b>การเก็บรักษาก่อนนำส่ง :</b> {{storage_display}}</td></tr><tr><td style=\"border:none;padding:0 8px 0 0\"><b>ผู้ส่งตรวจ :</b> {{submitter_name}}</td><td style=\"border:none;padding:0 0 0 12px\"><b>แพทย์ผู้ส่งตรวจ :</b> {{requester_name}}</td></tr></table>"
+      },
+      {
+        "content_widget": "table",
+        "content_var": "lab_order_items",
+        "content_align": "left",
+        "content_decoration": "",
+        "content_linestyle": "dotted",
+        "content_bold": false,
+        "content_italics": false,
+        "content_color": "#000000",
+        "content_bgcolor": null,
+        "content_fontsize": 13,
+        "content_ml": null,
+        "content_mt": null,
+        "content_mr": null,
+        "content_mb": 6,
+        "content_width": null,
+        "content_height": null,
+        "content_value": null
+      },
+      {
+        "content_widget": "html",
+        "content_var": "print_footer",
+        "content_align": "left",
+        "content_decoration": "",
+        "content_linestyle": "dotted",
+        "content_bold": false,
+        "content_italics": false,
+        "content_color": "#000000",
+        "content_bgcolor": null,
+        "content_fontsize": 12,
+        "content_ml": null,
+        "content_mt": 14,
+        "content_mr": null,
+        "content_mb": 0,
+        "content_width": null,
+        "content_height": null,
+        "content_value": "<table style=\"width:100%;border-collapse:collapse;border:none;font-size:12px\"><tr><td style=\"border:none;padding-top:5px\">Print by : {{printed_by}}</td><td style=\"border:none;padding-top:5px;text-align:right\">Date : {{printed_at}}</td></tr></table>"
+      }
+    ],
+    "pdf_custom_size": {
+      "width": null,
+      "height": null
+    },
+    "pdf_desc": "ใบสั่งตรวจ LAB อ้างอิงภาพต้นแบบโดยไม่ฝังข้อมูลผู้ป่วยตัวอย่าง; ใช้ order_id + section_code และแสดง LAB NO. หลังรับ specimen",
+    "pdf_fontsize": 12,
+    "pdf_form_id": "6a6f7db2265885c2377cc222",
+    "pdf_from": "zdata_cpoe_order_item",
+    "pdf_latex": null,
+    "pdf_mb": 24,
+    "pdf_ml": 24,
+    "pdf_mr": 24,
+    "pdf_mt": 24,
+    "pdf_name": "LAB Order Request v1",
+    "pdf_note": "Import SQL provider first. Preview with a UAT order_id, the same visit_id used by EMR, and its LAB section_code before assigning LAB roles.",
+    "pdf_orientation": "portrait",
+    "pdf_page_date": false,
+    "pdf_page_num": false,
+    "pdf_page_size": "A4",
+    "pdf_params": [
+      {
+        "param_var": "order_id",
+        "param_label": "Order ID",
+        "param_default": null,
+        "param_required": true,
+        "param_type": "text",
+        "param_sform": null,
+        "param_svalue": null,
+        "param_slabel": null
+      },
+      {
+        "param_var": "visit_id",
+        "param_label": "Visit ID",
+        "param_default": null,
+        "param_required": true,
+        "param_type": "text",
+        "param_sform": null,
+        "param_svalue": null,
+        "param_slabel": null
+      },
+      {
+        "param_var": "section_code",
+        "param_label": "LAB Section Code",
+        "param_default": null,
+        "param_required": true,
+        "param_type": "text",
+        "param_sform": null,
+        "param_svalue": null,
+        "param_slabel": null
+      },
+      {
+        "param_var": "printed_by",
+        "param_label": "ผู้พิมพ์",
+        "param_default": null,
+        "param_required": true,
+        "param_type": "text",
+        "param_sform": null,
+        "param_svalue": null,
+        "param_slabel": null
+      },
+      {
+        "param_var": "printed_at",
+        "param_label": "วัน/เวลาพิมพ์",
+        "param_default": null,
+        "param_required": true,
+        "param_type": "text",
+        "param_sform": null,
+        "param_svalue": null,
+        "param_slabel": null
+      }
+    ],
+    "pdf_share": "private",
+    "pdf_showheader": "firstPage",
+    "pdf_sql": {
+      "value": {
+        "$oid": "6a97754d422c1ca959829f96"
+      },
+      "label": "LAB Order Request PDF v1"
+    },
+    "pdf_tags": [
+      "LAB",
+      "order-request",
+      "CPOE"
+    ],
+    "pdf_tb_header": [
+      [
+        {
+          "text": "#",
+          "bold": true,
+          "alignment": "center",
+          "fillColor": "#FFFFFF",
+          "fontSize": 13
+        },
+        {
+          "text": "Lab Number",
+          "bold": true,
+          "alignment": "left",
+          "fillColor": "#FFFFFF",
+          "fontSize": 13
+        },
+        {
+          "text": "รายการตรวจ",
+          "bold": true,
+          "alignment": "left",
+          "fillColor": "#FFFFFF",
+          "fontSize": 13
+        },
+        {
+          "text": "Specimen",
+          "bold": true,
+          "alignment": "left",
+          "fillColor": "#FFFFFF",
+          "fontSize": 13
+        }
+      ]
+    ],
+    "pdf_tb_layout": "lightHorizontalLines",
+    "pdf_temp": null,
+    "pdf_title": null,
+    "pdf_type": "report",
+    "pdf_watermark": null,
+    "tool_license": "6a3113a619ee74c8f82854a0"
+  }
+]

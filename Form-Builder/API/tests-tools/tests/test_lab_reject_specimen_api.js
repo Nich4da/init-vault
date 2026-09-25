@@ -118,6 +118,17 @@ const makeHarness = ({
       return { value: null }
     },
   }
+  const itemCollection = {
+    findOne: async query => String(query._id) === ids.item ? clone(item) : null,
+    updateOne: async (query, update) => {
+      if (String(query._id) !== ids.item) return { matchedCount: 0, modifiedCount: 0 }
+      if (query.current_status && query.current_status.$nin && query.current_status.$nin.includes(item.current_status)) {
+        return { matchedCount: 0, modifiedCount: 0 }
+      }
+      Object.assign(item, clone(update.$set || {}))
+      return { matchedCount: 1, modifiedCount: 1 }
+    },
+  }
   const app = {
     isAuth: () => true,
     dbObjectId: value => String(value),
@@ -135,15 +146,25 @@ const makeHarness = ({
     },
     db: {
       collection: name => ({
-        zdata_cpoe_order_item: { findOne: async query => String(query._id) === ids.item ? clone(item) : null },
+        zdata_cpoe_order_item: itemCollection,
         zdata_cpoe_order: { findOne: async query => String(query._id) === ids.order ? clone(order) : null },
         zdata_master_item_order: { findOne: async query => String(query._id) === ids.master ? clone(master) : null },
         zdata_section: { findOne: async () => null },
         zdata_lab_work_item: workCollection,
         zdata_lab_outband_order: {
-          findOne: async query => outboundRows.find(row =>
-            String(row._id) === ids.item || String(row.work_item_id) === ids.item,
-          ) || null,
+          findOne: async query => outboundRows.find(row => (query.$or || []).some(part =>
+            (part._id != null && String(row._id) === String(part._id)) ||
+            (part.work_item_id != null && String(row.work_item_id) === String(part.work_item_id)) ||
+            (part.order_no != null && String(row.order_no) === String(part.order_no)),
+          )) || null,
+          updateOne: async (query, update) => {
+            const row = outboundRows.find(entry => String(entry._id) === String(query._id))
+            if (!row || Number(row.attempt_count || 0) !== Number(query.attempt_count || 0) || row.hl7_status !== query.hl7_status) {
+              return { matchedCount: 0, modifiedCount: 0 }
+            }
+            Object.assign(row, clone(update.$set || {}))
+            return { matchedCount: 1, modifiedCount: 1 }
+          },
         },
         zdata_lab_order_cancellation: {
           findOne: async query => cancellation && String(query._id) === ids.order
@@ -153,10 +174,10 @@ const makeHarness = ({
       })[name],
     },
   }
-  return { app, item, order, originalItem, originalOrder, workItems, rejections }
+  return { app, item, order, originalItem, originalOrder, workItems, rejections, outboundRows }
 }
 
-const run = (harness, overrides = {}) => Process({
+const run = (harness, overrides = {}, user = userInfo) => Process({
   action: 'reject_item',
   item_id: ids.item,
   rejection_record_id: ids.rejection,
@@ -164,9 +185,15 @@ const run = (harness, overrides = {}) => Process({
   order_number: 'R2608310004',
   section_code: 'BC',
   ...overrides,
-}, userInfo, harness.app)
+}, user, harness.app)
 
 ;(async () => {
+  {
+    const result = await Process({ cross_section: true }, {}, {})
+    assert.strictEqual(result.success, false)
+    assert.strictEqual(result.error, 'cross_section_read_only')
+  }
+
   {
     const harness = makeHarness()
     const result = await run(harness)
@@ -174,7 +201,8 @@ const run = (harness, overrides = {}) => Process({
     assert.strictEqual(result.data.created_work_item, true)
     assert.strictEqual(result.data.work_status, 'rejected')
     assert.strictEqual(result.data.lab_no, '')
-    assert.strictEqual(result.data.cpoe_unchanged, true)
+    assert.strictEqual(result.data.cpoe_status, 'rejected')
+    assert.strictEqual(result.data.cpoe_status_changed, true)
     assert.strictEqual(result.data.outbound_unchanged, true)
     const saved = harness.workItems.get(ids.item)
     assert.strictEqual(saved._id, ids.item)
@@ -184,7 +212,7 @@ const run = (harness, overrides = {}) => Process({
     assert.strictEqual(saved.rejection_record_id, ids.rejection)
     assert.strictEqual(saved.reject_reason_code, 'specimen_insufficient')
     assert.strictEqual(harness.rejections.get(ids.rejection).rejection_status, 'applied')
-    assert.deepStrictEqual(harness.item, harness.originalItem, 'CPOE Item must stay read-only')
+    assert.deepStrictEqual(harness.item, { ...harness.originalItem, current_status: 'rejected' })
     assert.deepStrictEqual(harness.order, harness.originalOrder, 'CPOE Order must stay read-only')
   }
 
@@ -243,10 +271,60 @@ const run = (harness, overrides = {}) => Process({
   }
 
   {
-    const harness = makeHarness({ workItem: { _id: ids.item, work_status: 'received', lab_no: '106909010001' } })
+    // 2026-09-22: a damaged specimen may be rejected after local receipt while
+    // its Outbound is still unattempted. Preserve receipt/LAB NO. as audit and
+    // cancel only that durable queue row before opening a new attempt.
+    const harness = makeHarness({
+      itemStatus: 'accepted',
+      workItem: { _id: ids.item, work_status: 'received', lab_no: '106909010001', received_at: '2026-09-01 10:00:00' },
+      outbound: { _id: ids.item, xrstatx: 1, work_item_id: ids.item, order_no: ids.item, hl7_status: 'new', attempt_count: 0 },
+    })
+    const result = await run(harness)
+    assert.strictEqual(result.success, true, result.message)
+    assert.strictEqual(result.data.rejected_after_receive, true)
+    assert.strictEqual(result.data.outbound_cancelled, true)
+    assert.strictEqual(result.data.outbound_unchanged, false)
+    assert.strictEqual(harness.workItems.get(ids.item).work_status, 'rejected')
+    assert.strictEqual(harness.workItems.get(ids.item).previous_work_status, 'received')
+    assert.strictEqual(harness.workItems.get(ids.item).lab_no, '106909010001')
+    assert.strictEqual(harness.outboundRows[0].hl7_status, 'cancelled')
+    assert.strictEqual(harness.item.current_status, 'rejected')
+  }
+
+  {
+    const harness = makeHarness({
+      itemStatus: 'accepted',
+      workItem: { _id: ids.item, work_status: 'received', lab_no: '106909010001' },
+      outbound: { _id: ids.item, xrstatx: 1, work_item_id: ids.item, order_no: ids.item, hl7_status: 'queued', attempt_count: 1 },
+    })
     const result = await run(harness)
     assert.strictEqual(result.success, false)
-    assert.strictEqual(result.error, 'invalid_work_status')
+    assert.strictEqual(result.error, 'lis_cancel_required')
+    assert.strictEqual(harness.workItems.get(ids.item).work_status, 'received')
+    assert.strictEqual(harness.outboundRows[0].hl7_status, 'queued')
+  }
+
+  {
+    const harness = makeHarness({
+      itemStatus: 'accepted',
+      workItem: { _id: ids.item, work_status: 'received', lab_no: '106909010001' },
+      outbound: { _id: ids.item, xrstatx: 1, work_item_id: ids.item, order_no: ids.item, hl7_status: 'cancelled', attempt_count: 0, cancelled_locally: true },
+    })
+    const result = await run(harness)
+    assert.strictEqual(result.success, true, 'retry after a partial local cancellation must finish the rejection')
+    assert.strictEqual(harness.workItems.get(ids.item).work_status, 'rejected')
+    assert.strictEqual(harness.outboundRows[0].hl7_status, 'cancelled')
+  }
+
+  {
+    const harness = makeHarness({
+      itemStatus: 'resulted',
+      workItem: { _id: ids.item, work_status: 'received', lab_no: '106909010001', resulted_at: '2026-09-01 11:00:00' },
+      outbound: { _id: ids.item, xrstatx: 1, work_item_id: ids.item, order_no: ids.item, hl7_status: 'new', attempt_count: 0 },
+    })
+    const result = await run(harness)
+    assert.strictEqual(result.success, false)
+    assert.strictEqual(result.error, 'result_exists')
   }
 
   {
@@ -275,6 +353,28 @@ const run = (harness, overrides = {}) => Process({
     const harness = makeHarness({ sectionCode: 'HM' })
     const result = await run(harness, { section_code: 'HM' })
     assert.strictEqual(result.success, false)
+    assert.strictEqual(result.error, 'section_forbidden')
+  }
+
+  {
+    const harness = makeHarness({ sectionCode: 'MY' })
+    const result = await run(
+      harness,
+      { section_code: 'MY' },
+      { ...userInfo, unit: { code: 'm1000' } },
+    )
+    assert.strictEqual(result.success, true, result.message)
+    assert.strictEqual(result.data.section_code, 'MY')
+  }
+
+  {
+    const harness = makeHarness({ sectionCode: 'MY' })
+    const result = await run(
+      harness,
+      { section_code: 'MY' },
+      { ...userInfo, unit: { code: 'm1005' } },
+    )
+    assert.strictEqual(result.success, false, 'Microbiology Organization must not reject MY work')
     assert.strictEqual(result.error, 'section_forbidden')
   }
 
@@ -328,7 +428,7 @@ const run = (harness, overrides = {}) => Process({
 
   assert(source.includes("const WORK_ITEM_COLLECTION = 'zdata_lab_work_item'"))
   assert(source.includes("const OUTBOUND_COLLECTION = 'zdata_lab_outband_order'"))
-  assert(!source.includes('itemCollection.updateOne'), 'CPOE Item must remain read-only')
+  assert(source.includes('itemCollection.updateOne'), 'Reject must compare-and-set CPOE Item status')
   assert(!source.includes('orderCollection.updateOne'), 'CPOE Order must remain read-only')
   console.log('LAB Item rejection API tests passed')
 })().catch(error => {

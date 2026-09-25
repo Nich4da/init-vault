@@ -1,0 +1,176 @@
+{
+  "_readme": "ชุด parameter สำหรับทดสอบ Process ออกเลข Accession No. ของ X-ray ทุกข้อความคาดหวังคัดมาจาก Form-Builder/API/api-factory/processes/xray_accession_generate_api.js ไม่ได้แต่งขึ้นเอง · item_id ในไฟล์นี้เป็น placeholder ล้วน ห้ามใส่ _id จริงจากฐานข้อมูลลงไฟล์นี้",
+
+  "contract": {
+    "process_id": "6a95cd58422c1ca959829e8d",
+    "source": "Form-Builder/API/api-factory/processes/xray_accession_generate_api.js",
+    "input": { "item_id": "<24 hex ของ zdata_cpoe_order_item>" },
+    "input_rules": {
+      "item_id": "ต้องตรง /^[a-f0-9]{24}$/i เท่านั้น ไม่รับ ObjectId แบบมี ObjectId(...) ครอบ"
+    },
+    "output_success": {
+      "success": true,
+      "data": {
+        "item_id": "<เดิม>",
+        "accession_no": "SM20260901CT001",
+        "prefix": "SM",
+        "modality_code": "CT",
+        "modality_source": "CT",
+        "date_key": "20260901",
+        "sequence": 1,
+        "remaining": 998,
+        "already_assigned": false
+      },
+      "warning": "ว่างปกติ · มีข้อความเมื่อ sequence ถึง 950 ขึ้นไป",
+      "message": "ออก Accession No. แล้ว"
+    },
+    "output_failure": { "success": false, "message": "<เหตุผลภาษาไทย>" },
+    "side_effects": [
+      "เขียน accession_no, accession_prefix, accession_modality_code, accession_modality_source, accession_date_key, accession_sequence, accession_generated_at, accession_generated_by ลง zdata_cpoe_order_item",
+      "เพิ่ม counter ใน zdata_xray_accession_counter",
+      "ไม่แตะ current_status และไม่ยิงเข้า RIS — สองอย่างนั้นเป็นงานของ xray-cpoe-dispatch (X3)"
+    ]
+  },
+
+  "number_format": {
+    "shape": "SM + YYYYMMDD + <MOD2> + NNN",
+    "length": 15,
+    "example": "SM20260901CT001",
+    "year": "ค.ศ. · ปี พ.ศ. จาก server จะถูกปฏิเสธ",
+    "date": "วันที่ตอนออกเลข ไม่ใช่วันที่สั่ง",
+    "counter_key": "xray_accession:SM:<YYYYMMDD>:<MOD2>",
+    "counter_note": "กุญแจต้องเท่ากับฟิลด์ที่พิมพ์ในเลขเป๊ะๆ · ห้ามแยกด้วย Section หรือ Organization",
+    "modality_alias": { "VCUG": "VC" },
+    "exhaustion": "999 ใช้ได้ · รายการที่ 1000 หยุดและแจ้ง error ไม่วนกลับ 001",
+    "warning_from": 950
+  },
+
+  "how_to_get_item_id": {
+    "_note": "อย่าเดา item_id เอง ให้ดึงจาก worklist API ก่อน แล้วคัดค่าที่สถานะยังเป็น รอรับ และ accession_no ยังว่าง",
+    "step_1_process_id": "6a957009422c1ca959829e45",
+    "step_1_params": {
+      "action": "list",
+      "organization_code": "M0901",
+      "statuses": ["sent"],
+      "page": 1,
+      "limit": 5
+    },
+    "step_2_read": "data.orders[].items[].item_id (เป็น string 24 hex แล้ว) · เลือกตัวที่ accession_no ว่าง",
+    "step_3": "เอาค่านั้นใส่ params ของเคส happy_path ด้านล่าง"
+  },
+
+  "cases": [
+    {
+      "name": "happy_path",
+      "expect": "accept",
+      "params": { "item_id": "REPLACE_WITH_REAL_ITEM_ID" },
+      "expect_data": {
+        "already_assigned": false,
+        "accession_no_pattern": "^SM\\d{8}[A-Z0-9]{2}\\d{3}$",
+        "sequence": 1
+      },
+      "why": "รายการรังสีที่สถานะยังเป็น sent และยังไม่มีเลข ต้องได้เลขใหม่ยาว 15 ตัว"
+    },
+    {
+      "name": "idempotent_repeat",
+      "expect": "accept",
+      "params": { "item_id": "REPLACE_WITH_SAME_ITEM_ID_AS_HAPPY_PATH" },
+      "expect_data": { "already_assigned": true },
+      "expect_message": "รายการนี้มี Accession No. แล้ว",
+      "why": "ยิงซ้ำ item เดิมต้องได้เลขเดิม · counter ต้องไม่ขยับ (ตรวจที่ zdata_xray_accession_counter)"
+    },
+    {
+      "name": "second_item_same_modality",
+      "expect": "accept",
+      "params": { "item_id": "REPLACE_WITH_ANOTHER_ITEM_SAME_MODALITY" },
+      "expect_data": { "sequence": 2 },
+      "why": "running เดินทีละ 1 ภายในเครื่องเดียวกันของวันเดียวกัน"
+    },
+    {
+      "name": "other_modality_starts_at_001",
+      "expect": "accept",
+      "params": { "item_id": "REPLACE_WITH_ITEM_OF_A_DIFFERENT_MODALITY" },
+      "expect_data": { "sequence": 1 },
+      "why": "คนละเครื่อง = คนละสาย เลขไม่ปนกัน"
+    },
+    {
+      "name": "bad_item_id_format",
+      "expect": "reject",
+      "params": { "item_id": "nope" },
+      "expect_message": "item_id ไม่ถูกต้อง",
+      "why": "กันค่าที่ไม่ใช่ ObjectId ก่อนแตะฐานข้อมูล"
+    },
+    {
+      "name": "missing_item_id",
+      "expect": "reject",
+      "params": {},
+      "expect_message": "item_id ไม่ถูกต้อง",
+      "why": "ไม่ส่ง item_id ต้องถูกปฏิเสธเหมือนส่งค่าผิด"
+    },
+    {
+      "name": "item_not_found",
+      "expect": "reject",
+      "params": { "item_id": "000000000000000000000000" },
+      "expect_message": "ไม่พบ CPOE Item ที่ต้องการออก Accession No.",
+      "why": "id ถูกรูปแบบแต่ไม่มีในระบบ"
+    },
+    {
+      "name": "lab_item_rejected",
+      "expect": "reject",
+      "params": { "item_id": "REPLACE_WITH_A_LAB_ITEM_ID" },
+      "expect_message": "ออก Accession No. ได้เฉพาะรายการทางรังสี",
+      "why": "X-ray และ LAB อยู่ตารางเดียวกัน ต้องกันไม่ให้ออกเลขข้ามสาย"
+    },
+    {
+      "name": "resulted_item",
+      "expect": "reject",
+      "params": { "item_id": "REPLACE_WITH_AN_ITEM_THAT_ALREADY_HAS_A_RESULT" },
+      "expect_message": "ซึ่งออกผล/ยกเลิก/ปฏิเสธไปแล้ว",
+      "why": "ออกผล/ยกเลิก/ปฏิเสธแล้วห้ามออกเลขย้อนหลัง เปิดเฉพาะ sent และกลุ่มรับแล้วที่ยังไม่มีเลข · ข้อความต้องบอกสถานะจริงกลับมาด้วย"
+    },
+    {
+      "name": "half_dispatched_item_repair",
+      "expect": "accept",
+      "params": { "item_id": "REPLACE_WITH_AN_ITEM_RECEIVED_WITHOUT_AN_ACCESSION" },
+      "why": "ผลพวงบั๊ก standalone MongoDB 2026-09-01 — ถูก mark ว่ารับ/ส่งแล้ว (accepted, prepared, ready, dispensed, dispatched, in_progress) แต่ไม่มีเลขและ RIS ไม่เคยเห็น ต้องออกเลขย้อนหลังให้จบได้ ไม่ต้องแก้ DB มือ"
+    },
+    {
+      "name": "no_modality_in_master",
+      "expect": "reject",
+      "params": { "item_id": "REPLACE_WITH_AN_ITEM_WHOSE_MASTER_HAS_NO_MODALITY" },
+      "expect_message": "รายการนี้ยังไม่มีเครื่องผูกไว้ใน master จึงออก Accession No. ไม่ได้ — แจ้งผู้ดูแลตรวจสอบ item master",
+      "why": "ห้าม fallback เป็น UN เพราะเลขที่ออกไปแล้วแก้ย้อนหลังไม่ได้"
+    },
+    {
+      "name": "wrong_organization",
+      "expect": "reject",
+      "params": { "item_id": "REPLACE_WITH_REAL_ITEM_ID" },
+      "run_as": "ผู้ใช้ที่ Organization ไม่ใช่ m0901",
+      "expect_message_contains": "ไม่ใช่หน่วยงานรังสี",
+      "why": "ขอบเขตเป็น fail-closed · หน่วยงานอื่นออกเลขให้รังสีไม่ได้"
+    }
+  ],
+
+  "manual_checks_after_run": [
+    "zdata_cpoe_order_item: accession_no ตรงกับที่ API คืน และ current_status ยังเป็น sent (Process นี้ไม่แตะสถานะ)",
+    "zdata_xray_accession_counter: มี _id = xray_accession:SM:<YYYYMMDD>:<MOD2> และ sequence ตรงกับเลขล่าสุด",
+    "ยิง happy_path ซ้ำแล้ว sequence ของ counter ต้องไม่ขยับ",
+    "เลขที่ได้ยาว 15 ตัวและไม่เกิน 16 ตามลิมิต AccessionNo ของ RIS"
+  ],
+
+  "failure_messages_reference": {
+    "item_id ไม่ถูกต้อง": "item_id ไม่ตรง 24 hex",
+    "ไม่มีสิทธิ์สร้าง Accession No.": "app.isAuth ไม่ผ่าน",
+    "ไม่ใช่หน่วยงานรังสี": "Organization ไม่อยู่ใน XRAY_ORGANIZATION_CODES",
+    "ไม่ใช่ปี ค.ศ.": "server ตั้งปีเป็น พ.ศ.",
+    "ไม่พบ CPOE Item ที่ต้องการออก Accession No.": "ITEM_NOT_FOUND",
+    "ออก Accession No. ได้เฉพาะรายการทางรังสี": "ITEM_NOT_XRAY",
+    "ซึ่งออกผล/ยกเลิก/ปฏิเสธไปแล้ว": "ITEM_NOT_WAITING_DISPATCH",
+    "แจ้งผู้ดูแลตรวจสอบ item master": "MODALITY_MISSING",
+    "ไม่อยู่ในรูปแบบที่ใช้ประกอบเลข Accession ได้": "MODALITY_INVALID",
+    "เพิ่มที่ MODALITY_SEGMENT_ALIAS": "MODALITY_SEGMENT_UNDEFINED — code ยาวเกิน 2 ตัวและยังไม่มีตัวย่อ",
+    "ระบบหยุดออกเลขเพื่อไม่ให้เลขซ้ำ": "SEQUENCE_EXHAUSTED — ครบ 999 ของเครื่องนั้นในวันนั้น",
+    "ตรวจสอบ counter ของเครื่องนี้": "ACCESSION_COLLISION — เลขที่จะออกถูกใช้ไปแล้ว",
+    "รายการถูกเปลี่ยนแปลงระหว่างออก Accession No.": "ITEM_ASSIGN_CONFLICT"
+  }
+}

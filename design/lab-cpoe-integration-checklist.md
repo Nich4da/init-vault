@@ -2,7 +2,7 @@
 type: checklist
 title: LAB CPOE Integration Checklist
 created: 2026-08-30
-updated: 2026-09-01
+updated: 2026-09-03
 status: active
 tags: [lab, cpoe, worklist, integration, checklist]
 ---
@@ -69,7 +69,8 @@ LAB Workbench JSON
 รับ specimen ราย Item
   → LAB NO. API สร้าง zdata_lab_work_item แบบ atomic (CPOE read-only)
   → Receive update Work Item + create zdata_lab_outband_order ใน transaction เดียว
-  → ยังไม่ call Agent; transport worker อ่าน Outbound ภายหลัง
+  → หลัง commit จึง call Agent Submit จาก Outbound snapshot
+  → Agent fail ไม่ rollback การรับ; Outbound เก็บสถานะ/error สำหรับ retry/reconcile
 
 รับผล
   → Agent → hl7_result_upsert_api.js
@@ -84,7 +85,7 @@ LAB Workbench JSON
 ### 1. Freeze read contract
 
 - [x] หน่วย worklist/routing = CPOE Item
-- [x] หน่วย grouping บนหน้าจอ = CPOE Order
+- [x] หน่วย grouping บนหน้าจอ = CPOE Order + Section โดยคง Order ID/No. เดิม
 - [x] route หลัก = `section_id`/`section_code`
 - [x] Organization เป็น access mapping ไม่ใช่ replacement ของ section
 - [x] canonical route key ใช้ section ObjectId พร้อม snapshot code; API คืนทั้ง id/code
@@ -99,7 +100,8 @@ LAB Workbench JSON
 - [x] join `zdata_cpoe_order` ด้วย `order_id.value`/`xparentx`
 - [x] route ด้วย `section_snapshot`; ถ้ายังไม่มีให้ fallback ผ่าน `item_data_id` ไป master
 - [x] join `zdata_section` และรับเฉพาะ `enable=true`
-- [x] group response กลับเป็นหนึ่ง Order พร้อม `items[]`
+- [x] group response ด้วย `order_id + section_code` เป็นหนึ่ง Section row พร้อม `items[]`;
+  Order ID/No. เดิมคงอยู่และไม่รวม Item ต่าง Section ในแถวเดียว
 - [x] ห้าม parse HN/ชื่อจาก `order_id.label`; ใช้ structured `order.vid`
 - [x] รองรับ date range, exact HN search, priority และ pagination
 - [ ] ทดสอบ deployed runtime ว่าไม่คืนข้อมูลข้าม section ที่ผู้ใช้ไม่มีสิทธิ
@@ -116,22 +118,36 @@ LAB Workbench JSON
 
 ### 4. พิสูจน์ API ก่อนผูก UI
 
-- [x] Pipeline regression ยืนยันว่ากรอง `resolved_section.code` ระดับ Item ก่อน group Order
-  จึงคง Order ID/number เดิมและแยก Item ต่อห้องได้ (deployed multi-room UAT ยังรอ)
+- [x] Pipeline regression ยืนยันว่ากรอง `resolved_section.code` ระดับ Item ก่อน group ด้วย
+  `order_id + section_code` จึงคง Order ID/number เดิมและแยก Item ต่อห้องได้
+  (deployed multi-room UAT ยังรอ)
 - [x] Read-only pipeline พบ C25-CD child 4 Item ครบและ derive `set_code=C25-CD` ได้
 - [x] รายการที่ `lab_data=null` ถูกคืน `specimen.complete=false` ไม่เดา specimen ที่เก็บจริง
-- [x] default query รับเฉพาะ `sent`; cancelled/rejected ไม่เข้าคิวรอรับ
+- [x] คิวรอรับรวม `sent` และ `ready`; `ready` คงความหมาย “ผ่านการเงิน/พร้อมรับ specimen”
+  และห้าม normalize กลับเป็น `sent`; cancelled/rejected ไม่เข้าคิวรอรับ
 - [ ] ไม่มีข้อมูลผู้ป่วยหรือ section อื่นรั่วข้ามสิทธิ
 
 ## P1 — แก้ CPOE แบบ additive ก่อน production
 
-เจ้าของหลักคือ `cpoe-order-save`/`cpoe-order-send`; งานนี้ไม่ควรแก้ด้วยฟอร์มกลาง
+เจ้าของหลักคือ `cpoe-order-save`/`cpoe-order-send`; งานนี้เพิ่มเฉพาะ option ของ
+`current_status` และให้ LAB APIs sync CPOE Item แบบ compare-and-set โดยไม่แตะ Order header
 
 Local Step 1 artifact: `Form-Builder/API/api-factory/processes/lab_cpoe_worklist_api.js`
 พร้อม test `Form-Builder/API/tests-tools/tests/test_lab_cpoe_worklist_api.js` (ผ่าน local harness)
 
 - [x] ผู้ใช้สร้าง API Factory process แล้ว: `6a9434c3422c1ca959829d5e`
 - [ ] ยืนยันว่า body ใน process ที่ deploy ตรงกับ local artifact และทดสอบ response จริงด้วยบัญชี LAB
+- [x] เพิ่ม `rejected`/`completed` ใน CPOE Order Item `current_status` แบบ additive;
+  `accepted` มีอยู่เดิม และ SDForm validator ผ่าน
+- [x] Local API sync Item: Receive → `accepted`, reject/cancel → `rejected`, Agent
+  final/corrected → `completed`, Agent cancelled → `rejected`, partial → ไม่เปลี่ยน
+- [x] Finance gate: ปุ่ม Receive รับได้เฉพาะ Item ที่เลือกและมี `current_status=ready`;
+  `sent` ยังเลือกเพื่อแก้ specimen/ปฏิเสธได้ แต่ปุ่มถูก disable พร้อม tooltip
+  `ยังไม่ผ่านการเงิน`. Receive API และ LAB NO. generator ตรวจซ้ำก่อนสร้าง LAB NO./Work Item/
+  Outbound; retry ของ Work Item ที่ `received` แล้วคง idempotent
+- [x] ทุก transition ใช้ compare-and-set และไม่ downgrade terminal `completed/rejected`;
+  CPOE Order header ไม่ถูกเขียน
+- [ ] Replace/Import Form และ Process bodies แล้วทำ runtime cross-store E2E
 
 - [ ] เพิ่ม Item `section_snapshot`: id, code, name, ref_code, unit code/name
 - [ ] เพิ่ม Item `lab_mapping_snapshot`: master id/version, HIS/LIS order code, c_test,
@@ -149,7 +165,7 @@ Local Step 1 artifact: `Form-Builder/API/api-factory/processes/lab_cpoe_worklist
 - [x] สร้าง local candidate `Form-Builder/SDForm/Lab/lab-cpoe-worklist-waiting-v1.json`
 - [x] เริ่มหน้า `รอรับ` โดยผูก API Process `6a9434c3422c1ca959829d5e`
 - [x] filter ห้องจาก authenticated organization → allowed sections ผ่าน API แบบ fail-closed
-- [x] group หน้าจอเป็น Order แต่ checkbox/action ทำระดับ Item
+- [x] group หน้าจอเป็น Order + Section; checkbox/action ทำเฉพาะ Item ใน Section row
 - [x] ใช้ Order/Item IDs จาก API; ไม่อ่าน state จาก DOM หรือ label
 - [x] จัดโครง interaction, filters, expansion และ responsive behavior ตาม HTML/design contract ใน local JSON
 - [x] จำกัดข้อความสรุปหน้า UI เป็น `แสดง X Order จากทั้งหมด Y`; ไม่แสดง section หรือข้อความ technical/read-only
@@ -160,9 +176,9 @@ Local Step 1 artifact: `Form-Builder/API/api-factory/processes/lab_cpoe_worklist
 - [x] ไม่มี Section dropdown; App Organization เป็นตัวกำหนดห้องและเปลี่ยนแล้ว reload อัตโนมัติ
 - [x] specimen เป็น searchable dropdown และ persist ค่าใหม่ผ่าน Worklist API ลง
   `lab_data.spec_source/spec_source_code` โดยคงข้อมูลเวลา/ผู้เก็บเดิม
-- [x] ปุ่มรับ specimen เชื่อม Receive Process `6a94f634422c1ca959829d70`, บังคับเลือก
-  ครั้งละ 1 Item; Receive สร้าง LAB NO. และบันทึกเวลารับโดยไม่บังคับเวลาเก็บหรือข้อมูล
-  outbound และยังไม่ส่ง Agent ระหว่างรอ VPN; deployed Builder/runtime UAT ยังรอ
+- [x] ปุ่มรับ specimen เชื่อม Receive Process `6a94f634422c1ca959829d70`, รองรับเลือกหลาย
+  Item/เลือกทั้งหมดในแถว Section; Receive สร้าง LAB NO. บันทึกเวลารับ แล้วส่งแต่ละ Item ไป
+  Agent อัตโนมัติหลัง commit; deployed Builder/runtime UAT ยังรอ
 - [x] ปุ่มสร้างรายการเปิด CPOE Order App `6a927860422c1ca959829d26` ในโหมดเลือก VN เอง
   และ CPOE App แสดง patient/EMR-style card ของ Visit ที่เลือก
 - [x] ปุ่ม EMR เปิด Form `6a4f64e7f8cdfc54cec16488` แบบ read-only และ deep-link ด้วย Visit ID ของ Order
@@ -172,8 +188,9 @@ Local Step 1 artifact: `Form-Builder/API/api-factory/processes/lab_cpoe_worklist
 
 ## P3 — Receive / reject / reorder ระดับ Item
 
-- [x] ยืนยัน CPOE Order/Item เป็น read-only source; งาน Lab ใช้ Lab Work Item ใหม่ Form ID
-  `6a95c750422c1ca959829e8a` เป็น operational record กลาง
+- [x] ยืนยัน CPOE Order header เป็น read-only source; Lab Work Item Form ID
+  `6a95c750422c1ca959829e8a` เป็น operational record กลาง และ CPOE Item รับเฉพาะ
+  approved status projection แบบ compare-and-set
 - [x] สร้าง local Form candidate `Form-Builder/SDForm/Lab/lab-outbound-order-v1.json`
   สำหรับ payload/response, `dispatch_id`, `hl7_status`, retry/error และ attempt summary
 - [x] Refactor local LAB NO. generator และ Receive ให้เขียน Lab Work Item/Outbound Order
@@ -183,16 +200,18 @@ Local Step 1 artifact: `Form-Builder/API/api-factory/processes/lab_cpoe_worklist
 - [x] สร้าง local atomic LAB NO. generator ต่อ CPOE Item พร้อม idempotency จาก `item_id`:
   `Form-Builder/API/api-factory/processes/lab_no_generate_api.js`; รูปแบบ `SSYYMMDDNNNN`,
   counter แยก section + วันตามเวลาไทย, วันใหม่เริ่ม `0001` และเมื่อครบ `9999`
-  จะหยุดแจ้ง error โดยไม่วนเลขซ้ำภายในวัน; Process ID `6a94f1ed422c1ca959829d6e`
-  สร้างแล้ว แต่ deployed body/runtime UAT ยังรอ
+  จะหยุดแจ้ง error โดยไม่วนเลขซ้ำภายในวัน; Process ID `6a94f1ed422c1ca959829d6e`;
+  user ยืนยัน API ชุดนี้พร้อมแล้ว โดย fresh-item button UAT ยังรอ
 - [x] สร้าง local Receive API รุ่น persistence-first: อ่าน CPOE Item → เรียก LAB NO.
   generator เพื่อ reserve Work Item → set Work Item `received` + สร้าง Outbound `new`
-  ใน transaction เดียว โดยไม่เรียก Agent และไม่แก้ CPOE:
+  ใน transaction เดียว จากนั้นเรียก Agent Submit นอก transaction และ sync CPOE Item แบบ
+  compare-and-set โดยไม่แก้ CPOE Order header:
   `Form-Builder/API/api-factory/processes/lab_cpoe_receive_api.js`; Process ID
-  `6a94f634422c1ca959829d70`; สร้างแล้วและเชื่อม local Form แต่ deployed body/runtime UAT ยังรอ
-- [x] local test ป้องกัน double-click/retry ไม่ให้ได้ LAB NO./Work Item/Outbound ซ้ำ,
-  ยืนยัน CPOE ไม่เปลี่ยน, Receive ไม่เรียก Agent subprocess และ retry ใช้
-  Work Item `received_at` เดิมใน Outbound payload แม้เวลารอบใหม่เปลี่ยน
+  `6a94f634422c1ca959829d70`; user ยืนยัน replace API แล้วและ local Form เชื่อม Process นี้;
+  fresh-item button UAT ยังรอ
+- [x] local test ป้องกัน double-click/retry ไม่ให้ได้ LAB NO./Work Item/Outbound หรือ Agent
+  dispatch ซ้ำ, ยืนยัน failure ของ Agent ไม่ rollback receipt และ retry ใช้ Work Item
+  `received_at` เดิมใน Outbound payload แม้เวลารอบใหม่เปลี่ยน
 - [x] Outbound readiness: พร้อม = `ready`; `collected_at` เป็น optional—มีค่าจึงส่งและ validate,
   ว่างให้ omit โดยไม่สร้างเวลาปลอม; ขาด priority/test/specimen mapping =
   `awaiting_outbound_data`; ทุกกรณีไม่ rollback การรับจริง
@@ -201,22 +220,71 @@ Local Step 1 artifact: `Form-Builder/API/api-factory/processes/lab_cpoe_worklist
 - [x] Deploy Receive body รุ่นตรึงเวลารับ และ retry Item `6a956902422c1ca959829e3b`;
   live DB ยืนยัน Outbound `items[0].received_at` = `2026-09-01T09:06:13+07:00`
   ตรงกับ Work Item เดิม และ Agent `attempt_count` ยังเป็น `0`
-- [ ] หลัง DB-only UAT ผ่าน ให้สร้าง dispatch/reconcile action ที่อ่าน `request_payload_json`
-  จาก Outbound แล้วเรียก `lab_agent_order_submit_api.js` นอก transaction
+- [x] Receive อ่าน `request_payload_json` จาก Outbound แล้วเรียก
+  `lab_agent_order_submit_api.js` นอก transaction; บันทึก attempt/status/response/error กลับ
+  Outbound และไม่เปลี่ยนผล receipt เมื่อ transport fail
 - [x] VPN curl จาก Mac เข้าถึง Agent และ key ผ่าน: payload ว่างได้ `422`
   ตามคาด จึงแยกปัญหา network/token ออกจาก payload contract ได้แล้ว
 - [x] ปรับ Agent `endpoint.behavior.labnoPattern`: Agent เดิมคาด 10 หลัก
   `YYMMDDNNNN` แต่ HIS ใช้รูปแบบที่อนุมัติแล้ว 12 หลัก `SSYYMMDDNNNN`;
   Agent แก้แล้ว และ direct VPN curl ได้ `202 Accepted`, `duplicate:false`,
   `dispatch_id:12`, route `rax-file` โดยใช้ LAB NO. `106909010001`
-- [x] ทดสอบ Agent Submit Process `6a9468c7422c1ca959829d6a` ซ้ำด้วย payload เดิม;
-  ยังได้ `agent_unreachable` + `http_status:null` จึงยืนยันว่า API Factory server ไม่มี
-  network route ไป Agent แม้ Mac ที่ต่อ VPN ส่งได้
-- [ ] Infra จัด server-to-Agent VPN/private route, firewall allowlist หรือ approved relay
-  แล้ว retry `order_no` เดิม; ห้ามนำ Agent key ไปไว้ฝั่ง browser/Form
+- [x] หลักฐานเดิม: Agent Submit Process `6a9468c7422c1ca959829d6a` เคยได้
+  `agent_unreachable` + `http_status:null` ขณะที่ Mac/VPN ส่งตรงได้
+- [x] 2026-09-03 ทดสอบ `lis.submit` ผ่าน External API แล้ว: invalid smoke ได้ HTTP 200 +
+  inner `invalid_payload` จึงยืนยัน key/scope/Service Account/action mapping; แต่เมื่อส่ง snapshot
+  เดิมของ UAT Item `6a956902422c1ca959829e3b` ได้ `agent_unreachable`, `http_status:null`
+  หลัง 5.22 วินาที (trace `20260903191205-laq0pq`)
+- [x] หลังผู้ใช้ต่อ VPN ยิง payload เดียวกันตรงจาก Mac ด้วย Agent URL/key ชุดเดียวกับ live
+  Process ได้ HTTP 200 ใน 0.027 วินาที, `duplicate:true`, `order_ref:13`, `dispatch_id:12`,
+  route `rax-file`
+  ⇒ payload/Agent/config ถูก; blocker เหลือ outbound network จาก initCraft runtime
+- [x] เพิ่มและ replace diagnostic แบบ redact ใน `lab_agent_order_submit_api.js` แล้ว:
+  `network_code`, `network_message`, `detail.timeout_ms`; live Process updated 19:19
+- [x] retest `lis.submit` หลังผู้ใช้ต่อ VPN ยังได้ `network_code:ECONNABORTED`,
+  `timeout of 5000ms exceeded`, HTTP null (trace `20260903192649-5rmq8w`, 5.187 วินาที)
+  ขณะที่ External API log เองบันทึก status 200
+- [x] ผู้ใช้แก้ contract: public/Gateway `lis.submit` ต้องสร้าง/claim
+  `zdata_lab_outband_order` ก่อนยิง Agent และบันทึก success/error กลับ record เดิม; แม้ Agent
+  timeout ต้องเหลือ `new` พร้อม attempt/error เพื่อ retry ไม่ใช่ทำ transport-only
+- [x] Implement local `lab_agent_order_submit_api.js` ตาม contract ใหม่ พร้อมคืน
+  `outbound_order_id`/`attempt_count`; ถ้า persist ไม่สำเร็จต้องไม่ยิง Agent
+- [x] Receive ส่ง internal `audit_managed_by_receive:true` เพื่อคง persistence-first เดิมและ
+  ไม่ให้ Submit เขียน audit/นับ attempt ซ้ำ; Submit/Receive และ LAB regression ที่เกี่ยวข้อง
+  7 ชุดผ่าน
+- [x] ผู้ใช้ replace live Submit/Receive แล้ว; runtime retest 19:45 ของ UAT Order เดิมคืน
+  `outbound_order_id`, `attempt_count:1`, trace `20260903194549-idgceh`
+- [x] read-only DB before/after ยืนยัน record เดิม (สร้างโดย Receive ก่อนหน้านี้) เปลี่ยนจาก
+  attempt `0` → `1`, `updated_by:lis_agent`, `hl7_status:new`, และบันทึก
+  `last_error_code:agent_unreachable` + `ECONNABORTED` history จึงพิสูจน์ว่า public Submit
+  เขียน audit ตาม contract ใหม่จริง
+- [x] หลังผู้ใช้ reconnect VPN ฝั่ง Agent ทดสอบซ้ำ 19:57 แล้วยัง `ECONNABORTED` timeout
+  5 วินาที (trace `20260903195745-1tve7t`); DB เปลี่ยน attempt `1` → `2` และ append
+  failure history ถูกต้อง จึงยืนยันว่า VPN รอบนี้ยังไม่เปิด route จาก initCraft runtime
+- [x] ถือว่า outbound Order Submit API/contract เสร็จ: direct Mac/VPN→Agent ผ่าน และ
+  Gateway→Submit→Outbound persistence/audit ผ่าน; เหลือ infrastructure ลง server/เปิด VPN
+  หรือ outbound route ให้ initCraft runtime เท่านั้น
+- [ ] กด fresh UAT Item สถานะ `sent` หนึ่งรายการเพื่อยืนยัน one-button Receive ก่อน Agent ถึง:
+  ต้องได้ LAB NO., Work Item `received`, Outbound `new` + retryable/error, CPOE Item `accepted`
+  และหน้า Form เตือนส่ง Agent ไม่สำเร็จโดยไม่ rollback; ห้ามใช้ Item ที่รับแล้วเพื่อตรวจการสร้างใหม่
+- [x] UAT 21:20 พบ regression `e is not a function` ที่ C34; UI รับสำเร็จ 0 และ read-only DB
+  พบ CPOE Item `accepted` แต่ไม่มี Work Item/Outbound จึงยังไม่ผ่าน contract และห้าม retry
+  Item นี้ในฐานะ fresh Item
+- [x] แก้ local Lab No. Generator และ Receive ให้ตรวจ `typeof this.mongoTxn === 'function'`;
+  nested runtime ที่ไม่มี helper ใช้ idempotent standalone fallback แทนการ throw; เพิ่ม regression
+  ทั้งสอง Process และ LAB suite ที่เกี่ยวข้อง 8 ชุดผ่าน
+- [x] Replace Process `6a94f1ed422c1ca959829d6e` และ `6a94f634422c1ca959829d70`
+  เวลา 21:30/21:31 แล้ว; read-only body hash/length ตรง local
+- [x] Response หลัง replace ผ่านจุด `e is not a function` แล้วและมาถึง business validation
+  ของสถานะ CPOE Item
+- [ ] Hard-refresh แล้วทดสอบด้วย Order/Item ใหม่ที่ DB เป็น `sent`; Order ในภาพใช้ไม่ได้เพราะ
+  C34 และ C64 เป็น `rejected` จริง แม้หน้าเดิมยังแสดง `รอรับ`
+- [ ] หลัง server/VPN route พร้อม ให้ retry/retest Submit จน Outbound เปลี่ยนเป็น `queued`;
+  ห้ามนำ Agent key ไปไว้ฝั่ง browser/Form หรือ repository
 - [x] Reject API: เก็บ reason/user/time ใน Work Item และ Rejection record; ใช้สถานะ
-  `rejected` แยกจาก whole-Order cancellation
-- [x] Whole-Order cancellation ใช้ `cancel_type=lab_order_cancelled` และ Work Item
+  `rejected` แยกจาก Section-row cancellation
+- [x] Section-row cancellation ใช้ `cancel_type=lab_order_cancelled`, `cancel_scope=section`
+  และ Work Item
   `work_status=cancelled`; specimen rejection ใช้ `work_status=rejected` จึงไม่ปนกัน
 - [ ] `ตรวจใหม่`: สร้าง CPOE Order/Item ใหม่และเก็บ `reorder_of_order_id`/
   `reorder_of_item_id`; ห้ามแก้หรือลบประวัติเดิม
@@ -224,6 +292,16 @@ Local Step 1 artifact: `Form-Builder/API/api-factory/processes/lab_cpoe_worklist
 
 ## P4 — Result tab ใช้ของที่มีอยู่แล้ว
 
+- [ ] **BLOCKED — รอผู้ดูแล initCraft:** แก้ API gateway/Public Process authentication สำหรับ
+  `POST /api/v1/process/public` ของ Process `6a8da8a6f851000f28e50299` ให้ token ที่ API Factory
+  สร้างและเปิดใช้งานสามารถเรียก JSON `{params:{...}}` จาก Agent ได้จริง หรือกำหนดวิธีออก
+  service-account JWT สำหรับ `POST /api/v1/process/{id}` อย่างเป็นทางการ
+- [x] หลักฐานแยกปัญหาแล้ว: public query token → `Missing token header`; Bearer/raw Authorization
+  → `Token not valid`; ต่อ VPN โรงพยาบาลแล้วยังเหมือนเดิม; read-only DB ยืนยัน token ตรงกับ
+  enabled `api_token.token_code` และ user `guest`; ทุกครั้งหยุดที่ gateway ก่อนเข้า Process
+- [ ] เมื่อผู้ดูแลแก้แล้ว ให้เริ่มด้วย invalid/no-write smoke: ต้องได้ outer `API run success` และ
+  inner `INVALID_PAYLOAD` ไม่ใช่ 401/`FORBIDDEN`; จากนั้นจึงยิง valid partial/final UAT และตรวจ
+  Receipt → Report → Result Item → Work Item → CPOE Item
 - [x] Technical Receipt form candidate มีแล้ว
 - [x] Result Report form candidate มีแล้ว
 - [x] Result Item form candidate มีแล้ว
@@ -238,17 +316,26 @@ Local Step 1 artifact: `Form-Builder/API/api-factory/processes/lab_cpoe_worklist
 - [ ] ปรับ regression tests ที่ปัจจุบันคาดหวัง partial/final/corrected แบบ append-only
 - [ ] Deploy API body รุ่นที่ปรับแล้วและทำ safe UAT
 - [ ] Workbench join result ด้วย LAB NO. และ stable CPOE Item reference
-- [x] Local Worklist candidate เพิ่ม Manual Result dialog เฉพาะ Item `section.code=MY`
-  และเฉพาะสถานะหลังรับ specimen (`accepted` ถึง `resulted`); M1005 ที่เห็นทั้ง MB+MY
-  ไม่ทำให้ MB ได้สิทธิ Manual
+- [x] Local Worklist candidate เปิด pencil ทั้ง Item และ Order หลังรับ specimen; Manual Result
+  ใช้ได้ทุก LAB Section ที่ Organization มีสิทธิ และ Order editor ผูกแต่ละแถวกับ source Item
+  ก่อนบันทึกเฉพาะค่าที่เปลี่ยน
+- [x] Upload แสดงเฉพาะ Order result popup และใช้งานได้ก่อนรับ specimen; metadata เก็บใน
+  `attachment-order|<orderId>|<sectionCode>` โดยไม่เปลี่ยน Work/CPOE status
 - [x] Local Worklist API รองรับ `get_manual_result` / `save_manual_result` โดยผูก
   Result Item เดิมกับ stable `source_item_id`, ตรวจ Organization/section ซ้ำฝั่ง server,
   และรับ result value/unit/interpretation/reference range แบบ optional ทั้งหมด
+- [x] โหมด `สืบค้นผลแลป` อ่าน `get_manual_result` ข้าม enabled LAB Section ได้ด้วย
+  `cross_section=true + lookup_mode=results`; สิทธิพิเศษนี้ใช้กับการอ่านเท่านั้น ส่วนลงผล Manual,
+  แก้ผล, ปกปิด/ยกเลิกปกปิด และแนบไฟล์ยังถูกปฏิเสธก่อนอ่าน/เขียนข้อมูลเมื่อข้ามห้อง
 - [x] Previous result lookup ใช้ HN + test code, ตัด CPOE Item ปัจจุบัน และคืน VN/เวลา
   ของผลก่อนหน้าล่าสุดเพื่อแสดง read-only; deployed runtime/UAT ยังรอ
 - [ ] แสดง partial/final/corrected จาก Report/Result Item; ไม่สร้าง result master ใหม่
 - [ ] CPOE Item เก็บเพียง result summary/reference ถ้าต้องใช้กรองเร็ว
-- [ ] ทดสอบ real order: partial → final → corrected → duplicate retry
+- [x] Agent callback จริงรายการเดียวผ่าน `lis.receive`: Receipt/Report/Item ถูกสร้าง,
+  identity ตรง Work/CPOE Item และไม่มี unmatched/missing/warning
+- [ ] Deploy result-status reconciliation แล้ว replay duplicate callback เพื่อยืนยัน Outbound
+  `resulted` และ Parent Order `completed` เมื่อ sibling ทุกตัว completed
+- [ ] ทดสอบ real order แบบเต็ม: partial → multi-item final → corrected → duplicate retry
 
 ### ไฟล์แนบใน Popup ดูผล
 
@@ -261,9 +348,9 @@ Local Step 1 artifact: `Form-Builder/API/api-factory/processes/lab_cpoe_worklist
 - [x] ผู้ใช้ยืนยัน `fileTypes=["pdf","jpg","jpeg","png"]`, ไม่เกิน 10 MB ต่อไฟล์,
   3 ไฟล์ต่อ Report และรวมไม่เกิน 30 MB ต่อ Report; ห้ามตั้งไม่จำกัด
 - [ ] ยืนยัน hard limit ของ upload gateway/file storage และตรวจ MIME จริงฝั่ง server
-- [ ] เพิ่ม `result_mode=external_document`, `result_attachments`, `confirmed_by`,
+- [x] เพิ่ม `result_mode=external_document`, `result_attachments`, `confirmed_by`,
   `confirmed_at` ใน Result Report contract/schema ที่ใช้งานจริง
-- [ ] Export widget `File Upload` ตัวจริงจาก Builder แล้วใช้ definition นั้น; ห้ามเดาชื่อ component
+- [x] Export widget `File Upload` ตัวจริงจาก Builder แล้วใช้ definition นั้น; ห้ามเดาชื่อ component
   จาก candidate เก่าที่ไม่ render
 - [x] Test export: `test_widget_uploadfile.json`, Form/collection candidate
   `6a96508f422c1ca959829e9a` / `zdata_6a96508f422c1ca959829e9a`; field
@@ -274,7 +361,13 @@ Local Step 1 artifact: `Form-Builder/API/api-factory/processes/lab_cpoe_worklist
   its entry from the saved array while preserving the other file IDs; the widget does not retain
   removal history in the Form record. Use this export as the structural template; in the LAB copy
   set `multipleSelect=true` and add `png` without editing the proven test source.
-- [ ] ผูก `get_external_result` / `save_external_result` เข้า Popup และทดสอบ
+- [x] ผูก Popup เข้ากับ `get_manual_result` / `save_result_attachments`; แสดง uploader ใต้ตาราง
+  เสมอและเก็บ metadata ชุดปัจจุบันใน stable Result Report ของ Work Item โดย upload ไม่เปลี่ยนสถานะ
+- [x] เพิ่มปุ่มดินสอตาม mockup และ `save_result_edits` สำหรับแก้ Result Item เดิมหลายรายการ;
+  คง source/status/critical เดิมและทับเฉพาะผู้แก้/เวลาล่าสุด
+- [x] Static/offline regression และ SDForm validator ผ่าน
+- [ ] Re-import Result Report → deploy Worklist API → replace/publish Worklist Form แล้วทดสอบ
+  Builder/Preview/runtime ทั้งผลยาว, แก้หลายรายการ, reopen ไฟล์ และข้อจำกัดขนาด/จำนวน
   PDF/JPG/JPEG/PNG, ไฟล์เกินขนาด, MIME ปลอม, permission และ save retry
 
 ### ผล LAB นอกแบบเอกสาร
@@ -296,7 +389,7 @@ Local Step 1 artifact: `Form-Builder/API/api-factory/processes/lab_cpoe_worklist
 
 - [ ] ตกลงกับ CPOE/การเงินว่า Order header ใช้ generic state ใด
 - [ ] ห้ามเปลี่ยน Order เป็น complete เมื่อยังมี Item ที่ไม่ terminal
-- [ ] ห้ามให้การรับ Item แรกทำให้ Item อื่นเปลี่ยนเป็น accepted
+- [x] Local Receive sync เฉพาะ Item ID ที่รับ; Item อื่นไม่เปลี่ยนเป็น accepted
 - [x] cancellation ระดับ Order มี canonical audit lock หนึ่ง record แล้ว cascade ทุก Item
   แบบ idempotent; standalone MongoDB ไม่มี multi-document transaction จึงบันทึก `conflict`
   และหยุดแบบ fail-closed หาก CAS ของ Item ใดแพ้ระหว่างทำรายการ

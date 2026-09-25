@@ -18,6 +18,10 @@ This directory is the user-approved working location for the new LAB Workbench S
   connected to the Worklist Process. There is no room/Section picker
   in this Form: the authenticated App Organization determines the allowed
   sections, and changing Organization reloads the worklist automatically.
+- `สืบค้นผลแลป` is a read-only cross-room exception: Order lists and
+  `get_manual_result` may read every enabled LAB Section, while result entry/edit,
+  visibility changes, attachments and all other write actions remain scoped to the
+  owning Organization/Section and are blocked server-side when `cross_section=true`.
 - The default Worklist and status counts are scoped to the current Bangkok day.
   Crossing midnight resets the visible query to the new day without deleting records;
   prior-day waiting rows disappear from the default view. Exact-HN completed history
@@ -48,6 +52,10 @@ This directory is the user-approved working location for the new LAB Workbench S
 - Receive is wired to Process `6a94f634422c1ca959829d70`: it creates/reserves LAB NO.,
   records the receipt in Lab Work Item, creates/refreshes the Outbound Order, then calls
   Agent Submit Process `6a9468c7422c1ca959829d6a` automatically after the receipt commit.
+  A new receipt is allowed only when every selected CPOE Item is `ready`, meaning Finance has
+  cleared it. `sent` Items remain selectable for specimen correction/rejection, but Receive is
+  disabled with tooltip `ยังไม่ผ่านการเงิน`; both Receive and LAB NO. APIs fail closed on a
+  direct bypass. Already-received retries remain idempotent.
   Agent failure never rolls back receipt/LAB NO.; the Outbound row retains retry/error audit.
   The deployed initCraft v1.6 `field.confirm` helper is callback-based
   (`confirm(message, callback, type, title)`). The Worklist therefore starts Receive only from
@@ -80,17 +88,34 @@ This directory is the user-approved working location for the new LAB Workbench S
 - The canonical Work Item schema now includes `visit_id`. LAB NO. generation writes it for
   new records and Receive retries backfill it on older received records so Agent callbacks can
   require the full `order_no + lab_no + HN + Visit ID` identity.
+- The Work Item also includes hidden `latest_result_at`. Every accepted Agent result advances this
+  from `reported_at`, including Partial, while `resulted_at` remains the Final completion time.
+  The Worklist result tab derives its label from `current_status/work_status` and uses
+  `latest_result_at` for the displayed time. Legacy Partial rows without the new field fall back
+  to the Work Item update time so existing results do not remain blank. Deploy this change by
+  updating existing Work Item Form `6a95c750422c1ca959829e8a`, then replace the inbound-result
+  Process, Worklist Process and Worklist Form together; runtime UAT is still required.
 - Result persistence is standardized on Report `6a8d4334f851000f28e5025b` and Result Item
   `6a8bc91df851000f28e501fb`. Legacy Result Item `6a7aa641935ed08882467374` is read-only
   fallback; Worklist Manual writes must not create new rows there. Because that legacy Form can
   be disabled after migration, an unavailable legacy lookup is now treated as an empty optional
   source instead of failing the result viewer.
-- The Worklist result dialog follows `../../../02-his/ui/lab-workbench-stock-pattern-mockup.html`:
-  its compact header shows HN/result count, with the pencil and mode badge beside the title; the
-  patient-summary card and repeated per-cell labels are intentionally omitted. The result table
-  uses the approved profile row and `# / status / รายการ / ค่าก่อนหน้า / ค่าที่ตรวจได้ / unit /
-  แปลผล / ค่าปกติ` columns, then merges canonical Result Item values and longitudinal prior
-  results from the API. The pencil works in both Item and Order views after specimen receipt:
+- The standard Worklist result dialog follows
+  `../../../02-his/ui/lab-result-order-profile-popup-mockup.html` for popup width, spacing,
+  typography, colors, table proportions, Profile surfaces, result states, attachments and footer.
+  The mockup's Profile metadata blocks (`สถานะ / สิ่งส่งตรวจ / ผลล่าสุด`) are intentionally omitted;
+  a Profile header contains only its order number, name, result count and expand control. The
+  compact dialog header shows HN/result count, with the pencil, mode badge, source-backed
+  Final/Partial state, Critical count and abnormal count beside the title;
+  the patient-summary card and repeated per-cell labels are intentionally omitted. The result table
+  uses the approved `# / status / รายการ / ค่าก่อนหน้า / ค่าที่ตรวจได้ / หน่วย / แปลผล / ค่าปกติ`
+  columns, then merges canonical Result Item values and longitudinal prior results from the API.
+  Profile child rows are indented beneath their ordered-test parent; hierarchical numbers are
+  no-wrap, and only the popup body scrolls so its footer remains inside the 24px viewport margin.
+  The popup toolbar can expand or collapse every Profile together. The Microbiology viewer retains
+  its separate layout.
+  The pencil works in both Item
+  and Order views after specimen receipt:
   Item mode creates/corrects one Item, while Order mode keeps an independent editor per child
   Item and saves only changed rows. Manual entry is available to every authorized LAB Section;
   existing Agent/LIS corrections preserve result source, status and the explicit critical decision

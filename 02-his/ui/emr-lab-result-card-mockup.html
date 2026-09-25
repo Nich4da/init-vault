@@ -1,0 +1,660 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>การ์ดผลแลป EMR</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;800&display=swap">
+<style>
+  :root{
+    color-scheme: light;
+    --bg:#eef2f7; --surface:#fff; --soft:#f7f9fc; --blue-soft:#ecf5ff;
+    --ink:#303133; --regular:#606266; --muted:#909399; --placeholder:#a8abb2;
+    --border:#dcdfe6; --border-light:#e4e7ed; --border-lighter:#ebeef5;
+    --primary:#409eff; --primary-dark:#337ecc;
+    --success:#67c23a; --success-9:#f0f9eb; --success-8:#e1f3d8;
+    --warning:#e6a23c; --warning-9:#fdf6ec; --warning-8:#faecd8;
+    --danger:#f56c6c; --danger-9:#fef0f0; --danger-8:#fde2e2;
+    --info:#909399; --info-9:#f4f4f5;
+    --shadow:0 12px 40px rgba(23,43,77,.14);
+  }
+  /* โหมดมืด: ตามเครื่องโดยปริยาย และปุ่มสลับ (.dark/.light) ชนะเสมอ */
+  @media (prefers-color-scheme: dark){ body:not(.light){
+    color-scheme: dark;
+    --bg:#111827; --surface:#1f2937; --soft:#182231; --blue-soft:#17273a;
+    --ink:#f3f4f6; --regular:#d1d5db; --muted:#9ca3af; --placeholder:#6b7280;
+    --border:#4b5563; --border-light:#3f4a5a; --border-lighter:#374151;
+    --success-9:#1e3020; --success-8:#2b4530; --warning-9:#3d3018; --warning-8:#54421f;
+    --danger-9:#3d2224; --danger-8:#57302f; --info-9:#232b36;
+    --shadow:0 14px 48px rgba(0,0,0,.5);
+  } }
+  body.dark{
+    color-scheme: dark;
+    --bg:#111827; --surface:#1f2937; --soft:#182231; --blue-soft:#17273a;
+    --ink:#f3f4f6; --regular:#d1d5db; --muted:#9ca3af; --placeholder:#6b7280;
+    --border:#4b5563; --border-light:#3f4a5a; --border-lighter:#374151;
+    --success-9:#1e3020; --success-8:#2b4530; --warning-9:#3d3018; --warning-8:#54421f;
+    --danger-9:#3d2224; --danger-8:#57302f; --info-9:#232b36;
+    --shadow:0 14px 48px rgba(0,0,0,.5);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;background:var(--bg);color:var(--ink);
+       font-family:"Noto Sans Thai","Leelawadee UI",Tahoma,-apple-system,Arial,sans-serif;font-size:13px}
+  button{font:inherit;color:inherit}
+  button:focus-visible{outline:2px solid var(--primary);outline-offset:1px}
+
+  /* ── หน้าเดโม ───────────────────────────────────────────── */
+  .topbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+          padding:12px 20px;background:var(--surface);border-bottom:1px solid var(--border-lighter)}
+  .topbar h1{margin:0;font-size:15px;font-weight:800}
+  .topbar .sub{color:var(--muted);font-size:11.5px}
+  .spacer{flex:1}
+  .mockchip{padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;
+            color:var(--warning);background:var(--warning-9);border:1px solid var(--warning-8)}
+  .tbtn{padding:5px 11px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;font-size:12px}
+  .tbtn:hover{border-color:var(--primary);color:var(--primary)}
+
+  .stage{display:grid;grid-template-columns:minmax(300px,320px) 1fr;gap:20px;
+         align-items:start;padding:20px;max-width:1280px;margin:0 auto}
+  @media(max-width:880px){.stage{grid-template-columns:1fr}}
+  .colsim{background:var(--soft);border:1px dashed var(--border);border-radius:10px;padding:10px}
+  .colsim .simlabel{font-size:10.5px;color:var(--placeholder);margin-bottom:8px;text-align:center}
+
+  /* ── การ์ด EMR (เลียนแบบ el-card ของหน้า EMR) ───────────── */
+  .card{background:var(--surface);border:1px solid var(--border-lighter);border-radius:8px;
+        box-shadow:0 1px 2px rgba(0,0,0,.04);overflow:hidden}
+  .card-h{padding:10px 12px;border-bottom:1px solid var(--border-lighter);font-weight:700;font-size:13px}
+  .card-b{padding:12px}
+
+  .sum-head{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .sum-head .t{flex:1;min-width:0;font-size:11.5px;line-height:1.35;color:var(--regular)}
+  .sum-head .t i{display:block;font-style:normal;color:var(--placeholder);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mini{padding:3px 8px;border:1px solid var(--border);border-radius:5px;background:var(--surface);
+        font-size:11px;cursor:pointer;flex:none}
+  .mini:hover{border-color:var(--primary);color:var(--primary)}
+
+  /* แท็บ */
+  .tabs{display:flex;gap:2px;border-bottom:1px solid var(--border-lighter);margin-bottom:8px}
+  .tab{flex:1;padding:7px 4px;border:0;background:transparent;cursor:pointer;font-size:12px;
+       color:var(--regular);border-bottom:2px solid transparent;white-space:nowrap}
+  .tab.on{color:var(--primary);border-bottom-color:var(--primary);font-weight:700}
+  .tab b{font-weight:700}
+
+  /* แถบโหมด + ตัวกรอง */
+  .modebar{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+  .seg{display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;flex:none}
+  .seg button{padding:4px 8px;border:0;background:var(--surface);cursor:pointer;font-size:11px;color:var(--regular)}
+  .seg button.on{background:var(--primary);color:#fff}
+
+  .scopebar{margin:0 0 8px;padding:5px 7px;border-radius:5px;background:var(--blue-soft);
+            border:1px solid var(--border-lighter);font-size:10.5px;line-height:1.45;color:var(--regular)}
+  .divider{display:flex;align-items:center;gap:6px;margin:10px 0 6px;font-size:10.5px;color:var(--placeholder)}
+  .divider::after{content:"";flex:1;height:1px;background:var(--border-lighter)}
+
+  /* ── กลุ่มผลต่อ 1 ใบสั่ง ─────────────────────────────────── */
+  .og{border:1px solid var(--border-lighter);border-radius:7px;margin-bottom:8px;overflow:hidden;background:var(--surface)}
+  .og.crit{border-color:var(--danger-8)}
+  .og.cancelled{opacity:.6}
+  .og-head{width:100%;display:flex;align-items:center;gap:8px;padding:8px 9px;border:0;
+           background:transparent;cursor:pointer;text-align:left}
+  .og-head:hover{background:var(--soft)}
+  .og-bar{width:3px;align-self:stretch;border-radius:2px;background:var(--info);flex:none}
+  .og.resulted .og-bar{background:var(--success)}
+  .og.crit .og-bar{background:var(--danger)}
+  .og.pending .og-bar{background:var(--warning)}
+  .og.cancelled .og-bar{background:var(--placeholder)}
+  .og-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+  /* แต่ละ chip อยู่แถวเดียวกับข้อความของมัน — ข้อความตัด … ก่อนถึง chip ไม่ทับกัน */
+  .og-r{display:flex;align-items:center;gap:6px;min-width:0}
+  .og-title{flex:1;min-width:0;font-size:12.5px;font-weight:700;line-height:1.3;
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .og.cancelled .og-title{text-decoration:line-through}
+  .og-sub{flex:1;min-width:0;font-size:10.5px;color:var(--muted);line-height:1.4;
+          white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .og-r .chip{flex:none}
+  .og-time{flex:none;font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .chev{flex:none;color:var(--placeholder);font-size:12px;line-height:1}
+  .chip{padding:1px 7px;border-radius:999px;font-size:10px;font-weight:700;white-space:nowrap;border:1px solid transparent}
+  .chip.s{color:var(--success);background:var(--success-9);border-color:var(--success-8)}
+  .chip.w{color:var(--warning);background:var(--warning-9);border-color:var(--warning-8)}
+  .chip.d{color:var(--danger);background:var(--danger-9);border-color:var(--danger-8)}
+  .chip.i{color:var(--info);background:var(--info-9);border-color:var(--border-lighter)}
+
+  /* บรรทัดวิกฤติที่ต้องเห็นโดยไม่ต้องกาง */
+  .og-crit{display:flex;align-items:flex-start;gap:6px;margin:0 9px 8px;padding:5px 7px;border-radius:5px;
+           background:var(--danger-9);border:1px solid var(--danger-8);font-size:11px;color:var(--danger);line-height:1.45}
+  .og-crit-dot{flex:none;line-height:1.45}
+  .og-crit-txt{flex:1;min-width:0;overflow-wrap:anywhere}
+  .og-crit-ref{color:var(--muted);white-space:nowrap}
+  .og-crit b{font-weight:800}
+  .og-meta{padding:7px 0 1px;font-size:10px;color:var(--placeholder);font-variant-numeric:tabular-nums}
+
+  .og-body{padding:0 9px 9px;border-top:1px dashed var(--border-lighter)}
+
+  /* แถวผลรายค่า */
+  .r{padding:5px 0;border-bottom:1px dashed var(--border-lighter)}
+  .r:last-child{border-bottom:0}
+  .r-top{display:flex;align-items:baseline;gap:6px}
+  .r-name{flex:1;min-width:0;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .r-name small{color:var(--placeholder);font-size:10px;margin-left:3px}
+  .r-val{flex:none;font-size:13px;font-weight:800;font-variant-numeric:tabular-nums}
+  .r-unit{flex:none;font-size:10px;color:var(--muted);margin-left:2px}
+  .r-flag{flex:none;font-size:10px;font-weight:800;margin-left:2px}
+  .r.H .r-val,.r.H .r-flag{color:var(--warning)}
+  .r.L .r-val,.r.L .r-flag{color:var(--warning)}
+  .r.C .r-val,.r.C .r-flag{color:var(--danger)}
+  .r-sub{margin-top:1px;font-size:10px;color:var(--placeholder);line-height:1.4;
+         white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .r-sub .prev{color:var(--muted)}
+  .r.hidden{display:none}
+  .morebtn{width:100%;margin-top:6px;padding:4px;border:1px dashed var(--border);border-radius:5px;
+           background:transparent;cursor:pointer;font-size:10.5px;color:var(--muted)}
+  .morebtn:hover{border-color:var(--primary);color:var(--primary)}
+  .og-actions{display:flex;gap:6px;margin-top:8px}
+  .og-actions button{flex:1;padding:5px;border:1px solid var(--border);border-radius:5px;
+                     background:var(--surface);cursor:pointer;font-size:11px}
+  .og-actions button.p{border-color:var(--primary);color:#fff;background:var(--primary)}
+  .og-actions button:hover{border-color:var(--primary)}
+  .og-actions button.p:hover{background:var(--primary-dark)}
+
+  /* stepper ของใบที่ยังไม่ออกผล */
+  .steps{display:flex;align-items:flex-start;gap:0;margin:8px 0 4px}
+  .step{flex:1;text-align:center;position:relative}
+  .step::before{content:"";position:absolute;top:5px;left:-50%;width:100%;height:2px;background:var(--border-light)}
+  .step:first-child::before{display:none}
+  .step.done::before{background:var(--success)}
+  .step .dot{position:relative;width:12px;height:12px;border-radius:50%;margin:0 auto 3px;
+             background:var(--surface);border:2px solid var(--border-light)}
+  .step.done .dot{background:var(--success);border-color:var(--success)}
+  .step.now .dot{background:var(--warning);border-color:var(--warning);box-shadow:0 0 0 3px var(--warning-9)}
+  .step .lb{font-size:9.5px;color:var(--muted);line-height:1.25}
+  .step.now .lb{color:var(--warning);font-weight:700}
+  .step .tm{font-size:9px;color:var(--placeholder)}
+
+  /* โหมดตามค่าตรวจ (แนวโน้ม) */
+  .t{padding:7px 0;border-bottom:1px dashed var(--border-lighter)}
+  .t-head{display:flex;align-items:baseline;gap:6px}
+  .t-name{flex:1;min-width:0;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .t-now{flex:none;font-size:13px;font-weight:800;font-variant-numeric:tabular-nums}
+  .t-row{display:flex;align-items:center;gap:8px;margin-top:3px}
+  .t-series{flex:1;min-width:0;font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums;
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .t-series b{color:var(--ink)}
+  svg.spark{flex:none;display:block}
+
+  .empty{padding:14px 0;text-align:center;font-size:11.5px;color:var(--placeholder)}
+
+  /* X-ray */
+  .xr{border:1px solid var(--border-lighter);border-radius:7px;margin-bottom:8px;padding:8px 9px}
+  .xr-top{display:flex;align-items:baseline;gap:6px}
+  .xr-name{flex:1;min-width:0;font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .xr-sub{margin-top:2px;font-size:10.5px;color:var(--muted)}
+  .xr-text{margin-top:5px;font-size:11.5px;line-height:1.5;color:var(--regular);
+           display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .xr-text.open{-webkit-line-clamp:unset}
+
+  /* ── แผงหมายเหตุออกแบบ ─────────────────────────────────── */
+  .notes{background:var(--surface);border:1px solid var(--border-lighter);border-radius:10px;padding:18px 20px}
+  .notes h2{margin:0 0 4px;font-size:15px}
+  .notes h3{margin:18px 0 6px;font-size:12.5px;color:var(--primary)}
+  .notes p,.notes li{font-size:12px;line-height:1.7;color:var(--regular)}
+  .notes ul{margin:4px 0;padding-left:18px}
+  .notes code{padding:1px 5px;border-radius:4px;background:var(--soft);border:1px solid var(--border-lighter);
+              font:11px ui-monospace,Menlo,Consolas,monospace;color:var(--ink)}
+  .notes table{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:6px}
+  .notes th,.notes td{padding:6px 8px;border:1px solid var(--border-lighter);text-align:left;vertical-align:top}
+  .notes th{background:var(--soft);color:var(--muted);font-weight:700;white-space:nowrap}
+  .flag{padding:8px 10px;border-radius:6px;font-size:11.5px;line-height:1.6;margin-top:8px}
+  .flag.warn{background:var(--warning-9);border:1px solid var(--warning-8);color:var(--ink)}
+  .flag.info{background:var(--blue-soft);border:1px solid #b3d8ff;color:var(--ink)}
+  body.dark .flag.info{border-color:#2c5580}
+  @media (prefers-color-scheme: dark){ body:not(.light) .flag.info{border-color:#2c5580} }
+
+  /* ── popup ผลทั้งใบ ───────────────────────────────────── */
+  .backdrop{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:24px;
+            background:rgba(15,23,42,.5)}
+  .backdrop[hidden]{display:none}
+  .dlg{width:min(980px,100%);max-height:calc(100vh - 48px);display:flex;flex-direction:column;
+       background:var(--surface);border-radius:12px;box-shadow:var(--shadow);overflow:hidden}
+  .dlg-h{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--border-lighter)}
+  .dlg-h h3{margin:0;font-size:15px}
+  .dlg-h .m{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .dlg-b{padding:16px 18px;overflow:auto}
+  .dlg-f{display:flex;align-items:center;gap:8px;padding:12px 18px;border-top:1px solid var(--border-lighter);
+         background:var(--soft);font-size:11px;color:var(--muted)}
+  .ptable{width:100%;border-collapse:collapse;font-size:12px}
+  .ptable th,.ptable td{padding:8px 10px;border-bottom:1px solid var(--border-lighter);text-align:left;white-space:nowrap}
+  .ptable th{background:var(--soft);color:var(--muted);font-size:11px;font-weight:700}
+  .ptable td.num{font-variant-numeric:tabular-nums;font-weight:700}
+  .ptable tr.C td.num{color:var(--danger)}
+  .ptable tr.H td.num,.ptable tr.L td.num{color:var(--warning)}
+  .ptable tr.C{background:var(--danger-9)}
+  .attach{display:flex;align-items:center;gap:8px;margin-top:14px;padding:9px 11px;
+          border:1px solid var(--border-lighter);border-radius:7px;font-size:12px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <h1>EMR · การ์ด “สรุปการรักษา” — ประวัติ Order / ผล Lab · X-ray</h1>
+    <div class="sub">mockup สำหรับ widget <code>treat_summary</code> ในการ์ด <code>card62530</code> · ฟอร์ม EMR <code>6a4f64e7f8cdfc54cec16488</code></div>
+  </div>
+  <div class="spacer"></div>
+  <span class="mockchip">ข้อมูลตัวอย่าง (mock) — ไม่ใช่ข้อมูลผู้ป่วยจริง</span>
+  <button class="tbtn" id="themeBtn">🌙 Dark</button>
+</div>
+
+<div class="stage">
+
+  <!-- ══ คอลัมน์ซ้ายของหน้า EMR (span 5/24 ≈ 300px) ══ -->
+  <div class="colsim">
+    <div class="simlabel">คอลัมน์ซ้ายของหน้า EMR · span 5/24 (กว้างจริง ~300px)</div>
+
+    <div class="card">
+      <div class="card-h">สรุปการรักษา</div>
+      <div class="card-b">
+
+        <div class="sum-head">
+          <div class="t">
+            การรักษาครั้งก่อน
+            <i>15/08/2569 · VN 6808150031 · อายุรกรรม</i>
+          </div>
+          <button class="mini">ดูทั้งใบ</button>
+        </div>
+
+        <div class="tabs">
+          <button class="tab" data-tab="med">ยา <b>4</b></button>
+          <button class="tab on" data-tab="lab">Lab <b>3</b></button>
+          <button class="tab" data-tab="xray">X-Ray <b>2</b></button>
+          <button class="tab" data-tab="proc">หัตถการ</button>
+        </div>
+
+        <!-- ── แท็บ Lab ── -->
+        <div id="pane-lab">
+          <div class="modebar">
+            <div class="seg">
+              <button class="on" data-mode="order">ตามใบสั่ง</button>
+              <button data-mode="test">ตามค่าตรวจ</button>
+            </div>
+          </div>
+          <div class="scopebar">แสดง 2 กลุ่มเท่านั้น · <b>ใบสั่งของ VN นี้</b> + <b>ผลที่ออกวันนี้</b> (แม้ใบจะสั่งไว้ตั้งแต่ครั้งก่อน)</div>
+          <div id="labBody"></div>
+        </div>
+
+        <!-- ── แท็บ X-Ray ── -->
+        <div id="pane-xray" hidden></div>
+
+        <!-- ── แท็บอื่น (คงของเดิม) ── -->
+        <div id="pane-med" hidden>
+          <div class="empty">— โครงเดิมของแท็บ “ยา” ไม่เปลี่ยน —</div>
+        </div>
+        <div id="pane-proc" hidden>
+          <div class="empty">— โครงเดิมของแท็บ “หัตถการ” ไม่เปลี่ยน —</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ หมายเหตุออกแบบ ══ -->
+  <div class="notes">
+    <h2>สิ่งที่เปลี่ยนจากการ์ดปัจจุบัน</h2>
+    <p>แท็บ Lab ตอนนี้เป็น “รายการค่าเดี่ยว ๆ เรียงแบน ๆ” ซึ่งอ่านไม่ออกว่าค่าไหนมาจากใบเดียวกัน
+       และ <b>ใบที่สั่งไปแล้วแต่ยังไม่ออกผลหายไปทั้งใบ</b> — หมอไม่รู้ว่ากำลังรออะไรอยู่</p>
+    <p>ขอบเขตของการ์ดถูกล็อกไว้ที่ <b>2 กลุ่ม</b> คือ ใบสั่งของ VN ที่เปิดอยู่ และผลที่ออกวันนี้ (ดูข้อ 7)</p>
+
+    <h3>1 · จับกลุ่มเป็น “ก้อนผล” ต่อ 1 ใบสั่ง (order + section)</h3>
+    <p>หมออ่านผลเป็นใบ ไม่ได้อ่านเป็นค่าเดี่ยว ๆ หัวก้อนจึงพก <b>เวลาออกผล · ชื่อ section · Order No. · LAB NO.</b>
+       และ badge สรุป (ผิดปกติกี่ค่า / วิกฤติกี่ค่า) ให้ตัดสินใจได้ตั้งแต่ยังไม่กาง</p>
+
+    <h3>2 · ใบที่ยังไม่ออกผลต้องอยู่ในลิสต์เดียวกัน</h3>
+    <p>ใบ <code>sent / accepted / collected / in_process</code> ขึ้นเป็นก้อนสีส้มพร้อม stepper บอกว่าค้างตรงไหน
+       — ไม่ใช่รอให้ผลออกก่อนแล้วค่อยโผล่ ก้อนที่ถูกยกเลิกยังอยู่แต่จางลง (กันสั่งซ้ำ ตามกติกาเดียวกับ <code>item_card</code>)</p>
+    <div class="flag info"><b>stepper ขึ้นเฉพาะใบที่ยังไม่มีผลเท่านั้น</b> — พอผลออก stepper หายไปและแทนที่ด้วยบรรทัดค่าผลทันที
+      ใบที่ยกเลิกไม่ขึ้น stepper (ขึ้นเหตุผลยกเลิกแทน)</div>
+
+    <h3>3 · ค่าวิกฤติต้องเห็นโดยไม่ต้องกาง</h3>
+    <p>ค่าที่ <code>is_critical=true</code> ถูกยกขึ้นมาแสดงเป็นแถบแดงใต้หัวก้อนทันที พร้อมค่าและหน่วย
+       ที่เหลือซ่อนอยู่ในก้อนตามปกติ</p>
+
+    <h3>4 · ค่าปกติพับเก็บ</h3>
+    <p>CBC ใบเดียวมี 15–20 บรรทัด ถ้ากางหมดการ์ดยาวจนกลบการ์ดอื่น ⇒ กางแล้วโชว์เฉพาะค่าที่ผิดปกติ/วิกฤติ
+       แล้วมีปุ่ม “ค่าปกติอีก N รายการ” ไว้กางดูเมื่อต้องการ</p>
+    <div class="flag info">ปุ่มกรอง “เฉพาะผิดปกติ” ถูกตัดออก (22/09/2569) — พอขอบเขตเหลือ VN นี้ + ผลออกวันนี้
+      ใบมีไม่กี่ใบและค่าปกติถูกพับอยู่แล้ว ปุ่มจึงกดแล้วไม่เปลี่ยนอะไรจริง</div>
+
+    <h3>5 · การ์ดโชว์ “ผลล่าสุด” อย่างเดียว — ค่าก่อนหน้าอยู่ใน popup (พี่เคาะ 22/09/2569)</h3>
+    <p>ในการ์ดแต่ละบรรทัดมีแค่ <b>ค่าล่าสุด + หน่วย + ค่าปกติ</b> ไม่มีค่าก่อนหน้าเบียดเข้ามา
+       คอลัมน์ <b>ค่าก่อนหน้า</b> อยู่ใน popup “ดูผลทั้งใบ” ที่เดียว และยังเปิดดูแนวโน้มได้จากโหมด “ตามค่าตรวจ”</p>
+    <div class="flag info">
+      ตรงกับ canonical contract อยู่แล้ว: <code>Result Item</code> เก็บ <b>ค่าล่าสุดค่าเดียว</b> —
+      ผล <code>corrected</code> จาก LIS ทับค่าเดิมไปเลย ไม่ได้ต่อแถวใหม่
+      ⇒ <b>การ์ดไม่มีป้าย “แก้ไขผล” และไม่แสดงประวัติการแก้ค่า</b><br>
+      ผลดีเพิ่ม: ไม่ต้อง lookup ค่าเก่าทีละ observation ตอนโหลดการ์ด — API เบาลง เรียกเฉพาะตอนเปิด popup
+    </div>
+
+    <h3>6 · สลับดู “ตามค่าตรวจ” ได้</h3>
+    <p>หมอที่ตาม Cr/K/Hb เป็นชุดต้องการเห็นแนวโน้มข้ามใบ ⇒ ปุ่ม segmented สลับเป็นมุมมองรายค่า
+       พร้อม sparkline + ชุดค่าย้อนหลัง (กดแล้วเปิด popup ดูทั้งชุด)</p>
+
+    <h3>7 · ขอบเขตการ์ด = 2 เงื่อนไขเท่านั้น (พี่เคาะ 22/09/2569)</h3>
+    <table>
+      <tr><th>กลุ่ม</th><th>เงื่อนไข</th><th>เห็นอะไร</th></tr>
+      <tr><td><b>① ใบสั่งของวิสิทนี้</b></td>
+          <td>CPOE Item <code>visit_id</code> = VN ที่เปิดอยู่</td>
+          <td>ทุกใบ ไม่ว่าผลจะออกหรือยัง (รวมใบรอผล + ใบยกเลิก)</td></tr>
+      <tr><td><b>② ผลออกวันนี้</b></td>
+          <td><code>visit_id</code> ≠ VN นี้ และเวลาที่ผลเข้าระบบอยู่ในวันของวิสิทนี้</td>
+          <td>เฉพาะใบที่ผลเพิ่งออก เช่น hemoculture ที่สั่งไว้ 4 วันก่อน</td></tr>
+    </table>
+    <div class="flag warn">
+      <b>ไม่มีส่วน “ย้อนหลัง” และไม่มีปุ่ม “ดูผลย้อนหลังทั้งหมด” แล้ว</b> — ผลเก่าเปิดดูได้ 2 ทาง
+      คือคอลัมน์ <b>ค่าก่อนหน้า</b> ใน popup “ดูผลทั้งใบ” และมุมมอง <b>ตามค่าตรวจ</b>
+      ⇒ หมอเห็นแนวโน้มเมื่อต้องการ โดยการ์ดไม่ยาวและไม่มีใบเก่ามาปนกับใบของวันนี้<br>
+      ใบที่เข้าทั้งสองเงื่อนไขนับเป็นกลุ่ม ① กลุ่มเดียว (กันขึ้นซ้ำ)
+    </div>
+
+    <h3>ที่มาข้อมูลของแต่ละชิ้น</h3>
+    <table>
+      <tr><th>ชิ้นในการ์ด</th><th>แหล่ง</th></tr>
+      <tr><td>หัวก้อน: Order No. · เวลา · สถานะ</td><td>CPOE Order/Item — <code>order_number</code>, <code>created_at</code>, <code>current_status</code> (ชุดป้ายเดียวกับ <code>item_card</code>)</td></tr>
+      <tr><td>LAB NO. (ในก้อนที่กางแล้ว) · section · เวลารับ</td><td>Work Item <code>6a95c750422c1ca959829e8a</code> — <code>lab_no</code>, <code>lab_section</code>, <code>received_at</code></td></tr>
+      <tr><td>บรรทัดผล</td><td>Result Item <code>6a8bc91df851000f28e501fb</code> — <code>obs_name</code>/<code>test_name</code>, <code>result_value</code>, <code>unit_symbol_snapshot</code>, <code>reference_range_snapshot</code>, <code>interpretation_code</code>, <code>is_critical</code></td></tr>
+      <tr><td>ค่าก่อนหน้า <i>(เฉพาะใน popup)</i></td><td><b>ไม่ใช่</b> <code>previous_value</code> — ต้อง lookup ผล final/corrected ล่าสุดของ HN + observation จากใบก่อนหน้า (ตาม canonical contract) · เรียกตอนเปิด popup เท่านั้น ไม่ต้องเรียกตอนโหลดการ์ด</td></tr>
+      <tr><td>ที่มา/ผู้แก้ไข (ใน popup)</td><td><code>result_source</code>, <code>result_status</code>, <code>last_edited_by</code>, <code>last_edited_at</code></td></tr>
+      <tr><td>X-ray</td><td><code>zdata_xray_result</code> — <code>ExamName</code>, <code>ResultText</code>, <code>ResultDateTime</code>, <code>AccessionNo</code>, <code>SeverityUid</code></td></tr>
+    </table>
+
+    <h3>สิ่งที่ยังต้องตัดสินใจก่อนลงมือทำจริง</h3>
+    <div class="flag info">
+      <b>เคาะแล้ว 22/09/2569:</b> ขอบเขต = VN นี้ + ผลออกวันนี้ · ไม่มีปุ่มดูย้อนหลังทั้งหมด ·
+      “ดูผลทั้งใบ” ใช้ popup ตามที่ออกแบบไว้ (คอลัมน์ชุดเดียวกับ dialog ของ LAB Workbench) ·
+      ไม่ทำ workflow “หมอรับทราบค่าวิกฤติ” · <b>“ผลออกวันนี้” นับจากเวลาที่ผลเข้าระบบ HIS</b> ·
+      การ์ดโชว์ผลล่าสุดอย่างเดียว ค่าก่อนหน้าอยู่ใน popup · ไม่แสดงค่าที่ถูกแก้ (corrected)
+    </div>
+    <div class="flag warn">
+      <b>ยังต้องเคาะก่อนลงมือ:</b><br>
+      <b>①</b> <code>emr-summary-get</code> (<code>6a9574cc1812c7078a067299</code>) ตอนนี้คืน <code>lab[]</code> แบน ๆ
+      — ต้องเพิ่ม shape ใหม่ <code>lab_orders[]</code> ที่ห่อ items + สถานะใบ (<b>เพิ่มคีย์ใหม่ ไม่แก้ของเดิม</b> เพื่อไม่ให้การ์ดเวอร์ชันเดิมพัง)<br>
+      <b>②</b> นิยาม “วันนี้” — เสนอให้ใช้ <b>วันของวิสิทที่เปิดอยู่</b> เป็นกติกาเดียวจบ
+      (เปิดวิสิทวันนี้ = วันนี้ · เปิดวิสิทเก่าผ่าน deep link จาก LAB Worklist = วันของวิสิทนั้น)
+      ไม่งั้นเปิดใบเก่าแล้วผลของวันนี้จะปนเข้ามาในวิสิทที่ไม่เกี่ยวกัน
+    </div>
+    <p style="margin-top:14px">
+      <button class="tbtn" onclick="openDlg()">▸ ดูตัวอย่าง popup “ดูผลทั้งใบ”</button>
+    </p>
+  </div>
+</div>
+
+<!-- ══ popup ผลทั้งใบ ══ -->
+<div class="backdrop" id="dlg" hidden>
+  <div class="dlg">
+    <div class="dlg-h">
+      <div style="flex:1;min-width:0">
+        <h3>ผลตรวจ · เคมีคลินิก</h3>
+        <div class="m">22/09/2569 10:52 · Order OD68-092202 · LAB NO. 6809220015 · HN 00-12-3456 (ตัวอย่าง)</div>
+      </div>
+      <span class="chip d">วิกฤติ 1</span>
+      <span class="chip w">ผิดปกติ 4</span>
+      <button class="tbtn" onclick="closeDlg()">ปิด</button>
+    </div>
+    <div class="dlg-b">
+      <table class="ptable">
+        <thead><tr><th>#</th><th>รายการ</th><th>ค่าก่อนหน้า</th><th>ค่าที่ตรวจได้</th><th>หน่วย</th><th>แปลผล</th><th>ค่าปกติ</th></tr></thead>
+        <tbody id="dlgRows"></tbody>
+      </table>
+      <div class="attach">📎 ไฟล์แนบผลตรวจ — <b>lab-report-6809220015.pdf</b> <span style="color:var(--muted)">· 248 KB</span></div>
+    </div>
+    <div class="dlg-f">
+      <span>ที่มาผล: Agent/LIS · สถานะ: final · รับผลเมื่อ 22/09/2569 10:52</span>
+      <div class="spacer"></div>
+      <span>ค่าก่อนหน้าแสดงที่นี่ที่เดียว · คอลัมน์ชุดเดียวกับ dialog ผลของ LAB Workbench</span>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══ ข้อมูลตัวอย่าง (mock ทั้งหมด — ไม่ใช่ข้อมูลผู้ป่วยจริง) ═══════════ */
+const ORDERS = [
+  /* ① ใบสั่งของ "วิสิทนี้" — ขึ้นทุกใบไม่ว่าผลจะออกหรือยัง */
+  { scope:'vn', id:'OD68-092202', section:'เคมีคลินิก', labno:'6809220015', status:'resulted',
+    sent:'09:12', resulted:'22/09 10:52', items:[
+      {n:'Potassium', c:'K',  v:'6.8',  u:'mmol/L', ref:'3.5–5.1',  f:'C', prev:'4.9', prevd:'15/08'},
+      {n:'Creatinine',c:'Cr', v:'1.92', u:'mg/dL',  ref:'0.6–1.2',  f:'H', prev:'1.42',prevd:'15/08'},
+      {n:'eGFR',      c:'',   v:'38',   u:'mL/min', ref:'≥ 60',     f:'L', prev:'54',  prevd:'15/08'},
+      {n:'BUN',       c:'',   v:'28',   u:'mg/dL',  ref:'7–20',     f:'H', prev:'19',  prevd:'15/08'},
+      {n:'Sodium',    c:'Na', v:'133',  u:'mmol/L', ref:'135–145',  f:'L', prev:'138', prevd:'15/08'},
+      {n:'Chloride',  c:'Cl', v:'101',  u:'mmol/L', ref:'98–107',   f:'N', prev:'102', prevd:'15/08'},
+      {n:'Bicarbonate',c:'',  v:'24',   u:'mmol/L', ref:'22–29',    f:'N', prev:'25',  prevd:'15/08'},
+      {n:'Glucose (FBS)',c:'',v:'98',   u:'mg/dL',  ref:'70–99',    f:'N', prev:'103', prevd:'15/08'},
+    ]},
+  { scope:'vn', id:'OD68-092201', section:'โลหิตวิทยา', labno:'6809220012', status:'in_process',
+    sent:'09:12', steps:[['ส่งใบ','09:12',1],['ห้องแลปรับ','09:31',1],['กำลังตรวจ','09:40',2],['ออกผล','',0]], items:[] },
+  { scope:'vn', id:'OD68-092204', section:'ปัสสาวะ', labno:'', status:'cancelled',
+    sent:'09:15', cancelReason:'ผู้ป่วยปฏิเสธการตรวจ', items:[] },
+
+  /* ② สั่งไว้ตั้งแต่วิสิทก่อน แต่ "ผลออกวันนี้" — ต้องเห็นตอนตรวจวันนี้ */
+  { scope:'today', id:'OD68-091803', section:'จุลชีววิทยา', labno:'6809180022', status:'resulted',
+    orderedOn:'18/09/69', orderedVn:'6809180077', sent:'18/09 10:20', resulted:'22/09 08:15', items:[
+      {n:'Hemoculture', c:'blood', v:'ขึ้นเชื้อ', u:'', ref:'No growth 5 วัน', f:'C', prev:'', prevd:''},
+      {n:'Organism',            c:'', v:'E. coli',  u:'', ref:'—',               f:'H', prev:'', prevd:''},
+      {n:'Ceftriaxone',         c:'', v:'S',        u:'', ref:'S / I / R',       f:'N', prev:'', prevd:''},
+      {n:'Ciprofloxacin',       c:'', v:'R',        u:'', ref:'S / I / R',       f:'H', prev:'', prevd:''},
+      {n:'Gentamicin',          c:'', v:'S',        u:'', ref:'S / I / R',       f:'N', prev:'', prevd:''},
+    ]},
+];
+
+const TRENDS = [
+  { n:'Creatinine', u:'mg/dL', ref:'0.6–1.2', f:'H', s:[['02/07',1.18],['15/08',1.42],['22/09',1.92]], note:'↑ สูงขึ้นต่อเนื่อง' },
+  { n:'Potassium',  u:'mmol/L',ref:'3.5–5.1', f:'C', s:[['02/07',4.4],['15/08',4.9],['22/09',6.8]],   note:'↑ ถึงระดับวิกฤติ' },
+  { n:'eGFR',       u:'mL/min',ref:'≥ 60',    f:'L', s:[['02/07',66],['15/08',54],['22/09',38]],      note:'↓ ลดลงต่อเนื่อง' },
+  { n:'Hemoglobin', u:'g/dL',  ref:'12.0–16.0',f:'L',s:[['02/07',12.4],['15/08',11.9]],               note:'↓ เล็กน้อย' },
+];
+
+const XRAYS = [
+  { scope:'now', name:'Chest PA (upright)', acc:'ACC6809220007', when:'22/09/2569 11:20', status:'resulted', sev:'ผิดปกติ',
+    text:'Cardiomegaly with mild pulmonary vascular congestion. No focal consolidation or pleural effusion. Bony thorax appears intact. Impression: Cardiomegaly with mild congestion — clinical correlation recommended.' },
+  { scope:'today', name:'CT Abdomen (contrast)', acc:'ACC6809190004', when:'สั่ง 19/09/2569 · อ่านผล 22/09/2569 07:40', status:'resulted', sev:'ผิดปกติ',
+    text:'Mild bilateral hydronephrosis with a 6 mm obstructing stone at the left distal ureter. No perinephric abscess. Impression: Left distal ureteric stone with mild hydronephrosis.' },
+];
+
+const STATUS = {
+  sent:{l:'ส่งแล้ว',c:'w'}, accepted:{l:'ห้องแลปรับแล้ว',c:'w'}, collected:{l:'เก็บสิ่งส่งตรวจแล้ว',c:'w'},
+  in_process:{l:'กำลังตรวจ',c:'w'}, resulted:{l:'มีผลแล้ว',c:'s'}, completed:{l:'เสร็จสิ้น',c:'s'},
+  cancelled:{l:'ยกเลิก',c:'i'},
+};
+
+let mode='order', open={};
+
+/* ═══ render ═══════════════════════════════════════════════════════════ */
+const esc = t => String(t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const isAbn = i => i.f==='H'||i.f==='L'||i.f==='C';
+const isNum = v => /^[\d.,<>≥≤+\- ]+$/.test(String(v));
+const arrow = (f,v) => (v!==undefined && !isNum(v)) ? '' : (f==='H'||f==='C' ? '▲' : f==='L' ? '▼' : '');
+
+function orderCard(o, idx){
+  const st = STATUS[o.status] || {l:o.status,c:'d'};
+  const crit = o.items.filter(i=>i.f==='C');
+  const abn  = o.items.filter(isAbn);
+  const pending = ['sent','accepted','collected','in_process'].includes(o.status);
+  const cls = ['og', o.status==='cancelled'?'cancelled':(pending?'pending':'resulted'), crit.length?'crit':''].join(' ');
+  const isOpen = !!open[o.id];
+
+  // ทุกก้อนบอกเวลา 2 จุดเสมอ: เวลาสั่ง → เวลาผล (ใบที่ยังไม่ออกผลมีแค่เวลาสั่ง)
+  // จำนวนรายการตัดออกแล้ว — chip ผิดปกติ N / ปกติทั้งหมด บอกน้ำหนักของก้อนได้ตรงกว่า
+  const sentTime = String(o.sent).split(' ').pop();
+  const timeText = (pending || o.status==='cancelled')
+    ? 'สั่ง ' + sentTime
+    : 'สั่ง ' + sentTime + ' → ผล ' + String(o.resulted).split(' ').pop();
+  // วันที่ขึ้นเฉพาะใบที่สั่งครั้งก่อน — ใบของวิสิทนี้เป็นวันเดียวกันอยู่แล้ว
+  const subText = (o.scope==='today' ? esc(o.orderedOn) + ' · ' : '') + esc(o.id);
+  const metaLine = o.labno ? `<div class="og-meta">LAB NO. ${esc(o.labno)}</div>` : '';
+
+  let head = `
+    <button class="og-head" onclick="tog('${o.id}')">
+      <span class="og-bar"></span>
+      <span class="og-main">
+        <span class="og-r">
+          <span class="og-title">${esc(o.section)}</span>
+          ${timeText?`<span class="og-time">${timeText}</span>`:''}
+          ${o.scope==='today'?'<span class="chip w">ผลออกวันนี้</span>':`<span class="chip ${st.c}">${st.l}</span>`}
+        </span>
+        <span class="og-r">
+          <span class="og-sub">${subText}</span>
+          ${abn.length?`<span class="chip ${crit.length?'d':'w'}">ผิดปกติ ${abn.length}</span>`:(o.items.length?'<span class="chip s">ปกติทั้งหมด</span>':'')}
+        </span>
+      </span>
+      <span class="chev">${isOpen?'⌄':'›'}</span>
+    </button>`;
+
+  let critBar = crit.map(i=>`<div class="og-crit">
+        <span class="og-crit-dot">🔴</span>
+        <span class="og-crit-txt"><b>${esc(i.n)}${i.c?' ('+esc(i.c)+')':''}</b> · <b>${esc(i.v)}${i.u?' '+esc(i.u):''}</b> ${arrow(i.f,i.v)}
+          <span class="og-crit-ref">ปกติ ${esc(i.ref)}</span></span>
+      </div>`).join('');
+
+  let body='';
+  if (isOpen){
+    if (o.status==='cancelled'){
+      body = `<div class="og-body">${metaLine}<div style="padding:8px 0;font-size:11.5px;color:var(--muted)">
+                ใบนี้ถูกยกเลิก · เหตุผล: ${esc(o.cancelReason||'-')}</div></div>`;
+    } else if (pending){
+      body = `<div class="og-body">${metaLine}
+        <div class="steps">${o.steps.map(([l,t,s])=>`
+          <div class="step ${s===1?'done':s===2?'now':''}">
+            <div class="dot"></div><div class="lb">${l}</div><div class="tm">${t||'—'}</div>
+          </div>`).join('')}</div>
+        <div style="font-size:10.5px;color:var(--placeholder);text-align:center;margin-top:4px">ยังไม่มีผล — ค่าจะขึ้นที่ก้อนนี้เมื่อห้องแลปออกผล</div>
+      </div>`;
+    } else {
+      const shown = o.items.filter(i=>isAbn(i));
+      const norm  = o.items.filter(i=>!isAbn(i));
+      const rows  = i => `
+        <div class="r ${i.f}">
+          <div class="r-top">
+            <span class="r-name">${esc(i.n)}${i.c?`<small>${esc(i.c)}</small>`:''}</span>
+            <span class="r-val">${esc(i.v)}</span><span class="r-unit">${esc(i.u)}</span>
+            <span class="r-flag">${arrow(i.f,i.v)}${i.f==='C'?' วิกฤติ':''}</span>
+          </div>
+          <div class="r-sub">ปกติ ${esc(i.ref)}</div>
+        </div>`;
+      body = `<div class="og-body">${metaLine}
+        ${shown.map(rows).join('')}
+        ${norm.length ? `<div id="nm-${o.id}" ${open['n-'+o.id]?'':'hidden'}>${norm.map(rows).join('')}</div>
+            <button class="morebtn" onclick="tog('n-${o.id}')">${open['n-'+o.id]?'ซ่อนค่าปกติ':'ค่าปกติอีก '+norm.length+' รายการ'}</button>`:''}
+        <div class="og-actions">
+          <button class="p" onclick="openDlg()">ดูผลทั้งใบ</button>
+          <button>PDF</button>
+        </div>
+      </div>`;
+    }
+  }
+  return `<div class="${cls}">${head}${critBar}${body}</div>`;
+}
+
+function spark(series, f){
+  const w=64,h=18,vals=series.map(s=>s[1]),mn=Math.min(...vals),mx=Math.max(...vals),rg=(mx-mn)||1;
+  const pts=series.map((s,i)=>[2+i*((w-4)/Math.max(1,series.length-1)), h-2-((s[1]-mn)/rg)*(h-5)]);
+  const color=f==='C'?'var(--danger)':f==='N'?'var(--success)':'var(--warning)';
+  return `<svg class="spark" width="${w}" height="${h}" aria-hidden="true">
+    <polyline fill="none" stroke="${color}" stroke-width="1.6" stroke-linejoin="round"
+      points="${pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')}"/>
+    <circle cx="${pts[pts.length-1][0].toFixed(1)}" cy="${pts[pts.length-1][1].toFixed(1)}" r="2.4" fill="${color}"/>
+  </svg>`;
+}
+
+function renderLab(){
+  const el=document.getElementById('labBody');
+  if (mode==='test'){
+    const list = TRENDS;
+    el.innerHTML = `<div class="divider">แนวโน้มของค่าที่ออกผลวันนี้ · เทียบผลเก่าของ HN นี้</div>` +
+      (list.length? list.map(t=>{
+        const last=t.s[t.s.length-1];
+        return `<div class="t">
+          <div class="t-head">
+            <span class="t-name">${esc(t.n)} <small style="color:var(--placeholder);font-weight:400">${esc(t.u)}</small></span>
+            <span class="t-now" style="color:${t.f==='C'?'var(--danger)':t.f==='N'?'inherit':'var(--warning)'}">${last[1]}</span>
+          </div>
+          <div class="t-row">
+            ${spark(t.s,t.f)}
+            <span class="t-series">${t.s.map((s,i)=> i===t.s.length-1?`<b>${s[1]} (${s[0]})</b>`:`${s[1]} (${s[0]})`).join(' → ')}</span>
+          </div>
+          <div class="r-sub" style="margin-top:2px">ปกติ ${esc(t.ref)} · ${esc(t.note)}</div>
+        </div>`;
+      }).join('') : `<div class="empty">— ไม่มีค่าผิดปกติ —</div>`);
+    return;
+  }
+  const vn    = ORDERS.filter(o=>o.scope==='vn');
+  const today = ORDERS.filter(o=>o.scope==='today');
+  el.innerHTML =
+    `<div class="divider">ใบสั่งของวิสิทนี้ · VN 6809220042 (22/09/2569)</div>` +
+    (vn.length? vn.map(orderCard).join('') : `<div class="empty">— ยังไม่มีใบสั่งตรวจในวิสิทนี้ —</div>`) +
+    (today.length? `<div class="divider">ผลออกวันนี้ · จากใบสั่งครั้งก่อน</div>` + today.map(orderCard).join('') : '');
+}
+
+function renderXray(){
+  const el=document.getElementById('pane-xray');
+  el.innerHTML = ['now','today'].map(sc=>{
+    const list=XRAYS.filter(x=>x.scope===sc);
+    return (sc==='today' && !list.length) ? '' :
+      `<div class="divider">${sc==='now'?'ใบสั่งของวิสิทนี้ · VN 6809220042':'ผลออกวันนี้ · จากใบสั่งครั้งก่อน'}</div>` +
+      (list.length? list.map((x,i)=>`
+        <div class="xr">
+          <div class="xr-top">
+            <span class="xr-name">${esc(x.name)}</span>
+            <span class="chip ${x.sev==='ปกติ'?'s':'w'}">${esc(x.sev)}</span>
+          </div>
+          <div class="xr-sub">${esc(x.when)} · ${esc(x.acc)}</div>
+          <div class="xr-text" id="xt-${sc}${i}">${esc(x.text)}</div>
+          <div class="og-actions" style="margin-top:6px">
+            <button onclick="document.getElementById('xt-${sc}${i}').classList.toggle('open')">อ่านรายงานเต็ม</button>
+            <button class="p">เปิดภาพ (PACS)</button>
+          </div>
+        </div>`).join('') : `<div class="empty">— ไม่มี —</div>`);
+  }).join('');
+}
+
+function renderDlg(){
+  const o=ORDERS[0];
+  document.getElementById('dlgRows').innerHTML = o.items.map((i,n)=>`
+    <tr class="${i.f}">
+      <td>${n+1}</td>
+      <td><b>${esc(i.n)}</b>${i.c?` <span style="color:var(--muted)">${esc(i.c)}</span>`:''}</td>
+      <td style="color:var(--muted)">${esc(i.prev)} <small>(${esc(i.prevd)})</small></td>
+      <td class="num">${esc(i.v)} ${arrow(i.f,i.v)}</td>
+      <td>${esc(i.u)}</td>
+      <td>${i.f==='C'?'<span class="chip d">วิกฤติ</span>':i.f==='H'?'<span class="chip w">สูง</span>':i.f==='L'?'<span class="chip w">ต่ำ</span>':'<span class="chip s">ปกติ</span>'}</td>
+      <td style="color:var(--muted)">${esc(i.ref)}</td>
+    </tr>`).join('');
+}
+
+/* ═══ interactions ═════════════════════════════════════════════════════ */
+function tog(id){ open[id]=!open[id]; renderLab(); }
+function openDlg(){ document.getElementById('dlg').hidden=false; }
+function closeDlg(){ document.getElementById('dlg').hidden=true; }
+
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on', x===b));
+  ['med','lab','xray','proc'].forEach(t=>document.getElementById('pane-'+t).hidden = (t!==b.dataset.tab));
+});
+document.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>{
+  mode=b.dataset.mode;
+  document.querySelectorAll('.seg button').forEach(x=>x.classList.toggle('on', x===b));
+  renderLab();
+});
+const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+function setTheme(dark){
+  document.body.classList.toggle('dark', dark);
+  document.body.classList.toggle('light', !dark);
+  document.getElementById('themeBtn').textContent = dark ? '☀︎ Light' : '🌙 Dark';
+}
+setTheme(prefersDark);
+document.getElementById('themeBtn').onclick=()=>setTheme(!document.body.classList.contains('dark'));
+document.getElementById('dlg').onclick=e=>{ if(e.target.id==='dlg') closeDlg(); };
+
+open['OD68-092202']=true;   // เปิดก้อนที่มีค่าวิกฤติไว้ตั้งแต่แรก
+renderLab(); renderXray(); renderDlg();
+</script>
+</body>
+</html>

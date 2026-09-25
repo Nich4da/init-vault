@@ -21,8 +21,8 @@
  * Never put the Agent key in SDForm/Vue code, query strings, or this repository.
  */
 
-const AGENT_ORDER_URL = 'REPLACE_WITH_AGENT_ORDER_URL'
-const AGENT_KEY = 'REPLACE_WITH_AGENT_KEY'
+const AGENT_ORDER_URL = '__CONFIGURE_AGENT_ORDER_URL__'
+const AGENT_KEY = '__CONFIGURE_AGENT_KEY__'
 const MAX_BODY_BYTES = 1024 * 1024
 const REQUEST_TIMEOUT_MS = 5000
 

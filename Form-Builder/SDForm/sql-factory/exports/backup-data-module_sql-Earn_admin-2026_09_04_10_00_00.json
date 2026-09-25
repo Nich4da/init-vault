@@ -1,0 +1,121 @@
+[
+  {
+    "_id": {
+      "$oid": "6a9a355c422c1ca95982a1a1"
+    },
+    "xparentx": {
+      "$oid": "6a9a355c422c1ca95982a1a1"
+    },
+    "xsitex": {
+      "code": "0000",
+      "name": "0000"
+    },
+    "xunitx": {
+      "code": "A103",
+      "name": "คลินิกทันตกรรม"
+    },
+    "xrstatx": 1,
+    "xversionx": "v1",
+    "xerrorx": null,
+    "updated_by": {
+      "id": {
+        "$oid": "6a58678ad448dfc9d33e2ba8"
+      },
+      "name": "Nichada Patcharasumransuk (marnichacha27@gmail.com)"
+    },
+    "updated_at": "2026-09-04 10:00:00",
+    "created_by": {
+      "id": {
+        "$oid": "6a58678ad448dfc9d33e2ba8"
+      },
+      "name": "Nichada Patcharasumransuk (marnichacha27@gmail.com)"
+    },
+    "created_at": "2026-09-04 10:00:00",
+    "dataid": "6a9a355c422c1ca95982a1a1",
+    "nosql_collections": "[\"zdata_visit\"]",
+    "nosql_filter": null,
+    "nosql_options": null,
+    "nosql_pipeline": "[{\"$addFields\":{\"_hn_key\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$pid.hn\",\"\"]}}}}}},{\"$addFields\":{\"_hn_key_prefixed\":{\"$concat\":[\"HN\",\"$_hn_key\"]}}},{\"$match\":{\"xrstatx\":{\"$nin\":[0,3]},\"$or\":[{\"_hn_key\":\"{{hn}}\"},{\"_hn_key_prefixed\":\"{{hn}}\"}]}},{\"$addFields\":{\"_open_rank\":{\"$cond\":[{\"$eq\":[\"$visit_status\",false]},0,1]},\"_visit_sort\":{\"$ifNull\":[\"$visit_date\",\"\"]},\"_created_sort\":{\"$ifNull\":[\"$created_at\",\"\"]}}},{\"$sort\":{\"_open_rank\":-1,\"_visit_sort\":-1,\"_created_sort\":-1}},{\"$limit\":1},{\"$addFields\":{\"_patient\":\"$pid\",\"_birth_raw\":{\"$ifNull\":[\"$pid.birth_date\",\"$birth_date\"]}}},{\"$addFields\":{\"_birth_date\":{\"$convert\":{\"input\":\"$_birth_raw\",\"to\":\"date\",\"onError\":null,\"onNull\":null}}}},{\"$project\":{\"_id\":1,\"hospital_name\":\"สถาบันสุขภาพเด็กแห่งชาติมหาราชินี\",\"hn\":{\"$ifNull\":[\"$_hn_key\",{\"$ifNull\":[\"$_patient.hn\",\"\"]}]},\"patient_name\":{\"$trim\":{\"input\":{\"$concat\":[{\"$ifNull\":[\"$_patient.prename.label\",\"\"]},{\"$ifNull\":[\"$_patient.p_fname\",\"\"]},\" \",{\"$ifNull\":[\"$_patient.p_lname\",\"\"]}]}}},\"birth_date_display\":{\"$cond\":[{\"$ne\":[\"$_birth_date\",null]},{\"$concat\":[{\"$dateToString\":{\"date\":\"$_birth_date\",\"format\":\"%d/%m/\",\"timezone\":\"Asia/Bangkok\"}},{\"$toString\":{\"$add\":[{\"$year\":\"$_birth_date\"},543]}}]},\"\"]},\"age_display\":{\"$cond\":[{\"$ne\":[\"$_birth_date\",null]},{\"$let\":{\"vars\":{\"birth\":\"$_birth_date\"},\"in\":{\"$cond\":[{\"$and\":[{\"$ne\":[\"$$birth\",null]},{\"$lte\":[\"$$birth\",\"$$NOW\"]}]},{\"$let\":{\"vars\":{\"rawYears\":{\"$dateDiff\":{\"startDate\":\"$$birth\",\"endDate\":\"$$NOW\",\"unit\":\"year\",\"timezone\":\"Asia/Bangkok\"}}},\"in\":{\"$let\":{\"vars\":{\"years\":{\"$cond\":[{\"$gt\":[{\"$dateAdd\":{\"startDate\":\"$$birth\",\"unit\":\"year\",\"amount\":\"$$rawYears\",\"timezone\":\"Asia/Bangkok\"}},\"$$NOW\"]},{\"$subtract\":[\"$$rawYears\",1]},\"$$rawYears\"]}},\"in\":{\"$let\":{\"vars\":{\"yearAnchor\":{\"$dateAdd\":{\"startDate\":\"$$birth\",\"unit\":\"year\",\"amount\":\"$$years\",\"timezone\":\"Asia/Bangkok\"}}},\"in\":{\"$let\":{\"vars\":{\"rawMonths\":{\"$dateDiff\":{\"startDate\":\"$$yearAnchor\",\"endDate\":\"$$NOW\",\"unit\":\"month\",\"timezone\":\"Asia/Bangkok\"}}},\"in\":{\"$let\":{\"vars\":{\"months\":{\"$cond\":[{\"$gt\":[{\"$dateAdd\":{\"startDate\":\"$$yearAnchor\",\"unit\":\"month\",\"amount\":\"$$rawMonths\",\"timezone\":\"Asia/Bangkok\"}},\"$$NOW\"]},{\"$subtract\":[\"$$rawMonths\",1]},\"$$rawMonths\"]}},\"in\":{\"$let\":{\"vars\":{\"monthAnchor\":{\"$dateAdd\":{\"startDate\":\"$$yearAnchor\",\"unit\":\"month\",\"amount\":\"$$months\",\"timezone\":\"Asia/Bangkok\"}}},\"in\":{\"$concat\":[{\"$toString\":\"$$years\"},\" ปี \",{\"$toString\":\"$$months\"},\" เดือน \",{\"$toString\":{\"$dateDiff\":{\"startDate\":\"$$monthAnchor\",\"endDate\":\"$$NOW\",\"unit\":\"day\",\"timezone\":\"Asia/Bangkok\"}}},\" วัน\"]}}}}}}}}}}}}},\"\"]}}},{\"$cond\":[{\"$ne\":[{\"$ifNull\":[\"$_patient.age\",null]},null]},{\"$concat\":[{\"$toString\":\"$_patient.age\"},\" ปี\"]},\"\"]}]},\"gender_text\":{\"$ifNull\":[\"$gender_text\",{\"$switch\":{\"branches\":[{\"case\":{\"$eq\":[{\"$toString\":{\"$ifNull\":[\"$_patient.p_gender\",\"\"]}},\"1\"]},\"then\":\"ชาย\"},{\"case\":{\"$eq\":[{\"$toString\":{\"$ifNull\":[\"$_patient.p_gender\",\"\"]}},\"2\"]},\"then\":\"หญิง\"}],\"default\":\"\"}}]},\"blood_group\":{\"$ifNull\":[\"$abogroup_text\",{\"$ifNull\":[\"$_patient.p_abogroup\",\"\"]}]},\"ward_display\":{\"$ifNull\":[\"$ward.label\",{\"$ifNull\":[\"$visit_clinic.label\",{\"$ifNull\":[\"$visit_clinic.value\",\"\"]}]}]}}},{\"$limit\":1}]",
+    "nosql_type": "aggregate",
+    "pg_sql": null,
+    "sql_assign_roles": null,
+    "sql_category": null,
+    "sql_desc": "ข้อมูลป้ายติดแฟ้ม HN: ชื่อผู้ป่วย HN วันเกิด อายุ เพศ หมู่เลือด และวาร์ดต้นทาง ค้นด้วย HN อย่างเดียว",
+    "sql_form_id": {
+      "value": "6a40fdec4b6dfdf45acbfbce",
+      "label": "Visit"
+    },
+    "sql_from": "zdata_visit",
+    "sql_group_by": null,
+    "sql_join": [],
+    "sql_limit": null,
+    "sql_name": "HN Patient Sticker v1",
+    "sql_note": "พารามิเตอร์เดียวคือ hn ⇒ ใช้ได้ทั้ง LAB และ X-ray โดยไม่มีข้อมูลของสองระบบนั้นเลย; เลือก Visit ที่ยังเปิดอยู่ก่อน แล้วจึงเอาล่าสุด",
+    "sql_options": {
+      "variable": [
+        {
+          "vname": "hospital_name",
+          "origin": "hospital_name",
+          "as": null
+        },
+        {
+          "vname": "hn",
+          "origin": "hn",
+          "as": null
+        },
+        {
+          "vname": "patient_name",
+          "origin": "patient_name",
+          "as": null
+        },
+        {
+          "vname": "birth_date_display",
+          "origin": "birth_date_display",
+          "as": null
+        },
+        {
+          "vname": "age_display",
+          "origin": "age_display",
+          "as": null
+        },
+        {
+          "vname": "gender_text",
+          "origin": "gender_text",
+          "as": null
+        },
+        {
+          "vname": "blood_group",
+          "origin": "blood_group",
+          "as": null
+        },
+        {
+          "vname": "ward_display",
+          "origin": "ward_display",
+          "as": null
+        }
+      ],
+      "param": [
+        {
+          "pname": "hn",
+          "ptype": "text",
+          "pdefault": null
+        }
+      ]
+    },
+    "sql_order_by": [],
+    "sql_rstat": false,
+    "sql_select": [],
+    "sql_share": "public",
+    "sql_tags": [
+      "HN",
+      "sticker",
+      "patient",
+      "label"
+    ],
+    "sql_type": "nosql",
+    "sql_where": null,
+    "tool_license": "6a3113a619ee74c8f82854a0",
+    "xclonex": null,
+    "tool_feature": "sql"
+  }
+]

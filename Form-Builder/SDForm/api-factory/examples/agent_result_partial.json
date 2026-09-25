@@ -17,6 +17,7 @@
       "obs_code": "NA",
       "obs_name": "Sodium",
       "value": "128",
+      "comment": "hemolyzed sample\nrepeat confirmed",
       "units": "mmol/L",
       "ref_range": "135-145",
       "obx_status": "P",

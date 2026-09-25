@@ -1,0 +1,792 @@
+<title>สลับรายการ CBC</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* ── โทเคนสีชุดเดียวกับ Element Plus ที่ฟอร์ม lab-cpoe ใช้จริง ─────────────── */
+:root{
+  --primary:#409eff; --primary-50:#ecf5ff; --primary-5:#a0cfff; --primary-7:#c6e2ff; --primary-dark:#337ecc;
+  --success:#67c23a; --success-50:#f0f9eb; --success-5:#b3e19d; --success-dark:#529b2e; --success-3:#95d475;
+  --warning:#e6a23c; --warning-50:#fdf6ec; --warning-5:#f3d19e;
+  --danger:#f56c6c;  --danger-50:#fef0f0;  --danger-5:#fab6b6;
+  --wait:#fadb14; --wait-bg:#fffbe6; --wait-text:#8a6d00;
+  --ink:#303133; --text:#606266; --muted:#909399; --placeholder:#a8abb2;
+  --border:#dcdfe6; --border-light:#e4e7ed; --border-lighter:#ebeef5; --border-darker:#c8c9cc;
+  --fill:#f0f2f5; --fill-light:#f5f7fa; --fill-lighter:#fafafa; --white:#fff;
+  --ground:#eceff4;
+  --shadow:0 1px 2px rgba(0,0,0,.05), 0 8px 24px rgba(48,49,51,.07);
+  --ui:"Leelawadee UI","Noto Sans Thai",Tahoma,"Segoe UI",system-ui,sans-serif;
+  --mono:"SFMono-Regular","IBM Plex Mono","Roboto Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --primary:#5fadff; --primary-50:#18222e; --primary-5:#2e5b8a; --primary-7:#24425f; --primary-dark:#8cc5ff;
+    --success:#85ce61; --success-50:#1b2a17; --success-5:#3f6b2c; --success-dark:#a7dd8a; --success-3:#7ab85c;
+    --warning:#ebb563; --warning-50:#2e2519; --warning-5:#6b5326;
+    --danger:#f78989;  --danger-50:#2e1c1c;  --danger-5:#6b3535;
+    --wait:#fadb14; --wait-bg:rgba(250,219,20,.14); --wait-text:#ffe45c;
+    --ink:#e5eaf3; --text:#cfd3dc; --muted:#a3a6ad; --placeholder:#8d9095;
+    --border:#4c4d4f; --border-light:#414243; --border-lighter:#363637; --border-darker:#58585b;
+    --fill:#303030; --fill-light:#262727; --fill-lighter:#1d1d1d; --white:#1a1a1a;
+    --ground:#111213;
+    --shadow:0 1px 2px rgba(0,0,0,.5), 0 8px 24px rgba(0,0,0,.45);
+  }
+}
+:root[data-theme="dark"]{
+  --primary:#5fadff; --primary-50:#18222e; --primary-5:#2e5b8a; --primary-7:#24425f; --primary-dark:#8cc5ff;
+  --success:#85ce61; --success-50:#1b2a17; --success-5:#3f6b2c; --success-dark:#a7dd8a; --success-3:#7ab85c;
+  --warning:#ebb563; --warning-50:#2e2519; --warning-5:#6b5326;
+  --danger:#f78989;  --danger-50:#2e1c1c;  --danger-5:#6b3535;
+  --wait:#fadb14; --wait-bg:rgba(250,219,20,.14); --wait-text:#ffe45c;
+  --ink:#e5eaf3; --text:#cfd3dc; --muted:#a3a6ad; --placeholder:#8d9095;
+  --border:#4c4d4f; --border-light:#414243; --border-lighter:#363637; --border-darker:#58585b;
+  --fill:#303030; --fill-light:#262727; --fill-lighter:#1d1d1d; --white:#1a1a1a;
+  --ground:#111213;
+  --shadow:0 1px 2px rgba(0,0,0,.5), 0 8px 24px rgba(0,0,0,.45);
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--text);font-family:var(--ui);font-size:13px;line-height:1.45}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radius:4px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+.page{max-width:1480px;margin:0 auto;padding:18px 16px 60px;display:flex;flex-direction:column;gap:14px}
+
+/* ── แถบคุมของ mockup (ไม่มีในของจริง) ───────────────────────────────── */
+.mockbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 14px;border:1px dashed var(--warning-5);border-radius:8px;background:var(--warning-50);color:var(--text);font-size:12px}
+.mockbar b{color:var(--ink)}
+.mockbar .spacer{flex:1 1 auto}
+.roomsw{display:inline-flex;gap:4px;padding:3px;border:1px solid var(--border);border-radius:999px;background:var(--white)}
+.roomsw button{min-height:26px;padding:2px 12px;border:0;border-radius:999px;background:transparent;color:var(--muted);font-size:11.5px;font-weight:650}
+.roomsw button.on{background:var(--primary-50);color:var(--primary);box-shadow:inset 0 0 0 1px var(--primary-5)}
+
+/* ── กรอบฟอร์มจำลอง ──────────────────────────────────────────────────── */
+.app{background:var(--white);border:1px solid var(--border-light);border-radius:10px;box-shadow:var(--shadow);padding:14px 14px 20px;display:flex;flex-direction:column;gap:0}
+.app-title{display:flex;align-items:baseline;gap:10px;padding:0 0 10px}
+.app-title h1{margin:0;color:var(--ink);font-size:16px;font-weight:700}
+.app-title span{color:var(--muted);font-size:11.5px}
+
+/* toolbar */
+.toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding-bottom:10px}
+.ctrl{min-height:30px;display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid var(--border);border-radius:5px;background:var(--fill-lighter);color:var(--placeholder);font-size:12px}
+.ctrl.search{flex:1 1 280px;max-width:340px}
+.ctrl.date{width:210px;justify-content:space-between}
+.btn{min-height:30px;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:4px 13px;border:1px solid var(--border);border-radius:5px;background:var(--white);color:var(--text);font-size:12px;font-weight:600;white-space:nowrap}
+.btn:hover{border-color:var(--primary-5);color:var(--primary)}
+.btn.primary{border-color:var(--primary);background:var(--primary);color:#fff}
+.btn.primary:hover{opacity:.9;color:#fff}
+.btn.ghost{background:var(--fill-lighter)}
+.btn[disabled],.btn.is-disabled{opacity:.55;cursor:not-allowed;border-color:var(--border);background:var(--fill-light);color:var(--placeholder)}
+.btn[disabled]:hover,.btn.is-disabled:hover{border-color:var(--border);color:var(--placeholder)}
+.toolbar .spacer{flex:1 1 auto}
+
+/* view tabs */
+.viewtabs{display:flex;align-items:center;gap:3px;margin:2px 0 10px;border-bottom:1px solid var(--border)}
+.viewtabs button{position:relative;min-height:36px;padding:7px 14px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--muted);font-weight:650}
+.viewtabs button:hover{color:var(--primary)}
+.viewtabs button.on{border-bottom-color:var(--primary);color:var(--primary)}
+.viewtabs .cnt{display:inline-grid;min-width:20px;height:18px;margin-left:6px;place-items:center;padding:0 5px;border-radius:999px;background:var(--danger);color:#fff;font-family:var(--mono);font-size:10px;font-weight:700;vertical-align:1px}
+.viewtabs button.on .cnt{background:var(--primary)}
+.viewtabs .new{margin-left:6px;padding:1px 5px;border:1px solid var(--primary-5);border-radius:3px;background:var(--primary-50);color:var(--primary);font-size:9px;font-weight:700;letter-spacing:.04em}
+
+/* context strip */
+.ctxstrip{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:10px;padding:9px 12px;border:1px solid var(--primary-7);border-left:3px solid var(--primary);border-radius:6px;background:var(--primary-50)}
+.ctxstrip strong{color:var(--ink);font-size:12.5px}
+.ctxstrip span{color:var(--text);font-size:11.5px}
+.ctxstrip .dot{color:var(--primary-5)}
+
+/* code filter chips */
+.codestrip{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:10px}
+.chip{display:flex;align-items:baseline;gap:6px;min-height:32px;padding:5px 12px;border:1px solid var(--border-light);border-radius:6px;background:var(--fill-light);color:var(--muted)}
+.chip strong{font-family:var(--mono);font-size:17px;line-height:1;color:var(--muted)}
+.chip span{font-size:12px}
+.chip.on{border-color:var(--primary);background:var(--fill)}
+.chip.on strong{color:var(--primary)}
+.chip.on span{color:var(--ink)}
+.codestrip small{margin-left:auto;color:var(--muted);font-size:11px}
+
+.summary{margin:0 0 8px;color:var(--muted);font-size:12px}
+.summary b{color:var(--ink)}
+
+/* ── ตารางรายการ ─────────────────────────────────────────────────────── */
+.shell{border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.grid{display:grid;grid-template-columns:32px minmax(180px,1.35fr) minmax(170px,1.25fr) 70px 80px 92px minmax(140px,1.1fr) minmax(130px,1.05fr) 104px 116px;gap:9px;align-items:center;padding:8px 10px}
+.head{color:var(--muted);font-size:11px;font-weight:650;letter-spacing:.02em;border-bottom:1px solid var(--border)}
+.block{border-bottom:1px solid var(--border-lighter);transition:opacity .26s,transform .26s}
+.block:last-child{border-bottom:0}
+.block.leaving{opacity:0;transform:translateX(22px);pointer-events:none}
+.row{min-height:74px;background:var(--white);cursor:pointer;transition:background-color .15s}
+.row:hover{background:var(--fill-light)}
+.block.open .row{background:var(--fill)}
+.caret{display:grid;width:28px;height:30px;place-items:center;padding:0;border:0;border-radius:4px;background:transparent;color:var(--muted)}
+.caret svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;transition:transform .16s}
+.block.open .caret svg{transform:rotate(90deg)}
+
+.pt-hn{display:flex;align-items:center;gap:6px;color:var(--ink);font-weight:700}
+.pt-name{margin-top:1px;color:var(--ink);font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pt-demo{display:flex;align-items:center;gap:6px;margin-top:1px;color:var(--muted);font-size:11px}
+
+.tag{display:inline-flex;min-height:20px;align-items:center;justify-content:center;padding:1px 6px;border:1px solid;border-radius:4px;font-size:10px;font-weight:650;white-space:nowrap}
+.tag.urgent{min-height:18px;padding:0 5px;border-color:var(--danger-5);background:var(--danger-50);color:var(--danger);font-size:9px}
+.tag.gender{min-height:18px;padding:0 6px;border-color:var(--border-darker);border-radius:999px;background:var(--white);color:var(--text);font-size:9px}
+.pill{min-height:21px;padding:1px 8px;border-radius:999px;border-color:var(--border-darker);background:var(--white);color:var(--text)}
+.pill.src{border-color:var(--primary-5);background:var(--primary-50);color:var(--primary)}
+.pill.paid{border-color:var(--success-5);background:var(--success-50);color:var(--success)}
+.pill.cov{border-color:var(--warning-5);background:var(--warning-50);color:var(--warning)}
+.ctx-top{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-bottom:4px}
+.cbc-flag{display:inline-flex;align-items:center;gap:5px;width:max-content;max-width:100%;min-height:22px;padding:1px 9px;border:1px solid var(--primary-5);border-radius:999px;background:var(--primary-50);color:var(--primary);font-size:10.5px;font-weight:700}
+.cbc-flag .code{font-family:var(--mono);font-weight:700}
+
+.val{display:block;min-width:0;overflow:hidden;color:var(--ink);font-size:12px;font-weight:650;text-overflow:ellipsis;white-space:nowrap}
+.sub{display:block;margin-top:2px;color:var(--muted);font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sect{display:inline-flex;min-width:36px;min-height:23px;align-items:center;justify-content:center;padding:1px 7px;border:1px solid var(--primary-5);border-radius:5px;background:var(--primary-50);color:var(--primary);font-family:var(--mono);font-size:11px;font-weight:750}
+.sect.other{border-color:var(--border-darker);background:var(--fill);color:var(--muted)}
+.sectwrap{display:flex;flex-wrap:wrap;gap:4px}
+.orderno{display:inline-flex;max-width:100%;min-height:18px;align-items:center;padding:0 6px;border:1px solid var(--primary-5);border-radius:999px;background:var(--primary-50);color:var(--primary);font-family:var(--mono);font-size:9px;white-space:nowrap}
+.time{margin-top:3px;color:var(--ink);font-size:12px;font-weight:650;line-height:1.25}
+.time span{display:block}
+
+.status{display:flex;align-items:center;gap:8px}
+.step{display:inline-flex;align-items:center;gap:3px;font-size:10px}
+.step i{width:10px;height:10px;flex:none;border-radius:50%}
+.step b{font-weight:650;line-height:1}
+.step.wait i{background:var(--wait)} .step.wait b{color:var(--wait-text)}
+.step.recv i{background:var(--warning)} .step.recv b{color:var(--warning)}
+.step.part i{background:var(--success-3)} .step.part b{color:var(--success-dark)}
+.step.comp i{background:var(--success)} .step.comp b{color:var(--success)}
+
+.act{display:flex;flex-direction:column;gap:4px;align-items:stretch}
+.act .btn{width:100%;padding:5px 7px;font-size:11px}
+.act .note{color:var(--muted);font-size:9.5px;text-align:center;line-height:1.3}
+.empty{display:grid;min-height:190px;place-content:center;gap:6px;padding:20px;background:var(--fill-lighter);text-align:center}
+.empty strong{color:var(--ink);font-size:15px}
+.empty span{color:var(--muted);font-size:12px}
+[hidden]{display:none!important}
+
+/* ── รายละเอียดใน order ──────────────────────────────────────────────── */
+.detail{padding:0 10px 14px 42px;border-top:1px solid var(--border-lighter);background:var(--fill-lighter)}
+.detail-top{display:flex;align-items:flex-end;gap:16px;min-height:42px;border-bottom:1px solid var(--border-light)}
+.detail-tab{height:42px;padding:0;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--muted);font-size:12px;font-weight:650}
+.detail-tab.on{border-bottom-color:var(--primary);color:var(--primary)}
+.detail-top .ro{margin-left:auto;padding-bottom:7px;color:var(--muted);font-size:11px}
+.itemwrap{overflow-x:auto;margin-left:-42px}
+.igrid{display:grid;grid-template-columns:42px 52px 108px minmax(220px,1.6fr) minmax(150px,1fr) 128px 100px 92px minmax(120px,.9fr);gap:10px;align-items:center;min-width:1120px;padding:6px 0}
+.ihead{min-height:44px;color:var(--ink);font-size:11px;font-weight:650;border-top:1px solid var(--primary-7);border-bottom:1px solid var(--primary-7);background:var(--primary-50)}
+.ihead>div:first-child,.irow>div:first-child{padding-left:12px}
+.irow{min-height:50px;border-bottom:1px dashed var(--border-lighter);font-size:12px}
+.irow:last-child{border-bottom:0}
+.irow.cbc{background:var(--primary-50)}
+.iname{color:var(--ink);font-weight:650}
+.iname .c{font-family:var(--mono);color:var(--primary);font-weight:700}
+.state{display:inline-flex;min-height:20px;align-items:center;justify-content:center;padding:1px 6px;border:1px solid;border-radius:4px;font-size:10px;font-weight:650;white-space:nowrap}
+.state.wait{border-color:var(--wait);background:var(--wait-bg);color:var(--wait-text)}
+.state.recv{border-color:var(--warning);background:var(--warning-50);color:var(--warning)}
+.mark{display:inline-flex;align-items:center;gap:4px;min-height:20px;padding:1px 7px;border:1px solid var(--primary-5);border-radius:999px;background:var(--white);color:var(--primary);font-size:10px;font-weight:700}
+
+/* ── dialog ──────────────────────────────────────────────────────────── */
+.overlay{position:fixed;inset:0;z-index:40;display:grid;place-items:start center;padding:6vh 16px;background:rgba(0,0,0,.45);overflow:auto}
+.overlay[hidden]{display:none!important}
+.dialog{width:min(560px,100%);border:1px solid var(--border-light);border-radius:8px;background:var(--white);box-shadow:0 12px 40px rgba(0,0,0,.28)}
+.dlg-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:15px 18px;border-bottom:1px solid var(--border-lighter)}
+.dlg-head strong{display:block;color:var(--ink);font-size:16px}
+.dlg-head small{display:block;margin-top:3px;color:var(--muted);font-size:11.5px}
+.dlg-x{display:grid;width:26px;height:26px;place-items:center;border:0;border-radius:5px;background:transparent;color:var(--muted);font-size:16px;line-height:1}
+.dlg-x:hover{background:var(--fill-light);color:var(--ink)}
+.dlg-body{display:grid;gap:14px;padding:16px 18px}
+.dlg-foot{display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid var(--border-lighter)}
+
+.ptcard{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:11px;align-items:center;padding:11px 13px;border:1px solid var(--border-light);border-radius:7px;background:var(--fill-lighter)}
+.ptcard .av{display:grid;width:40px;height:40px;place-items:center;border-radius:50%;background:var(--primary-50);color:var(--primary-dark);font-size:13px;font-weight:750}
+.ptcard strong{display:block;color:var(--ink);font-size:14px}
+.ptcard small{display:block;margin-top:2px;color:var(--muted);font-size:11px}
+
+.swapbox{display:grid;grid-template-columns:1fr 34px 1fr;gap:8px;align-items:stretch}
+.swapcell{display:grid;gap:3px;padding:11px 12px;border:1px solid var(--border);border-radius:7px;background:var(--white)}
+.swapcell .cap{color:var(--muted);font-size:10.5px;font-weight:650;letter-spacing:.03em}
+.swapcell .code{color:var(--ink);font-family:var(--mono);font-size:19px;font-weight:700;letter-spacing:.01em}
+.swapcell .nm{color:var(--text);font-size:11.5px}
+.swapcell .room{margin-top:4px;justify-self:start}
+.swapcell.from{border-style:dashed;background:var(--fill-lighter)}
+.swapcell.from .code{color:var(--muted);text-decoration:line-through;text-decoration-thickness:1.5px}
+.swapcell.to{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-50)}
+.swapcell.to .code{color:var(--primary)}
+.arrow{display:grid;place-items:center;color:var(--primary);font-size:20px;font-weight:700}
+
+.facts{display:grid;gap:6px;margin:0;padding:11px 13px;border:1px solid var(--warning-5);border-radius:7px;background:var(--warning-50);list-style:none}
+.facts li{display:flex;gap:7px;color:var(--text);font-size:11.5px;line-height:1.5}
+.facts li::before{content:"•";color:var(--warning);font-weight:700}
+.facts b{color:var(--ink)}
+
+.reason{display:grid;gap:6px}
+.reason>span{color:var(--ink);font-size:12px;font-weight:650}
+.reason>span em{color:var(--muted);font-style:normal;font-weight:400;font-size:11px}
+.reason select{min-height:32px;padding:5px 9px;border:1px solid var(--border);border-radius:5px;background:var(--white);color:var(--text);font:inherit}
+
+/* toast */
+.toast{position:fixed;top:18px;left:50%;z-index:60;transform:translate(-50%,-14px);display:flex;align-items:center;gap:9px;max-width:92vw;padding:10px 16px;border:1px solid var(--success-5);border-radius:6px;background:var(--success-50);color:var(--success-dark);font-size:12.5px;font-weight:650;box-shadow:var(--shadow);opacity:0;transition:opacity .18s,transform .18s;pointer-events:none}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+
+/* ── บันทึกดีไซน์ท้ายหน้า ────────────────────────────────────────────── */
+.notes{display:grid;gap:10px}
+.notes h2{margin:0;color:var(--ink);font-size:14px;font-weight:700}
+.notegrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:10px}
+.note{display:grid;gap:4px;padding:12px 14px;border:1px solid var(--border-light);border-left:3px solid var(--primary);border-radius:7px;background:var(--white);font-size:12px;line-height:1.55}
+.note b{color:var(--ink)}
+.note.ok{border-left-color:var(--success);background:var(--success-50)}
+.note.ask{border-left-color:var(--warning);background:var(--warning-50)}
+.note.watch{border-left-color:var(--danger);background:var(--danger-50)}
+.note code{font-family:var(--mono);font-size:11px;color:var(--primary)}
+
+@media(max-width:1180px){
+  .head{display:none}
+  .grid{grid-template-columns:32px minmax(150px,1.2fr) minmax(120px,1fr) 92px 116px;gap:8px 10px}
+  .row>.c-items,.row>.c-spec{display:none}
+  .row>.c-order{grid-column:2;grid-row:2}
+  .row>.c-doc{grid-column:3/5;grid-row:2}
+  .row>.c-status{grid-column:4;grid-row:1}
+  .row>.c-act{grid-column:5;grid-row:1/3}
+  .detail{padding-left:10px}
+  .itemwrap{margin-left:-10px}
+}
+@media(max-width:720px){
+  .grid{grid-template-columns:28px minmax(0,1fr) 116px}
+  .row>.c-ctx{grid-column:2/4;grid-row:2}
+  .row>.c-order{grid-column:2;grid-row:3}
+  .row>.c-doc{grid-column:2/4;grid-row:4}
+  .row>.c-status{grid-column:2;grid-row:5}
+  .row>.c-act{grid-column:3;grid-row:1}
+  .swapbox{grid-template-columns:1fr}
+  .arrow{transform:rotate(90deg)}
+}
+</style>
+
+<div class="page">
+
+  <div class="mockbar">
+    <b>Mockup</b>
+    <span>แท็บใหม่ “สลับรายการ CBC” ของ LAB Worklist — ยังไม่แตะฟอร์ม/Process จริง</span>
+    <span class="spacer"></span>
+    <span>จำลองห้องที่ล็อกอิน:</span>
+    <span class="roomsw" role="group" aria-label="จำลองห้องที่ล็อกอิน">
+      <button type="button" class="on" data-room="HM">HM โลหิตวิทยา</button>
+      <button type="button" data-room="ML">ML จุลทรรศน์คลินิก</button>
+      <button type="button" data-room="BC">BC ชีวเคมี</button>
+    </span>
+    <button type="button" class="btn ghost" id="resetMock">รีเซ็ต mockup</button>
+  </div>
+
+  <div class="app">
+    <div class="app-title">
+      <h1>LAB Worklist</h1>
+      <span>งานห้องปฏิบัติการ · <span id="roomName">HM — งานโลหิตวิทยา</span></span>
+    </div>
+
+    <div class="toolbar">
+      <span class="ctrl search">🔍 ค้นหา HN / VN / LN / ชื่อผู้ป่วย…</span>
+      <span class="ctrl date">22/09/2569 <span>ถึง</span> 22/09/2569</span>
+      <button type="button" class="btn primary">Search</button>
+      <button type="button" class="btn">Report ⌄</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn primary">สร้างรายการใหม่</button>
+    </div>
+
+    <div class="viewtabs" role="tablist" aria-label="เลือกมุมมอง LAB Worklist">
+      <button type="button" role="tab" aria-selected="false" data-view="today">รายการวันนี้</button>
+      <button type="button" role="tab" aria-selected="false" data-view="lookup">สืบค้นผลแลป</button>
+      <button type="button" role="tab" aria-selected="true" class="on" data-view="cbc" id="tabCbc">
+        สลับรายการ CBC<span class="cnt" id="tabCount">5</span><span class="new">HM · ML</span>
+      </button>
+    </div>
+
+    <div class="ctxstrip" id="ctxStrip" role="status">
+      <strong>รวม CBC ของสองห้องไว้ที่นี่ก่อน</strong>
+      <span class="dot">·</span>
+      <span>แสดงทุก Order ที่มีรายการ <span class="mono">HM1</span> หรือ <span class="mono">MS1</span> โดยยกมาทั้ง Order</span>
+      <span class="dot">·</span>
+      <span>เห็นแท็บนี้เฉพาะห้อง <b class="mono">HM</b> และ <b class="mono">ML</b></span>
+      <span class="dot">·</span>
+      <span>ยืนยันสลับแล้ว แถวจะออกจากแท็บนี้ทันที</span>
+    </div>
+
+    <div class="codestrip" role="group" aria-label="กรองตามรหัส CBC">
+      <button type="button" class="chip on"><strong id="cntAll">5</strong><span>ทั้งหมด</span></button>
+      <button type="button" class="chip"><strong id="cntHm">2</strong><span>HM1 · CBC (HM)</span></button>
+      <button type="button" class="chip"><strong id="cntMs">3</strong><span>MS1 · CBC (ML)</span></button>
+      <small>ตัวกรองย่อยเป็นข้อเสนอเสริม — ตัดออกได้ถ้าไม่ต้องการ</small>
+    </div>
+
+    <div class="empty" id="noAccess" hidden>
+      <strong>ห้องนี้ไม่มีแท็บสลับรายการ CBC</strong>
+      <span>เห็นได้เฉพาะ <span class="mono">HM</span> งานโลหิตวิทยา และ <span class="mono">ML</span> งานจุลทรรศนศาสตร์คลินิก</span>
+    </div>
+
+    <p class="summary">แสดง <b id="sumShown">5</b> Order จากทั้งหมด <b id="sumTotal">5</b> · เฉพาะ Order ที่มีรายการ CBC รหัส <span class="mono">HM1</span> / <span class="mono">MS1</span> · วันที่ 22/09/2569</p>
+
+    <section class="shell" aria-label="รายการ Order ที่มี CBC">
+      <div class="grid head" aria-hidden="true">
+        <div></div><div>ผู้ป่วย</div><div></div><div>รายการ</div><div>Specimen</div><div>ห้องแลป</div>
+        <div>เวลาสั่ง / Order No.</div><div>แพทย์</div><div>สถานะ</div><div>ดำเนินการ</div>
+      </div>
+
+      <!-- ── แถว 1: MS1 ห้อง ML → สลับเป็น HM1 ─────────────────────────── -->
+      <article class="block open" data-block="1" data-code="MS1">
+        <div class="grid row">
+          <button type="button" class="caret" aria-label="ย่อรายละเอียด" aria-expanded="true">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"></path></svg>
+          </button>
+          <div class="c-pt">
+            <div class="pt-hn"><span class="mono">0000481</span><span class="tag urgent">เร่งด่วน</span></div>
+            <div class="pt-name">น.ส. กนกวรรณ ศรีสุขใจ</div>
+            <div class="pt-demo"><span class="tag gender">หญิง</span><span>34 ปี 2 ด.</span></div>
+          </div>
+          <div class="c-ctx">
+            <div class="ctx-top">
+              <span class="tag pill src">OPD อายุรกรรม</span>
+              <span class="tag pill paid">ชำระเงินแล้ว</span>
+              <span class="tag pill cov">UC</span>
+            </div>
+            <span class="cbc-flag">🩸 CBC <span class="code">MS1</span> · 1 รายการ</span>
+          </div>
+          <div class="c-items"><span class="val">3 orders</span></div>
+          <div class="c-spec"><span class="val">2 specimens</span></div>
+          <div class="c-sect"><span class="sectwrap"><span class="sect">ML</span></span></div>
+          <div class="c-order">
+            <span class="orderno">LB6909220012</span>
+            <span class="time mono"><span>22/09/2569</span><span>08:41</span></span>
+          </div>
+          <div class="c-doc">
+            <span class="val">นพ. ธนกฤต วงศ์อนันต์</span>
+            <span class="sub">Diagnosis: Anemia, unspecified</span>
+          </div>
+          <div class="c-status status">
+            <span class="step wait"><i aria-hidden="true"></i><b>3</b></span>
+          </div>
+          <div class="c-act act">
+            <button type="button" class="btn primary" data-swap="1">สลับรายการ</button>
+          </div>
+        </div>
+
+        <div class="detail">
+          <div class="detail-top" role="tablist">
+            <button type="button" class="detail-tab on" role="tab" aria-selected="true">order</button>
+            <button type="button" class="detail-tab" role="tab" aria-selected="false">ออกผล</button>
+            <span class="ro">แท็บนี้ดูอย่างเดียว — รับ specimen / ปฏิเสธ / ยกเลิก ทำที่แท็บ “รายการวันนี้”</span>
+          </div>
+          <div class="itemwrap">
+            <div class="igrid ihead">
+              <div></div><div>ลำดับ</div><div>Lab no.</div><div>รายการสั่งตรวจ</div><div>specimen</div>
+              <div>เวลาเก็บ specimen</div><div>ห้องแลป</div><div>สถานะ</div><div>หมายเหตุ</div>
+            </div>
+            <div class="igrid irow cbc">
+              <div></div><div class="mono">1</div><div class="mono">—</div>
+              <div class="iname"><span class="c">MS1</span> CBC (Complete Blood Count)</div>
+              <div>EDTA blood</div><div class="mono">22/09/2569 08:35</div>
+              <div><span class="sect">ML</span></div>
+              <div><span class="state wait">รอรับ</span></div>
+              <div><span class="mark">สลับได้</span></div>
+            </div>
+            <div class="igrid irow">
+              <div></div><div class="mono">2</div><div class="mono">—</div>
+              <div class="iname"><span class="c">MS3</span> Urine Analysis</div>
+              <div>Urine</div><div class="mono">22/09/2569 08:35</div>
+              <div><span class="sect other">ML</span></div>
+              <div><span class="state wait">รอรับ</span></div>
+              <div></div>
+            </div>
+            <div class="igrid irow">
+              <div></div><div class="mono">3</div><div class="mono">—</div>
+              <div class="iname"><span class="c">MS7</span> Stool Examination</div>
+              <div>Stool</div><div class="mono">22/09/2569 08:36</div>
+              <div><span class="sect other">ML</span></div>
+              <div><span class="state wait">รอรับ</span></div>
+              <div></div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- ── แถว 2: HM1 ห้อง HM → สลับเป็น MS1 ─────────────────────────── -->
+      <article class="block" data-block="2" data-code="HM1">
+        <div class="grid row">
+          <button type="button" class="caret" aria-label="ขยายรายละเอียด" aria-expanded="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"></path></svg>
+          </button>
+          <div class="c-pt">
+            <div class="pt-hn"><span class="mono">0000123</span></div>
+            <div class="pt-name">นาย สมชาย ภักดีราษฎร์</div>
+            <div class="pt-demo"><span class="tag gender">ชาย</span><span>58 ปี 7 ด.</span></div>
+          </div>
+          <div class="c-ctx">
+            <div class="ctx-top">
+              <span class="tag pill src">OPD ศัลยกรรม</span>
+              <span class="tag pill cov">ข้าราชการ</span>
+            </div>
+            <span class="cbc-flag">🩸 CBC <span class="code">HM1</span> · 1 รายการ</span>
+          </div>
+          <div class="c-items"><span class="val">2 orders</span></div>
+          <div class="c-spec"><span class="val">1 specimen</span></div>
+          <div class="c-sect"><span class="sectwrap"><span class="sect">HM</span></span></div>
+          <div class="c-order">
+            <span class="orderno">LB6909220019</span>
+            <span class="time mono"><span>22/09/2569</span><span>08:47</span></span>
+          </div>
+          <div class="c-doc">
+            <span class="val">พญ. ปาริชาต แก้วประเสริฐ</span>
+            <span class="sub">Diagnosis: Pre-operative assessment</span>
+          </div>
+          <div class="c-status status">
+            <span class="step wait"><i aria-hidden="true"></i><b>2</b></span>
+          </div>
+          <div class="c-act act">
+            <button type="button" class="btn primary" data-swap="2">สลับรายการ</button>
+          </div>
+        </div>
+      </article>
+
+      <!-- ── แถว 3: Order ข้าม section — ยกมาทั้ง Order ─────────────────── -->
+      <article class="block" data-block="3" data-code="HM1">
+        <div class="grid row">
+          <button type="button" class="caret" aria-label="ขยายรายละเอียด" aria-expanded="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"></path></svg>
+          </button>
+          <div class="c-pt">
+            <div class="pt-hn"><span class="mono">0000774</span></div>
+            <div class="pt-name">นาง วิไลวรรณ ทองดีเลิศ</div>
+            <div class="pt-demo"><span class="tag gender">หญิง</span><span>66 ปี 1 ด.</span></div>
+          </div>
+          <div class="c-ctx">
+            <div class="ctx-top">
+              <span class="tag pill src">IPD อายุรกรรมหญิง</span>
+              <span class="tag pill paid">ชำระเงินแล้ว</span>
+            </div>
+            <span class="cbc-flag">🩸 CBC <span class="code">HM1</span> · 1 ใน 4 รายการ</span>
+          </div>
+          <div class="c-items"><span class="val">4 orders</span></div>
+          <div class="c-spec"><span class="val">3 specimens</span></div>
+          <div class="c-sect"><span class="sectwrap"><span class="sect">HM</span><span class="sect other">BC</span></span></div>
+          <div class="c-order">
+            <span class="orderno">LB6909220024</span>
+            <span class="time mono"><span>22/09/2569</span><span>09:02</span></span>
+          </div>
+          <div class="c-doc">
+            <span class="val">นพ. อนุชา รัตนโกศล</span>
+            <span class="sub">Diagnosis: Chronic kidney disease, stage 3</span>
+          </div>
+          <div class="c-status status">
+            <span class="step wait"><i aria-hidden="true"></i><b>4</b></span>
+          </div>
+          <div class="c-act act">
+            <button type="button" class="btn primary" data-swap="3">สลับรายการ</button>
+            <span class="note">สลับเฉพาะรายการ CBC</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- ── แถว 4: รับ specimen แล้ว — ปุ่มปิด ──────────────────────────── -->
+      <article class="block" data-block="4" data-code="MS1">
+        <div class="grid row">
+          <button type="button" class="caret" aria-label="ขยายรายละเอียด" aria-expanded="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"></path></svg>
+          </button>
+          <div class="c-pt">
+            <div class="pt-hn"><span class="mono">0000902</span></div>
+            <div class="pt-name">ด.ช. ภูริช สุวรรณเดช</div>
+            <div class="pt-demo"><span class="tag gender">ชาย</span><span>7 ปี 4 ด.</span></div>
+          </div>
+          <div class="c-ctx">
+            <div class="ctx-top">
+              <span class="tag pill src">ER</span>
+              <span class="tag pill cov">UC</span>
+            </div>
+            <span class="cbc-flag">🩸 CBC <span class="code">MS1</span> · 1 รายการ</span>
+          </div>
+          <div class="c-items"><span class="val">2 orders</span></div>
+          <div class="c-spec"><span class="val">2 specimens</span></div>
+          <div class="c-sect"><span class="sectwrap"><span class="sect">ML</span></span></div>
+          <div class="c-order">
+            <span class="orderno">LB6909220007</span>
+            <span class="time mono"><span>22/09/2569</span><span>07:58</span></span>
+          </div>
+          <div class="c-doc">
+            <span class="val">นพ. กิตติพงศ์ ใจงาม</span>
+            <span class="sub">Diagnosis: Fever, unspecified</span>
+          </div>
+          <div class="c-status status">
+            <span class="step recv"><i aria-hidden="true"></i><b>2</b></span>
+          </div>
+          <div class="c-act act">
+            <button type="button" class="btn is-disabled" disabled title="รายการ CBC MS1 รับ specimen แล้ว · LAB NO. 106909220031 ออกแล้ว — สลับไม่ได้">สลับรายการ</button>
+            <span class="note">CBC รับแล้ว · LAB NO. ออกแล้ว</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- ── แถว 5: รายการอื่นรับแล้ว แต่ CBC ยังรอรับ — ยังสลับได้ ──────── -->
+      <article class="block" data-block="5" data-code="MS1">
+        <div class="grid row">
+          <button type="button" class="caret" aria-label="ขยายรายละเอียด" aria-expanded="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"></path></svg>
+          </button>
+          <div class="c-pt">
+            <div class="pt-hn"><span class="mono">0000615</span></div>
+            <div class="pt-name">นาง อารีย์ พิทักษ์ชน</div>
+            <div class="pt-demo"><span class="tag gender">หญิง</span><span>52 ปี 3 ด.</span></div>
+          </div>
+          <div class="c-ctx">
+            <div class="ctx-top">
+              <span class="tag pill src">IPD ศัลยกรรมหญิง</span>
+              <span class="tag pill cov">ประกันสังคม</span>
+            </div>
+            <span class="cbc-flag">🩸 CBC <span class="code">MS1</span> · ยังรอรับ</span>
+          </div>
+          <div class="c-items"><span class="val">3 orders</span></div>
+          <div class="c-spec"><span class="val">2 specimens</span></div>
+          <div class="c-sect"><span class="sectwrap"><span class="sect">ML</span></span></div>
+          <div class="c-order">
+            <span class="orderno">LB6909220028</span>
+            <span class="time mono"><span>22/09/2569</span><span>09:18</span></span>
+          </div>
+          <div class="c-doc">
+            <span class="val">นพ. วรุตม์ ศรีนวล</span>
+            <span class="sub">Diagnosis: Post-operative follow-up</span>
+          </div>
+          <div class="c-status status">
+            <span class="step wait"><i aria-hidden="true"></i><b>1</b></span>
+            <span class="step recv"><i aria-hidden="true"></i><b>2</b></span>
+          </div>
+          <div class="c-act act">
+            <button type="button" class="btn primary" data-swap="5">สลับรายการ</button>
+            <span class="note">CBC ยังไม่รับ · สลับได้</span>
+          </div>
+        </div>
+      </article>
+
+      <div class="empty" id="emptyState" hidden>
+        <strong>ไม่มี Order CBC รอสลับแล้ว</strong>
+        <span>ทุก Order ที่มี <span class="mono">HM1</span> / <span class="mono">MS1</span> ถูกจัดเข้าห้องเรียบร้อย</span>
+      </div>
+    </section>
+  </div>
+
+  <!-- ── บันทึกดีไซน์ / สิ่งที่ยังต้องเคาะ ──────────────────────────────── -->
+  <section class="notes">
+    <h2>บันทึกดีไซน์ · ข้อที่เคาะแล้ว 2026-09-22</h2>
+    <div class="notegrid">
+      <div class="note">
+        <b>เห็นแท็บเฉพาะ 2 ห้อง</b>
+        แท็บโผล่เมื่อ Organization ที่ล็อกอินผูกกับ Section <code>HM</code> (งานโลหิตวิทยา) หรือ <code>ML</code> (งานจุลทรรศนศาสตร์คลินิก) เท่านั้น ห้องอื่นเห็นแค่ 2 แท็บเดิม — กดปุ่ม BC บนแถบ mockup เพื่อดู
+      </div>
+      <div class="note">
+        <b>กรองมาทั้ง Order</b>
+        เงื่อนไข: Order ที่มีรายการรหัส <code>HM1</code> หรือ <code>MS1</code> อย่างน้อย 1 รายการ แล้วยก Order นั้นมาทั้งใบ (แถว 3 มี C-series ของ BC ติดมาด้วย) ไม่กรองเฉพาะ Item
+      </div>
+      <div class="note">
+        <b>คอลัมน์ห้องแลปเหมือนแท็บสืบค้น</b>
+        ใช้ป้ายตัวย่อ <code>.lab-section-code</code> ชุดเดิม ถ้า Order คร่อมหลาย Section จะเรียงป้าย โดยห้องของรายการ CBC เป็นสีน้ำเงิน ส่วนห้องอื่นเป็นสีเทา
+      </div>
+      <div class="note">
+        <b>ปุ่มเดียวคือ “สลับรายการ”</b>
+        คอลัมน์ดำเนินการของแท็บนี้ไม่มี PDF / ปริ้น HN / EMR / ตรวจใหม่ ตามที่สั่ง และ detail panel เป็นแบบอ่านอย่างเดียว ไม่มี checkbox และปุ่มรับ–ปฏิเสธ–ยกเลิก
+      </div>
+      <div class="note ok">
+        <b>✅ สลับแล้วเด้งออกทันที <span class="mono">(เคาะ 09-22)</span></b>
+        ยืนยันแล้วแถวหายจากแท็บนี้ทันที ไม่มีสถานะ “สลับแล้ว” ค้าง · รายการ CBC เปลี่ยนรหัส/Section แล้วไปโผล่ที่แท็บ “รายการวันนี้” ของห้องปลายทาง · ตัวเลขบนแท็บและชิปลดลงทันที · ประวัติการสลับเก็บที่ Work Item ไม่ใช่ที่หน้าจอนี้
+      </div>
+      <div class="note ok">
+        <b>✅ เหตุผลไม่บังคับ <span class="mono">(เคาะ 09-22)</span></b>
+        คงช่องเหตุผลไว้เป็นตัวเลือก กดยืนยันได้โดยไม่ต้องเลือก — แทนที่มติ 2026-09-01 ที่เคยกำหนดว่าบังคับ
+      </div>
+      <div class="note ok">
+        <b>✅ ขอบเขตรหัส = <span class="mono">HM1</span> / <span class="mono">MS1</span> <span class="mono">(เคาะ 09-22)</span></b>
+        เฉพาะสองรหัสนี้เท่านั้น · <code>HM1-R</code>, <code>MS1-R</code>, <code>NAP-MS-1</code> ไม่อยู่ในขอบเขตรอบนี้
+      </div>
+      <div class="note ok">
+        <b>✅ มติใหม่แทนของ 2026-09-01 <span class="mono">(เคาะ 09-22)</span></b>
+        มติเดิมเคยปฏิเสธการเพิ่มแท็บ CBC เพื่อรวม Worklist ไว้หน้าเดียว ผู้ใช้ยืนยันเปลี่ยนมติแล้ว — แท็บนี้เป็นข้อยกเว้นเฉพาะงานสลับ CBC ของ HM/ML
+      </div>
+      <div class="note">
+        <b>สิ่งที่ไม่ถูกแตะหลังยืนยัน</b>
+        CPOE ต้นทางเก็บรายการที่แพทย์สั่งไว้เหมือนเดิม · LAB NO. ยังไม่ออกจนกว่าจะกดรับ specimen ในห้องปลายทาง · รายการอื่นใน Order อยู่ห้องเดิม ไม่ย้ายตาม
+      </div>
+      <div class="note ok">
+        <b>✅ ปิดปุ่มเมื่อรับ specimen แล้ว <span class="mono">(เคาะ 09-22)</span></b>
+        สลับได้เฉพาะก่อนรับ specimen เพราะเมื่อออก LAB NO. และส่ง Outbound แล้ว การเปลี่ยนรหัสจะทำให้ LAB NO./ผลจาก LIS ไม่ตรงกับรายการ · เกณฑ์ปิดปุ่มยึด <b>สถานะของรายการ CBC เอง</b> ไม่ใช่ทั้ง Order — แถว 4 (CBC รับแล้ว) ปุ่มปิด ส่วนแถว 5 (CBC ยังรอรับ แม้รายการอื่นรับไปแล้ว) ยังสลับได้
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ── popup ยืนยันสลับรายการ ─────────────────────────────────────────── -->
+<div class="overlay" id="overlay" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlgTitle">
+    <div class="dlg-head">
+      <div>
+        <strong id="dlgTitle">ยืนยันสลับรายการ CBC</strong>
+        <small id="dlgSub">Order No. LB6909220012 · 22/09/2569 08:41</small>
+      </div>
+      <button type="button" class="dlg-x" id="dlgClose" aria-label="ปิด">✕</button>
+    </div>
+
+    <div class="dlg-body">
+      <div class="ptcard">
+        <span class="av" id="dlgAv">กศ</span>
+        <div>
+          <strong id="dlgName">น.ส. กนกวรรณ ศรีสุขใจ</strong>
+          <small id="dlgMeta">HN 0000481 · หญิง 34 ปี · OPD อายุรกรรม</small>
+        </div>
+        <span class="tag pill src" id="dlgItems">3 รายการใน Order</span>
+      </div>
+
+      <div class="swapbox">
+        <div class="swapcell from">
+          <span class="cap">รายการเดิม</span>
+          <span class="code" id="fromCode">MS1</span>
+          <span class="nm" id="fromName">CBC (Complete Blood Count)</span>
+          <span class="sect room" id="fromRoom">ML</span>
+        </div>
+        <div class="arrow" aria-hidden="true">→</div>
+        <div class="swapcell to">
+          <span class="cap">เปลี่ยนเป็น</span>
+          <span class="code" id="toCode">HM1</span>
+          <span class="nm" id="toName">CBC (Complete Blood Count)</span>
+          <span class="sect room" id="toRoom">HM</span>
+        </div>
+      </div>
+
+      <ul class="facts">
+        <li><span>Order นี้จะเข้าคิว <b id="factRoom">ห้อง HM — งานโลหิตวิทยา</b> ในแท็บ “รายการวันนี้” ตามปกติ</span></li>
+        <li><span>รายการอื่นใน Order ยังอยู่ห้องเดิม ไม่ถูกย้ายตาม</span></li>
+        <li><span>รายการเดิมที่แพทย์สั่งถูกเก็บเป็นประวัติ · LAB NO. ยังไม่ออกจนกว่าจะกดรับ specimen</span></li>
+      </ul>
+
+      <label class="reason">
+        <span>เหตุผลที่สลับ <em>(ยังไม่บังคับ — รอเคาะ)</em></span>
+        <select>
+          <option>— ไม่ระบุ —</option>
+          <option>แพทย์เลือกรหัสผิดห้อง</option>
+          <option>ห้องปลายทางเป็นผู้ตรวจจริง</option>
+          <option>ปรับตามข้อตกลงการแบ่งงานระหว่างห้อง</option>
+          <option>อื่น ๆ (พิมพ์เพิ่ม)</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="dlg-foot">
+      <button type="button" class="btn ghost" id="dlgCancel">ยกเลิก</button>
+      <button type="button" class="btn primary" id="dlgConfirm">ยืนยันสลับรายการ</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+  var ROOMS = { HM:'HM — งานโลหิตวิทยา', ML:'ML — งานจุลทรรศนศาสตร์คลินิก', BC:'BC — งานเคมีคลินิก' };
+  var DATA = {
+    '1':{ name:'น.ส. กนกวรรณ ศรีสุขใจ', av:'กศ', meta:'HN 0000481 · หญิง 34 ปี · OPD อายุรกรรม', order:'LB6909220012 · 22/09/2569 08:41', items:'3 รายการใน Order', from:'MS1', fromRoom:'ML', to:'HM1', toRoom:'HM' },
+    '2':{ name:'นาย สมชาย ภักดีราษฎร์', av:'สภ', meta:'HN 0000123 · ชาย 58 ปี · OPD ศัลยกรรม', order:'LB6909220019 · 22/09/2569 08:47', items:'2 รายการใน Order', from:'HM1', fromRoom:'HM', to:'MS1', toRoom:'ML' },
+    '3':{ name:'นาง วิไลวรรณ ทองดีเลิศ', av:'วท', meta:'HN 0000774 · หญิง 66 ปี · IPD อายุรกรรมหญิง', order:'LB6909220024 · 22/09/2569 09:02', items:'4 รายการใน Order (CBC 1 รายการ)', from:'HM1', fromRoom:'HM', to:'MS1', toRoom:'ML' },
+    '5':{ name:'นาง อารีย์ พิทักษ์ชน', av:'อพ', meta:'HN 0000615 · หญิง 52 ปี · IPD ศัลยกรรมหญิง', order:'LB6909220028 · 22/09/2569 09:18', items:'3 รายการใน Order (รับแล้ว 2 · CBC ยังรอรับ)', from:'MS1', fromRoom:'ML', to:'HM1', toRoom:'HM' }
+  };
+  var current = null;
+  var overlay = document.getElementById('overlay');
+  var SNAPSHOT = document.querySelector('.shell').innerHTML;
+  var toast = document.getElementById('toast');
+  var toastTimer = null;
+
+  function setText(id, v){ document.getElementById(id).textContent = v; }
+
+  function openDialog(key){
+    var d = DATA[key]; if(!d) return;
+    current = key;
+    setText('dlgName', d.name); setText('dlgAv', d.av); setText('dlgMeta', d.meta);
+    setText('dlgSub', 'Order No. ' + d.order); setText('dlgItems', d.items);
+    setText('fromCode', d.from); setText('fromRoom', d.fromRoom);
+    setText('toCode', d.to); setText('toRoom', d.toRoom);
+    setText('factRoom', 'ห้อง ' + ROOMS[d.toRoom]);
+    overlay.hidden = false;
+    document.getElementById('dlgConfirm').focus();
+  }
+  function closeDialog(){ overlay.hidden = true; current = null; }
+
+  function recount(){
+    var blocks = Array.prototype.slice.call(document.querySelectorAll('.block'));
+    var hm = blocks.filter(function(b){ return b.dataset.code === 'HM1'; }).length;
+    var ms = blocks.filter(function(b){ return b.dataset.code === 'MS1'; }).length;
+    setText('tabCount', blocks.length);
+    setText('cntAll', blocks.length); setText('cntHm', hm); setText('cntMs', ms);
+    setText('sumShown', blocks.length); setText('sumTotal', blocks.length);
+    document.getElementById('emptyState').hidden = blocks.length > 0;
+  }
+
+  function showToast(msg){
+    toast.textContent = msg; toast.classList.add('on');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ toast.classList.remove('on'); }, 3600);
+  }
+
+  document.addEventListener('click', function(ev){
+    var swap = ev.target.closest('[data-swap]');
+    if(swap){ ev.stopPropagation(); openDialog(swap.dataset.swap); return; }
+
+    var caretRow = ev.target.closest('.row');
+    if(caretRow){
+      var block = caretRow.closest('.block');
+      var open = block.classList.toggle('open');
+      var caret = block.querySelector('.caret');
+      caret.setAttribute('aria-expanded', String(open));
+      caret.setAttribute('aria-label', open ? 'ย่อรายละเอียด' : 'ขยายรายละเอียด');
+      return;
+    }
+
+    var chip = ev.target.closest('.codestrip .chip');
+    if(chip){
+      document.querySelectorAll('.codestrip .chip').forEach(function(c){ c.classList.remove('on'); });
+      chip.classList.add('on');
+      return;
+    }
+
+    var room = ev.target.closest('[data-room]');
+    if(room){
+      document.querySelectorAll('[data-room]').forEach(function(b){ b.classList.toggle('on', b === room); });
+      var code = room.dataset.room;
+      setText('roomName', ROOMS[code]);
+      var allowed = (code === 'HM' || code === 'ML');
+      document.getElementById('tabCbc').hidden = !allowed;
+      document.getElementById('ctxStrip').hidden = !allowed;
+      document.querySelector('.codestrip').hidden = !allowed;
+      document.querySelector('.summary').hidden = !allowed;
+      document.querySelector('.shell').hidden = !allowed;
+      document.getElementById('noAccess').hidden = allowed;
+      showToast(allowed
+        ? 'ห้อง ' + code + ' เห็นแท็บ “สลับรายการ CBC”'
+        : 'ห้อง ' + code + ' ไม่เห็นแท็บนี้ — เหลือ 2 แท็บเดิม');
+      return;
+    }
+  });
+
+  document.getElementById('dlgClose').addEventListener('click', closeDialog);
+  document.getElementById('dlgCancel').addEventListener('click', closeDialog);
+  overlay.addEventListener('click', function(ev){ if(ev.target === overlay) closeDialog(); });
+  document.addEventListener('keydown', function(ev){ if(ev.key === 'Escape' && !overlay.hidden) closeDialog(); });
+
+  document.getElementById('dlgConfirm').addEventListener('click', function(){
+    var key = current, d = DATA[key];
+    if(!d){ closeDialog(); return; }
+    var block = document.querySelector('.block[data-block="' + key + '"]');
+    closeDialog();
+    if(block){
+      block.classList.add('leaving');
+      setTimeout(function(){ block.remove(); recount(); }, 280);
+    }
+    showToast('สลับแล้ว · ' + d.from + ' → ' + d.to + ' · ย้ายเข้าคิวห้อง ' + ROOMS[d.toRoom] + ' แล้ว');
+  });
+
+  document.getElementById('resetMock').addEventListener('click', function(){
+    document.querySelector('.shell').innerHTML = SNAPSHOT;
+    recount();
+    showToast('รีเซ็ตรายการตัวอย่างกลับ 5 Order แล้ว');
+  });
+})();
+</script>

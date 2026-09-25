@@ -1,0 +1,41 @@
+[
+  {
+    "$match": {
+      "xrstatx": { "$nin": [0, 3] },
+      "$or": [
+        { "service_type.value": "xray" },
+        { "service_type": "xray" }
+      ]
+    }
+  },
+  {
+    "$lookup": {
+      "from": "zdata_cpoe_order",
+      "localField": "order_id.value",
+      "foreignField": "_id",
+      "as": "_order_rows"
+    }
+  },
+  {
+    "$addFields": {
+      "_order": { "$arrayElemAt": ["$_order_rows", 0] }
+    }
+  },
+  {
+    "$match": {
+      "_order.xrstatx": { "$nin": [0, 3] },
+      "_order.vid.pid.hn": "{{hn}}"
+    }
+  },
+  {
+    "$project": {
+      "_id": 0,
+      "hn": "$_order.vid.pid.hn",
+      "order_number": "$_order.order_number",
+      "item_code": 1,
+      "item_name": 1,
+      "accession_no": { "$ifNull": ["$accession_no", ""] },
+      "current_status": 1
+    }
+  }
+]

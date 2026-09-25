@@ -10,16 +10,20 @@ const ids = {
   bc1: '111111111111111111111111',
   bc2: '222222222222222222222222',
   hm1: '333333333333333333333333',
+  my1: '444444444444444444444444',
   order: 'aaaaaaaaaaaaaaaaaaaaaaaa',
+  ms1Master: 'bbbbbbbbbbbbbbbbbbbbbbbb',
   overflow: '777777777777777777777777'
 }
 const clone = value => value == null ? value : JSON.parse(JSON.stringify(value))
 
-const makeHarness = ({ date = '2026-08-31', counters = {}, standalone = false, cancelled = false } = {}) => {
+// 2026-09-23 user requirement: LAB NO. reservation is downstream of Finance;
+// successful fixtures therefore start from the explicit `ready` state.
+const makeHarness = ({ date = '2026-08-31', counters = {}, standalone = false, cancelled = false, itemStatus = 'ready' } = {}) => {
   const item = (id, code) => ({
     _id: id,
     xrstatx: 1,
-    current_status: 'sent',
+    current_status: itemStatus,
     service_type: { value: 'lab' },
     order_id: { value: ids.order },
     item_code: 'TEST-' + id.slice(0, 2),
@@ -32,6 +36,7 @@ const makeHarness = ({ date = '2026-08-31', counters = {}, standalone = false, c
     [ids.bc1, item(ids.bc1, 'BC')],
     [ids.bc2, item(ids.bc2, 'BC')],
     [ids.hm1, item(ids.hm1, 'HM')],
+    [ids.my1, item(ids.my1, 'MY')],
     [ids.overflow, item(ids.overflow, 'BC')]
   ])
   const originalItems = clone(Array.from(items.entries()))
@@ -53,7 +58,16 @@ const makeHarness = ({ date = '2026-08-31', counters = {}, standalone = false, c
     if (!active(row)) return false
     if (query._id != null && row._id !== query._id) return false
     if (query.source_specimen_record_id != null && row.source_specimen_record_id !== query.source_specimen_record_id) return false
-    if (query.lab_no != null && row.lab_no !== query.lab_no) return false
+    if (query.lab_no != null) {
+      if (query.lab_no && typeof query.lab_no === 'object' && '$in' in query.lab_no) {
+        if (!query.lab_no.$in.some(value => String(value == null ? '' : value) === String(row.lab_no == null ? '' : row.lab_no))) return false
+      } else if (row.lab_no !== query.lab_no) return false
+    }
+    if (query.work_status != null && row.work_status !== query.work_status) return false
+    if (query.retest_pending_lab_no != null && row.retest_pending_lab_no !== query.retest_pending_lab_no) return false
+    if (query.cbc_swap_active != null && row.cbc_swap_active !== query.cbc_swap_active) return false
+    if (query.cbc_swap_pending_lab_no != null && row.cbc_swap_pending_lab_no !== query.cbc_swap_pending_lab_no) return false
+    if (query.is_current_attempt && '$ne' in query.is_current_attempt && row.is_current_attempt === query.is_current_attempt.$ne) return false
     if (query.$or && !query.$or.some(part => workMatches(row, { ...part, xrstatx: query.xrstatx }))) return false
     return true
   }
@@ -66,7 +80,20 @@ const makeHarness = ({ date = '2026-08-31', counters = {}, standalone = false, c
       if (workItems.has(String(doc._id))) throw new Error('duplicate key')
       workItems.set(String(doc._id), clone(doc))
       return { insertedId: doc._id }
-    }
+    },
+    updateOne: async (query, update) => {
+      for (const [key, row] of workItems.entries()) {
+        if (!workMatches(row, query)) continue
+        const next = { ...row, ...clone(update.$set || {}) }
+        for (const [field, value] of Object.entries(update.$push || {})) {
+          next[field] = Array.isArray(next[field]) ? next[field].slice() : []
+          next[field].push(clone(value))
+        }
+        workItems.set(key, next)
+        return { matchedCount: 1, modifiedCount: 1 }
+      }
+      return { matchedCount: 0, modifiedCount: 0 }
+    },
   }
   const counterCollection = {
     findOneAndUpdate: async query => {
@@ -85,7 +112,7 @@ const makeHarness = ({ date = '2026-08-31', counters = {}, standalone = false, c
       collection: name => ({
         zdata_cpoe_order_item: { findOne: async query => clone(items.get(String(query._id)) || null) },
         zdata_cpoe_order: { findOne: async query => String(query._id) === ids.order ? clone(order) : null },
-        zdata_master_item_order: { findOne: async () => null },
+        zdata_master_item_order: { findOne: async query => String(query._id) === ids.ms1Master ? { _id: ids.ms1Master, item_code: 'MS1', item_name: 'CBC', section: { code: 'ML', name: 'Clinical Microscopy' }, lab_item: { his_lab_code: '2201EB', specimen: { code: 'EB', name: 'EDTA blood' } } } : null },
         zdata_section: { findOne: async () => null },
         zdata_lab_work_item: workCollection,
         zdata_lab_no_counter: counterCollection,
@@ -111,6 +138,42 @@ const makeHarness = ({ date = '2026-08-31', counters = {}, standalone = false, c
 const userAt = code => ({ roles: ['auth'], username: 'lab-test', fullname: 'Lab Tester', unit: { code } })
 
 ;(async () => {
+  {
+    // CBC swap creates a routing-only Work Item before reception. The generator
+    // must preserve its audit fields, use the target room/master, and leave the
+    // doctor-ordered CPOE Item untouched.
+    const harness = makeHarness({ date: '2026-09-22' })
+    const original = clone(harness.items.get(ids.hm1))
+    harness.workItems.set(ids.hm1, {
+      _id: ids.hm1,
+      xrstatx: 1,
+      source_specimen_record_id: ids.hm1,
+      work_status: 'waiting_receive',
+      lab_no: '',
+      cbc_swap_active: true,
+      cbc_swap_pending_lab_no: true,
+      ordered_item_code: 'HM1',
+      effective_item_code: 'MS1',
+      effective_item_name: 'CBC',
+      effective_item_master_id: ids.ms1Master,
+      section_code: 'ML',
+      section_name: 'Clinical Microscopy',
+      cbc_swap_history: [{ from_code: 'HM1', to_code: 'MS1' }],
+      created_at: '2026-09-22 09:00:00',
+      created_by: { name: 'Swap User' },
+    })
+    const result = await Process.call(harness.context, { item_id: ids.hm1 }, userAt('21'), harness.app)
+    assert.strictEqual(result.success, true, result.message)
+    assert.strictEqual(result.data.section_code, 'ML')
+    assert.strictEqual(result.data.lab_no, '216909220001')
+    assert.strictEqual(result.data.cbc_swap_reassigned, true)
+    const work = harness.workItems.get(ids.hm1)
+    assert.strictEqual(work.cbc_swap_pending_lab_no, false)
+    assert.deepStrictEqual(work.cbc_swap_history, [{ from_code: 'HM1', to_code: 'MS1' }])
+    assert.strictEqual(work.created_by.name, 'Swap User')
+    assert.deepStrictEqual(harness.items.get(ids.hm1), original, 'CBC swap must not rewrite the doctor-ordered CPOE Item')
+  }
+
   {
     const harness = makeHarness()
     const first = await Process.call(harness.context, { item_id: ids.bc1 }, userAt('10'), harness.app)
@@ -143,11 +206,159 @@ const userAt = code => ({ roles: ['auth'], username: 'lab-test', fullname: 'Lab 
   }
 
   {
+    // One Receive selection with several tests of the same specimen reserves
+    // one counter value and stores the same LAB NO. on every per-item Work Item.
+    const harness = makeHarness({ date: '2026-09-09' })
+    const result = await Process.call(
+      harness.context,
+      { item_id: ids.bc1, item_ids: [ids.bc1, ids.bc2] },
+      userAt('10'),
+      harness.app
+    )
+    assert.strictEqual(result.success, true, result.message)
+    assert.strictEqual(result.data.batch_item_count, 2)
+    assert.strictEqual(result.data.receipt_batch_id, ids.bc1)
+    assert.strictEqual(result.data.lab_no, '106909090001')
+    assert.strictEqual(harness.workItems.get(ids.bc1).lab_no, '106909090001')
+    assert.strictEqual(harness.workItems.get(ids.bc2).lab_no, '106909090001')
+    assert.strictEqual(harness.workItems.get(ids.bc1).receipt_batch_id, ids.bc1)
+    assert.strictEqual(JSON.parse(harness.workItems.get(ids.bc2).selected_items_json).length, 2)
+    assert.strictEqual(harness.counterRows.get('lab_no:BC:2026-09-09').sequence, 1)
+
+    const repeated = await Process.call(
+      harness.context,
+      { item_id: ids.bc1, item_ids: [ids.bc1, ids.bc2] },
+      userAt('10'),
+      harness.app
+    )
+    assert.strictEqual(repeated.success, true, repeated.message)
+    assert.strictEqual(repeated.data.lab_no, '106909090001')
+    assert.strictEqual(repeated.data.already_assigned, true)
+    assert.strictEqual(harness.counterRows.get('lab_no:BC:2026-09-09').sequence, 1)
+  }
+
+  {
     const harness = makeHarness({ standalone: true })
     const result = await Process.call(harness.context, { item_id: ids.bc1 }, userAt('10'), harness.app)
     assert.strictEqual(result.success, true, 'standalone MongoDB must use the atomic non-transaction fallback')
     assert.strictEqual(result.data.lab_no, '106908310001')
     assert.strictEqual(harness.workItems.get(ids.bc1).work_status, 'waiting_receive')
+  }
+
+  {
+    // Runtime regression 2026-09-03: a nested Process may not receive this.mongoTxn.
+    // Preserve the same idempotent non-transaction contract instead of throwing.
+    const harness = makeHarness()
+    const result = await Process.call({}, { item_id: ids.bc1 }, userAt('10'), harness.app)
+    assert.strictEqual(result.success, true, 'missing mongoTxn helper must use the atomic fallback')
+    assert.strictEqual(result.data.lab_no, '106908310001')
+    assert.strictEqual(harness.workItems.get(ids.bc1).work_status, 'waiting_receive')
+  }
+
+  {
+    // ตรวจใหม่ 2026-09-04: marker นี้เป็นข้อยกเว้นเดียวที่ Work Item เดิมซึ่งล้างเลขแล้ว
+    // ขอเลขใหม่ได้; ประวัติเลขเก่าและ created audit ต้องไม่ถูกทับ
+    const harness = makeHarness({ date: '2026-09-04' })
+    harness.workItems.set(ids.bc1, {
+      _id: ids.bc1,
+      xrstatx: 1,
+      source_specimen_record_id: ids.bc1,
+      work_status: 'waiting_receive',
+      lab_no: '',
+      retest_pending_lab_no: true,
+      lab_no_history: [{ lab_no: '106909030001', reason: 'retest' }],
+      created_at: '2026-09-03 08:00:00',
+      created_by: { name: 'Original User' },
+    })
+    const result = await Process.call(harness.context, { item_id: ids.bc1 }, userAt('10'), harness.app)
+    assert.strictEqual(result.success, true, result.message)
+    assert.strictEqual(result.data.lab_no, '106909040001')
+    assert.strictEqual(result.data.retest_reassigned, true)
+    assert.strictEqual(result.data.already_assigned, false)
+    const work = harness.workItems.get(ids.bc1)
+    assert.strictEqual(work.lab_no, '106909040001')
+    assert.strictEqual(work.retest_pending_lab_no, false)
+    assert.deepStrictEqual(work.lab_no_history, [{ lab_no: '106909030001', reason: 'retest' }])
+    assert.strictEqual(work.created_at, '2026-09-03 08:00:00')
+    assert.strictEqual(work.created_by.name, 'Original User')
+    assert.strictEqual(work.retest_generation_log.length, 1)
+  }
+
+  {
+    // Item-level retest keeps the rejected attempt immutable and assigns the
+    // new LAB NO. only to the fresh current Work Item identity.
+    const harness = makeHarness({ date: '2026-09-22' })
+    const currentWorkId = '999999999999999999999991'
+    harness.workItems.set(ids.bc1, {
+      _id: ids.bc1,
+      xrstatx: 1,
+      source_specimen_record_id: ids.bc1,
+      work_status: 'rejected',
+      lab_no: '106909210001',
+      attempt_no: 1,
+      is_current_attempt: false,
+    })
+    harness.workItems.set(currentWorkId, {
+      _id: currentWorkId,
+      dataid: currentWorkId,
+      xparentx: ids.bc1,
+      xrstatx: 1,
+      source_specimen_record_id: ids.bc1,
+      work_status: 'waiting_receive',
+      lab_no: '',
+      attempt_no: 2,
+      is_current_attempt: true,
+      retest_pending_lab_no: true,
+      created_at: '2026-09-22 09:30:00',
+      created_by: { name: 'Retest User' },
+    })
+    const result = await Process.call(harness.context, { item_id: ids.bc1 }, userAt('10'), harness.app)
+    assert.strictEqual(result.success, true, result.message)
+    assert.strictEqual(result.data.work_item_id, currentWorkId)
+    assert.strictEqual(result.data.lab_no, '106909220001')
+    const previous = harness.workItems.get(ids.bc1)
+    const current = harness.workItems.get(currentWorkId)
+    assert.strictEqual(previous.work_status, 'rejected')
+    assert.strictEqual(previous.lab_no, '106909210001')
+    assert.strictEqual(current.lab_no, '106909220001')
+    assert.strictEqual(current.dataid, currentWorkId)
+    assert.strictEqual(current.xparentx, ids.bc1)
+    assert.strictEqual(current.created_at, '2026-09-22 09:30:00')
+    assert.strictEqual(current.created_by.name, 'Retest User')
+    assert.strictEqual(current.retest_pending_lab_no, false)
+  }
+
+  {
+    const harness = makeHarness({ itemStatus: 'sent' })
+    const result = await Process.call(harness.context, { item_id: ids.bc1 }, userAt('10'), harness.app)
+    assert.strictEqual(result.success, false)
+    assert.strictEqual(result.message, 'ยังไม่ผ่านการเงิน จึงยังสร้าง LAB NO. และรับ specimen ไม่ได้')
+    assert.strictEqual(harness.workItems.size, 0)
+    assert.strictEqual(harness.counterRows.size, 0, 'unpaid Item must not consume a LAB NO. counter')
+  }
+
+  {
+    const harness = makeHarness()
+    harness.items.get(ids.bc2).current_status = 'sent'
+    const result = await Process.call(
+      harness.context,
+      { item_id: ids.bc1, item_ids: [ids.bc1, ids.bc2] },
+      userAt('10'),
+      harness.app
+    )
+    assert.strictEqual(result.success, false)
+    assert(result.message.includes('ยังไม่ผ่านการเงิน'))
+    assert.strictEqual(harness.workItems.size, 0)
+    assert.strictEqual(harness.counterRows.size, 0, 'mixed ready/unpaid batch must not consume a counter')
+  }
+
+  {
+    const harness = makeHarness({ itemStatus: 'accepted' })
+    harness.items.get(ids.bc1).received_at = '2026-08-31 09:55:00'
+    const result = await Process.call(harness.context, { item_id: ids.bc1 }, userAt('10'), harness.app)
+    assert.strictEqual(result.success, false, 'accepted without an existing Work Item must not bypass Finance readiness')
+    assert(result.message.includes('ยังไม่ผ่านการเงิน'))
+    assert.strictEqual(harness.workItems.size, 0)
   }
 
   {
@@ -177,6 +388,21 @@ const userAt = code => ({ roles: ['auth'], username: 'lab-test', fullname: 'Lab 
     const harness = makeHarness()
     const result = await Process.call(harness.context, { item_id: ids.hm1 }, userAt('10'), harness.app)
     assert.strictEqual(result.success, false)
+    assert(result.message.includes('Section'))
+  }
+
+  {
+    const harness = makeHarness()
+    const result = await Process.call(harness.context, { item_id: ids.my1 }, userAt('m1000'), harness.app)
+    assert.strictEqual(result.success, true, result.message)
+    assert.strictEqual(result.data.section_code, 'MY')
+    assert.strictEqual(result.data.lab_no, '416908310001')
+  }
+
+  {
+    const harness = makeHarness()
+    const result = await Process.call(harness.context, { item_id: ids.my1 }, userAt('m1005'), harness.app)
+    assert.strictEqual(result.success, false, 'Microbiology Organization must not receive MY work')
     assert(result.message.includes('Section'))
   }
 

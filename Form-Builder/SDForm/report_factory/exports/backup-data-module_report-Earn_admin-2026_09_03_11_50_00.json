@@ -1,0 +1,409 @@
+[
+  {
+    "_id": {
+      "$oid": "6a97f826422c1ca95982a048"
+    },
+    "xparentx": {
+      "$oid": "6a734f21c26bf53d1bac3c10"
+    },
+    "xsitex": {
+      "code": "0000",
+      "name": "0000"
+    },
+    "xunitx": {
+      "code": "A103",
+      "name": "คลินิกทันตกรรม"
+    },
+    "xrstatx": 1,
+    "xversionx": "v1",
+    "xerrorx": null,
+    "updated_by": {
+      "id": {
+        "$oid": "6a58678ad448dfc9d33e2ba8"
+      },
+      "name": "Nichada Patcharasumransuk (marnichacha27@gmail.com)"
+    },
+    "updated_at": "2026-09-03 11:45:00",
+    "created_by": {
+      "id": {
+        "$oid": "6a58678ad448dfc9d33e2ba8"
+      },
+      "name": "Nichada Patcharasumransuk (marnichacha27@gmail.com)"
+    },
+    "created_at": "2026-09-03 00:40:00",
+    "dataid": "6a97f826422c1ca95982a048",
+    "pdf_assign_roles": null,
+    "pdf_bg": null,
+    "pdf_category": null,
+    "pdf_column": [
+      {
+        "col_field": "row_no",
+        "col_label": "#",
+        "col_alignment": "center",
+        "col_width": 33,
+        "col_format": "",
+        "col_sum": "",
+        "col_group": false,
+        "col_html": false,
+        "col_value": null,
+        "col_expressions": null,
+        "col_fillcolor": null
+      },
+      {
+        "col_field": "accession_no",
+        "col_label": "Accession No.",
+        "col_alignment": "left",
+        "col_width": 143,
+        "col_format": "",
+        "col_sum": "",
+        "col_group": false,
+        "col_html": false,
+        "col_value": null,
+        "col_expressions": null,
+        "col_fillcolor": null
+      },
+      {
+        "col_field": "test_display",
+        "col_label": "รายการตรวจ",
+        "col_alignment": "left",
+        "col_width": "*",
+        "col_format": "",
+        "col_sum": "",
+        "col_group": false,
+        "col_html": false,
+        "col_value": null,
+        "col_expressions": null,
+        "col_fillcolor": null
+      },
+      {
+        "col_field": "modality_code",
+        "col_label": "เครื่อง",
+        "col_alignment": "center",
+        "col_width": 105,
+        "col_format": "",
+        "col_sum": "",
+        "col_group": false,
+        "col_html": false,
+        "col_value": null,
+        "col_expressions": null,
+        "col_fillcolor": null
+      },
+      {
+        "col_field": "body_part",
+        "col_label": "ตำแหน่ง",
+        "col_alignment": "left",
+        "col_width": 167,
+        "col_format": "",
+        "col_sum": "",
+        "col_group": false,
+        "col_html": false,
+        "col_value": null,
+        "col_expressions": null,
+        "col_fillcolor": null
+      }
+    ],
+    "pdf_content": [
+      {
+        "content_widget": "image",
+        "content_var": "hospital_logo",
+        "content_align": "left",
+        "content_decoration": "",
+        "content_linestyle": "dotted",
+        "content_bold": false,
+        "content_italics": false,
+        "content_color": "#000000",
+        "content_bgcolor": null,
+        "content_fontsize": 13,
+        "content_ml": 27,
+        "content_mt": 3.5,
+        "content_mr": null,
+        "content_mb": 0,
+        "content_width": 81,
+        "content_height": 112.5,
+        "content_value": "https://apihis.softmax-one.com/assets/sdform/6a607f2ba608039c539ebb7c/picture/2026/2026_07/2026_07_27/6a58678ad448dfc9d33e2ba8/logo_2026_07_27_15_07_3392455.jpeg"
+      },
+      {
+        "content_widget": "html",
+        "content_var": "xray_order_header",
+        "content_align": "left",
+        "content_decoration": "",
+        "content_linestyle": "dotted",
+        "content_bold": false,
+        "content_italics": false,
+        "content_color": "#000000",
+        "content_bgcolor": null,
+        "content_fontsize": 24,
+        "content_ml": null,
+        "content_mt": -122,
+        "content_mr": null,
+        "content_mb": 0,
+        "content_width": null,
+        "content_height": null,
+        "content_value": "<table style=\"width:100%;border-collapse:collapse;border:none;table-layout:fixed;font-size:24px\"><colgroup><col style=\"width:23%\"><col style=\"width:54%\"><col style=\"width:23%\"></colgroup><tr><td style=\"border:none;padding:0\"></td><td style=\"border:none;padding:0;text-align:center;vertical-align:top\"><div style=\"font-size:44px;font-weight:bold;margin-top:33px;margin-bottom:-13px\">สถาบันสุขภาพเด็กแห่งชาติมหาราชินี</div><div style=\"font-size:27px;font-weight:bold;margin-bottom:-10px\">QUEEN SIRIKIT NATIONAL INSTITUTE OF CHILD HEALTH</div><div style=\"font-size:27px;font-weight:bold\">กรมการแพทย์ กระทรวงสาธารณสุข</div></td><td style=\"border:none;padding:0;text-align:right;vertical-align:top\"><b>Order No. :</b> {{order_number}}<br><b>วันที่ :</b> {{order_date}}<br><b>เวลา :</b> {{order_time}}</td></tr></table>"
+      },
+      {
+        "content_widget": "barcode",
+        "content_var": "order_barcode",
+        "content_align": "right",
+        "content_decoration": "",
+        "content_linestyle": "dotted",
+        "content_bold": false,
+        "content_italics": false,
+        "content_color": "#000000",
+        "content_bgcolor": null,
+        "content_fontsize": 12,
+        "content_ml": null,
+        "content_mt": -35.75,
+        "content_mr": null,
+        "content_mb": 0,
+        "content_width": 144,
+        "content_height": 28,
+        "content_value": "{{order_number}}"
+      },
+      {
+        "content_widget": "html",
+        "content_var": "xray_section_title",
+        "content_align": "left",
+        "content_decoration": "",
+        "content_linestyle": "dotted",
+        "content_bold": false,
+        "content_italics": false,
+        "content_color": "#000000",
+        "content_bgcolor": null,
+        "content_fontsize": 20,
+        "content_ml": -0.5,
+        "content_mt": 41.25,
+        "content_mr": null,
+        "content_mb": -1,
+        "content_width": null,
+        "content_height": null,
+        "content_value": "<div style=\"font-size:27px;font-weight:bold\"><span>{{section_unit}}</span> <span>{{section_name}}</span></div>"
+      },
+      {
+        "content_widget": "html",
+        "content_var": "patient_order_info",
+        "content_align": "left",
+        "content_decoration": "",
+        "content_linestyle": "dotted",
+        "content_bold": false,
+        "content_italics": false,
+        "content_color": "#000000",
+        "content_bgcolor": null,
+        "content_fontsize": 24,
+        "content_ml": -5,
+        "content_mt": null,
+        "content_mr": null,
+        "content_mb": 6,
+        "content_width": null,
+        "content_height": null,
+        "content_value": "<table style=\"width:100%;border-collapse:collapse;border:none;table-layout:fixed;font-size:24px\"><colgroup><col style=\"width:53%\"><col style=\"width:47%\"></colgroup><tr><td style=\"border:none;padding:0 10px 0 0\"><b>ชื่อ :</b> {{patient_name}}</td><td style=\"border:none;padding:0 0 0 20px\"><b>อายุ :</b> {{age_display}} &nbsp;&nbsp; <b>เพศ :</b> {{gender_display}} &nbsp;&nbsp; <b>HN :</b> {{hn}}</td></tr><tr><td style=\"border:none;padding:0 10px 0 0\"><b>คลินิกที่ส่ง :</b> {{ward_clinic}}</td><td style=\"border:none;padding:0 0 0 20px\"><b>วันที่ :</b> {{order_date}} &nbsp;&nbsp; <b>AN :</b> {{an}}</td></tr><tr><td style=\"border:none;padding:0 10px 0 0;vertical-align:top\"><b>ยาที่เคยได้รับ :</b> {{prior_medication_display}}</td><td style=\"border:none;padding:0 0 0 20px;vertical-align:top\"><b>สิทธิการรักษา :</b> {{insurance_display}}</td></tr><tr><td style=\"border:none;padding:0 10px 0 0;vertical-align:top\"><b>Diagnosis :</b> {{diagnosis_display}}</td><td style=\"border:none;padding:0 0 0 20px\"></td></tr></table>"
+      },
+      {
+        "content_widget": "html",
+        "content_var": "exam_info",
+        "content_align": "left",
+        "content_decoration": "",
+        "content_linestyle": "dotted",
+        "content_bold": false,
+        "content_italics": false,
+        "content_color": "#000000",
+        "content_bgcolor": null,
+        "content_fontsize": 24,
+        "content_ml": -5,
+        "content_mt": null,
+        "content_mr": null,
+        "content_mb": 6.5,
+        "content_width": null,
+        "content_height": null,
+        "content_value": "<table style=\"width:100%;border-collapse:collapse;border:none;table-layout:fixed;font-size:24px\"><colgroup><col style=\"width:53%\"><col style=\"width:47%\"></colgroup><tr><td style=\"border:none;padding:0 10px 0 0\"><b>ผู้ส่งตรวจ :</b> {{submitter_name}}</td><td style=\"border:none;padding:0 0 0 20px\"><b>แพทย์ผู้ส่งตรวจ :</b> {{requester_name}}</td></tr><tr><td style=\"border:none;padding:0 10px 0 0\"><b>ความเร่งด่วน :</b> {{priority_display}}</td><td style=\"border:none;padding:0 0 0 20px\"><b>ประเภทการตรวจวินิจฉัย :</b> {{section_code}}</td></tr><tr><td style=\"border:none;padding:0 10px 0 0;vertical-align:top\"><b>หมายเหตุ / ข้อบ่งชี้ :</b> {{order_note}}</td><td style=\"border:none;padding:0 0 0 20px\"></td></tr></table>"
+      },
+      {
+        "content_widget": "table",
+        "content_var": "xray_order_items",
+        "content_align": "left",
+        "content_decoration": "",
+        "content_linestyle": "dotted",
+        "content_bold": false,
+        "content_italics": false,
+        "content_color": "#000000",
+        "content_bgcolor": null,
+        "content_fontsize": 18,
+        "content_ml": null,
+        "content_mt": null,
+        "content_mr": null,
+        "content_mb": 6,
+        "content_width": null,
+        "content_height": null,
+        "content_value": null
+      },
+      {
+        "content_widget": "html",
+        "content_var": "print_footer",
+        "content_align": "left",
+        "content_decoration": "",
+        "content_linestyle": "dotted",
+        "content_bold": false,
+        "content_italics": false,
+        "content_color": "#000000",
+        "content_bgcolor": null,
+        "content_fontsize": 18,
+        "content_ml": null,
+        "content_mt": 27,
+        "content_mr": null,
+        "content_mb": 0,
+        "content_width": null,
+        "content_height": null,
+        "content_value": "<table style=\"width:100%;border-collapse:collapse;border:none;font-size:18px\"><tr><td style=\"border:none;padding-top:6px\">Print by : {{printed_by}}</td><td style=\"border:none;padding-top:6px;text-align:right\">Date : {{printed_at}}</td></tr></table>"
+      }
+    ],
+    "pdf_custom_size": {
+      "width": null,
+      "height": null
+    },
+    "pdf_desc": "ใบสั่งตรวจ X-ray รูปแบบเดียวกับ LAB Order Request v1 แต่ตัดบล็อก specimen ออกทั้งหมด; ใช้ order_id + visit_id และแสดง Accession No. หลังส่งเข้าเครื่อง",
+    "pdf_fontsize": 18,
+    "pdf_form_id": "6a6f7db2265885c2377cc222",
+    "pdf_from": "zdata_cpoe_order_item",
+    "pdf_latex": null,
+    "pdf_mb": 24,
+    "pdf_ml": 24,
+    "pdf_mr": 24,
+    "pdf_mt": 24,
+    "pdf_name": "X-ray Order Request v1",
+    "pdf_note": "Import SQL provider ก่อน แล้ว Preview ด้วย order_id ของ UAT และ visit_id ตัวเดียวกับที่ EMR ใช้ ก่อนจำกัดสิทธิ์ให้เฉพาะ role รังสี",
+    "pdf_orientation": "landscape",
+    "pdf_page_date": false,
+    "pdf_page_num": false,
+    "pdf_page_size": "A4",
+    "pdf_params": [
+      {
+        "param_var": "order_id",
+        "param_label": "Order ID",
+        "param_default": null,
+        "param_required": true,
+        "param_type": "text",
+        "param_sform": null,
+        "param_svalue": null,
+        "param_slabel": null
+      },
+      {
+        "param_var": "visit_id",
+        "param_label": "Visit ID",
+        "param_default": null,
+        "param_required": true,
+        "param_type": "text",
+        "param_sform": null,
+        "param_svalue": null,
+        "param_slabel": null
+      },
+      {
+        "param_var": "printed_by",
+        "param_label": "ผู้พิมพ์",
+        "param_default": null,
+        "param_required": true,
+        "param_type": "text",
+        "param_sform": null,
+        "param_svalue": null,
+        "param_slabel": null
+      },
+      {
+        "param_var": "printed_at",
+        "param_label": "วัน/เวลาพิมพ์",
+        "param_default": null,
+        "param_required": true,
+        "param_type": "text",
+        "param_sform": null,
+        "param_svalue": null,
+        "param_slabel": null
+      }
+    ],
+    "pdf_share": "private",
+    "pdf_showheader": "firstPage",
+    "pdf_sql": {
+      "value": {
+        "$oid": "6a97f46b422c1ca95982a03e"
+      },
+      "label": "X-ray Order Request PDF v1"
+    },
+    "pdf_tags": [
+      "XRAY",
+      "order-request",
+      "CPOE"
+    ],
+    "pdf_tb_header": [
+      [
+        {
+          "text": "#",
+          "bold": true,
+          "alignment": "center",
+          "fillColor": "#FFFFFF",
+          "fontSize": 18,
+          "margin": [
+            0,
+            0,
+            0,
+            9
+          ]
+        },
+        {
+          "text": "Accession No.",
+          "bold": true,
+          "alignment": "left",
+          "fillColor": "#FFFFFF",
+          "fontSize": 18,
+          "margin": [
+            0,
+            0,
+            0,
+            9
+          ]
+        },
+        {
+          "text": "รายการตรวจ",
+          "bold": true,
+          "alignment": "left",
+          "fillColor": "#FFFFFF",
+          "fontSize": 18,
+          "margin": [
+            0,
+            0,
+            0,
+            9
+          ]
+        },
+        {
+          "text": "เครื่อง",
+          "bold": true,
+          "alignment": "center",
+          "fillColor": "#FFFFFF",
+          "fontSize": 18,
+          "margin": [
+            0,
+            0,
+            0,
+            9
+          ]
+        },
+        {
+          "text": "ตำแหน่ง",
+          "bold": true,
+          "alignment": "left",
+          "fillColor": "#FFFFFF",
+          "fontSize": 18,
+          "margin": [
+            0,
+            0,
+            0,
+            9
+          ]
+        }
+      ]
+    ],
+    "pdf_tb_layout": "lightHorizontalLines",
+    "pdf_temp": null,
+    "pdf_title": null,
+    "pdf_type": "report",
+    "pdf_watermark": null,
+    "tool_license": "6a3113a619ee74c8f82854a0"
+  }
+]

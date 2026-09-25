@@ -3,7 +3,7 @@ const fs = require('fs')
 const path = require('path')
 const vm = require('vm')
 
-const ROOT = __dirname
+const ROOT = path.resolve(__dirname, '../../../SDForm/form-factory/forms')
 const readJson = file => JSON.parse(fs.readFileSync(path.join(ROOT, file), 'utf8'))
 
 const listForm = readJson('Lab_Result_Inbound_ListView_EMR_Person.json')

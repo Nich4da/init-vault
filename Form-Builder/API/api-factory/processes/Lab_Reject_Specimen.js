@@ -10,13 +10,17 @@
  *     rejection_record_id: '<zdata_lab_receive _id>',
  *     order_id: '<optional zdata_cpoe_order _id>',
  *     order_number: '<optional source order number>',
- *     section_code: '<optional LAB section code>'
+ *     section_code: '<optional LAB section code>',
+ *     cross_section?: false
  *   }
  *
- * The saved rejection form is the audit record. CPOE is read-only. A reject
+ * The saved rejection form is the audit record. The CPOE Order header remains
+ * read-only; the affected CPOE Item is compare-and-set to rejected. A reject
  * before specimen receipt creates a rejected Lab Work Item without allocating
- * a LAB NO. If a waiting Work Item already exists, the status transition uses
- * compare-and-set so a concurrent receive cannot be overwritten.
+ * a LAB NO. A received Item may also be rejected while it has no result and its
+ * Outbound has not been attempted; that Outbound is cancelled locally and the
+ * original LAB NO./receipt audit remains intact. Sent Agent/LIS work fails closed
+ * until the separate LIS cancellation contract is available.
  */
 
 const ITEM_COLLECTION = 'zdata_cpoe_order_item'
@@ -29,9 +33,10 @@ const REJECTION_COLLECTION = 'zdata_lab_receive'
 const ORDER_CANCELLATION_COLLECTION = 'zdata_lab_order_cancellation'
 
 const ORGANIZATION_SECTION_CODES = {
-  M1000: ['BC', 'IM', 'BB', 'MB', 'HM', 'MY', 'HH', 'MI-OUT', 'BG', 'ML'],
+  // M1000 is the dedicated MY/manual-result Organization (verified 2026-09-21).
+  M1000: ['MY'],
   M1001: ['BC'], M1002: ['BB'], M1003: ['ML'], M0104: ['HM', 'HH'],
-  M1004: ['HM', 'HH'], M1005: ['MB', 'MY'], M1006: ['IM', 'MI-OUT'],
+  M1004: ['HM', 'HH'], M1005: ['MB'], M1006: ['IM', 'MI-OUT'],
   M1007: ['BG'], '10': ['BC'], '20': ['HM'], '20-22': ['HM', 'HH'],
   '21': ['ML'], '22': ['HH'], '30': ['IM'], '31': ['MI-OUT'],
   '40': ['MB'], '41': ['MY'], '50': ['BB'], '70': ['BG']
@@ -57,10 +62,16 @@ const orderReference = item => item && item.order_id && item.order_id.value
   ? item.order_id.value
   : item && item.xparentx
 const active = { $nin: [0, 3] }
+const terminalCpoeStatuses = ['completed', 'rejected']
 
 const action = lower(params && params.action || 'reject_item')
 const itemId = text(params && (params.item_id || params.source_order_id))
 const rejectionRecordId = text(params && params.rejection_record_id)
+const crossSectionRequested = params && (params.cross_section === true || lower(params.cross_section) === 'true')
+
+if (crossSectionRequested) {
+  return { success: false, error: 'cross_section_read_only', message: 'โหมดสืบค้นข้ามห้องเป็นแบบอ่านอย่างเดียว' }
+}
 
 if (!['reject_item', 'reject'].includes(action)) {
   return { success: false, error: 'unsupported_action', message: 'Process นี้เปิดใช้เฉพาะการปฏิเสธ Lab Item' }
@@ -133,6 +144,29 @@ const workCollection = app.db.collection(WORK_ITEM_COLLECTION)
 const outboundCollection = app.db.collection(OUTBOUND_COLLECTION)
 const cancellationCollection = app.db.collection(ORDER_CANCELLATION_COLLECTION)
 
+const syncCpoeRejected = async () => {
+  const current = await itemCollection.findOne({ _id: itemObjectId, xrstatx: active })
+  if (!current) throw new Error('CPOE_ITEM_NOT_FOUND')
+  const currentStatus = lower(current.current_status)
+  if (currentStatus === 'rejected') return { status: currentStatus, changed: false, preservedTerminal: false }
+  if (terminalCpoeStatuses.includes(currentStatus)) {
+    return { status: currentStatus, changed: false, preservedTerminal: true }
+  }
+  const saved = await itemCollection.updateOne(
+    { _id: itemObjectId, xrstatx: active, current_status: { $nin: terminalCpoeStatuses } },
+    { $set: { current_status: 'rejected' } }
+  )
+  if (saved && Number(saved.matchedCount) === 1) {
+    return { status: 'rejected', changed: true, preservedTerminal: false }
+  }
+  const raced = await itemCollection.findOne({ _id: itemObjectId, xrstatx: active })
+  const racedStatus = lower(raced && raced.current_status)
+  if (racedStatus === 'rejected' || terminalCpoeStatuses.includes(racedStatus)) {
+    return { status: racedStatus, changed: false, preservedTerminal: racedStatus === 'completed' }
+  }
+  throw new Error('CPOE_STATUS_SYNC_CONFLICT')
+}
+
 const item = await itemCollection.findOne({ _id: itemObjectId, xrstatx: active })
 if (!item) return { success: false, error: 'item_not_found', message: 'ไม่พบ CPOE Item ที่ต้องการปฏิเสธ' }
 if (lower(item.service_type && item.service_type.value) !== 'lab') {
@@ -190,9 +224,17 @@ if (text(rejection.lab_section) && text(rejection.lab_section).toUpperCase() !==
 
 let workItem = await workCollection.findOne({
   xrstatx: active,
+  is_current_attempt: { $ne: false },
   $or: [{ _id: itemObjectId }, { source_specimen_record_id: itemId }]
-})
+}, { sort: { attempt_no: -1, updated_at: -1, created_at: -1 } })
 if (workItem && lower(workItem.work_status) === 'rejected') {
+  let cpoeSync = { status: lower(item.current_status), changed: false, preservedTerminal: false }
+  let cpoeSyncPending = false
+  try {
+    cpoeSync = await syncCpoeRejected()
+  } catch (error) {
+    cpoeSyncPending = true
+  }
   const auditSyncPending = await syncRejectionAudit(workItem.rejected_at, workItem.rejected_by)
   return {
     success: true,
@@ -209,18 +251,26 @@ if (workItem && lower(workItem.work_status) === 'rejected') {
       reject_reason_code: text(workItem.reject_reason_code),
       reject_reason_detail: text(workItem.reject_reason_detail),
       already_rejected: true,
-      audit_sync_pending: auditSyncPending
+      audit_sync_pending: auditSyncPending,
+      cpoe_status: cpoeSync.status,
+      cpoe_status_changed: cpoeSync.changed,
+      cpoe_terminal_preserved: cpoeSync.preservedTerminal,
+      cpoe_sync_pending: cpoeSyncPending
     },
-    message: auditSyncPending ? 'LAB Item นี้ถูกปฏิเสธแล้ว แต่ Log ยังรอ reconcile' : 'LAB Item นี้ถูกปฏิเสธแล้ว'
+    message: auditSyncPending || cpoeSyncPending ? 'LAB Item นี้ถูกปฏิเสธแล้ว แต่ยังมีข้อมูลรอ reconcile' : 'LAB Item นี้ถูกปฏิเสธแล้ว'
   }
 }
 
 const outbound = await outboundCollection.findOne({
   xrstatx: active,
-  $or: [{ _id: itemObjectId }, { work_item_id: itemId }]
+  $or: [
+    { _id: workItem && workItem._id || itemObjectId },
+    { work_item_id: text(workItem && workItem._id) || itemId },
+    { order_no: text(workItem && workItem._id) || itemId }
+  ]
 })
-if (outbound) {
-  return { success: false, error: 'outbound_exists', message: 'Item นี้มี Outbound Order แล้ว จึงไม่อนุญาตให้ปฏิเสธจากหน้ารอรับ' }
+if (!workItem && outbound) {
+  return { success: false, error: 'outbound_exists', message: 'Item นี้มี Outbound Order แล้ว กรุณาให้ผู้ดูแลตรวจสอบก่อนปฏิเสธ' }
 }
 
 const currentItemStatus = lower(item.current_status)
@@ -237,8 +287,36 @@ const effectiveItemStatus = !workItem && legacyWaitingStatuses.includes(currentI
 if (!workItem && effectiveItemStatus !== 'sent') {
   return { success: false, error: 'item_not_waiting_receive', message: 'ปฏิเสธได้เฉพาะ Item ที่อยู่ในสถานะรอรับ specimen' }
 }
-if (workItem && lower(workItem.work_status) !== 'waiting_receive') {
-  return { success: false, error: 'invalid_work_status', message: 'ปฏิเสธไม่ได้ในสถานะ ' + (lower(workItem.work_status) || 'ไม่ทราบสถานะ') }
+const previousWorkStatus = lower(workItem && workItem.work_status)
+if (workItem && !['waiting_receive', 'received'].includes(previousWorkStatus)) {
+  return { success: false, error: 'invalid_work_status', message: 'ปฏิเสธไม่ได้ในสถานะ ' + (previousWorkStatus || 'ไม่ทราบสถานะ') }
+}
+if (workItem && previousWorkStatus === 'waiting_receive' && outbound) {
+  return { success: false, error: 'outbound_exists', message: 'Item รอรับนี้มี Outbound อยู่แล้ว กรุณาให้ผู้ดูแลตรวจสอบก่อนปฏิเสธ' }
+}
+const resultExists = Boolean(
+  ['resulted', 'completed'].includes(currentItemStatus) ||
+  text(item.resulted_at) ||
+  workItem && (
+    text(workItem.resulted_at || workItem.completed_at || workItem.result_uid || workItem.latest_result_uid || workItem.result_report_id) ||
+    ['partial', 'resulted', 'final', 'completed', 'corrected'].includes(lower(workItem.result_status))
+  )
+)
+if (workItem && previousWorkStatus === 'received') {
+  if (resultExists) {
+    return { success: false, error: 'result_exists', message: 'Item นี้มีผลตรวจแล้ว ต้องใช้ขั้นตอนแก้ไข/ทบทวนผล ไม่สามารถปฏิเสธ specimen ได้' }
+  }
+  if (!outbound) {
+    return { success: false, error: 'received_outbound_missing', message: 'Item รับ specimen แล้วแต่ไม่พบ Outbound กรุณาให้ผู้ดูแลตรวจสอบก่อนปฏิเสธ' }
+  }
+  const outboundStatus = lower(outbound.hl7_status)
+  const outboundAlreadyCancelledLocally = outboundStatus === 'cancelled' && outbound.cancelled_locally === true
+  const outboundAttempted = Number(outbound.attempt_count || 0) > 0 ||
+    Boolean(text(outbound.sent_at || outbound.last_success_at)) ||
+    (!outboundAlreadyCancelledLocally && !['', 'new', 'pending', 'ready'].includes(outboundStatus))
+  if (outboundAttempted) {
+    return { success: false, error: 'lis_cancel_required', message: 'Item นี้ถูกส่งไป Agent/LIS แล้ว ต้องยืนยันการยกเลิกฝั่ง LIS ก่อนจึงจะปฏิเสธและเก็บใหม่ได้' }
+  }
 }
 if (await cancellationCollection.findOne(cancellationQuery)) {
   return { success: false, error: 'order_cancelled', message: 'Order นี้ถูกยกเลิกระหว่างทำรายการ กรุณาโหลดใหม่' }
@@ -253,6 +331,8 @@ const masterLab = master && master.lab_item && typeof master.lab_item === 'objec
 const masterSpecimen = masterLab.specimen && !Array.isArray(masterLab.specimen) ? masterLab.specimen : {}
 const rejectionPatch = {
   work_status: 'rejected',
+  previous_work_status: previousWorkStatus || 'sent',
+  rejected_after_receive: previousWorkStatus === 'received',
   rejection_record_id: rejectionRecordId,
   rejected_at: now,
   rejected_by: actorAudit,
@@ -278,6 +358,9 @@ if (!workItem) {
     source_order_id: orderId,
     source_order_number: orderNumber,
     source_specimen_record_id: itemId,
+    attempt_no: 1,
+    is_current_attempt: true,
+    attempt_status: 'active',
     lab_no: '',
     section_code: sectionCode,
     section_name: sectionName,
@@ -309,15 +392,40 @@ if (!workItem) {
   } catch (error) {
     workItem = await workCollection.findOne({
       xrstatx: active,
+      is_current_attempt: { $ne: false },
       $or: [{ _id: itemObjectId }, { source_specimen_record_id: itemId }]
-    })
+    }, { sort: { attempt_no: -1, updated_at: -1, created_at: -1 } })
     if (!workItem || lower(workItem.work_status) !== 'rejected') {
       return { success: false, error: 'reject_race_lost', message: 'สถานะ Item เปลี่ยนระหว่างบันทึก กรุณาโหลดรายการใหม่' }
     }
   }
 } else {
+  if (previousWorkStatus === 'received' && !(lower(outbound.hl7_status) === 'cancelled' && outbound.cancelled_locally === true)) {
+    const outboundSaved = await outboundCollection.updateOne(
+      {
+        _id: outbound._id,
+        xrstatx: active,
+        attempt_count: Number(outbound.attempt_count || 0),
+        hl7_status: outbound.hl7_status
+      },
+      { $set: {
+        hl7_status: 'cancelled',
+        retryable: false,
+        cancelled_locally: true,
+        cancelled_at: now,
+        cancelled_by: actorAudit,
+        cancel_reason: rejectReasonDetail || rejectReasonCode,
+        last_status_at: now,
+        updated_at: now,
+        updated_by: actorCode
+      } }
+    )
+    if (!outboundSaved || Number(outboundSaved.matchedCount) !== 1) {
+      return { success: false, error: 'reject_race_lost', message: 'สถานะ Outbound เปลี่ยนระหว่างปฏิเสธ กรุณาโหลดใหม่' }
+    }
+  }
   const updateResult = await workCollection.findOneAndUpdate(
-    { _id: workItem._id, xrstatx: active, work_status: 'waiting_receive' },
+    { _id: workItem._id, xrstatx: active, work_status: previousWorkStatus, is_current_attempt: { $ne: false } },
     { $set: rejectionPatch },
     { returnDocument: 'after' }
   )
@@ -328,6 +436,13 @@ if (!workItem) {
   workItem = updated
 }
 
+let cpoeSync = { status: lower(item.current_status), changed: false, preservedTerminal: false }
+let cpoeSyncPending = false
+try {
+  cpoeSync = await syncCpoeRejected()
+} catch (error) {
+  cpoeSyncPending = true
+}
 const auditSyncPending = await syncRejectionAudit(workItem.rejected_at, workItem.rejected_by)
 
 return {
@@ -346,11 +461,16 @@ return {
     reject_reason_code: text(workItem.reject_reason_code) || rejectReasonCode,
     reject_reason_detail: text(workItem.reject_reason_detail) || rejectReasonDetail,
     created_work_item: created,
+    rejected_after_receive: previousWorkStatus === 'received',
+    outbound_cancelled: previousWorkStatus === 'received' && Boolean(outbound),
     audit_sync_pending: auditSyncPending,
-    cpoe_unchanged: true,
-    outbound_unchanged: true
+    cpoe_status: cpoeSync.status,
+    cpoe_status_changed: cpoeSync.changed,
+    cpoe_terminal_preserved: cpoeSync.preservedTerminal,
+    cpoe_sync_pending: cpoeSyncPending,
+    outbound_unchanged: previousWorkStatus !== 'received'
   },
-  message: auditSyncPending
-    ? 'ปฏิเสธ LAB Item แล้ว แต่ Log ยังรอ reconcile'
+  message: auditSyncPending || cpoeSyncPending
+    ? 'ปฏิเสธ LAB Item แล้ว แต่ยังมีข้อมูลรอ reconcile'
     : 'ปฏิเสธ LAB Item แล้ว'
 }
