@@ -18,6 +18,12 @@
  *   5. item_screen.content — ลบ diagnostic alert เรื่อง patient context; parent ส่งผ่าน params อยู่แล้ว
  *   6. item_screen         — virtual Hematology tab รวม HM/HH โดยรหัสจริงในตะกร้ายังแยกเดิม
  *   7. item_screen         — สิทธิ์อ่านจาก patient/Visit context ปัจจุบัน ไม่ยึด params ตอนเปิดฟอร์ม
+ *   8. item_screen         — ซ่อนปุ่มเลือกทั้งกลุ่ม All เฉพาะตอนเปิดจาก LAB Immunology
+ *   9. pt_header           — แสดงวันที่ Visit แบบไทยในตัวเลือก VN
+ *  10. item_screen         — ทำช่องค้นหารายการให้เด่นขึ้นเฉพาะตอนเปิดจาก LAB Worklist
+ *  11. item_screen         — คืนปุ่มเปิด modal ระบุสิ่งส่งตรวจสำหรับ LAB Item ที่มี specimen แล้ว
+ *  12. item_screen         — แจ้ง callback หลังส่งใบสำเร็จ เพื่อให้ LAB Worklist โหลดรายการทันที
+ *  13. item_screen         — แสดงสิทธิ์ผู้ป่วยเดิมแบบล็อก ไม่ให้เปลี่ยนและซ่อนลูกศร dropdown
  *
  * รันใหม่ได้เสมอ:  node Form-Builder/seed/tests-tools/scripts/build_cpoe_app_vn_picker.js
  */
@@ -54,6 +60,175 @@ const replaceOnce = (text, from, to, label) => {
 
 const header = findNamed('pt_header')
 const itemScreen = findNamed('item_screen')
+
+/* LAB Worklist ต้อง refresh หลัง cpoe-order-send สำเร็จ ไม่ใช่หลัง save draft ซึ่งยังไม่อยู่ใน
+   status ของ Worklist. callback เป็น optional จึงไม่เปลี่ยน flow ของหน้า CPOE/EMR เดิม */
+itemScreen.onCreated = replaceOnce(
+  itemScreen.onCreated,
+  `const notifySaved = () => {
+	// บอกฟอร์มแม่ว่าใบใน DB ขยับแล้ว — การ์ดหน้า EMR จะได้โหลดใหม่ตอนปิด popup
+	const cb = (field.params || {}).on_order_saved;
+	if (typeof cb === 'function') cb();
+};`,
+  `const notifySaved = () => {
+	// บอกฟอร์มแม่ว่าใบใน DB ขยับแล้ว — การ์ดหน้า EMR จะได้โหลดใหม่ตอนปิด popup
+	const cb = (field.params || {}).on_order_saved;
+	if (typeof cb === 'function') cb();
+};
+const notifySent = () => {
+	// แยกจาก save draft: Worklist แสดงใบเมื่อส่งสำเร็จแล้วเท่านั้น
+	const cb = (field.params || {}).on_order_sent;
+	if (typeof cb === 'function') cb();
+};`,
+  'optional callback after Order send',
+)
+
+itemScreen.onCreated = replaceOnce(
+  itemScreen.onCreated,
+  `				field.alert('ส่งใบ ' + (s.savedOrderNumber || '') + ' แล้ว', 'success');
+				field.getFormRef().closePopup();`,
+  `				notifySent();
+				field.alert('ส่งใบ ' + (s.savedOrderNumber || '') + ' แล้ว', 'success');
+				field.getFormRef().closePopup();`,
+  'notify parent after Order send succeeds',
+)
+
+/* ── 0b. ตัวเลือก VN: แสดงวันที่ของ Visit เป็นวัน เดือน พ.ศ. ───────────────
+   ใช้วันที่ที่มากับแต่ละ Visit โดยตรง ไม่ใช้เวลาจากเครื่อง และไม่เปลี่ยนค่าที่ส่งตอนเลือก Visit */
+header.onCreated = replaceOnce(
+  header.onCreated,
+  `s.visitOptionLabel = visit => {
+  const p = s.visitPatient(visit);
+  const hn = String(p.hn || '–');
+  const vn = String((visit && visit.vn) || '–');
+  const name = s.visitName(visit) || 'ไม่ทราบชื่อ';
+  return 'HN' + hn + ' · VN' + vn + ' · ' + name;
+};`,
+  `s.visitThaiDate = visit => {
+  const raw = String((visit && (visit.visit_date || visit.created_at)) || '').trim();
+  const match = raw.match(/^(\\d{4})-(\\d{1,2})-(\\d{1,2})/);
+  if(!match) return '';
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const months = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+  if(!year || month < 1 || month > 12 || day < 1 || day > 31) return '';
+  return day + ' ' + months[month - 1] + ' ' + (year < 2400 ? year + 543 : year);
+};
+s.visitOptionLabel = visit => {
+  const p = s.visitPatient(visit);
+  const hn = String(p.hn || '–');
+  const vn = String((visit && visit.vn) || '–');
+  const visitDate = !!((field.params || {}).lab_scope) ? s.visitThaiDate(visit) : '';
+  const name = s.visitName(visit) || 'ไม่ทราบชื่อ';
+  return ['HN' + hn, 'VN' + vn, visitDate, name].filter(Boolean).join(' · ');
+};`,
+  'Thai Visit date in VN option label',
+)
+
+/* ใส่ class เฉพาะ LAB launcher เพื่อให้ CSS ช่องค้นหาไม่ลามไปหน้า CPOE ปกติ */
+itemScreen.content = replaceOnce(
+  itemScreen.content,
+  `<div class="cpoe-item" @click="closePrioMenu()">`,
+  `<div class="cpoe-item" :class="{ 'is-lab-scope': labScope }" @click="closePrioMenu()">`,
+  'LAB-scoped search emphasis class',
+)
+
+/* คืนทางเปิด modal เดิมสำหรับ LAB Item ที่ master ระบุ specimen ไว้แล้ว
+   เปลี่ยนเฉพาะ trigger/UI: missSpec, validation, payload และ open/save modal ใช้ของเดิมทั้งหมด */
+itemScreen.onCreated = replaceOnce(
+  itemScreen.onCreated,
+  `s.missSpec = () => s.cart.map((l, ix) => ({ l: l, ix: ix })).filter((x) => needSpec(x.l) && !(x.l.lab_data && x.l.lab_data.source));
+s.needSpecOf = (l) => needSpec(l);`,
+  `s.missSpec = () => s.cart.map((l, ix) => ({ l: l, ix: ix })).filter((x) => needSpec(x.l) && !x.l.lab_data);
+s.needSpecOf = (l) => needSpec(l);
+s.canOpenSpec = (l) => LAB_SCOPE && !!l && l.st === 'lab' && isSetLead(l);`,
+  'LAB specimen modal trigger helper',
+)
+
+itemScreen.onCreated = replaceOnce(
+  itemScreen.onCreated,
+  `s.specBar = (l) => {
+	if (!needSpec(l)) return null;`,
+  `s.specBar = (l) => {
+	if (!needSpec(l) && !(l && l.lab_data)) return null;`,
+  'show saved optional specimen detail',
+)
+
+/* ผู้ใช้ยืนยัน 2026-09-29: Source of specimen เป็นข้อมูลเสริม ไม่ใช่ required field
+   สถานะบันทึกสำเร็จยึดการมี lab_data จาก modal; storage/at/by และ payload รูปเดิม */
+itemScreen.onCreated = replaceOnce(
+  itemScreen.onCreated,
+  `	if (!d || !d.source) {
+		return { done: false, text: 'ยังไม่ระบุสิ่งส่งตรวจ', title: l.sp ? l.sp + ' = ' + (l.spn || 'ไม่ระบุ') : 'รายการนี้ไม่ได้ผูกสิ่งส่งตรวจไว้', btn: 'ระบุ' };
+	}`,
+  `	if (!d) {
+		return { done: false, text: 'ยังไม่ระบุสิ่งส่งตรวจ', title: l.sp ? l.sp + ' = ' + (l.spn || 'ไม่ระบุ') : 'รายการนี้ไม่ได้ผูกสิ่งส่งตรวจไว้', btn: 'ระบุ' };
+	}`,
+  'optional specimen source summary',
+)
+
+itemScreen.onCreated = replaceOnce(
+  itemScreen.onCreated,
+  `	// ไม่กรอก source = ยังไม่ถือว่าระบุ — ปุ่มส่งใบยังต้องปิดอยู่ (กติกาเดียวกับ missSpec)
+	if (!String(s.specForm.source || '').trim()) return;
+	l.lab_data = {
+		source: String(s.specForm.source).trim(),`,
+  `	// Source of specimen เป็น optional; การกดบันทึกคือยืนยันข้อมูล modal ชุดนี้
+	l.lab_data = {
+		source: String(s.specForm.source || '').trim(),`,
+  'optional specimen source save',
+)
+
+itemScreen.content = replaceOnce(
+  itemScreen.content,
+  `<button class="btn btn-primary" style="flex:none" :disabled="!specForm.source" @click="saveSpec()">บันทึก</button>`,
+  `<button class="btn btn-primary" style="flex:none" @click="saveSpec()">บันทึก</button>`,
+  'enable specimen save without source',
+)
+
+itemScreen.content = replaceOnce(
+  itemScreen.content,
+  `                  <span v-if="l.sp && !l.set">· หลอด {{ l.sp }}</span>
+                  <span v-if="l.set" class="muted">· ชุด {{ l.set }} (เจาะหลอดเดียวทั้งชุด)</span>`,
+  `                  <span v-if="l.sp && !l.set">· หลอด {{ l.sp }}</span>
+                  <span v-if="canOpenSpec(l) && !specBar(l)" class="spec-break" aria-hidden="true"></span>
+                  <button v-if="canOpenSpec(l) && !specBar(l)" type="button" class="spec-open" @click="openSpec(ix)">ระบุสิ่งส่งตรวจ</button>
+                  <span v-if="l.set" class="muted">· ชุด {{ l.set }} (เจาะหลอดเดียวทั้งชุด)</span>`,
+  'restore specimen modal button for known specimen',
+)
+
+/* ── 0a. LAB Immunology: บังคับเลือกทีละรายการ ─────────────────────────────
+   Worklist ส่ง lab_scope + section_codes มาอยู่แล้ว จึงไม่เพิ่ม API/parameter ใหม่
+   IM และ MI-OUT ใช้กติกาเดียวกัน; ห้องอื่นรวมถึงหน้า EMR ปกติยังเห็นปุ่ม All เหมือนเดิม */
+itemScreen.onCreated = replaceOnce(
+  itemScreen.onCreated,
+  `const LAB_SECTION_CODES = (Array.isArray((field.params || {}).section_codes) ? (field.params || {}).section_codes : [])
+	.map(code => String(code || '').trim().toUpperCase()).filter(Boolean);`,
+  `const LAB_SECTION_CODES = (Array.isArray((field.params || {}).section_codes) ? (field.params || {}).section_codes : [])
+	.map(code => String(code || '').trim().toUpperCase()).filter(Boolean);
+const IMMUNOLOGY_SECTION_CODES = ['IM', 'MI-OUT'];
+const IMMUNOLOGY_LAB_SCOPE = LAB_SCOPE && LAB_SECTION_CODES.length > 0
+	&& LAB_SECTION_CODES.every(code => IMMUNOLOGY_SECTION_CODES.includes(code));`,
+  'Immunology LAB scope flag',
+)
+
+itemScreen.onCreated = replaceOnce(
+  itemScreen.onCreated,
+  `s.labSectionCodes = LAB_SECTION_CODES;`,
+  `s.labSectionCodes = LAB_SECTION_CODES;
+s.immunologyLabScope = IMMUNOLOGY_LAB_SCOPE;`,
+  'expose Immunology LAB scope to template',
+)
+
+itemScreen.content = replaceOnce(
+  itemScreen.content,
+  `<button class="grp-all" :class="{ on: g.allOn }" title="เลือกทั้งกลุ่ม / เอาออกทั้งกลุ่ม"
+                        @click="toggleGroup(g)">All</button>`,
+  `<button v-if="!immunologyLabScope" class="grp-all" :class="{ on: g.allOn }" title="เลือกทั้งกลุ่ม / เอาออกทั้งกลุ่ม"
+                        @click="toggleGroup(g)">All</button>`,
+  'hide group All button for Immunology LAB scope',
+)
 
 /* ── 0. ลบข้อความ diagnostic ที่ไม่ควรแสดงกับผู้ใช้ ──────────────────────────
    ฟอร์มแม่ LAB/X-ray ส่ง initData = null และส่ง context ใน options.params อยู่แล้ว
@@ -231,6 +406,21 @@ itemScreen.onCreated = replaceOnce(
   '  s.cart = [];',
   'reset insurance selection when patient context changes',
 )
+
+/* ผู้ใช้ยืนยัน 2026-09-29: สิทธิ์เป็นข้อมูลจาก Visit เท่านั้น ห้ามเปลี่ยนจากใบสั่ง
+   คง select/value/options เดิมเพื่อแสดง label และคง insCurrent()/payload เดิมทั้งหมด
+   แต่ปิด interaction, ถอด change handler และซ่อน native dropdown arrow */
+itemScreen.content = replaceOnce(
+  itemScreen.content,
+  '<select :value="insIx" @change="setIns($event.target.value)">',
+  '<select class="ins-locked" :value="insIx" disabled aria-readonly="true" tabindex="-1">',
+  'lock patient insurance selector',
+)
+
+form.formConfig.cssCode += '\n/* CPOE Order 2026-09-29: สิทธิ์มาจาก Visit เท่านั้น — แสดงค่าเดิมแต่ห้ามเลือก */\n' +
+  '.cpoe-item .fld select.ins-locked{-webkit-appearance:none;appearance:none;background-image:none!important;' +
+  'pointer-events:none;cursor:not-allowed;opacity:1;padding-right:10px}\n' +
+  '.cpoe-item .fld select.ins-locked::-ms-expand{display:none}'
 
 /* ── 6. Hematology: HM + HH รวมเฉพาะภาพบนจอ ───────────────────────────────────────────
    ผู้ใช้ขอ 2026-09-04: ให้ HM/Hematology และ HH/Hematology-Homeostasis
@@ -429,6 +619,22 @@ form.formConfig.cssCode += '\n/* Cpoe_test_order 2026-09-04: หัวแบ่�
   '.hem-bucket{display:flex;align-items:center;gap:8px;margin:-1px -1px 8px;padding:9px 12px;' +
   'border-radius:8px 8px 0 0;background:var(--el-color-success-light-9);color:var(--el-color-success-dark-2);font-weight:800}' +
   '.hem-code{display:inline-flex;min-width:28px;justify-content:center;padding:2px 7px;border:1px solid currentColor;border-radius:999px;font-size:11px}'
+
+form.formConfig.cssCode += '\n/* Cpoe_test_order 2026-09-29: ช่องค้นหาเด่นขึ้นเฉพาะ LAB Worklist */\n' +
+  '.cpoe-item.is-lab-scope .sh-hd .find{flex:0 1 320px;width:320px;min-width:180px}\n' +
+  '.cpoe-item.is-lab-scope .sh-hd .find input{width:100%;border:2px solid color-mix(in oklab,var(--accent),var(--border) 42%);' +
+  'background:color-mix(in oklab,var(--accent),var(--surface) 96%);font-size:var(--text-sm);font-weight:600;' +
+  'box-shadow:0 0 0 2px color-mix(in oklab,var(--accent),transparent 90%)}\n' +
+  '.cpoe-item.is-lab-scope .sh-hd .find::before{width:16px;height:16px;background-color:var(--accent)}\n' +
+  '.cpoe-item.is-lab-scope .sh-hd .find input:focus{outline:none;border-color:var(--accent);' +
+  'box-shadow:0 0 0 3px color-mix(in oklab,var(--accent),transparent 78%)}'
+
+form.formConfig.cssCode += '\n/* Cpoe_test_order 2026-09-29: trigger ของ modal ระบุสิ่งส่งตรวจเดิม */\n' +
+  '.cpoe-item .line .m .spec-break{flex-basis:100%;height:0}\n' +
+  '.cpoe-item .line .m .spec-open{border:1px solid var(--accent);' +
+  'border-radius:var(--radius-pill);background:var(--surface);' +
+  'color:var(--accent);font-size:10px;font-weight:800;line-height:20px;padding:0 10px;white-space:nowrap}\n' +
+  '.cpoe-item .line .m .spec-open:hover{background:color-mix(in oklab,var(--accent),var(--surface) 84%)}'
 
 fs.mkdirSync(path.dirname(outPath), { recursive: true })
 fs.writeFileSync(outPath, JSON.stringify(form, null, 2) + '\n')
