@@ -1,0 +1,2513 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#ffffff">
+  <title>บันทึกการใช้สารทึบรังสี — Mockup 2 แท็บ</title>
+  <style>
+    :root {
+      --primary:#409eff;
+      --primary-50:#ecf5ff;
+      --success:#67c23a;
+      --success-50:#f0f9eb;
+      --success-200:#b3e19d;
+      --warning:#e6a23c;
+      --warning-50:#fdf6ec;
+      --warning-200:#f3d19e;
+      --danger:#f56c6c;
+      --danger-50:#fef0f0;
+      --danger-200:#fab6b6;
+      --info:#909399;
+      --ink:#303133;
+      --text:#606266;
+      --muted:#909399;
+      --placeholder:#a8abb2;
+      --border:#dcdfe6;
+      --border-light:#e4e7ed;
+      --border-lighter:#ebeef5;
+      --fill:#f5f7fa;
+      --fill-soft:#fafafa;
+      --white:#ffffff;
+      --shadow:0 12px 32px rgba(31,35,41,.14);
+      --font:"Leelawadee UI","Noto Sans Thai","Tahoma","Segoe UI",sans-serif;
+      --mono:"SFMono-Regular","Roboto Mono",Consolas,monospace;
+      color-scheme:light;
+    }
+
+    * { box-sizing:border-box; }
+    html { background:var(--white); }
+    body {
+      margin:0;
+      min-width:320px;
+      background:var(--white);
+      color:var(--text);
+      font-family:var(--font);
+      font-size:14px;
+      line-height:1.45;
+      -webkit-font-smoothing:antialiased;
+      -webkit-tap-highlight-color:rgba(64,158,255,.14);
+    }
+    button,input,select,textarea { font:inherit; }
+    button,select { touch-action:manipulation; }
+    button { cursor:pointer; }
+    button:disabled { cursor:not-allowed; opacity:.55; }
+    .btn:disabled:hover {
+      border-color:var(--border);
+      background:var(--white);
+      color:var(--text);
+      transform:none;
+    }
+    [hidden] { display:none !important; }
+    .sr-only {
+      position:absolute;
+      width:1px;
+      height:1px;
+      padding:0;
+      margin:-1px;
+      overflow:hidden;
+      clip:rect(0,0,0,0);
+      white-space:nowrap;
+      border:0;
+    }
+    .mono {
+      font-family:var(--mono);
+      font-variant-numeric:tabular-nums;
+      letter-spacing:-.02em;
+    }
+    .skip-link {
+      position:fixed;
+      left:12px;
+      top:10px;
+      z-index:100;
+      transform:translateY(-150%);
+      padding:8px 12px;
+      border-radius:5px;
+      background:var(--ink);
+      color:var(--white);
+    }
+    .skip-link:focus { transform:translateY(0); }
+    :focus-visible {
+      outline:2px solid rgba(64,158,255,.55);
+      outline-offset:2px;
+    }
+    h1,h2,h3 { text-wrap:balance; }
+
+    .page {
+      width:100%;
+      padding:24px clamp(16px,2.5vw,40px) 48px;
+    }
+    .page-head {
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      gap:16px;
+      margin-bottom:20px;
+    }
+    .title-wrap { min-width:0; }
+    .title-wrap h1 {
+      margin:0;
+      color:var(--ink);
+      font-size:25px;
+      line-height:1.25;
+      font-weight:700;
+    }
+    .title-wrap p {
+      margin:4px 0 0;
+      color:var(--muted);
+      font-size:12px;
+    }
+
+    .toolbar {
+      display:grid;
+      grid-template-columns:minmax(230px,310px) minmax(250px,310px) auto auto minmax(24px,1fr) auto;
+      align-items:center;
+      gap:10px;
+      margin-bottom:18px;
+    }
+    .control,
+    .btn {
+      height:36px;
+      border:1px solid var(--border);
+      border-radius:5px;
+      background:var(--white);
+      color:var(--text);
+      transition:border-color .15s ease,background-color .15s ease,color .15s ease,box-shadow .15s ease,transform .12s ease;
+    }
+    .control:hover,
+    .btn:hover { border-color:#a0cfff; }
+    .control:focus,
+    .control:focus-within { border-color:var(--primary); box-shadow:0 0 0 2px rgba(64,158,255,.12); }
+    .btn {
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:7px;
+      padding:0 14px;
+      font-weight:600;
+      white-space:nowrap;
+    }
+    .btn:hover { color:var(--primary); background:var(--primary-50); }
+    .btn:active { transform:translateY(1px); }
+    .btn-primary { border-color:var(--primary); background:var(--primary); color:var(--white); }
+    .btn-primary:hover { border-color:#66b1ff; background:#66b1ff; color:var(--white); }
+    .btn-success { border-color:var(--success-200); background:var(--success-50); color:#529b2e; }
+    .btn-success:hover { border-color:var(--success); background:#e1f3d8; color:#3f7f22; }
+    .btn-danger { border-color:var(--danger-200); background:var(--danger-50); color:#c45656; }
+    .btn-danger:hover { border-color:var(--danger); background:#fde2e2; color:#b64242; }
+    .btn-warning { border-color:var(--warning-200); background:var(--warning-50); color:#b88230; }
+    .btn-plain { background:transparent; }
+    .btn-sm { height:30px; padding:0 11px; font-size:12px; }
+    .btn-icon { width:34px; padding:0; }
+    .btn svg,
+    .input-icon {
+      width:16px;
+      height:16px;
+      flex:none;
+      fill:none;
+      stroke:currentColor;
+      stroke-linecap:round;
+      stroke-linejoin:round;
+      stroke-width:1.8;
+    }
+
+    .search-field { position:relative; min-width:0; }
+    .search-field .input-icon {
+      position:absolute;
+      left:11px;
+      top:10px;
+      z-index:1;
+      color:var(--placeholder);
+      pointer-events:none;
+    }
+    .search-field input {
+      width:100%;
+      padding:0 34px 0 35px;
+    }
+    .clear-search {
+      position:absolute;
+      right:7px;
+      top:7px;
+      width:22px;
+      height:22px;
+      padding:0;
+      border:0;
+      border-radius:50%;
+      background:transparent;
+      color:var(--placeholder);
+      font-size:17px;
+      line-height:1;
+    }
+    .clear-search:hover { background:var(--fill); color:var(--text); }
+
+    .date-range { position:relative; min-width:0; }
+    .date-trigger {
+      width:100%;
+      display:flex;
+      align-items:center;
+      gap:9px;
+      padding:0 10px;
+      text-align:left;
+      font-weight:400;
+    }
+    .date-trigger .date-value {
+      min-width:0;
+      flex:1;
+      overflow:hidden;
+      color:var(--placeholder);
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .date-trigger.has-value .date-value { color:var(--ink); }
+    .date-clear {
+      position:absolute;
+      right:31px;
+      top:8px;
+      z-index:2;
+      width:20px;
+      height:20px;
+      padding:0;
+      border:0;
+      border-radius:50%;
+      background:transparent;
+      color:var(--placeholder);
+      line-height:18px;
+    }
+    .date-clear:hover { background:var(--fill); color:var(--text); }
+    .date-popover {
+      position:absolute;
+      top:42px;
+      left:0;
+      z-index:30;
+      width:min(620px,calc(100vw - 32px));
+      padding:14px;
+      border:1px solid var(--border-light);
+      border-radius:7px;
+      background:var(--white);
+      box-shadow:var(--shadow);
+    }
+    .calendar-head {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:12px;
+    }
+    .calendar-head-copy { min-width:0; text-align:center; }
+    .calendar-head-copy strong,
+    .calendar-head-copy span { display:block; }
+    .calendar-nav {
+      width:30px;
+      height:30px;
+      flex:none;
+      padding:0;
+      border:1px solid var(--border-light);
+      border-radius:4px;
+      background:var(--white);
+      color:var(--text);
+      font-size:19px;
+      line-height:1;
+    }
+    .calendar-nav:hover { border-color:#a0cfff; background:var(--primary-50); color:var(--primary); }
+    .calendar-head strong { color:var(--ink); }
+    .calendar-head span { color:var(--muted); font-size:12px; }
+    .calendars {
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:18px;
+    }
+    .calendar + .calendar { border-left:1px solid var(--border-lighter); padding-left:18px; }
+    .calendar-title {
+      margin:0 0 8px;
+      color:var(--ink);
+      font-size:13px;
+      text-align:center;
+    }
+    .calendar-grid {
+      display:grid;
+      grid-template-columns:repeat(7,1fr);
+      gap:3px;
+    }
+    .weekday {
+      padding:4px 0;
+      color:var(--muted);
+      font-size:10px;
+      text-align:center;
+    }
+    .day {
+      min-width:30px;
+      height:30px;
+      padding:0;
+      border:0;
+      border-radius:4px;
+      background:transparent;
+      color:var(--text);
+      font-size:11px;
+    }
+    .day:hover { background:var(--primary-50); color:var(--primary); }
+    .day.outside { color:#c8c9cc; }
+    .day.in-range { border-radius:0; background:var(--primary-50); color:#337ecc; }
+    .day.selected { border-radius:4px; background:var(--primary); color:var(--white); }
+    .calendar-foot {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-top:12px;
+      padding-top:11px;
+      border-top:1px solid var(--border-lighter);
+      color:var(--muted);
+      font-size:12px;
+    }
+
+    .status-strip {
+      display:flex;
+      align-items:center;
+      gap:8px;
+      margin-bottom:18px;
+      overflow-x:auto;
+      scrollbar-width:thin;
+    }
+    .status-chip {
+      --chip-color:var(--primary);
+      --chip-border:#a0cfff;
+      --chip-bg:var(--primary-50);
+      flex:0 0 auto;
+      display:flex;
+      align-items:baseline;
+      justify-content:center;
+      gap:6px;
+      padding:6px 12px;
+      border:1px solid var(--border-light);
+      border-radius:6px;
+      background:var(--fill);
+      color:var(--muted);
+      font-weight:600;
+      white-space:nowrap;
+      transition:border-color .15s ease,background-color .15s ease,color .15s ease,box-shadow .15s ease;
+    }
+    .status-chip strong { color:var(--chip-color); font-size:18px; line-height:1; }
+    .status-chip span { color:var(--muted); font-size:12px; font-weight:500; }
+    .status-chip[data-status="active"] { --chip-color:#b88230; --chip-border:var(--warning-200); --chip-bg:var(--warning-50); }
+    .status-chip[data-status="complete"] { --chip-color:#529b2e; --chip-border:var(--success-200); --chip-bg:var(--success-50); }
+    .status-chip[data-status="cancelled"] { --chip-color:#c45656; --chip-border:var(--danger-200); --chip-bg:var(--danger-50); }
+    .status-chip:hover { border-color:var(--chip-border); background:var(--fill); }
+    .status-chip.active {
+      border-color:var(--chip-border);
+      background:var(--fill);
+      box-shadow:none;
+    }
+
+    .worklist-shell {
+      overflow-x:auto;
+      border-top:1px solid var(--border);
+      border-bottom:1px solid var(--border);
+      scrollbar-width:thin;
+    }
+    .worklist {
+      min-width:1390px;
+      background:var(--white);
+    }
+    .patient-block {
+      position:relative;
+      border-bottom:1px solid var(--border);
+      content-visibility:auto;
+      contain-intrinsic-size:84px;
+    }
+    .patient-block.dropdown-open {
+      z-index:60;
+      content-visibility:visible;
+    }
+    .patient-block:last-child { border-bottom:0; }
+    .patient-row {
+      display:grid;
+      grid-template-columns:34px minmax(205px,1.55fr) minmax(170px,1.18fr) 92px 100px 144px 112px minmax(140px,1fr) 92px 62px 62px 62px;
+      gap:10px;
+      align-items:center;
+      min-height:84px;
+      padding:10px 12px;
+      background:var(--white);
+      transition:background-color .15s ease;
+    }
+    .patient-row:hover { background:var(--fill-soft); }
+    .patient-block.is-open > .patient-row { background:#fcfcfd; }
+    .expand-button {
+      width:28px;
+      height:30px;
+      display:grid;
+      place-items:center;
+      padding:0;
+      border:0;
+      border-radius:4px;
+      background:transparent;
+      color:var(--text);
+    }
+    .expand-button:hover { background:var(--fill); color:var(--primary); }
+    .expand-button svg {
+      width:15px;
+      height:15px;
+      fill:none;
+      stroke:currentColor;
+      stroke-width:2;
+      transition:transform .16s ease;
+    }
+    .patient-block.is-open .expand-button svg { transform:rotate(90deg); }
+    .patient-summary,
+    .context-tags,
+    .metric,
+    .doctor-cell { min-width:0; }
+    .patient-hn {
+      display:flex;
+      align-items:center;
+      gap:6px;
+      min-width:0;
+      color:var(--ink);
+      font-weight:700;
+    }
+    .patient-hn span:first-child {
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .patient-name {
+      margin-top:2px;
+      overflow:hidden;
+      color:var(--ink);
+      font-weight:650;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .patient-demographic {
+      display:flex;
+      align-items:center;
+      gap:6px;
+      margin-top:1px;
+      color:var(--muted);
+      font-size:11px;
+    }
+    .inline-tag,
+    .state-tag {
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:22px;
+      padding:1px 7px;
+      border:1px solid;
+      border-radius:4px;
+      font-size:11px;
+      font-weight:650;
+      white-space:nowrap;
+    }
+    .tag-danger { border-color:var(--danger-200); background:var(--danger-50); color:#c45656; }
+    .tag-warning { border-color:var(--warning-200); background:var(--warning-50); color:#b88230; }
+    .tag-success { border-color:var(--success-200); background:var(--success-50); color:#529b2e; }
+    .tag-info { border-color:#c8c9cc; background:#f4f4f5; color:#73767a; }
+    .tag-primary { border-color:#a0cfff; background:var(--primary-50); color:#337ecc; }
+    .urgent-tag { min-height:18px; padding:0 5px; font-size:9px; }
+    .meta-pill {
+      min-height:23px;
+      padding:1px 9px;
+      border-color:#c8c9cc;
+      border-radius:999px;
+      background:var(--white);
+      color:#606266;
+      font-weight:600;
+    }
+    .gender-pill {
+      min-height:18px;
+      padding:0 7px;
+      border-color:#c8c9cc;
+      border-radius:999px;
+      background:var(--white);
+      color:#606266;
+      font-size:9px;
+    }
+    .context-top {
+      display:flex;
+      align-items:center;
+      gap:6px;
+      margin-bottom:5px;
+    }
+    .context-top .inline-tag { background:var(--white); color:var(--text); }
+    .context-top .meta-pill:first-child {
+      border-color:#a0cfff;
+      background:var(--primary-50);
+      color:#337ecc;
+    }
+    .context-top .meta-pill:last-child {
+      border-color:var(--success-200);
+      background:var(--success-50);
+      color:#529b2e;
+    }
+    .context-tags > .meta-pill {
+      border-color:var(--warning-200);
+      background:var(--warning-50);
+      color:#b88230;
+    }
+    .field-label {
+      display:block;
+      margin-bottom:5px;
+      color:var(--muted);
+      font-size:10px;
+      font-weight:650;
+      letter-spacing:.015em;
+    }
+    .order-time-label {
+      display:flex;
+      align-items:center;
+      gap:5px;
+      white-space:nowrap;
+    }
+    .order-no-tag {
+      display:inline-flex;
+      max-width:100%;
+      min-height:18px;
+      align-items:center;
+      padding:0 6px;
+      overflow:hidden;
+      border:1px solid #a0cfff;
+      border-radius:999px;
+      background:var(--primary-50);
+      color:#337ecc;
+      font-family:var(--mono);
+      font-size:9px;
+      font-weight:650;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .field-value {
+      display:block;
+      min-width:0;
+      overflow:hidden;
+      color:var(--ink);
+      font-size:12px;
+      font-weight:650;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .time-value { line-height:1.25; }
+    .time-value span { display:block; }
+    .diagnosis-summary {
+      display:block;
+      margin-top:3px;
+      overflow:hidden;
+      color:var(--muted);
+      font-size:10px;
+      font-weight:500;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .row-status {
+      min-height:22px;
+      width:auto;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      justify-self:start;
+      padding:1px 7px;
+      border:1px solid;
+      border-radius:4px;
+      font-size:11px;
+      font-weight:650;
+      white-space:nowrap;
+    }
+    .status-waiting { border-color:var(--warning-200); background:var(--warning-50); color:#b88230; }
+    .status-received,.status-resulted,.status-result-complete { border-color:var(--success-200); background:var(--success-50); color:#529b2e; }
+    .status-result-partial { border-color:var(--warning-200); background:var(--warning-50); color:#b88230; }
+    .status-cancelled { border-color:var(--danger-200); background:var(--danger-50); color:#c45656; }
+    .status-mixed { border-color:#c8c9cc; background:#f4f4f5; color:#73767a; }
+    .plain-action {
+      width:100%;
+      height:30px;
+      padding:0 7px;
+      border-color:var(--border);
+      background:var(--white);
+      font-size:11px;
+      font-weight:600;
+    }
+
+    .detail-panel {
+      padding:0 16px 18px 46px;
+      background:var(--fill-soft);
+      border-top:1px solid var(--border-lighter);
+    }
+    .detail-top {
+      min-height:48px;
+      display:flex;
+      align-items:flex-end;
+      gap:20px;
+      border-bottom:1px solid var(--border-light);
+    }
+    .detail-tab {
+      height:48px;
+      padding:0;
+      border:0;
+      border-bottom:2px solid transparent;
+      background:transparent;
+      color:var(--muted);
+      font-weight:650;
+    }
+    .detail-tab:hover { color:var(--ink); }
+    .detail-tab.active { border-bottom-color:var(--primary); color:var(--primary); }
+    .detail-tab:disabled,
+    .detail-tab:disabled:hover {
+      border-bottom-color:transparent;
+      color:#c0c4cc;
+      cursor:not-allowed;
+    }
+    .bulk-actions {
+      display:flex;
+      align-items:center;
+      gap:8px;
+      margin-left:auto;
+      padding-bottom:8px;
+    }
+    .detail-summary {
+      display:flex;
+      align-items:center;
+      gap:20px;
+      min-height:46px;
+      color:var(--muted);
+      font-size:12px;
+    }
+    .detail-summary strong {
+      margin-right:4px;
+      color:var(--ink);
+      font-size:18px;
+      font-weight:700;
+      font-variant-numeric:tabular-nums;
+    }
+    .detail-table-wrap { overflow:visible; }
+    .detail-table {
+      width:100%;
+      min-width:990px;
+      border-collapse:collapse;
+      table-layout:fixed;
+      background:transparent;
+    }
+    .detail-table th {
+      height:36px;
+      padding:6px 10px;
+      border-bottom:1px solid var(--border);
+      color:var(--muted);
+      font-size:11px;
+      font-weight:650;
+      text-align:left;
+      text-transform:none;
+    }
+    .detail-table td {
+      height:52px;
+      padding:7px 10px;
+      border-bottom:1px dashed var(--border-lighter);
+      color:var(--text);
+      vertical-align:middle;
+    }
+    .detail-table tr:last-child td { border-bottom:0; }
+    .detail-table tbody tr:hover { background:rgba(255,255,255,.78); }
+    .detail-table.specimen-table { min-width:1340px; }
+    .select-cell { text-align:center !important; }
+    .item-check {
+      width:15px;
+      height:15px;
+      margin:0;
+      accent-color:var(--primary);
+      cursor:pointer;
+    }
+    .item-check:disabled { cursor:not-allowed; opacity:.45; }
+    .empty-cell { color:var(--placeholder); }
+    .test-name { color:var(--ink); font-weight:700; }
+    .specimen-combobox {
+      position:relative;
+      width:100%;
+      max-width:170px;
+    }
+    .specimen-search {
+      width:100%;
+      padding:0 31px 0 10px;
+      background-color:var(--white);
+      color:var(--text);
+    }
+    .specimen-toggle {
+      position:absolute;
+      right:1px;
+      top:1px;
+      width:30px;
+      height:34px;
+      display:grid;
+      place-items:center;
+      padding:0;
+      border:0;
+      border-left:1px solid var(--border-lighter);
+      border-radius:0 4px 4px 0;
+      background:transparent;
+      color:var(--muted);
+    }
+    .specimen-toggle:hover { background:var(--fill); color:var(--primary); }
+    .specimen-toggle svg { width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:1.8; }
+    .specimen-menu {
+      position:absolute;
+      top:40px;
+      left:0;
+      z-index:120;
+      width:100%;
+      padding:4px;
+      border:1px solid var(--border-light);
+      border-radius:6px;
+      background:var(--white);
+      box-shadow:0 8px 22px rgba(31,35,41,.14);
+    }
+    .specimen-option {
+      width:100%;
+      min-height:30px;
+      padding:4px 8px;
+      border:0;
+      border-radius:4px;
+      background:transparent;
+      color:var(--text);
+      text-align:left;
+    }
+    .specimen-option:hover,
+    .specimen-option[aria-selected="true"] { background:var(--primary-50); color:var(--primary); }
+    .specimen-empty { padding:8px; color:var(--muted); font-size:11px; text-align:center; }
+    .result-action-group {
+      display:flex;
+      align-items:center;
+      gap:6px;
+      flex-wrap:wrap;
+    }
+    .critical-state {
+      display:inline-flex;
+      align-items:center;
+      gap:7px;
+      min-width:0;
+    }
+    .signal-dot {
+      width:10px;
+      height:10px;
+      flex:none;
+      border:1px solid;
+      border-radius:50%;
+    }
+    .signal-dot.critical { border-color:#d46a6a; background:#b84d4d; box-shadow:0 0 0 3px rgba(245,108,108,.12); }
+    .signal-dot.normal { border-color:#4e9631; background:#2f761e; box-shadow:0 0 0 3px rgba(103,194,58,.1); }
+
+    .empty-state {
+      padding:44px 20px;
+      color:var(--muted);
+      text-align:center;
+    }
+    .empty-state strong { display:block; margin-bottom:4px; color:var(--ink); }
+
+    dialog {
+      width:min(1040px,calc(100vw - 32px));
+      max-height:calc(100vh - 40px);
+      padding:0;
+      overflow:hidden;
+      border:1px solid var(--border);
+      border-radius:10px;
+      background:var(--white);
+      color:var(--text);
+      box-shadow:0 22px 55px rgba(31,35,41,.22);
+      overscroll-behavior:contain;
+    }
+    dialog::backdrop { background:rgba(31,35,41,.48); }
+    body.modal-open { overflow:hidden; }
+    body.modal-open::before {
+      content:"";
+      position:fixed;
+      inset:0;
+      z-index:89;
+      background:rgba(31,35,41,.48);
+    }
+    dialog.dialog-fallback[open] {
+      position:fixed;
+      inset:50% auto auto 50%;
+      z-index:90;
+      display:block;
+      margin:0;
+      transform:translate(-50%,-50%);
+    }
+    .modal-head {
+      display:flex;
+      align-items:center;
+      gap:14px;
+      padding:15px 18px;
+      border-bottom:1px solid var(--border-lighter);
+    }
+    .modal-head h2 {
+      margin:0;
+      color:var(--ink);
+      font-size:17px;
+    }
+    .modal-title-row {
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    .edit-result-button {
+      width:28px;
+      height:28px;
+      display:grid;
+      place-items:center;
+      padding:0;
+      border:1px solid transparent;
+      border-radius:5px;
+      background:transparent;
+      color:var(--muted);
+    }
+    .edit-result-button:hover { border-color:#a0cfff; background:var(--primary-50); color:var(--primary); }
+    .edit-result-button[aria-pressed="true"] { border-color:var(--primary); background:var(--primary-50); color:var(--primary); }
+    .edit-result-button svg { width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:1.8; }
+    .mode-badge {
+      display:inline-flex;
+      align-items:center;
+      min-height:20px;
+      margin-left:4px;
+      padding:0 7px;
+      border:1px solid var(--border);
+      border-radius:999px;
+      background:var(--fill-soft);
+      color:var(--muted);
+      font-size:10px;
+      font-weight:650;
+    }
+    .mode-badge.editing { border-color:#a0cfff; background:var(--primary-50); color:#337ecc; }
+    .modal-meta { margin-top:2px; color:var(--muted); font-size:11px; }
+    .modal-close {
+      width:32px;
+      height:32px;
+      margin-left:auto;
+      padding:0;
+      border:0;
+      border-radius:5px;
+      background:transparent;
+      color:var(--muted);
+      font-size:22px;
+    }
+    .modal-close:hover { background:var(--fill); color:var(--ink); }
+    .modal-body {
+      max-height:calc(100vh - 160px);
+      padding:18px;
+      overflow:auto;
+      overscroll-behavior:contain;
+    }
+    .result-table-wrap {
+      overflow-x:auto;
+      border:1px solid var(--border);
+      border-radius:7px;
+    }
+    .result-table {
+      width:100%;
+      min-width:940px;
+      border-collapse:collapse;
+      table-layout:fixed;
+    }
+    .result-table thead th {
+      height:42px;
+      padding:7px 10px;
+      border-bottom:1px solid var(--border);
+      background:var(--fill-soft);
+      color:var(--muted);
+      font-size:11px;
+      text-align:left;
+    }
+    .result-table td {
+      min-height:46px;
+      padding:10px;
+      border-bottom:1px solid var(--border-lighter);
+      color:var(--text);
+      vertical-align:top;
+    }
+    .result-table tr:last-child td { border-bottom:0; }
+    .profile-row th {
+      height:40px;
+      padding:5px 10px;
+      border-top:1px solid var(--border);
+      border-bottom:1px solid var(--border);
+      background:var(--fill);
+    }
+    .profile-row:first-child th { border-top:0; }
+    .profile-head {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      color:var(--ink);
+      font-size:13px;
+      text-align:left;
+    }
+    .previous-value { color:var(--muted); }
+    .result-value {
+      display:block;
+      min-width:0;
+      color:var(--ink);
+      font-weight:700;
+      overflow-wrap:anywhere;
+      white-space:pre-wrap;
+    }
+    .pending-result-row td { background:#fffaf2; vertical-align:middle; }
+    .pending-result-message {
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-height:34px;
+      color:var(--muted);
+    }
+    .entry-mode-tag {
+      display:inline-flex;
+      align-items:center;
+      min-height:20px;
+      padding:1px 7px;
+      border:1px solid #a0cfff;
+      border-radius:999px;
+      background:var(--primary-50);
+      color:#337ecc;
+      font-size:10px;
+      font-weight:650;
+      white-space:nowrap;
+    }
+    .result-editor {
+      width:100%;
+      min-height:32px;
+      padding:6px 8px;
+      border:1px solid var(--primary);
+      border-radius:4px;
+      background:var(--white);
+      color:var(--ink);
+      resize:vertical;
+    }
+    .modal-foot {
+      display:flex;
+      justify-content:flex-end;
+      gap:8px;
+      padding:12px 18px;
+      border-top:1px solid var(--border-lighter);
+      background:var(--fill-soft);
+    }
+
+    .cancel-detail-grid {
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:14px;
+    }
+    .cancel-detail {
+      min-width:0;
+      padding:13px 14px;
+      border:1px solid var(--border-lighter);
+      border-radius:6px;
+      background:var(--fill-soft);
+    }
+    .cancel-detail.reason { grid-column:1/-1; }
+    .cancel-detail .field-value {
+      margin-top:5px;
+      white-space:normal;
+      overflow-wrap:anywhere;
+    }
+    .confirm-copy { margin:0; color:var(--ink); }
+    .reject-form-grid {
+      display:grid;
+      grid-template-columns:minmax(0,1fr);
+      gap:14px;
+    }
+    .form-field label {
+      display:block;
+      margin-bottom:6px;
+      color:var(--ink);
+      font-size:12px;
+      font-weight:650;
+    }
+    .form-field select,
+    .form-field textarea {
+      width:100%;
+      border:1px solid var(--border);
+      border-radius:5px;
+      background:var(--white);
+      color:var(--text);
+    }
+    .form-field select { height:38px; padding:0 10px; }
+    .form-field textarea { min-height:86px; padding:9px 10px; resize:vertical; }
+    .form-field select:focus,
+    .form-field textarea:focus { border-color:var(--primary); box-shadow:0 0 0 2px rgba(64,158,255,.12); outline:0; }
+    .required-mark { color:var(--danger); }
+
+    .implementation-remarks {
+      margin-top:18px;
+      padding:14px 16px;
+      border:1px solid var(--warning-200);
+      border-left:3px solid var(--warning);
+      border-radius:6px;
+      background:var(--warning-50);
+      color:var(--text);
+    }
+    .implementation-remarks h2 {
+      margin:0 0 7px;
+      color:#8a5b16;
+      font-size:13px;
+    }
+    .implementation-remarks ul { margin:0; padding-left:20px; }
+    .implementation-remarks li + li { margin-top:5px; }
+
+    .toast {
+      position:fixed;
+      left:50%;
+      bottom:24px;
+      z-index:80;
+      max-width:min(560px,calc(100vw - 32px));
+      padding:10px 14px;
+      border:1px solid #b3e19d;
+      border-radius:6px;
+      background:var(--success-50);
+      color:#3f7f22;
+      box-shadow:0 10px 28px rgba(31,35,41,.16);
+      opacity:0;
+      transform:translate(-50%,16px);
+      transition:opacity .18s ease,transform .18s ease;
+      pointer-events:none;
+    }
+    .toast.show { opacity:1; transform:translate(-50%,0); }
+
+    @media (max-width:980px) {
+      .toolbar {
+        grid-template-columns:1fr 1fr auto auto;
+      }
+      .toolbar-spacer { display:none; }
+      .create-button { grid-column:1/-1; justify-self:end; }
+    }
+    @media (max-width:680px) {
+      .page { padding:18px 12px 36px; }
+      .page-head { align-items:flex-start; }
+      .title-wrap h1 { font-size:22px; }
+      .toolbar { grid-template-columns:1fr 1fr; }
+      .search-field,.date-range { grid-column:1/-1; }
+      .create-button { width:100%; justify-self:stretch; }
+      .status-strip { grid-template-columns:repeat(4,150px); }
+      .calendars { grid-template-columns:1fr; }
+      .calendar + .calendar { display:none; }
+      .detail-panel { padding-left:16px; }
+      .bulk-actions { width:100%; margin:0 0 8px; order:3; }
+      .detail-top { flex-wrap:wrap; }
+      .modal-body { padding:10px; }
+      .cancel-detail-grid { grid-template-columns:1fr; }
+      .cancel-detail.reason { grid-column:auto; }
+    }
+    @media (prefers-reduced-motion:reduce) {
+      *,*::before,*::after {
+        scroll-behavior:auto !important;
+        transition-duration:.001ms !important;
+      }
+    }
+
+    /* ═══ X-ray overrides — ยกระบบภาพจาก LAB ทั้งหมด เปลี่ยนเฉพาะที่จำเป็น ═══════
+       1. toolbar เพิ่มคอลัมน์ dropdown เครื่อง แทรกระหว่าง Date Range กับปุ่ม Search
+       2. worklist ตัดคอลัมน์ specimen ออก ใส่คอลัมน์ "เครื่อง" กว้างขึ้นแทน
+       3. ตารางรายละเอียดไม่มี Lab No. / specimen / เวลาเก็บ specimen           */
+
+    .toolbar {
+      grid-template-columns:minmax(230px,310px) minmax(250px,310px) minmax(170px,220px) auto auto minmax(24px,1fr) auto;
+    }
+
+    /* ── dropdown เครื่อง ─────────────────────────────────────────────────── */
+    .modality-field { position:relative; min-width:0; }
+    .modality-trigger {
+      width:100%;
+      display:flex;
+      align-items:center;
+      gap:9px;
+      padding:0 10px;
+      text-align:left;
+      font-weight:400;
+    }
+    .modality-trigger .modality-label {
+      flex:none;
+      color:var(--muted);
+      font-size:11px;
+      font-weight:650;
+    }
+    .modality-trigger .modality-value {
+      min-width:0;
+      flex:1;
+      overflow:hidden;
+      color:var(--ink);
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .modality-trigger .caret {
+      flex:none;
+      color:var(--placeholder);
+      font-size:11px;
+      transition:transform .15s ease;
+    }
+    .modality-field.open .modality-trigger .caret { transform:rotate(180deg); }
+    .modality-field.open .modality-trigger { border-color:var(--primary); box-shadow:0 0 0 2px rgba(64,158,255,.12); }
+    .modality-menu {
+      position:absolute;
+      top:42px;
+      left:0;
+      z-index:120;
+      width:100%;
+      min-width:190px;
+      max-height:320px;
+      overflow-y:auto;
+      padding:5px;
+      border:1px solid var(--border-light);
+      border-radius:6px;
+      background:var(--white);
+      box-shadow:var(--shadow);
+      scrollbar-width:thin;
+    }
+    .modality-option {
+      width:100%;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      min-height:32px;
+      padding:6px 10px;
+      border:0;
+      border-radius:4px;
+      background:transparent;
+      color:var(--text);
+      text-align:left;
+      font-size:13px;
+    }
+    .modality-option:hover { background:var(--primary-50); color:var(--primary); }
+    .modality-option[aria-selected="true"] { background:var(--primary-50); color:#337ecc; font-weight:650; }
+    .modality-option .opt-count {
+      flex:none;
+      color:var(--muted);
+      font-family:var(--mono);
+      font-size:11px;
+      font-variant-numeric:tabular-nums;
+    }
+    .modality-option:hover .opt-count,
+    .modality-option[aria-selected="true"] .opt-count { color:inherit; }
+    .modality-divider { margin:5px 4px; border-top:1px solid var(--border-lighter); }
+
+    /* ── worklist grid ────────────────────────────────────────────────────── */
+    .worklist { min-width:1310px; }
+    .patient-row {
+      grid-template-columns:30px minmax(165px,1.3fr) minmax(142px,1fr) minmax(145px,1.25fr) 92px 126px 100px minmax(110px,.95fr) 84px 196px;
+    }
+    .modality-cell { display:flex; flex-wrap:wrap; align-items:center; gap:4px; }
+    .modality-tag {
+      min-height:22px;
+      padding:1px 7px;
+      border:1px solid #c8c9cc;
+      border-radius:4px;
+      background:#f4f4f5;
+      color:#73767a;
+      font-size:11px;
+      font-weight:650;
+      white-space:nowrap;
+    }
+    .test-cell .field-value {
+      display:block;
+      overflow:hidden;
+      color:var(--ink);
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .test-code { display:block; margin-top:1px; color:var(--muted); font-size:10px; }
+
+    /* ปุ่มท้ายแถวอยู่ในคอลัมน์เดียวและชิดขวา — ต่อกันเสมอ ไม่มีช่องว่างคั่น */
+    .row-actions {
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap:6px;
+      min-width:0;
+    }
+    .row-actions .plain-action { width:auto; flex:none; }
+
+    /* คอลัมน์ context แคบลงจาก LAB (ตัด specimen ออกแล้วแบ่งความกว้างใหม่)
+       🔴 ต้องให้ pill ตัดบรรทัดได้ ไม่งั้นล้นไปทับคอลัมน์ "รายการ" */
+    .context-top { flex-wrap:wrap; row-gap:4px; }
+    .context-tags { overflow:hidden; }
+
+    /* ── detail table ─────────────────────────────────────────────────────── */
+    .detail-table.item-table { min-width:1180px; }
+    .status-dispatched { border-color:var(--success-200); background:var(--success-50); color:#529b2e; }
+    .status-transport-failed { border-color:var(--danger-200); background:var(--danger-50); color:#c45656; }
+    .transport-note {
+      display:block;
+      margin-top:3px;
+      color:#c45656;
+      font-size:10px;
+      font-weight:600;
+    }
+
+    /* ── result document viewer ───────────────────────────────────────────── */
+    .report-doc { display:grid; gap:14px; }
+    .report-head {
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+      gap:12px;
+      padding:13px 14px;
+      border:1px solid var(--border-lighter);
+      border-radius:6px;
+      background:var(--fill-soft);
+    }
+    .report-section h3 {
+      margin:0 0 6px;
+      color:var(--ink);
+      font-size:13px;
+      font-weight:700;
+      letter-spacing:.015em;
+    }
+    .report-body {
+      margin:0;
+      padding:12px 14px;
+      border:1px solid var(--border-lighter);
+      border-radius:6px;
+      background:var(--white);
+      color:var(--text);
+      font-family:var(--font);
+      font-size:13px;
+      line-height:1.65;
+      white-space:pre-wrap;
+      overflow-wrap:anywhere;
+    }
+    .report-pending {
+      padding:14px;
+      border:1px dashed var(--warning-200);
+      border-radius:6px;
+      background:var(--warning-50);
+      color:#b88230;
+      font-size:12px;
+      text-align:center;
+    }
+    .report-foot {
+      display:flex;
+      flex-wrap:wrap;
+      align-items:center;
+      gap:10px;
+      color:var(--muted);
+      font-size:12px;
+    }
+
+    @media (max-width:980px) {
+      .toolbar { grid-template-columns:1fr 1fr; }
+      .modality-field { grid-column:span 1; }
+    }
+    @media (max-width:680px) {
+      .toolbar { grid-template-columns:1fr; }
+      .modality-menu { width:100%; }
+    }
+
+    /* ═══ ส่วนที่เพิ่มสำหรับหน้า "ประวัติการใช้สารทึบรังสี" ══════════════════════
+       ระบบภาพและโครงแถวทั้งหมดข้างบนคัดลอกตรงจาก 02-his/ui/xray-workbench-mockup.html
+       (หน้าต้นแบบของ X-ray Worklist ที่ผู้ใช้ตรวจแล้ว 4 รอบ · ต้นฉบับเดียวคือ
+       design/Lab_design.md) — ด้านล่างนี้เป็นส่วนเพิ่มเท่านั้น ไม่มี token ใหม่
+       และไม่มีการแก้ค่าเดิมสักตัว                                                */
+
+    /* ── ป้ายบอกโหมดที่มุมขวาของ toolbar (ตำแหน่งเดิมของปุ่ม "สร้างรายการใหม่") ── */
+    .scope-hint {
+      min-height:36px;
+      display:inline-flex;
+      align-items:center;
+      padding:0 11px;
+      border:1px dashed var(--border);
+      border-radius:5px;
+      color:var(--muted);
+      font-size:11px;
+      font-weight:600;
+      white-space:nowrap;
+    }
+
+    /* ── แถบบอกกติกา ─────────────────────────────────────────────────────────── */
+    .pane-note {
+      margin:0 0 16px;
+      padding:9px 12px;
+      border-left:3px solid var(--primary);
+      border-radius:0 5px 5px 0;
+      background:var(--primary-50);
+      color:#337ecc;
+      font-size:12px;
+      line-height:1.65;
+    }
+    .pane-note strong { font-weight:700; }
+    .pane-note code {
+      padding:0 4px;
+      border-radius:3px;
+      background:rgba(255,255,255,.7);
+      font-family:var(--mono);
+      font-size:11px;
+    }
+    .list-summary {
+      display:flex;
+      flex-wrap:wrap;
+      align-items:center;
+      gap:8px;
+      margin:0 0 10px;
+      color:var(--muted);
+      font-size:12px;
+    }
+    .list-summary .filtered-out {
+      padding:1px 8px;
+      border:1px solid var(--border-light);
+      border-radius:999px;
+      background:var(--fill);
+    }
+
+    /* chip สถานะเพิ่มสองสีให้ครบชุดห้าอันของ Worklist — ใช้ตัวแปรเดิมทั้งหมด */
+    .status-chip[data-status="waiting"] { --chip-color:#b88230; --chip-border:var(--warning-200); --chip-bg:var(--warning-50); }
+    .status-chip[data-status="pending"] { --chip-color:#337ecc; --chip-border:#a0cfff; --chip-bg:var(--primary-50); }
+
+    /* ── ชิปสารทึบ — ยกค่าสีจาก .xr-contrast-chip ของ Worklist ตัวจริง ───────── */
+    .cm-chip {
+      display:inline-flex;
+      max-width:100%;
+      min-height:22px;
+      align-items:center;
+      padding:1px 8px;
+      overflow:hidden;
+      border:1px solid #b7ddc4;
+      border-radius:4px;
+      background:#eaf6ee;
+      color:#3a8a56;
+      font-size:10px;
+      font-weight:650;
+      line-height:1.5;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    /* 🔴 ไม่มีข้อมูล = "ยังไม่ได้บันทึก" เท่านั้น ห้ามอ่านว่า "ไม่ได้ฉีด" */
+    .cm-chip.is-empty {
+      border-style:dashed;
+      border-color:var(--border);
+      background:var(--white);
+      color:var(--placeholder);
+    }
+    .cm-rollup {
+      display:inline-flex;
+      align-items:center;
+      min-height:22px;
+      padding:1px 9px;
+      border:1px solid #b7ddc4;
+      border-radius:999px;
+      background:#eaf6ee;
+      color:#3a8a56;
+      font-family:var(--mono);
+      font-size:10px;
+      font-weight:650;
+      white-space:nowrap;
+    }
+    .cm-adverse {
+      display:inline-flex;
+      align-items:center;
+      min-height:20px;
+      margin-top:3px;
+      padding:0 6px;
+      border:1px solid var(--danger-200);
+      border-radius:4px;
+      background:var(--danger-50);
+      color:#c45656;
+      font-size:10px;
+      font-weight:650;
+    }
+    .cell-sub {
+      display:block;
+      margin-top:2px;
+      color:var(--muted);
+      font-size:10px;
+      font-weight:500;
+    }
+    .detail-table.contrast-item-table { min-width:1240px; }
+    .detail-note {
+      margin-left:auto;
+      color:var(--muted);
+      font-size:11px;
+      font-weight:600;
+      white-space:nowrap;
+    }
+    .tag-row { display:flex; flex-wrap:wrap; gap:4px; }
+
+    /* ── การ์ดในหน้าต่างดูบันทึก ───────────────────────────────────────────── */
+    .rec-doc { display:grid; gap:14px; }
+    .rec-card {
+      padding:12px 14px;
+      border:1px solid var(--border-light);
+      border-radius:8px;
+      background:var(--fill-soft);
+    }
+    .rec-card.is-alert { border-color:var(--warning-200); background:var(--warning-50); }
+    .rec-card > h3 { margin:0 0 10px; color:var(--ink); font-size:13px; font-weight:700; }
+    .rec-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(215px,1fr)); gap:8px 18px; }
+    .rec-row {
+      display:grid;
+      grid-template-columns:minmax(120px,.42fr) 1fr;
+      gap:10px;
+      padding:6px 0;
+      border-bottom:1px dashed var(--border-lighter);
+    }
+    .rec-row > span { color:var(--muted); font-size:11px; font-weight:650; }
+    .rec-row > strong { color:var(--ink); font-size:12px; font-weight:650; overflow-wrap:anywhere; }
+    .rec-row > strong.is-empty { color:var(--placeholder); font-weight:400; }
+    .rec-row.full { grid-column:1/-1; }
+    .rec-note {
+      margin:10px 0 0;
+      padding:7px 10px;
+      border-left:3px solid var(--warning);
+      background:var(--white);
+      color:#b88230;
+      font-size:11px;
+      line-height:1.65;
+    }
+
+    /* ── ฟอร์มในหน้าต่างบันทึก (พักไว้ · เปิดกลับด้วย RECORD_MODE_ENABLED) ──── */
+    .rec-form-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:12px 16px; }
+    .rec-form-grid .form-field.span-all { grid-column:1/-1; }
+    .form-field input.control { width:100%; padding:0 10px; }
+    .form-field .field-hint { display:block; margin-top:4px; color:var(--muted); font-size:10px; }
+    .check-list { display:grid; gap:5px; }
+    .check-list.cols { grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); }
+    .check-line {
+      display:flex;
+      align-items:flex-start;
+      gap:8px;
+      min-height:30px;
+      padding:5px 8px;
+      border:1px solid var(--border-lighter);
+      border-radius:5px;
+      background:var(--white);
+      color:var(--text);
+      font-size:12px;
+      line-height:1.5;
+    }
+    .check-line input { margin:3px 0 0; }
+    .check-line:hover { border-color:#a0cfff; }
+
+    @media (max-width:980px) {
+      .rec-row { grid-template-columns:1fr; gap:2px; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#contrastList">ข้ามไปที่รายการตรวจ</a>
+  <main class="page">
+    <div class="page-head">
+      <div class="title-wrap">
+        <h1>ประวัติการใช้สารทึบรังสี</h1>
+        <p>กลุ่มงานรังสีวิทยา · ค้นด้วย HN แล้วเห็นเฉพาะ order ที่มีการบันทึกใช้สารทึบ · <strong>อ่านอย่างเดียว</strong> · บันทึกหนึ่งใบผูกกับ <strong>รายการตรวจ (order item / Accession No.)</strong> ไม่ได้ผูกกับ HN เปล่า</p>
+      </div>
+    </div>
+
+    <p class="pane-note" id="paneNote"></p>
+
+    <!-- โครง toolbar · status chip · แถวผู้ป่วย · แผงรายละเอียด
+         ยกจาก X-ray CPOE Worklist ทั้งชุด ต่างกันสองข้อเท่านั้น:
+           1. กรองเหลือเฉพาะใบที่มีบันทึกการใช้สารทึบ
+           2. ไม่มีปุ่ม action ใด ๆ (ส่งเข้าเครื่อง · ยกเลิก · ปฏิเสธ · ตรวจใหม่ ·
+              สร้างรายการใหม่ · หนังสือยินยอม · checkbox เลือกรายการ) -->
+    <section aria-label="ค้นหาและกรองรายการ">
+      <div class="toolbar">
+        <div class="search-field">
+          <svg class="input-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+          <input id="searchInput" class="control" type="search" autocomplete="off" placeholder="ระบุ HN…" aria-label="ระบุ HN เพื่อดูประวัติการใช้สารทึบ">
+          <button id="clearSearch" class="clear-search" type="button" aria-label="ล้างคำค้นหา" hidden>&times;</button>
+        </div>
+
+        <div class="date-range">
+          <button id="dateTrigger" class="control date-trigger" type="button" aria-haspopup="dialog" aria-expanded="false">
+            <svg class="input-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M8 3v4M16 3v4M3 10h18"></path></svg>
+            <span id="dateValue" class="date-value">Date Range</span>
+          </button>
+          <button id="dateClear" class="date-clear" type="button" aria-label="ล้างช่วงวันที่" hidden>&times;</button>
+          <div id="datePopover" class="date-popover" role="dialog" aria-label="เลือกช่วงวันที่" hidden>
+            <div class="calendar-head">
+              <button class="calendar-nav" type="button" data-cal-nav="-1" aria-label="เดือนก่อนหน้า">&lsaquo;</button>
+              <div class="calendar-head-copy"><strong>เลือก Date Range</strong><span>กรองตามเวลาที่สั่งตรวจ</span></div>
+              <button class="calendar-nav" type="button" data-cal-nav="1" aria-label="เดือนถัดไป">&rsaquo;</button>
+            </div>
+            <div id="calendars" class="calendars"></div>
+            <div class="calendar-foot">
+              <span id="dateHint">เลือกวันเริ่มต้น</span>
+              <button class="btn btn-sm" type="button" id="dateReset">ล้างช่วงวันที่</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="modalityField" class="modality-field">
+          <button id="modalityTrigger" class="control modality-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="กรองตามเครื่อง">
+            <span class="modality-label">เครื่อง</span>
+            <span id="modalityValue" class="modality-value">Select all</span>
+            <span class="caret" aria-hidden="true">&#9662;</span>
+          </button>
+          <div id="modalityMenu" class="modality-menu" role="listbox" aria-label="รายการเครื่อง" hidden></div>
+        </div>
+
+        <button id="searchButton" class="btn" type="button">Search</button>
+        <span aria-hidden="true"></span>
+        <span class="toolbar-spacer" aria-hidden="true"></span>
+        <span class="scope-hint">อ่านอย่างเดียว · ไม่มีปุ่มสั่งงานในหน้านี้</span>
+      </div>
+
+      <div id="statusStrip" class="status-strip" role="group" aria-label="กรองรายการตามสถานะ"></div>
+    </section>
+
+    <p class="list-summary" id="listSummary" hidden></p>
+
+    <section id="contrastList" class="worklist-shell" aria-label="รายการ order ที่มีการใช้สารทึบ" tabindex="-1">
+      <div id="worklist" class="worklist"></div>
+    </section>
+
+    <section class="implementation-remarks" aria-label="หมายเหตุสำหรับผู้พัฒนา">
+      <h2>หมายเหตุการนำไป implement</h2>
+      <ul>
+        <li>หน้านี้เป็น <strong>mockup</strong> ข้อมูลสมมติทั้งหมด — HN ชื่อผู้ป่วย แพทย์ เลข Order/Accession ยี่ห้อสารทึบ Lot และเวลา ห้าม hard-code ลงระบบจริง</li>
+        <li>โครงหน้าทั้งหมด (toolbar · status chip · แถวผู้ป่วย · แผงรายละเอียด) <strong>ยกจาก X-ray CPOE Worklist</strong> — CSS และ markup คัดลอกตรงจาก <code>02-his/ui/xray-workbench-mockup.html</code> (หน้าต้นแบบที่ผู้ใช้ตรวจแล้ว 4 รอบ) ต้นฉบับเดียวคือ <code>design/Lab_design.md</code> ไม่มี token ใหม่</li>
+        <li><strong>ต่างจาก Worklist สองข้อเท่านั้น</strong> — (1) ค้น HN แล้ว <strong>กรองเหลือเฉพาะ order ที่มีบันทึกการใช้สารทึบอย่างน้อย 1 รายการ</strong> (2) <strong>ไม่มีปุ่มสั่งงานใด ๆ</strong>: ส่งเข้าเครื่อง · ยกเลิก order · ปฏิเสธ · ตรวจใหม่ · สร้างรายการใหม่ · หนังสือยินยอม · checkbox เลือกรายการ · dropdown Radiographer/Radiologist · สติ๊กเกอร์ HN ถูกตัดออกทั้งหมด</li>
+        <li>คอลัมน์แถวผู้ป่วยเหมือน Worklist ทุกช่อง — ช่องปุ่มท้ายแถวใช้บอก <strong>สารทึบ n/N</strong> และป้าย <strong>อาการ</strong> แทน ไม่ได้ปล่อยว่าง</li>
+        <li>ตารางในแผงรายละเอียดใช้คอลัมน์ชุดเดียวกับแท็บ <code>order</code> ของ Worklist: Accession No. · รายการตรวจ · เครื่อง · เวลาส่งเข้าเครื่อง · Radiographer · สถานะ · ปฏิเสธ · คนปฏิเสธ · <strong>สารทึบ</strong> · ปุ่ม <code>ดูบันทึก</code> · Radiographer แสดงเป็นข้อความ (ของจริงเป็น dropdown ที่เขียนค่าได้ จึงตัดออก)</li>
+        <li>บรรทัดสรุปบอกจำนวนใบที่ถูกซ่อนเสมอ (“ซ่อน n ใบที่ยังไม่มีบันทึก”) เพื่อไม่ให้เข้าใจผิดว่าผู้ป่วยรายนี้มีแค่ใบที่เห็น</li>
+        <li>status chip ห้าอันชุดเดียวกับ Worklist (ทั้งหมด · รอรับ · รอผลตรวจ · ออกผลครบ · ยกเลิก) นับ <strong>ภายใต้ใบที่มีบันทึกสารทึบและตัวกรองเครื่อง/ช่วงวันที่ปัจจุบัน</strong></li>
+        <li>⏸️ <strong>โหมด “บันทึกการใช้สารทึบ” ยังพักไว้</strong> ตามที่ผู้ใช้สั่ง 2026-09-27 — โค้ดยังอยู่ครบ (<code>recordForm()</code> · dialog <code>#recordFormDialog</code> · ปุ่ม <code>+ บันทึก</code> ในตาราง) เปิดกลับด้วย <code>RECORD_MODE_ENABLED = true</code> ที่ต้นสคริปต์ · ระหว่างนี้การบันทึกใช้ปุ่ม “สารทึบ” คอลัมน์ที่ 12 ใน X-ray CPOE Worklist ตามเดิม</li>
+        <li>🔴 <strong>ไม่มีข้อมูล = “ยังไม่ได้บันทึก” เท่านั้น ห้ามอ่านว่า “ไม่ได้ฉีด”</strong> — กติกาเดิมจากคอลัมน์สารทึบใน Worklist (2026-09-23) · ใช้ทั้งกับใบที่ถูกซ่อนและรายการที่ยังว่างในใบที่แสดง</li>
+        <li><strong>ของเดิมที่ใช้งานได้แล้ว ห้ามแตะ:</strong> ปุ่ม “สารทึบ” คอลัมน์ที่ 12 ของ X-ray CPOE Worklist เปิดฟอร์ม <code>xray-contrast-media-record-v1</code> ผ่าน <code>initData</code> (item_id · accession_no · order_id · order_no · visit_id · modality · item_code · item_name) และไม่เรียก Process ใด ๆ · หน้านี้เป็น <strong>ทางเข้าเพิ่ม</strong> ไม่ใช่ของแทน</li>
+        <li>🔴 <strong>ฝั่ง API ยังไม่มีทางอ่านประวัติ</strong> — <code>xray_cpoe_worklist_api.js</code> ยังไม่ join <code>zdata_xray_contrast_media</code> ⇒ ต้องเพิ่ม read path แบบ read-only (<code>$lookup</code> ระดับ item ผูกด้วย <code>accession_no</code> หรือ action ใหม่ <code>list_contrast</code>) ไม่งั้นตัวกรอง “เฉพาะใบที่มีบันทึก” จะไม่มีข้อมูลให้กรอง</li>
+        <li>ขอบเขตการค้นใช้กติกาเดียวกับ <code>spec.md</code> §5.1: <strong>HN แบบตรงตัว</strong> หรือ <strong>Date Range ครบสองฝั่ง</strong> · ยังไม่ระบุให้ขึ้นข้อความแนะนำและห้ามเรียก Process</li>
+        <li>ขอบเขตหน่วยงาน (<code>XRAY_ORGANIZATION_CODES</code>) ต้อง enforce ที่ server แบบ fail-closed เหมือนหน้าอื่น — dropdown เครื่องเป็นตัวกรองการแสดงผลเท่านั้น</li>
+      </ul>
+      <h2 style="margin-top:14px">คำถามที่ต้องเคาะก่อนลงมือ</h2>
+      <ul>
+        <li><strong>1. โหมดบันทึกจะเอากลับมาไหม</strong> — พักไว้ก่อน 2026-09-27 · ถ้าเอากลับ ต้องเป็นแบบ ค้น HN → กางใบ → เลือกรายการตรวจ เท่านั้น <em>ไม่มีทางเลือก “บันทึกด้วย HN เปล่า”</em> เพราะฝั่ง X-ray ยืนยันว่าบันทึกผูกกับรายการตรวจ</li>
+        <li><strong>2. 1 รายการตรวจ = 1 ใบบันทึกหรือหลายใบ</strong> — ถ้าฉีดซ้ำ/เปลี่ยนชนิดในเคสเดียวกัน ต้อง upsert ทับใบเดิม หรือเก็บหลายแถวแล้วแสดงเป็นไทม์ไลน์ (mockup นี้สมมติ 1 ใบต่อ 1 รายการตรวจ)</li>
+        <li><strong>3. ผู้บันทึกและเวลาบันทึกเก็บที่ไหน</strong> — ฟอร์มปัจจุบันไม่มีฟิลด์นี้ · ชิปใน Worklist อ่าน <code>contrast.recorded_by</code>/<code>used_at</code> ⇒ ต้องยืนยันว่ามาจาก system field ของแถว SDForm หรือให้ฟอร์มเก็บเพิ่ม</li>
+        <li><strong>4. สิทธิ์และ audit</strong> — ใครดูประวัติได้ · ใครแก้ใบที่บันทึกแล้วได้ · ต้องเก็บ log การแก้ไหม (ต่างจาก EMR sensitive result ที่มี re-auth)</li>
+        <li><strong>5. พิมพ์ใบบันทึกเป็น PDF</strong> — TOR ยังไม่ระบุ ถ้าต้องมีให้ทำผ่าน Report Factory ไม่ใช่พิมพ์จากหน้าจอ</li>
+        <li><strong>6. อาการไม่พึงประสงค์</strong> — ต้องส่งต่อ/แจ้งเตือนที่ไหนอีกไหม (เช่น EMR, ระบบ ADR) หรือเก็บไว้ในใบนี้พอ</li>
+      </ul>
+    </section>
+  </main>
+
+  <dialog id="recordViewDialog" aria-labelledby="recordViewTitle">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title-row">
+          <h2 id="recordViewTitle">บันทึกการใช้สารทึบรังสี</h2>
+          <span class="mode-badge">โหมดดูอย่างเดียว</span>
+        </div>
+        <div id="recordViewMeta" class="modal-meta"></div>
+      </div>
+      <button class="modal-close" type="button" data-close-dialog="recordViewDialog" aria-label="ปิดหน้าต่างบันทึกสารทึบ">&times;</button>
+    </div>
+    <div class="modal-body"><div id="recordViewBody" class="rec-doc"></div></div>
+    <div class="modal-foot">
+      <button class="btn" type="button" data-toast="รอเชื่อมกับ Report Factory — ยังไม่มีแบบพิมพ์ใบบันทึกสารทึบ">PDF</button>
+      <button class="btn" type="button" data-close-dialog="recordViewDialog">ปิด</button>
+    </div>
+  </dialog>
+
+  <dialog id="recordFormDialog" aria-labelledby="recordFormTitle">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title-row">
+          <h2 id="recordFormTitle">บันทึกการใช้สารทึบรังสี</h2>
+          <span class="mode-badge editing" id="recordFormMode">บันทึกใหม่</span>
+        </div>
+        <div id="recordFormMeta" class="modal-meta"></div>
+      </div>
+      <button class="modal-close" type="button" data-close-dialog="recordFormDialog" aria-label="ปิดฟอร์มบันทึกสารทึบ">&times;</button>
+    </div>
+    <div class="modal-body"><div id="recordFormBody" class="rec-doc"></div></div>
+    <div class="modal-foot">
+      <button class="btn" type="button" data-close-dialog="recordFormDialog">ยกเลิก</button>
+      <button class="btn btn-primary" type="button" id="recordFormSave">บันทึก</button>
+    </div>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    /* ══════════════════════════════════════════════════════════════════════
+       mockup "ประวัติการใช้สารทึบรังสี" (read-only)
+       ค้นด้วย HN → กรองเหลือเฉพาะ order ที่มีบันทึกการใช้สารทึบอย่างน้อย 1 รายการ
+       โครงหน้า ตรรกะสถานะ/เวลา/แถว ยกจาก 02-his/ui/xray-workbench-mockup.html
+       (หน้าต้นแบบของ X-ray CPOE Worklist) ทั้งชุด ต่างกันแค่ตัวกรอง และไม่มีปุ่มสั่งงาน
+       🔴 ข้อมูลทั้งหมดเป็นค่าสมมติ · ห้ามคัดลอกลงระบบจริง
+       ══════════════════════════════════════════════════════════════════════ */
+    (function () {
+      'use strict';
+
+      /* ══ โหมดบันทึกถูก "พักไว้ก่อน" ตามคำสั่งผู้ใช้ 2026-09-27 ══════════════
+         ผู้ใช้ให้เหลือเฉพาะแท็บ "ประวัติการใช้สารทึบ" · โค้ดฝั่งบันทึกยังอยู่ครบ
+         (ปุ่มใน mode strip · ฟอร์ม recordForm() · dialog #recordFormDialog)
+         เปิดกลับได้โดยเปลี่ยนค่าเดียวเป็น true — ไม่ต้องรื้ออะไรเพิ่ม            */
+      var RECORD_MODE_ENABLED = false;
+
+      var $ = function (sel, scope) { return (scope || document).querySelector(sel); };
+      var $$ = function (sel, scope) { return Array.prototype.slice.call((scope || document).querySelectorAll(sel)); };
+
+      /* รายชื่อเครื่อง — ชุดเดียวกับ mockup Worklist (ยังไม่ตรง enum modality_type 11 ค่า
+         ⇒ ของจริงต้องโหลดจาก master ห้าม hard-code ในหน้าจอ production · decision X2) */
+      var MODALITIES = [
+        { label: 'Air Reduction', code: 'AR' }, { label: 'CR', code: 'CR' }, { label: 'CT', code: 'CT' },
+        { label: 'CTA', code: 'CTA' }, { label: 'DX', code: 'DX' }, { label: 'GI', code: 'GI' },
+        { label: 'IO', code: 'IO' }, { label: 'IVP', code: 'IVP' }, { label: 'MRI', code: 'MRI' },
+        { label: 'RF', code: 'RF' }, { label: 'UN', code: 'UN' }, { label: 'US', code: 'US' },
+        { label: 'VCUG', code: 'VCUG' }
+      ];
+      var MODALITY_LABELS = MODALITIES.map(function (m) { return m.label; });
+
+      /* status chip ชุดเดียวกับ X-ray Worklist — นับเฉพาะใบที่มีบันทึกสารทึบแล้ว
+         เพราะหน้านี้กรองเหลือเฉพาะใบเหล่านั้นตั้งแต่ต้น */
+      var STATUS_FILTERS = [
+        { key: 'all', label: 'ทั้งหมด' },
+        { key: 'waiting', label: 'รอรับ' },
+        { key: 'pending', label: 'รอผลตรวจ' },
+        { key: 'complete', label: 'ออกผลครบ' },
+        { key: 'cancelled', label: 'ยกเลิก' }
+      ];
+
+      var STATE_LABEL = {
+        waiting: 'รอรับ', dispatched: 'ส่งเครื่องแล้ว', partial: 'ออกผลบางส่วน',
+        complete: 'ออกผลครบ', cancelled: 'ยกเลิก'
+      };
+      var STATE_CLASS = {
+        waiting: 'status-waiting', dispatched: 'status-received', partial: 'status-result-partial',
+        complete: 'status-result-complete', cancelled: 'status-cancelled'
+      };
+      var ITEM_LABEL = { waiting: 'รอรับ', dispatched: 'ส่งเครื่องแล้ว', resulted: 'ออกผลแล้ว', cancelled: 'ยกเลิก' };
+      var ITEM_TAG = { waiting: 'tag-warning', dispatched: 'tag-success', resulted: 'tag-success', cancelled: 'tag-danger' };
+
+      var THAI_MONTHS = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน',
+        'กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+
+      /* ── ข้อมูลสมมติ ────────────────────────────────────────────────────
+         1 order = หลายรายการตรวจ = หลายเลข Accession (กติกาเดิมของ X-ray)
+         item.contrast = ใบบันทึกสารทึบของ "รายการตรวจนั้น" · null = ยังไม่ได้บันทึก
+         รูปแบบเลขอ้างจากของจริงที่เคยเห็นใน runtime: order_no R+yymmdd+running ·
+         accession SM+YYYYMMDD+code+running                                      */
+      var ORDERS = [
+        {
+          order_id: 'ord-cm-0001', order_no: 'R2609270003',
+          hn: 'HN00000001', vn: 'VN00000011', visit_id: 'visit-mock-0011',
+          name: 'ด.ช. สมมติ ทดสอบ', gender: 'ชาย', age: 'อายุ 3 ปี 4 เดือน', urgent: false,
+          room: 'OPD กุมารเวช', paid: true, coverage: 'UC',
+          doctor: 'นพ.ทดสอบ ระบบ',
+          dx_short: 'Diagnosis: Recurrent UTI',
+          dx_full: 'Recurrent urinary tract infection, rule out vesicoureteral reflux',
+          ordered_at: '2026-09-27T08:24:11+07:00',
+          items: [
+            { id: 'it-cm-0001', name: 'VCUG', code: 'RD041', modality: 'VCUG', state: 'dispatched',
+              accession_no: 'SM20260927VCUG002', dispatched_at: '2026-09-27T09:05:20+07:00',
+              dispatched_by: 'จนท.รังสี ก', radiographer: '(ตัวอย่าง) Radiographer ก', contrast: null },
+            { id: 'it-cm-0002', name: 'Chest PA', code: 'RD001', modality: 'DX', state: 'resulted',
+              accession_no: 'SM20260927DX011', dispatched_at: '2026-09-27T09:06:02+07:00',
+              dispatched_by: 'จนท.รังสี ก', radiographer: '(ตัวอย่าง) Radiographer ก',
+              resulted_at: '2026-09-27T10:12:40+07:00', contrast: null }
+          ]
+        },
+        {
+          order_id: 'ord-cm-0002', order_no: 'R2609260008',
+          hn: 'HN00000003', vn: 'VN00000031', visit_id: 'visit-mock-0031',
+          name: 'นาย ตัวอย่าง ทดสอบ', gender: 'ชาย', age: 'อายุ 14 ปี 2 เดือน', urgent: false,
+          room: 'ห้องตรวจ 3', paid: true, coverage: 'ชำระเอง',
+          doctor: 'พญ.สมมติ ตัวอย่าง',
+          dx_short: 'Diagnosis: Chronic constipation',
+          dx_full: 'Chronic constipation, rule out Hirschsprung disease',
+          ordered_at: '2026-09-26T07:48:35+07:00',
+          items: [
+            { id: 'it-cm-0003', name: 'Barium Enema', code: 'RD030', modality: 'RF', state: 'resulted',
+              accession_no: 'SM20260926RF004', dispatched_at: '2026-09-26T08:30:11+07:00',
+              dispatched_by: 'จนท.รังสี ข', radiographer: '(ตัวอย่าง) Radiographer ข',
+              resulted_at: '2026-09-26T11:02:19+07:00',
+              contrast: {
+                record_id: 'cmr-0001',
+                patient_weight: 38.5,
+                exam_items: ['Barium Enema'],
+                exam_ct: false, ct_ctdi_vol_mgy: null, ct_dlp_mgy_cm: null,
+                exam_radiation: true, radiation_kv: 72, radiation_ma: 2.5,
+                radiation_time_start: '2026-09-26T08:41:00+07:00', radiation_time_end: '2026-09-26T08:57:00+07:00',
+                radiation_total_dap: 1.84, radiation_total_ed: 0.42,
+                contrast_types: ['Barium Sulphate'],
+                contrast_brand: '(ตัวอย่าง) Barium Sulfate Suspension',
+                contrast_concentration: '(ตัวอย่าง) 60% w/v',
+                contrast_lot_no: 'MOCK-LOT-2411',
+                route_types: ['สวน'], contrast_volume_ml: 320,
+                used_at: '2026-09-26T08:40:00+07:00',
+                order_doctor: '(ตัวอย่าง) นพ. ก. รังสีชำนาญ', order_doctor_license: '(ตัวอย่าง) ว.11111',
+                extravasation: 'No',
+                acute_symptoms: [], acute_other_detail: '',
+                delay_onset_time: '', delay_symptoms: [], delay_other_detail: '',
+                adverse_note: '',
+                recorded_by: '(ระบบ) จนท.รังสี ข', recorded_at: '2026-09-26T09:05:44+07:00'
+              } },
+            { id: 'it-cm-0004', name: 'Upper GI Study', code: 'RD022', modality: 'RF', state: 'resulted',
+              accession_no: 'SM20260926RF005', dispatched_at: '2026-09-26T08:31:40+07:00',
+              dispatched_by: 'จนท.รังสี ข', radiographer: '(ตัวอย่าง) Radiographer ข',
+              resulted_at: '2026-09-26T11:20:55+07:00',
+              contrast: {
+                record_id: 'cmr-0002',
+                patient_weight: 38.5,
+                exam_items: ['Upper GI Study'],
+                exam_ct: false, ct_ctdi_vol_mgy: null, ct_dlp_mgy_cm: null,
+                exam_radiation: true, radiation_kv: 70, radiation_ma: 2,
+                radiation_time_start: '2026-09-26T09:15:00+07:00', radiation_time_end: '2026-09-26T09:26:00+07:00',
+                radiation_total_dap: 1.12, radiation_total_ed: 0.28,
+                contrast_types: ['Barium Sulphate'],
+                contrast_brand: '(ตัวอย่าง) Barium Sulfate Suspension',
+                contrast_concentration: '(ตัวอย่าง) 40% w/v',
+                contrast_lot_no: 'MOCK-LOT-2411',
+                route_types: ['กิน'], contrast_volume_ml: 150,
+                used_at: '2026-09-26T09:14:00+07:00',
+                order_doctor: '(ตัวอย่าง) นพ. ก. รังสีชำนาญ', order_doctor_license: '(ตัวอย่าง) ว.11111',
+                extravasation: 'No',
+                acute_symptoms: ['Nausea คลื่นไส้'], acute_other_detail: '',
+                delay_onset_time: '', delay_symptoms: [], delay_other_detail: '',
+                adverse_note: '(ตัวอย่าง) คลื่นไส้เล็กน้อยหลังกลืน หายเองภายใน 10 นาที ไม่ต้องให้ยา',
+                recorded_by: '(ระบบ) จนท.รังสี ข', recorded_at: '2026-09-26T09:40:02+07:00'
+              } }
+          ]
+        },
+        {
+          order_id: 'ord-cm-0003', order_no: 'R2609240011',
+          hn: 'HN00000001', vn: 'VN00000012', visit_id: 'visit-mock-0012',
+          name: 'ด.ช. สมมติ ทดสอบ', gender: 'ชาย', age: 'อายุ 3 ปี 4 เดือน', urgent: true,
+          room: 'ER', paid: true, coverage: 'UC',
+          doctor: 'นพ.ใจดี ปากไม่ดี',
+          dx_short: 'Diagnosis: Abdominal mass',
+          dx_full: 'Abdominal mass, staging study',
+          ordered_at: '2026-09-24T12:40:08+07:00',
+          items: [
+            { id: 'it-cm-0005', name: 'CT Whole Abdomen with contrast', code: 'RD210', modality: 'CT', state: 'resulted',
+              accession_no: 'SM20260924CT002', dispatched_at: '2026-09-24T13:02:55+07:00',
+              dispatched_by: 'จนท.รังสี ค', radiographer: '(ตัวอย่าง) Radiographer ค',
+              resulted_at: '2026-09-24T15:44:30+07:00',
+              contrast: {
+                record_id: 'cmr-0003',
+                patient_weight: 14.2,
+                exam_items: ['Intravenous'],
+                exam_ct: true, ct_ctdi_vol_mgy: 4.2, ct_dlp_mgy_cm: 128.6,
+                exam_radiation: false, radiation_kv: null, radiation_ma: null,
+                radiation_time_start: '', radiation_time_end: '',
+                radiation_total_dap: null, radiation_total_ed: null,
+                contrast_types: ['Non-Ionic contrast'],
+                contrast_brand: '(ตัวอย่าง) Non-Ionic 300',
+                contrast_concentration: '(ตัวอย่าง) 300 mgI/mL',
+                contrast_lot_no: 'MOCK-LOT-2502',
+                route_types: ['ฉีด'], contrast_volume_ml: 28,
+                used_at: '2026-09-24T13:19:00+07:00',
+                order_doctor: '(ตัวอย่าง) พญ. ข. ภาพวินิจฉัย', order_doctor_license: '(ตัวอย่าง) ว.22222',
+                extravasation: 'Yes',
+                acute_symptoms: ['Swelling อาการบวม', 'Erythema ผิวหนังแดง/ผื่นแดง'], acute_other_detail: '',
+                delay_onset_time: '', delay_symptoms: [], delay_other_detail: '',
+                adverse_note: '(ตัวอย่าง) พบ extravasation บริเวณหลังมือขวา ประคบเย็น ยกแขนสูง แจ้งแพทย์เวรแล้ว',
+                recorded_by: '(ระบบ) จนท.รังสี ค', recorded_at: '2026-09-24T13:19:44+07:00'
+              } }
+          ]
+        },
+        {
+          order_id: 'ord-cm-0004', order_no: 'R2609200004',
+          hn: 'HN00000002', vn: 'VN00000021', visit_id: 'visit-mock-0021',
+          name: 'ด.ญ. ทดสอบ สมมติ', gender: 'หญิง', age: 'อายุ 9 ปี 11 เดือน', urgent: false,
+          room: 'ห้องตรวจ 1', paid: true, coverage: 'ข้าราชการ',
+          doctor: 'พญ.สมมติ ตัวอย่าง',
+          dx_short: 'Diagnosis: Hydronephrosis',
+          dx_full: 'Right hydronephrosis, evaluate excretory function',
+          ordered_at: '2026-09-20T09:02:44+07:00',
+          items: [
+            { id: 'it-cm-0006', name: 'Intravenous Pyelography', code: 'RD055', modality: 'IVP', state: 'resulted',
+              accession_no: 'SM20260920IVP001', dispatched_at: '2026-09-20T09:30:00+07:00',
+              dispatched_by: 'จนท.รังสี ก', radiographer: '(ตัวอย่าง) Radiographer ง',
+              resulted_at: '2026-09-20T12:10:12+07:00',
+              contrast: {
+                record_id: 'cmr-0004',
+                patient_weight: 26.8,
+                exam_items: ['Intravenous'],
+                exam_ct: false, ct_ctdi_vol_mgy: null, ct_dlp_mgy_cm: null,
+                exam_radiation: true, radiation_kv: 66, radiation_ma: 1.6,
+                radiation_time_start: '2026-09-20T09:41:00+07:00', radiation_time_end: '2026-09-20T10:22:00+07:00',
+                radiation_total_dap: 0.94, radiation_total_ed: 0.21,
+                contrast_types: ['Non-Ionic contrast'],
+                contrast_brand: '(ตัวอย่าง) Non-Ionic 350',
+                contrast_concentration: '(ตัวอย่าง) 350 mgI/mL',
+                contrast_lot_no: 'MOCK-LOT-2487',
+                route_types: ['ฉีด'], contrast_volume_ml: 40,
+                used_at: '2026-09-20T09:40:00+07:00',
+                order_doctor: '(ตัวอย่าง) พญ. ข. ภาพวินิจฉัย', order_doctor_license: '(ตัวอย่าง) ว.22222',
+                extravasation: 'No',
+                acute_symptoms: [], acute_other_detail: '',
+                delay_onset_time: '2026-09-20T15:30:00+07:00',
+                delay_symptoms: ['Pruritus อาการคัน'], delay_other_detail: '',
+                adverse_note: '(ตัวอย่าง) คันตามลำตัวหลังฉีด 6 ชั่วโมง ให้ยาแก้แพ้ ติดตามอาการต่อที่ OPD',
+                recorded_by: '(ระบบ) จนท.รังสี ก', recorded_at: '2026-09-20T10:35:18+07:00'
+              } }
+          ]
+        },
+        {
+          order_id: 'ord-cm-0005', order_no: 'R2609180006',
+          hn: 'HN00000001', vn: 'VN00000013', visit_id: 'visit-mock-0013',
+          name: 'ด.ช. สมมติ ทดสอบ', gender: 'ชาย', age: 'อายุ 3 ปี 3 เดือน', urgent: false,
+          room: 'OPD ศัลยกรรม', paid: true, coverage: 'UC',
+          doctor: 'นพ.ทดสอบ ระบบ',
+          dx_short: 'Diagnosis: Post-op follow-up',
+          dx_full: 'Post-operative follow-up study',
+          ordered_at: '2026-09-18T10:15:00+07:00',
+          items: [
+            { id: 'it-cm-0007', name: 'Loopagram', code: 'RD033', modality: 'DX', state: 'resulted',
+              accession_no: 'SM20260918DX004', dispatched_at: '2026-09-18T10:50:20+07:00',
+              dispatched_by: 'จนท.รังสี ข', radiographer: '(ตัวอย่าง) Radiographer ข',
+              resulted_at: '2026-09-18T13:04:41+07:00',
+              contrast: {
+                record_id: 'cmr-0005',
+                patient_weight: 13.9,
+                exam_items: ['Loopagram'],
+                exam_ct: false, ct_ctdi_vol_mgy: null, ct_dlp_mgy_cm: null,
+                exam_radiation: true, radiation_kv: 60, radiation_ma: 1.2,
+                radiation_time_start: '2026-09-18T11:00:00+07:00', radiation_time_end: '2026-09-18T11:12:00+07:00',
+                radiation_total_dap: 0.51, radiation_total_ed: 0.12,
+                contrast_types: ['Non-Ionic contrast'],
+                contrast_brand: '(ตัวอย่าง) Non-Ionic 300',
+                contrast_concentration: '(ตัวอย่าง) 300 mgI/mL',
+                contrast_lot_no: 'MOCK-LOT-2411',
+                route_types: ['สวน'], contrast_volume_ml: 60,
+                used_at: '2026-09-18T10:58:00+07:00',
+                order_doctor: '(ตัวอย่าง) นพ. ค. กุมารเวช', order_doctor_license: '(ตัวอย่าง) ว.33333',
+                extravasation: 'No',
+                acute_symptoms: [], acute_other_detail: '',
+                delay_onset_time: '', delay_symptoms: [], delay_other_detail: '',
+                adverse_note: '',
+                recorded_by: '(ระบบ) จนท.รังสี ข', recorded_at: '2026-09-18T11:20:07+07:00'
+              } },
+            { id: 'it-cm-0008', name: 'Abdomen supine', code: 'RD004', modality: 'DX', state: 'cancelled',
+              accession_no: '', dispatched_at: '', dispatched_by: '', radiographer: '', contrast: null }
+          ]
+        }
+      ];
+
+      /* ── state ──────────────────────────────────────────────────────────── */
+      var state = {
+        query: '',
+        dateFrom: '', dateTo: '',
+        modality: '',        /* '' = Select all */
+        status: 'all',
+        expanded: {}
+      };
+      var calCursor = new Date(2026, 8, 1);
+      var pickStart = '';
+
+      /* ── helper (ยกจาก mockup Worklist ทั้งชุด) ──────────────────────────── */
+      function esc(value) {
+        return String(value == null ? '' : value).replace(/[&<>"']/g, function (ch) {
+          return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch];
+        });
+      }
+      function parseTime(iso) { return iso ? new Date(iso) : null; }
+      function pad(n) { return n < 10 ? '0' + n : String(n); }
+      function dateText(iso) {
+        var d = parseTime(iso);
+        if (!d) return '';
+        return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + String((d.getFullYear() + 543) % 100);
+      }
+      function timeText(iso) {
+        var d = parseTime(iso);
+        if (!d) return '';
+        return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+      }
+      function dayKey(iso) {
+        var d = parseTime(iso);
+        return d ? d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) : '';
+      }
+      function stamp(iso) { return iso ? dateText(iso) + ' ' + timeText(iso) : ''; }
+      function num(value, unit) {
+        if (value === null || value === undefined || value === '') return '';
+        return String(value) + (unit ? ' ' + unit : '');
+      }
+      function list(values) { return (values && values.length) ? values.join(' · ') : ''; }
+
+      function orderState(order) {
+        if (order.cancelled) return 'cancelled';
+        var live = order.items.filter(function (i) { return i.state !== 'cancelled'; });
+        var accepted = live.filter(function (i) { return i.state === 'dispatched' || i.state === 'resulted'; });
+        var resulted = accepted.filter(function (i) { return i.state === 'resulted'; });
+        var waiting = live.filter(function (i) { return i.state === 'waiting'; });
+        if (!live.length) return 'cancelled';
+        if (accepted.length && resulted.length === accepted.length && !waiting.length) return 'complete';
+        if (resulted.length) return 'partial';
+        if (accepted.length) return 'dispatched';
+        return 'waiting';
+      }
+      /* bucket ของ status chip — ชุดเดียวกับ Worklist: รอรับ · รอผลตรวจ · ออกผลครบ · ยกเลิก */
+      function statusBucket(order) {
+        var s = orderState(order);
+        if (s === 'cancelled') return 'cancelled';
+        if (s === 'complete') return 'complete';
+        if (s === 'waiting') return 'waiting';
+        return 'pending';
+      }
+      function statusTime(order) {
+        var s = orderState(order);
+        if (s === 'cancelled') return { label: 'เวลายกเลิก', iso: order.cancelled_at };
+        if (s === 'complete' || s === 'partial') {
+          var last = '';
+          order.items.forEach(function (i) { if (i.resulted_at && i.resulted_at > last) last = i.resulted_at; });
+          return { label: 'เวลาออกผล', iso: last };
+        }
+        if (s === 'dispatched') {
+          var first = '';
+          order.items.forEach(function (i) { if (i.dispatched_at && (!first || i.dispatched_at < first)) first = i.dispatched_at; });
+          return { label: 'เวลาส่งเครื่อง', iso: first };
+        }
+        return { label: '', iso: '' };
+      }
+
+      /* ── สารทึบ ─────────────────────────────────────────────────────────── */
+      function contrastLabel(item) {
+        var c = item.contrast;
+        if (!c) return '';
+        return [c.contrast_brand, c.contrast_volume_ml ? c.contrast_volume_ml + ' mL' : ''].filter(Boolean).join(' · ');
+      }
+      function contrastTitle(item) {
+        var c = item.contrast;
+        if (!c) return 'ยังไม่ได้บันทึกการใช้สารทึบของรายการนี้ (ไม่ได้แปลว่าไม่ได้ฉีด)';
+        return [list(c.contrast_types), list(c.route_types), c.used_at ? 'ใช้เมื่อ ' + stamp(c.used_at) : '',
+          c.recorded_by ? 'ผู้บันทึก ' + c.recorded_by : ''].filter(Boolean).join(' · ');
+      }
+      function hasAdverse(c) {
+        if (!c) return false;
+        return c.extravasation === 'Yes' || (c.acute_symptoms && c.acute_symptoms.length) ||
+          (c.delay_symptoms && c.delay_symptoms.length) || !!c.acute_other_detail || !!c.delay_other_detail;
+      }
+      function recordedItems(order) { return order.items.filter(function (i) { return !!i.contrast; }); }
+      function findOrder(orderId) {
+        for (var i = 0; i < ORDERS.length; i++) { if (ORDERS[i].order_id === orderId) return ORDERS[i]; }
+        return null;
+      }
+      function findItem(orderId, itemId) {
+        var order = findOrder(orderId);
+        if (!order) return null;
+        for (var i = 0; i < order.items.length; i++) { if (order.items[i].id === itemId) return order.items[i]; }
+        return null;
+      }
+
+      /* ── ตัวกรอง ────────────────────────────────────────────────────────────
+         🔴 กติกาของหน้านี้: กรองเหลือเฉพาะใบที่ "มีบันทึกการใช้สารทึบ" อย่างน้อย 1 รายการ
+            ใบที่ยังไม่มีบันทึกถูกซ่อน แต่ยังบอกจำนวนไว้ที่บรรทัดสรุป เพื่อไม่ให้เข้าใจผิดว่า
+            ผู้ป่วยรายนี้ไม่มีใบอื่นเลย                                                */
+      function hasScope() { return !!state.query || (!!state.dateFrom && !!state.dateTo); }
+      function matchesQuery(order) {
+        if (!state.query) return true;
+        var blob = [order.hn, order.vn, order.name, order.order_no]
+          .concat(order.items.map(function (i) { return i.name + ' ' + i.code + ' ' + i.modality + ' ' + (i.accession_no || ''); }))
+          .join(' ').toLowerCase();
+        return blob.indexOf(state.query.toLowerCase()) > -1;
+      }
+      function matchesModality(order) {
+        return !state.modality || order.items.some(function (i) { return i.modality === state.modality; });
+      }
+      function matchesDate(order) {
+        if (!state.dateFrom || !state.dateTo) return true;
+        var key = dayKey(order.ordered_at);
+        return key >= state.dateFrom && key <= state.dateTo;
+      }
+      function scopedOrders() {
+        return ORDERS.filter(function (o) { return matchesQuery(o) && matchesDate(o) && matchesModality(o); });
+      }
+      function contrastOrders() {
+        return scopedOrders().filter(function (o) { return recordedItems(o).length > 0; });
+      }
+      function visibleOrders() {
+        return contrastOrders().filter(function (o) {
+          return state.status === 'all' || statusBucket(o) === state.status;
+        }).sort(function (a, b) { return a.ordered_at < b.ordered_at ? 1 : -1; });
+      }
+      function counts() {
+        var out = { all: 0, waiting: 0, pending: 0, complete: 0, cancelled: 0 };
+        contrastOrders().forEach(function (o) { out.all++; out[statusBucket(o)]++; });
+        return out;
+      }
+      function scopeText() {
+        if (state.dateFrom && state.dateTo) return dateText(state.dateFrom) + ' – ' + dateText(state.dateTo);
+        return 'ทุกช่วงเวลา';
+      }
+
+      /* ── render: chip · dropdown · บรรทัดสรุป ────────────────────────────── */
+      function renderChips() {
+        var c = counts();
+        $('#statusStrip').innerHTML = STATUS_FILTERS.map(function (f) {
+          return '<button class="status-chip' + (state.status === f.key ? ' active' : '') + '" type="button"' +
+            ' data-status="' + (f.key === 'all' ? '' : f.key) + '" data-filter-key="' + f.key + '"' +
+            ' aria-pressed="' + (state.status === f.key) + '">' +
+            '<strong>' + (c[f.key] || 0) + '</strong><span>' + esc(f.label) + '</span></button>';
+        }).join('');
+      }
+      function renderModalityMenu() {
+        var pool = ORDERS.filter(function (o) { return matchesQuery(o) && matchesDate(o) && recordedItems(o).length; });
+        var rows = [
+          '<button class="modality-option" type="button" role="option" data-modality=""' +
+            ' aria-selected="' + (state.modality === '' ? 'true' : 'false') + '">Select all' +
+            '<span class="opt-count">' + pool.length + '</span></button>',
+          '<div class="modality-divider" role="presentation"></div>'
+        ];
+        MODALITY_LABELS.forEach(function (m) {
+          var n = pool.filter(function (o) { return o.items.some(function (i) { return i.modality === m; }); }).length;
+          rows.push('<button class="modality-option" type="button" role="option" data-modality="' + esc(m) + '"' +
+            ' aria-selected="' + (state.modality === m ? 'true' : 'false') + '">' + esc(m) +
+            '<span class="opt-count">' + n + '</span></button>');
+        });
+        $('#modalityMenu').innerHTML = rows.join('');
+        $('#modalityValue').textContent = state.modality || 'Select all';
+      }
+      function renderSummary() {
+        var box = $('#listSummary');
+        if (!hasScope()) { box.hidden = true; return; }
+        var shown = visibleOrders().length;
+        var hidden = scopedOrders().length - contrastOrders().length;
+        box.hidden = false;
+        box.innerHTML = 'แสดง ' + shown + ' ใบที่มีบันทึกการใช้สารทึบ · ' + esc(scopeText()) +
+          (hidden ? '<span class="filtered-out">ซ่อน ' + hidden + ' ใบที่ยังไม่มีบันทึก — ไม่ได้แปลว่าไม่ได้ฉีด</span>' : '');
+      }
+
+      /* ── render: ตาราง item — คอลัมน์ชุดเดียวกับแท็บ order ของ Worklist ─────
+         ตัดออกเฉพาะของฝั่งเขียน: checkbox เลือกรายการ · dropdown Radiographer/
+         Radiologist · ปุ่มสติ๊กเกอร์ HN · ปุ่มส่งเข้าเครื่อง/ยกเลิก/ปฏิเสธ/ตรวจใหม่ */
+      function itemRow(order, item) {
+        var c = item.contrast;
+        var chip = c
+          ? '<span class="cm-chip" title="' + esc(contrastTitle(item)) + '">' + esc(contrastLabel(item)) + '</span>' +
+            (hasAdverse(c) ? '<span class="cm-adverse">มีอาการไม่พึงประสงค์</span>' : '') +
+            '<span class="cell-sub">' + esc(list(c.contrast_types) + (list(c.route_types) ? ' · ' + list(c.route_types) : '')) + '</span>'
+          : '<span class="cm-chip is-empty" title="' + esc(contrastTitle(item)) + '">ยังไม่ได้บันทึก</span>';
+        var button = (RECORD_MODE_ENABLED && !c)
+          ? '<button class="btn btn-sm plain-action" type="button" data-open-form data-order-id="' + order.order_id + '"' +
+            ' data-item-id="' + item.id + '">+ บันทึก</button>'
+          : '<button class="btn btn-sm plain-action" type="button"' + (c ? '' : ' disabled title="ยังไม่ได้บันทึกของรายการนี้"') +
+            ' data-open-record data-order-id="' + order.order_id + '" data-item-id="' + item.id + '">ดูบันทึก</button>';
+        return '<tr>' +
+          '<td class="mono' + (item.accession_no ? '' : ' empty-cell') + '" translate="no">' + (item.accession_no ? esc(item.accession_no) : '–') + '</td>' +
+          '<td class="test-name">' + esc(item.name) + ' <span class="mono" style="color:var(--muted);font-size:11px">' + esc(item.code) + '</span></td>' +
+          '<td><div class="modality-cell"><span class="modality-tag">' + esc(item.modality) + '</span></div></td>' +
+          '<td>' + (item.dispatched_at
+            ? '<span class="field-value time-value mono"><span>' + dateText(item.dispatched_at) + '</span><span>' + timeText(item.dispatched_at) + '</span></span>'
+            : '<span class="empty-cell">–</span>') + '</td>' +
+          '<td' + (item.radiographer ? '' : ' class="empty-cell"') + '>' + (item.radiographer ? esc(item.radiographer) : '–') + '</td>' +
+          '<td><span class="state-tag ' + ITEM_TAG[item.state] + '">' + ITEM_LABEL[item.state] + '</span></td>' +
+          '<td' + (item.reject_reason ? '' : ' class="empty-cell"') + '>' + (item.reject_reason ? esc(item.reject_reason) : '–') + '</td>' +
+          '<td' + (item.rejected_by ? '' : ' class="empty-cell"') + '>' + (item.rejected_by ? esc(item.rejected_by) : '–') + '</td>' +
+          '<td>' + chip + '</td>' +
+          '<td>' + button + '</td>' +
+          '</tr>';
+      }
+
+      /* ── render: แถวผู้ป่วย — โครงเดียวกับ Worklist ทุกคอลัมน์ ───────────── */
+      function orderBlock(order) {
+        var s = orderState(order);
+        var st = statusTime(order);
+        var open = !!state.expanded[order.order_id];
+        var first = order.items[0] || { name: '–', code: '', modality: '' };
+        var recorded = recordedItems(order).length;
+        var alerts = recordedItems(order).filter(function (i) { return hasAdverse(i.contrast); }).length;
+
+        var html = '<article class="patient-block' + (open ? ' is-open' : '') + '" data-order-id="' + order.order_id + '">' +
+          '<div class="patient-row">' +
+            '<button class="expand-button" type="button" data-expand aria-expanded="' + open + '"' +
+              ' aria-label="' + (open ? 'ย่อ' : 'ขยาย') + 'รายละเอียด ' + esc(order.hn) + '">' +
+              '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"></path></svg></button>' +
+            '<div class="patient-summary">' +
+              '<div class="patient-hn"><span class="mono" translate="no">' + esc(order.hn) + '</span>' +
+                (order.urgent ? '<span class="inline-tag tag-danger urgent-tag">เร่งด่วน</span>' : '') + '</div>' +
+              '<div class="patient-name">' + esc(order.name) + '</div>' +
+              '<div class="patient-demographic"><span class="inline-tag gender-pill">' + esc(order.gender) + '</span><span>' + esc(order.age) + '</span></div>' +
+            '</div>' +
+            '<div class="context-tags">' +
+              '<div class="context-top"><span class="inline-tag meta-pill">' + esc(order.room) + '</span>' +
+                (order.paid ? '<span class="inline-tag meta-pill">ชำระเงินแล้ว</span>' : '') + '</div>' +
+              '<span class="inline-tag meta-pill">' + esc(order.coverage) + '</span>' +
+            '</div>' +
+            '<div class="metric test-cell"><span class="field-label">รายการตรวจ</span>' +
+              '<span class="field-value">' + esc(first.name) + (order.items.length > 1 ? ' +' + (order.items.length - 1) : '') + '</span>' +
+              '<span class="test-code mono">' + esc(first.code) + '</span></div>' +
+            '<div class="metric"><span class="field-label">เครื่อง</span><div class="modality-cell">' +
+              order.items.map(function (i) { return i.modality; }).filter(function (m, ix, arr) { return arr.indexOf(m) === ix; })
+                .map(function (m) { return '<span class="modality-tag">' + esc(m) + '</span>'; }).join('') + '</div></div>' +
+            '<div class="metric"><span class="field-label order-time-label">เวลาสั่ง <span class="order-no-tag">' + esc(order.order_no) + '</span></span>' +
+              '<span class="field-value time-value mono"><span>' + dateText(order.ordered_at) + '</span><span>' + timeText(order.ordered_at) + '</span></span></div>' +
+            '<div class="metric">' + (st.iso
+              ? '<span class="field-label">' + esc(st.label) + '</span><span class="field-value time-value mono"><span>' + dateText(st.iso) + '</span><span>' + timeText(st.iso) + '</span></span>'
+              : '') + '</div>' +
+            '<div class="doctor-cell"><span class="field-label">แพทย์</span><span class="field-value">' + esc(order.doctor) + '</span>' +
+              '<span class="diagnosis-summary" title="' + esc(order.dx_full) + '">' + esc(order.dx_short) + '</span></div>' +
+            '<span class="row-status ' + STATE_CLASS[s] + '">' + STATE_LABEL[s] + '</span>' +
+            /* คอลัมน์ปุ่มของ Worklist — หน้านี้ไม่มีปุ่มสั่งงาน จึงใช้บอกจำนวนใบบันทึกแทน */
+            '<div class="row-actions"><span class="cm-rollup">สารทึบ ' + recorded + '/' + order.items.length + '</span>' +
+              (alerts ? '<span class="cm-adverse" title="มีอาการไม่พึงประสงค์ ' + alerts + ' รายการ">อาการ ' + alerts + '</span>' : '') +
+            '</div>' +
+          '</div>';
+
+        html += '<div class="detail-panel"' + (open ? '' : ' hidden') + '>' +
+          '<div class="detail-top">' +
+            '<span class="detail-tab active">รายการตรวจ</span>' +
+            '<span class="detail-note">อ่านอย่างเดียว — ไม่มีปุ่มส่งเข้าเครื่อง ยกเลิก หรือปฏิเสธในหน้านี้</span>' +
+          '</div>' +
+          '<div class="detail-view">' +
+            '<div class="detail-table-wrap"><table class="detail-table contrast-item-table">' +
+              '<colgroup><col style="width:12%"><col style="width:17%"><col style="width:7%"><col style="width:9%"><col style="width:10%"><col style="width:8%"><col style="width:9%"><col style="width:8%"><col style="width:13%"><col style="width:7%"></colgroup>' +
+              '<thead><tr><th scope="col">Accession No.</th><th scope="col">รายการตรวจ</th><th scope="col">เครื่อง</th>' +
+              '<th scope="col">เวลาส่งเข้าเครื่อง</th><th scope="col">Radiographer</th><th scope="col">สถานะ</th>' +
+              '<th scope="col">ปฏิเสธ</th><th scope="col">คนปฏิเสธ</th><th scope="col">สารทึบ</th><th scope="col"></th></tr></thead>' +
+              '<tbody>' + order.items.map(function (i) { return itemRow(order, i); }).join('') + '</tbody>' +
+            '</table></div>' +
+          '</div></div>';
+
+        return html + '</article>';
+      }
+
+      function renderList() {
+        if (!hasScope()) {
+          $('#worklist').innerHTML = '<div class="empty-state" style="padding:44px 16px">' +
+            '<strong>ระบุ HN หรือเลือก Date Range ก่อน</strong>' +
+            'กติกาเดียวกับแท็บสืบค้นผลแลป — ค้นด้วย HN แบบตรงตัว หรือเลือกช่วงวันที่ให้ครบสองฝั่ง จึงจะเรียกข้อมูล<br>' +
+            '<span class="mono" style="font-size:12px">ตัวอย่างใน mockup: HN00000001 · HN00000002 · HN00000003</span></div>';
+          return;
+        }
+        var rows = visibleOrders();
+        $('#worklist').innerHTML = rows.length
+          ? rows.map(orderBlock).join('')
+          : '<div class="empty-state" style="padding:40px 16px"><strong>ไม่พบใบที่มีบันทึกการใช้สารทึบ</strong>' +
+            'หน้านี้แสดงเฉพาะ order ที่มีบันทึกการใช้สารทึบอย่างน้อย 1 รายการ · ลองเปลี่ยน HN ช่วงวันที่ เครื่อง หรือ chip สถานะ</div>';
+      }
+
+      function render() { renderChips(); renderModalityMenu(); renderSummary(); renderList(); }
+
+      /* ── หน้าต่าง "ดูบันทึก" — เรียงการ์ดตามฟอร์มจริง xray-contrast-media-record-v1 ──
+         การ์ด: 1–2 ผู้ป่วย · 3 รายการตรวจพิเศษ · 4–6 สารทึบ · 7–8 เวลา/แพทย์ ·
+                9 อาการไม่พึงประสงค์ · ตัวระบุรายการตรวจ (ระบบเติมให้)                */
+      function recRow(label, value, full) {
+        var empty = value === null || value === undefined || value === '';
+        return '<div class="rec-row' + (full ? ' full' : '') + '"><span>' + esc(label) + '</span>' +
+          '<strong' + (empty ? ' class="is-empty"' : '') + '>' + (empty ? 'ไม่ได้ระบุ' : esc(value)) + '</strong></div>';
+      }
+      function tagRow(values, cls) {
+        if (!values || !values.length) return '<div class="rec-row"><span>ค่าที่ติ๊กไว้</span><strong class="is-empty">ไม่ได้ระบุ</strong></div>';
+        return '<div class="tag-row">' + values.map(function (v) {
+          return '<span class="inline-tag ' + (cls || 'tag-primary') + '">' + esc(v) + '</span>'; }).join('') + '</div>';
+      }
+
+      function recordView(order, item) {
+        var c = item.contrast;
+        var alert = hasAdverse(c);
+        var html = '';
+
+        html += '<div class="rec-card"><h3>1–2. ข้อมูลผู้ป่วย</h3><div class="rec-grid">' +
+          recRow('HN', order.hn) + recRow('ชื่อ-นามสกุล', order.name) +
+          recRow('อายุ', order.age) + recRow('น้ำหนักผู้ป่วย', num(c.patient_weight, 'กก.')) +
+          '</div></div>';
+
+        html += '<div class="rec-card"><h3>3. รายการตรวจพิเศษทางรังสี</h3>' +
+          '<div style="margin-bottom:10px">' + tagRow(c.exam_items) + '</div>' +
+          '<div class="rec-grid">' +
+          recRow('CT', c.exam_ct ? 'ใช่' : 'ไม่ได้ติ๊ก') +
+          recRow('CTDI vol', num(c.ct_ctdi_vol_mgy, 'mGy')) +
+          recRow('DLP', num(c.ct_dlp_mgy_cm, 'mGy·cm')) +
+          recRow('Radiation dose', c.exam_radiation ? 'ใช่' : 'ไม่ได้ติ๊ก') +
+          recRow('kV', num(c.radiation_kv)) + recRow('mA', num(c.radiation_ma)) +
+          recRow('time (เริ่ม)', stamp(c.radiation_time_start)) + recRow('time (สิ้นสุด)', stamp(c.radiation_time_end)) +
+          recRow('Total DAP', num(c.radiation_total_dap)) + recRow('Total E.D.', num(c.radiation_total_ed)) +
+          '</div></div>';
+
+        html += '<div class="rec-card"><h3>4–6. สารทึบรังสีที่ใช้</h3>' +
+          '<div style="margin-bottom:10px">' + tagRow(c.contrast_types) + '</div>' +
+          '<div class="rec-grid">' +
+          recRow('ยี่ห้อ', c.contrast_brand) + recRow('ความเข้มข้น', c.contrast_concentration) +
+          recRow('Lot number', c.contrast_lot_no) + recRow('วิธีการใช้', list(c.route_types)) +
+          recRow('ปริมาณที่ใช้', num(c.contrast_volume_ml, 'mL')) +
+          '</div></div>';
+
+        html += '<div class="rec-card"><h3>7–8. เวลาที่ใช้ และแพทย์ผู้สั่ง</h3><div class="rec-grid">' +
+          recRow('วันที่และเวลาที่ใช้', stamp(c.used_at)) +
+          recRow('แพทย์ผู้สั่ง', c.order_doctor) +
+          recRow('เลขที่ใบอนุญาต', c.order_doctor_license) +
+          '</div></div>';
+
+        html += '<div class="rec-card' + (alert ? ' is-alert' : '') + '"><h3>9. อาการไม่พึงประสงค์จากการใช้สารทึบรังสี</h3><div class="rec-grid">' +
+          recRow('Contrast Media Extravasation', c.extravasation) +
+          recRow('Acute — อาการ', list(c.acute_symptoms)) +
+          recRow('Acute — อาการอื่น ๆ', c.acute_other_detail) +
+          recRow('Delay — ระยะเวลาที่มีอาการ', stamp(c.delay_onset_time)) +
+          recRow('Delay — อาการ', list(c.delay_symptoms)) +
+          recRow('Delay — อาการอื่น ๆ', c.delay_other_detail) +
+          recRow('บันทึกเพิ่มเติม', c.adverse_note, true) +
+          '</div></div>';
+
+        html += '<div class="rec-card"><h3>ตัวระบุรายการตรวจ (ระบบเติมให้)</h3><div class="rec-grid">' +
+          recRow('Item ID', item.id) + recRow('Accession No.', item.accession_no) +
+          recRow('Order ID', order.order_id) + recRow('Order No.', order.order_no) +
+          recRow('Visit ID', order.visit_id) + recRow('เครื่อง', item.modality) +
+          recRow('รหัสรายการตรวจ', item.code) + recRow('ชื่อรายการตรวจ', item.name) +
+          '</div>' +
+          '<div class="rec-grid" style="margin-top:6px">' +
+          recRow('ผู้บันทึก', c.recorded_by) + recRow('เวลาบันทึก', stamp(c.recorded_at)) +
+          '</div>' +
+          '<p class="rec-note">⚠️ ฟอร์ม <span class="mono">xray-contrast-media-record-v1</span> ยังไม่มีฟิลด์ “ผู้บันทึก/เวลาบันทึก” ' +
+          'ค่าที่เห็นนี้เป็นค่าสมมติ — ต้องยืนยันว่าอ่านจาก system field ของแถว SDForm หรือให้ฟอร์มเก็บเพิ่ม (คำถามข้อ 3)</p>' +
+          '</div>';
+        return html;
+      }
+
+      /* ── หน้าต่าง "บันทึก/แก้ไข" — mockup ของฟอร์มจริง ไม่ได้บันทึกอะไรลงที่ไหน ── */
+      function field(label, value, opts) {
+        opts = opts || {};
+        return '<div class="form-field' + (opts.span ? ' span-all' : '') + '">' +
+          '<label>' + esc(label) + (opts.required ? ' <span class="required-mark">*</span>' : '') + '</label>' +
+          (opts.textarea
+            ? '<textarea' + (opts.disabled ? ' disabled' : '') + '>' + esc(value || '') + '</textarea>'
+            : '<input class="control" type="text" value="' + esc(value == null ? '' : value) + '"' +
+              (opts.disabled ? ' disabled' : '') + (opts.placeholder ? ' placeholder="' + esc(opts.placeholder) + '"' : '') + '>') +
+          (opts.hint ? '<span class="field-hint">' + esc(opts.hint) + '</span>' : '') +
+          '</div>';
+      }
+      function checkList(name, options, picked, cols) {
+        picked = picked || [];
+        return '<div class="check-list' + (cols ? ' cols' : '') + '">' + options.map(function (o) {
+          return '<label class="check-line"><input type="checkbox"' +
+            (picked.indexOf(o) > -1 ? ' checked' : '') + ' name="' + esc(name) + '">' + esc(o) + '</label>';
+        }).join('') + '</div>';
+      }
+
+      var EXAM_ITEMS = ['Esophagography', 'Upper GI Study', 'GI Follow Through', 'Barium Enema', 'Loopagram',
+        'Defecography', 'Genitogram', 'VCUG', 'Intravenous', 'Cath Lab'];
+      var CONTRAST_TYPES = ['Non-Ionic contrast', 'Barium Sulphate'];
+      var ROUTES = ['กิน', 'สวน', 'ฉีด'];
+      var SYMPTOMS = ['Erythema ผิวหนังแดง/ผื่นแดง', 'Swelling อาการบวม', 'Pruritus อาการคัน',
+        'Angioedema อาการบวมของเนื้อเยื่อใต้ผิวหนัง', 'Nausea คลื่นไส้'];
+
+      function recordForm(order, item) {
+        var c = item.contrast || {};
+        var html = '';
+
+        html += '<p class="pane-note warning" style="margin:0">ฟอร์มนี้เป็น <strong>ภาพจำลอง</strong> ของ <span class="mono">xray-contrast-media-record-v1</span> ' +
+          'ของจริงเปิดผ่าน <span class="mono">form.openForm(CONTRAST_FORM_ID, ..., initData)</span> โดยส่งตัวระบุรายการตรวจไปทาง <strong>initData</strong> เท่านั้น ' +
+          '(<span class="mono">params</span> ไม่เขียนค่าลงฟิลด์) · กดบันทึกในหน้านี้ไม่มีผลกับข้อมูลจริง</p>';
+
+        html += '<div class="rec-card"><h3>1–2. ข้อมูลผู้ป่วย</h3><div class="rec-form-grid">' +
+          field('HN', order.hn, { disabled: true, hint: 'มาจากใบสั่ง — ห้ามพิมพ์ทับ' }) +
+          field('ชื่อ-นามสกุล', order.name, { disabled: true }) +
+          field('อายุ', order.age, { disabled: true }) +
+          field('น้ำหนักผู้ป่วย (กก.)', c.patient_weight, { required: true, placeholder: 'เช่น 14.2' }) +
+          '</div></div>';
+
+        html += '<div class="rec-card"><h3>3. รายการตรวจพิเศษทางรังสี</h3>' +
+          checkList('exam_items', EXAM_ITEMS, c.exam_items, true) +
+          '<div style="margin-top:10px">' +
+          checkList('exam_ct_choice', ['CT'], c.exam_ct ? ['CT'] : [], true) + '</div>' +
+          '<div style="margin-top:6px">' +
+          checkList('exam_radiation_choice', ['Radiation dose'], c.exam_radiation ? ['Radiation dose'] : [], true) + '</div>' +
+          '<div class="rec-form-grid" style="margin-top:10px">' +
+          field('CTDI vol (mGy)', c.ct_ctdi_vol_mgy) + field('DLP (mGy·cm)', c.ct_dlp_mgy_cm) +
+          field('kV', c.radiation_kv) + field('mA', c.radiation_ma) +
+          field('time เริ่ม', stamp(c.radiation_time_start)) + field('time สิ้นสุด', stamp(c.radiation_time_end)) +
+          field('Total DAP', c.radiation_total_dap) + field('Total E.D.', c.radiation_total_ed) +
+          '</div></div>';
+
+        html += '<div class="rec-card"><h3>4–6. สารทึบรังสีที่ใช้</h3>' +
+          checkList('contrast_types', CONTRAST_TYPES, c.contrast_types, true) +
+          '<div class="rec-form-grid" style="margin-top:10px">' +
+          field('ยี่ห้อ', c.contrast_brand, { required: true }) +
+          field('ความเข้มข้น', c.contrast_concentration) +
+          field('Lot number', c.contrast_lot_no) +
+          field('ปริมาณที่ใช้ (mL)', c.contrast_volume_ml, { required: true }) +
+          '</div>' +
+          '<div style="margin-top:10px"><label style="display:block;margin-bottom:6px;color:var(--ink);font-size:12px;font-weight:650">5. วิธีการใช้</label>' +
+          checkList('route_types', ROUTES, c.route_types, true) + '</div>' +
+          '</div>';
+
+        html += '<div class="rec-card"><h3>7–8. เวลาที่ใช้ และแพทย์ผู้สั่ง</h3><div class="rec-form-grid">' +
+          field('วันที่และเวลาที่ใช้', stamp(c.used_at), { required: true }) +
+          field('แพทย์ผู้สั่ง', c.order_doctor, { required: true, hint: 'ของจริงต้องอ่านจาก master แพทย์ ไม่ hard-code' }) +
+          field('เลขที่ใบอนุญาตประกอบวิชาชีพเวชกรรม', c.order_doctor_license) +
+          '</div></div>';
+
+        html += '<div class="rec-card"><h3>9. อาการไม่พึงประสงค์จากการใช้สารทึบรังสี</h3>' +
+          '<div class="rec-form-grid">' +
+          '<div class="form-field"><label>Contrast Media Extravasation</label>' +
+            '<div class="check-list cols"><label class="check-line"><input type="radio" name="extrav"' +
+            (c.extravasation === 'No' ? ' checked' : '') + '>No</label>' +
+            '<label class="check-line"><input type="radio" name="extrav"' +
+            (c.extravasation === 'Yes' ? ' checked' : '') + '>Yes</label></div></div>' +
+          '</div>' +
+          '<div style="margin-top:10px"><label style="display:block;margin-bottom:6px;color:var(--ink);font-size:12px;font-weight:650">Acute (ภายใน 1 ชั่วโมง) — อาการ</label>' +
+          checkList('acute_symptoms', SYMPTOMS, c.acute_symptoms, true) + '</div>' +
+          '<div class="rec-form-grid" style="margin-top:10px">' + field('อาการอื่น ๆ (Acute) ระบุ', c.acute_other_detail, { span: true }) + '</div>' +
+          '<div style="margin-top:10px"><label style="display:block;margin-bottom:6px;color:var(--ink);font-size:12px;font-weight:650">Delay (หลัง 1 ชั่วโมง) — อาการ</label>' +
+          checkList('delay_symptoms', SYMPTOMS, c.delay_symptoms, true) + '</div>' +
+          '<div class="rec-form-grid" style="margin-top:10px">' +
+          field('ระยะเวลาที่มีอาการ', stamp(c.delay_onset_time)) +
+          field('อาการอื่น ๆ (Delay) ระบุ', c.delay_other_detail) +
+          field('บันทึกเพิ่มเติม', c.adverse_note, { textarea: true, span: true }) +
+          '</div></div>';
+
+        html += '<div class="rec-card"><h3>ตัวระบุรายการตรวจ (ระบบเติมให้ · ห้ามแก้)</h3><div class="rec-form-grid">' +
+          field('Item ID', item.id, { disabled: true }) + field('Accession No.', item.accession_no, { disabled: true }) +
+          field('Order ID', order.order_id, { disabled: true }) + field('Order No.', order.order_no, { disabled: true }) +
+          field('Visit ID', order.visit_id, { disabled: true }) + field('เครื่อง', item.modality, { disabled: true }) +
+          field('รหัสรายการตรวจ', item.code, { disabled: true }) + field('ชื่อรายการตรวจ', item.name, { disabled: true }) +
+          '</div></div>';
+        return html;
+      }
+
+      /* ── toast / dialog ─────────────────────────────────────────────────── */
+      var toastTimer = null;
+      function toast(message) {
+        var el = $('#toast');
+        el.textContent = message;
+        el.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { el.classList.remove('show'); }, 3600);
+      }
+      function openDialog(id) {
+        var dialog = $('#' + id);
+        if (dialog && typeof dialog.showModal === 'function' && !dialog.open) dialog.showModal();
+      }
+      function closeDialog(id) {
+        var dialog = $('#' + id);
+        if (dialog && dialog.open) dialog.close();
+      }
+
+      function openRecordView(orderId, itemId) {
+        var order = findOrder(orderId), item = findItem(orderId, itemId);
+        if (!order || !item || !item.contrast) { toast('ยังไม่ได้บันทึกการใช้สารทึบของรายการนี้'); return; }
+        $('#recordViewMeta').innerHTML = esc(order.hn) + ' · ' + esc(order.name) + ' · ' + esc(item.name) +
+          ' · <span class="mono">' + esc(item.accession_no) + '</span> · Order <span class="mono">' + esc(order.order_no) + '</span>';
+        $('#recordViewBody').innerHTML = recordView(order, item);
+        openDialog('recordViewDialog');
+      }
+      /* โหมดบันทึกยังพักอยู่ (RECORD_MODE_ENABLED = false) — โค้ดคงไว้ทั้งชุด */
+      function openRecordForm(orderId, itemId) {
+        var order = findOrder(orderId), item = findItem(orderId, itemId);
+        if (!order || !item) return;
+        $('#recordFormMode').textContent = item.contrast ? 'แก้ไขบันทึกเดิม' : 'บันทึกใหม่';
+        $('#recordFormMeta').innerHTML = esc(order.hn) + ' · ' + esc(order.name) + ' · ' + esc(item.name) +
+          ' · <span class="mono">' + esc(item.accession_no || 'ยังไม่มีเลข Accession') + '</span>';
+        $('#recordFormBody').innerHTML = recordForm(order, item);
+        openDialog('recordFormDialog');
+      }
+
+      /* ── ปฏิทิน Date Range (ยกจาก mockup Worklist) ──────────────────────── */
+      function buildCalendar(base, offset) {
+        var d = new Date(base.getFullYear(), base.getMonth() + offset, 1);
+        var year = d.getFullYear(), month = d.getMonth();
+        var first = new Date(year, month, 1).getDay();
+        var days = new Date(year, month + 1, 0).getDate();
+        var cells = [];
+        for (var i = 0; i < first; i++) cells.push('<span class="day outside"></span>');
+        for (var day = 1; day <= days; day++) {
+          var key = year + '-' + pad(month + 1) + '-' + pad(day);
+          var cls = 'day';
+          if (state.dateFrom && state.dateTo && key > state.dateFrom && key < state.dateTo) cls += ' in-range';
+          if (key === state.dateFrom || key === state.dateTo) cls += ' selected';
+          cells.push('<button class="' + cls + '" type="button" data-day="' + key + '">' + day + '</button>');
+        }
+        return '<div class="calendar"><h3 class="calendar-title">' + THAI_MONTHS[month] + ' ' + (year + 543) + '</h3>' +
+          '<div class="calendar-grid">' +
+          ['อา','จ','อ','พ','พฤ','ศ','ส'].map(function (w) { return '<span class="weekday">' + w + '</span>'; }).join('') +
+          cells.join('') + '</div></div>';
+      }
+      function renderCalendars() {
+        $('#calendars').innerHTML = buildCalendar(calCursor, 0) + buildCalendar(calCursor, 1);
+        $('#dateHint').textContent = pickStart ? 'เลือกวันสิ้นสุด' : 'เลือกวันเริ่มต้น';
+      }
+      function syncDateLabel() {
+        var trigger = $('#dateTrigger');
+        if (state.dateFrom && state.dateTo) {
+          $('#dateValue').textContent = state.dateFrom + ' ถึง ' + state.dateTo;
+          trigger.classList.add('has-value');
+          $('#dateClear').hidden = false;
+        } else {
+          $('#dateValue').textContent = 'Date Range';
+          trigger.classList.remove('has-value');
+          $('#dateClear').hidden = true;
+        }
+      }
+      function closeDatePopover() {
+        $('#datePopover').hidden = true;
+        $('#dateTrigger').setAttribute('aria-expanded', 'false');
+      }
+      function closeModalityMenu() {
+        $('#modalityMenu').hidden = true;
+        $('#modalityField').classList.remove('open');
+        $('#modalityTrigger').setAttribute('aria-expanded', 'false');
+      }
+
+      /* ── events ─────────────────────────────────────────────────────────── */
+      $('#searchInput').addEventListener('input', function (e) {
+        state.query = e.target.value.trim();
+        $('#clearSearch').hidden = !state.query;
+        render();
+      });
+      $('#searchInput').addEventListener('keyup', function (e) { if (e.key === 'Enter') render(); });
+      $('#clearSearch').addEventListener('click', function () {
+        state.query = '';
+        $('#searchInput').value = '';
+        $('#clearSearch').hidden = true;
+        render();
+      });
+      $('#searchButton').addEventListener('click', render);
+
+      $('#statusStrip').addEventListener('click', function (e) {
+        var chip = e.target.closest('[data-filter-key]');
+        if (!chip) return;
+        state.status = chip.getAttribute('data-filter-key');
+        render();
+      });
+
+      $('#modalityTrigger').addEventListener('click', function () {
+        var open = $('#modalityMenu').hidden;
+        closeDatePopover();
+        $('#modalityMenu').hidden = !open;
+        $('#modalityField').classList.toggle('open', open);
+        this.setAttribute('aria-expanded', String(open));
+        if (open) renderModalityMenu();
+      });
+      $('#modalityMenu').addEventListener('click', function (e) {
+        var option = e.target.closest('[data-modality]');
+        if (!option) return;
+        state.modality = option.getAttribute('data-modality');
+        closeModalityMenu();
+        render();     /* กรองทันทีไม่ต้องกด Search ซ้ำ — กติกาเดิมของ Worklist */
+      });
+
+      $('#dateTrigger').addEventListener('click', function () {
+        var open = $('#datePopover').hidden;
+        closeModalityMenu();
+        $('#datePopover').hidden = !open;
+        this.setAttribute('aria-expanded', String(open));
+        if (open) renderCalendars();
+      });
+      $('#dateClear').addEventListener('click', function (e) {
+        e.stopPropagation();
+        state.dateFrom = state.dateTo = ''; pickStart = '';
+        syncDateLabel(); render();
+      });
+      $('#dateReset').addEventListener('click', function () {
+        state.dateFrom = state.dateTo = ''; pickStart = '';
+        syncDateLabel(); renderCalendars(); render();
+      });
+      $('#datePopover').addEventListener('click', function (e) {
+        var nav = e.target.closest('[data-cal-nav]');
+        if (nav) {
+          calCursor = new Date(calCursor.getFullYear(), calCursor.getMonth() + Number(nav.getAttribute('data-cal-nav')), 1);
+          renderCalendars();
+          return;
+        }
+        var day = e.target.closest('[data-day]');
+        if (!day) return;
+        var key = day.getAttribute('data-day');
+        if (!pickStart) {
+          pickStart = key; state.dateFrom = key; state.dateTo = '';
+        } else {
+          if (key < pickStart) { state.dateFrom = key; state.dateTo = pickStart; }
+          else { state.dateFrom = pickStart; state.dateTo = key; }
+          pickStart = '';
+          closeDatePopover();
+          render();
+        }
+        syncDateLabel();
+        renderCalendars();
+      });
+
+      document.addEventListener('click', function (e) {
+        if (!e.target.closest('#modalityField')) closeModalityMenu();
+        if (!e.target.closest('.date-range')) closeDatePopover();
+
+        var toastBtn = e.target.closest('[data-toast]');
+        if (toastBtn) { toast(toastBtn.getAttribute('data-toast')); return; }
+
+        var closer = e.target.closest('[data-close-dialog]');
+        if (closer) { closeDialog(closer.getAttribute('data-close-dialog')); return; }
+
+        var viewBtn = e.target.closest('[data-open-record]');
+        if (viewBtn) { openRecordView(viewBtn.getAttribute('data-order-id'), viewBtn.getAttribute('data-item-id')); return; }
+
+        var formBtn = e.target.closest('[data-open-form]');
+        if (formBtn) { openRecordForm(formBtn.getAttribute('data-order-id'), formBtn.getAttribute('data-item-id')); return; }
+
+        var expand = e.target.closest('[data-expand]');
+        if (expand) {
+          var block = expand.closest('.patient-block');
+          var id = block.getAttribute('data-order-id');
+          state.expanded[id] = !state.expanded[id];
+          renderList();
+        }
+      });
+
+      $('#recordFormSave').addEventListener('click', function () {
+        closeDialog('recordFormDialog');
+        toast('mockup — ยังไม่บันทึกอะไรลงฐานข้อมูล · ของจริงบันทึกที่ zdata_xray_contrast_media ผ่านฟอร์ม SDForm');
+      });
+
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { closeModalityMenu(); closeDatePopover(); }
+      });
+
+      /* ── init ───────────────────────────────────────────────────────────── */
+      $('#paneNote').innerHTML = '<strong>อ่านอย่างเดียว</strong> หน้านี้ใช้โครงเดียวกับ <strong>X-ray CPOE Worklist</strong> ทุกคอลัมน์ ' +
+        'ต่างกันสองข้อ: (1) ค้น HN แล้ว <strong>กรองเหลือเฉพาะ order ที่มีบันทึกการใช้สารทึบ</strong> ' +
+        '(2) ไม่มีปุ่มสั่งงานใด ๆ — ส่งเข้าเครื่อง · ยกเลิก · ปฏิเสธ · ตรวจใหม่ · สร้างรายการใหม่ · checkbox เลือกรายการ ถูกตัดออกทั้งหมด · ' +
+        'ช่องสารทึบว่างในใบที่แสดง = <strong>ยังไม่ได้บันทึกของรายการนั้น</strong> ไม่ได้แปลว่าไม่ได้ฉีด';
+      syncDateLabel();
+      render();
+    })();
+  </script>
+</body>
+</html>
