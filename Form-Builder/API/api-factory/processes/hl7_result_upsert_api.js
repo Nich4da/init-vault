@@ -13,6 +13,7 @@
 const RECEIPT_FORM_ID = '6a8b1c03f851000f28e501ef'
 const REPORT_FORM_ID = '6a8d4334f851000f28e5025b'
 const RESULT_ITEM_FORM_ID = '6a8bc91df851000f28e501fb'
+const RESULT_REVISION_LOG_FORM_ID = '6abbabdcc54b3f93ce799576'
 const WORK_ITEM_FORM_ID = '6a95c750422c1ca959829e8a'
 const CPOE_ITEM_COLLECTION = 'zdata_cpoe_order_item'
 const CPOE_ORDER_COLLECTION = 'zdata_cpoe_order'
@@ -1323,6 +1324,130 @@ try {
   }
 } catch (error) {
   return failAfterReceipt('REPORT_SAVE_FAILED', 'บันทึก Result Report ไม่สำเร็จ: ' + trimmed(error.message || error), 'error', { order_status_id: statusId })
+}
+
+// One accepted Agent callback is one immutable whole-result revision.  This is
+// deliberately separate from LAB Result Edit Log, which audits human edits to
+// individual current Result Items.  Persist the revision before projecting the
+// callback into current Result Items so a failed snapshot can never leave the
+// current values ahead of their revision history.
+const revisionId = [payload.order_no, payload.filler_order_no, payload.result_uid].join('|')
+let existingRevisionRows = []
+let previousRevisionRows = []
+try {
+  const revisionLookups = await Promise.all([
+    queryRows(
+      RESULT_REVISION_LOG_FORM_ID,
+      { revisionId },
+      '`revision_id` = :revisionId AND `xrstatx` NOT IN (0,3)',
+      [{ column: 'received_at', sort: 'DESC' }],
+      2
+    ),
+    queryRows(
+      RESULT_REVISION_LOG_FORM_ID,
+      { orderNo: payload.order_no, fillerOrderNo: payload.filler_order_no },
+      '`order_no` = :orderNo AND `filler_order_no` = :fillerOrderNo AND `xrstatx` NOT IN (0,3)',
+      [
+        { column: 'report_seq', sort: 'DESC' },
+        { column: 'received_at', sort: 'DESC' },
+      ],
+      2000
+    ),
+  ])
+  existingRevisionRows = revisionLookups[0]
+  previousRevisionRows = revisionLookups[1].filter(row => trimmed(row.revision_id) !== revisionId)
+} catch (error) {
+  return failAfterReceipt('REVISION_LOOKUP_FAILED', 'ค้นหา LAB Result Revision Log ไม่สำเร็จ: ' + trimmed(error.message || error), 'error', {
+    order_status_id: statusId,
+    result_report_id: report.id,
+  })
+}
+
+if (existingRevisionRows.length > 1) {
+  return failAfterReceipt('REVISION_DUPLICATE_CONFLICT', 'พบ Revision ID ซ้ำมากกว่า 1 record; หยุดเพื่อป้องกันประวัติคลาดเคลื่อน', 'error', {
+    order_status_id: statusId,
+    result_report_id: report.id,
+    revision_id: revisionId,
+  })
+}
+
+const previousRevision = previousRevisionRows.reduce((selected, row) => {
+  if (!selected) return row
+  const sequenceOrder = sequenceCompare(row.report_seq || '0', selected.report_seq || '0')
+  if (sequenceOrder !== 0) return sequenceOrder > 0 ? row : selected
+  return trimmed(row.received_at) > trimmed(selected.received_at) ? row : selected
+}, null)
+const revisionSnapshot = matchedItems.map(item => ({
+  obs_code: item.obs_code,
+  obs_name: item.obs_name,
+  value: item.value,
+  units: item.units || '',
+  ref_range: item.ref_range || '',
+  interpretation_code: criticalDecision(item).interpretationCode,
+  is_critical: criticalDecision(item).isCritical,
+  obx_status: item.obx_status,
+  change_kind: item.change_kind,
+  previous_value: item.previous_value || '',
+  receipt_seq: item.receipt_seq,
+  result_version: item.result_version,
+  comment: item.comment || '',
+}))
+const previousSnapshot = parseArray(previousRevision && previousRevision.items_snapshot_json)
+const revisionComparable = item => canonicalJson({
+  value: trimmed(item && (item.value != null ? item.value : item.result_value)),
+  units: trimmed(item && (item.units != null ? item.units : item.unit)),
+  ref_range: trimmed(item && (item.ref_range != null ? item.ref_range : item.reference_range)),
+  interpretation_code: trimmed(item && (item.interpretation_code != null ? item.interpretation_code : item.interpretation)),
+  is_critical: item && item.is_critical === true,
+  obx_status: trimmed(item && item.obx_status),
+  comment: trimmed(item && (item.comment != null ? item.comment : item.result_comment)),
+})
+const previousSnapshotByCode = new Map(previousSnapshot.map(item => [trimmed(item && (item.obs_code || item.test_code)), item]))
+const currentSnapshotCodes = new Set(revisionSnapshot.map(item => trimmed(item.obs_code)))
+const changedItemCount = previousRevision
+  ? revisionSnapshot.reduce((count, item) => {
+      const previousItem = previousSnapshotByCode.get(trimmed(item.obs_code))
+      return count + (!previousItem || revisionComparable(previousItem) !== revisionComparable(item) ? 1 : 0)
+    }, 0) + previousSnapshot.reduce((count, item) => count + (currentSnapshotCodes.has(trimmed(item && (item.obs_code || item.test_code))) ? 0 : 1), 0)
+  : 0
+const highestReceiptSeq = revisionSnapshot.reduce((selected, item) =>
+  sequenceCompare(item.receipt_seq || '0', selected || '0') > 0 ? item.receipt_seq : selected, '0')
+const revisionData = {
+  revision_id: revisionId,
+  order_no: payload.order_no,
+  filler_order_no: payload.filler_order_no,
+  result_uid: payload.result_uid,
+  report_seq: payload.report_seq,
+  stage: payload.stage,
+  receipt_seq: highestReceiptSeq,
+  source_reported_at: payload.reported_at,
+  received_at: receivedAt,
+  receipt_id: receipt.id,
+  report_id: report.id,
+  previous_revision_id: trimmed(previousRevision && previousRevision.revision_id),
+  items_snapshot_json: JSON.stringify(revisionSnapshot),
+  item_count: revisionSnapshot.length,
+  changed_item_count: changedItemCount,
+  ingest_status: 'accepted',
+  schema_version: SCHEMA_VERSION,
+  payload_hash: payloadHash,
+}
+try {
+  if (existingRevisionRows.length) {
+    const existingRevision = existingRevisionRows[0]
+    const samePayload = trimmed(existingRevision.payload_hash) === payloadHash &&
+      trimmed(existingRevision.report_id) === report.id &&
+      canonicalJson(parseArray(existingRevision.items_snapshot_json)) === canonicalJson(revisionSnapshot)
+    if (!samePayload) throw new Error('Revision ID เดิมมี payload/report ไม่ตรงกัน')
+  } else {
+    await createRecord(RESULT_REVISION_LOG_FORM_ID, revisionData)
+  }
+} catch (error) {
+  return failAfterReceipt('REVISION_SAVE_FAILED', 'บันทึก LAB Result Revision Log ไม่สำเร็จ: ' + trimmed(error.message || error), 'error', {
+    order_status_id: statusId,
+    result_report_id: report.id,
+    revision_id: revisionId,
+  })
 }
 
 let createdItemCount = 0

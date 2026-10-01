@@ -29,6 +29,7 @@ const payload = () => ({
   birth_date: '20200101',
   sex: 'M',
   visit_type: 'OP',
+  encounter: { class: 'OPD' },
   doctor_code: 'DOC-UAT',
   doctor_title: 'นพ.',
   doctor_name: 'แพทย์ ทดสอบ',
@@ -130,6 +131,7 @@ const appWith = handler => {
     assert.strictEqual(calls[0][2].headers['X-Agent-Key'], 'test-only-key')
     assert.strictEqual(calls[0][1].items[0].test_code, 'HIS-CODE-001')
     assert.strictEqual(calls[0][1].items[0].lab_code, 'CHEM')
+    assert.deepStrictEqual(calls[0][1].encounter, { class: 'OPD' })
     assert.strictEqual(testApp.outboundRows.size, 1, 'Gateway submit must persist one Outbound record')
     const outbound = [...testApp.outboundRows.values()][0]
     assert.strictEqual(outbound.hl7_status, 'queued')
@@ -218,6 +220,17 @@ const appWith = handler => {
     assert.strictEqual(result.error, 'invalid_payload')
     assert(result.errors.some(error => error.includes('extra_field')))
     assert(result.errors.some(error => error.includes('collected_at')))
+    assert.strictEqual(called, false)
+  }
+
+  for (const invalidEncounter of [null, 'IPD', {}, { class: 'WARD' }, { class: 'IPD', an: 'AN-001' }]) {
+    let called = false
+    const bad = payload()
+    bad.encounter = invalidEncounter
+    const testApp = appWith(async () => { called = true; return { status: 202, data: {} } })
+    const result = await Process({ payload: bad }, userInfo, testApp)
+    assert.strictEqual(result.error, 'invalid_payload')
+    assert(result.errors.some(error => error.includes('payload.encounter')))
     assert.strictEqual(called, false)
   }
 

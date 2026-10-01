@@ -74,6 +74,18 @@
       "type": "string",
       "maxLength": 50
     },
+    "encounter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["class"],
+      "properties": {
+        "class": {
+          "type": "string",
+          "enum": ["OPD", "IPD"],
+          "description": "Patient encounter class derived from admission context; a non-empty AN is IPD, otherwise OPD."
+        }
+      }
+    },
     "doctor_code": {
       "type": "string",
       "maxLength": 100

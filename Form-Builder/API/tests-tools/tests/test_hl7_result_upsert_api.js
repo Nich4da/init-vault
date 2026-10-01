@@ -5,6 +5,7 @@ const path = require('path')
 const RECEIPT_FORM_ID = '6a8b1c03f851000f28e501ef'
 const REPORT_FORM_ID = '6a8d4334f851000f28e5025b'
 const RESULT_ITEM_FORM_ID = '6a8bc91df851000f28e501fb'
+const RESULT_REVISION_LOG_FORM_ID = '6abbabdcc54b3f93ce799576'
 const WORK_ITEM_FORM_ID = '6a95c750422c1ca959829e8a'
 const CPOE_ITEM_ID = '777777777777777777777777'
 const CPOE_SIBLING_ITEM_ID = '999999999999999999999999'
@@ -42,6 +43,7 @@ const stores = new Map([
   [RECEIPT_FORM_ID, []],
   [REPORT_FORM_ID, []],
   [RESULT_ITEM_FORM_ID, []],
+  [RESULT_REVISION_LOG_FORM_ID, []],
   [WORK_ITEM_FORM_ID, [{
     _id: '6a9000000000000000000001',
     source_specimen_record_id: CPOE_ITEM_ID,
@@ -164,6 +166,10 @@ const mockApp = {
       if (p.orderNo) data = data.filter(row => row.order_no === p.orderNo)
       if (p.fillerOrderNo) data = data.filter(row => row.filler_order_no === p.fillerOrderNo)
       if (p.visitId) data = data.filter(row => row.visit_id === p.visitId)
+    } else if (provider.providerId === RESULT_REVISION_LOG_FORM_ID) {
+      if (p.revisionId) data = data.filter(row => row.revision_id === p.revisionId)
+      if (p.orderNo) data = data.filter(row => row.order_no === p.orderNo)
+      if (p.fillerOrderNo) data = data.filter(row => row.filler_order_no === p.fillerOrderNo)
     }
     return { success: true, data: clone(data) }
   },
@@ -313,6 +319,7 @@ const status = () => rows(WORK_ITEM_FORM_ID)[0]
   assert.strictEqual(rows(RECEIPT_FORM_ID).length, 1)
   assert.strictEqual(rows(REPORT_FORM_ID).length, 1)
   assert.strictEqual(rows(RESULT_ITEM_FORM_ID).length, 1)
+  assert.strictEqual(rows(RESULT_REVISION_LOG_FORM_ID).length, 1)
   assert.strictEqual(receiptByUid(partial.result_uid).receipt_status, 'processed')
   assert(!receiptByUid(partial.result_uid).raw_payload_json.includes('xpartnerx'), 'transport metadata must not be stored in the clinical raw payload')
   assert.strictEqual(
@@ -332,6 +339,13 @@ const status = () => rows(WORK_ITEM_FORM_ID)[0]
   assert.strictEqual(partialNa.xparentx, partialReport._id)
   assert.strictEqual(partialNa.parent_id.value, partialReport._id)
   assert.strictEqual(partialNa.result_report_id, partialReport._id)
+  const partialRevision = rows(RESULT_REVISION_LOG_FORM_ID)[0]
+  assert.strictEqual(partialRevision.result_uid, partial.result_uid)
+  assert.strictEqual(partialRevision.report_id, partialReport._id)
+  assert.strictEqual(partialRevision.receipt_id, receiptByUid(partial.result_uid)._id)
+  assert.strictEqual(partialRevision.item_count, 1)
+  assert.strictEqual(partialRevision.changed_item_count, 0)
+  assert.deepStrictEqual(JSON.parse(partialRevision.items_snapshot_json).map(item => item.obs_code), ['NA'])
   assert.strictEqual(status().work_status, 'resulted')
   assert.strictEqual(status().latest_result_at, partial.reported_at, 'partial must expose its latest report time')
   assert.strictEqual(status().resulted_at, undefined, 'partial must not stamp completion time')
@@ -347,6 +361,7 @@ const status = () => rows(WORK_ITEM_FORM_ID)[0]
     receipts: rows(RECEIPT_FORM_ID).length,
     reports: rows(REPORT_FORM_ID).length,
     items: rows(RESULT_ITEM_FORM_ID).length,
+    revisions: rows(RESULT_REVISION_LOG_FORM_ID).length,
   }
   const duplicate = await Process(clone(partial), userInfo, mockApp)
   assert.strictEqual(duplicate.success, true)
@@ -356,6 +371,7 @@ const status = () => rows(WORK_ITEM_FORM_ID)[0]
     receipts: rows(RECEIPT_FORM_ID).length,
     reports: rows(REPORT_FORM_ID).length,
     items: rows(RESULT_ITEM_FORM_ID).length,
+    revisions: rows(RESULT_REVISION_LOG_FORM_ID).length,
   })
   const mutatedDuplicate = clone(partial)
   mutatedDuplicate.items[0].value = '129'

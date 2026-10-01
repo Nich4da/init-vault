@@ -148,7 +148,7 @@
             "labelIconPosition": "rear",
             "labelTooltip": null,
             "labelColor": null,
-            "onCreated": "",
+            "onCreated": "const form=this.getFormRef&&this.getFormRef();\nconst params=form&&form.formParams||{};\nconst rows=Array.isArray(params.reason_options)?params.reason_options:null;\nif(rows!==null){\n  this.loadOptions(rows.map(row=>({value:String(row&&row.value||'').trim(),label:String(row&&row.label||'').trim()})).filter(row=>row.value&&row.label));\n}",
             "onMounted": "",
             "onUnmount": "",
             "onRemoteQuery": "",

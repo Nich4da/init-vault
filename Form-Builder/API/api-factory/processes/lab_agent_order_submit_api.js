@@ -76,6 +76,7 @@ const ROOT_KEYS = [
   'birth_date',
   'sex',
   'visit_type',
+  'encounter',
   'doctor_code',
   'doctor_title',
   'doctor_name',
@@ -162,6 +163,20 @@ const validatePayload = payload => {
     errors.push('payload.sex ต้องเป็น M หรือ F')
   }
   if (own(payload, 'visit_type')) validateText(payload.visit_type, 'payload.visit_type', errors, { max: 50 })
+  if (own(payload, 'encounter')) {
+    if (!isPlainObject(payload.encounter)) {
+      errors.push('payload.encounter ต้องเป็น JSON object')
+    } else {
+      Object.keys(payload.encounter).forEach(key => {
+        if (key !== 'class') errors.push('ไม่รองรับ field payload.encounter.' + key)
+      })
+      if (!own(payload.encounter, 'class')) {
+        errors.push('payload.encounter.class เป็น field บังคับ')
+      } else if (!['OPD', 'IPD'].includes(payload.encounter.class)) {
+        errors.push('payload.encounter.class ต้องเป็น OPD หรือ IPD')
+      }
+    }
+  }
   ;['special_request', 'diagnosis', 'antimicrobial_used', 'underlying_disease'].forEach(key => {
     if (own(payload, key)) validateText(payload[key], 'payload.' + key, errors, {})
   })
@@ -242,7 +257,9 @@ const normalizePayload = payload => {
   const normalized = {}
   ROOT_KEYS.forEach(key => {
     if (key === 'items' || !own(payload, key)) return
-    normalized[key] = payload[key]
+    normalized[key] = key === 'encounter'
+      ? { class: payload.encounter.class }
+      : payload[key]
   })
   normalized.items = payload.items.map(item => {
     const normalizedItem = {}

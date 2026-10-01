@@ -10,6 +10,15 @@ const receiverApiBody = fs.readFileSync(
   path.join(__dirname, '../../api-factory/processes/hl7_result_upsert_api.js'),
   'utf8',
 )
+const xrayApiBody = fs.readFileSync(
+  path.join(__dirname, '../../api-factory/processes/xray_cpoe_worklist_api.js'),
+  'utf8',
+)
+const organizationCodesFrom = source => {
+  const match = source.match(/const XRAY_ORGANIZATION_CODES = (\[[^\n]+\])/)
+  assert(match, 'XRAY_ORGANIZATION_CODES must remain a plain standalone array literal')
+  return Function('return (' + match[1] + ')')().map(code => String(code).trim().toUpperCase()).sort()
+}
 const componentMapFrom = source => {
   const match = source.match(/const RESULT_COMPONENT_CODES_BY_GROUP = (\{[\s\S]*?\n\})/)
   assert(match, 'Result-component mapping must remain a plain standalone object literal')
@@ -20,7 +29,15 @@ const Process = new AsyncFunction('params', 'userInfo', 'app', apiBody)
 const RESULT_RECEIPT_FORM_ID = '6a8b1c03f851000f28e501ef'
 const RESULT_REPORT_FORM_ID = '6a8d4334f851000f28e5025b'
 const RESULT_ITEM_FORM_ID = '6a8bc91df851000f28e501fb'
+const RESULT_REVISION_LOG_FORM_ID = '6abbabdcc54b3f93ce799576'
 const LEGACY_RESULT_ITEM_FORM_ID = '6a7aa641935ed08882467374'
+const RESULT_EDIT_LOG_FORM_ID = '6ab78b7159662ac8f059105a'
+const RESULT_EDIT_LOG_COLLECTION = 'zdata_' + RESULT_EDIT_LOG_FORM_ID
+assert(!apiBody.includes('mongoTxn'), 'LAB result correction must work on standalone MongoDB through normal Form saves')
+assert(apiBody.includes("an: '$order.vid.an'"), 'Worklist rows must expose the CPOE Visit AN')
+assert(apiBody.includes("encounter_class: { $cond: [{ $ne: [{ $ifNull: ['$order.vid.an', ''] }, ''] }, 'IPD', 'OPD'] }"), 'Worklist rows must derive IPD/OPD from AN')
+assert(apiBody.includes('an: 1'), 'Open-Visit lookup must include AN for LAB order context')
+assert(apiBody.includes('admit_status: 1'), 'Open-Visit lookup must preserve the admission status context')
 
 const sections = [
   {
@@ -64,6 +81,22 @@ const sections = [
     unit: { value: '41', label: '41 Mycology', unit_parent: { unit_code: 'LAB' } },
   },
   {
+    _id: 'SECTION-IM',
+    xrstatx: 1,
+    enable: true,
+    code: 'IM',
+    name: 'Immunology',
+    unit: { value: '30', label: '30 Immunology', unit_parent: { unit_code: 'LAB' } },
+  },
+  {
+    _id: 'SECTION-MI-OUT',
+    xrstatx: 1,
+    enable: true,
+    code: 'MI-OUT',
+    name: 'Immunology Outsource',
+    unit: { value: '31', label: '31 Immunology Outsource', unit_parent: { unit_code: 'LAB' } },
+  },
+  {
     _id: 'SECTION-OLD',
     xrstatx: 1,
     enable: false,
@@ -99,9 +132,16 @@ const makeApp = (captures, {
   manualVisibility = {},
   manualWorkPatch = {},
   manualMasterLabPatch = {},
+  manualMasterPatch = {},
+  doctorAccount = null,
+  sensitiveGrantRows = [],
   canonicalCurrent = [],
   canonicalReports = [],
   canonicalPrevious = [],
+  correctionLogRows = [],
+  revisionRows = [],
+  correctionLogWriteFails = false,
+  correctionResultUpdateFails = false,
   unmatchedReceiptRows = [],
   attachmentReport = null,
   legacyLookupFails = false,
@@ -110,6 +150,8 @@ const makeApp = (captures, {
   writeLabNo = '',
   writeWorkStatus = '',
   writeCancellation = null,
+  writeSectionCode = 'HH',
+  reasonRows = [],
   // แถวคิววันนี้จาก zdata_visit_tran — แหล่งเดียวกับกล่อง "ผู้มารับบริการวันนี้" ของหน้า Patient
   visitTranRows = [{
     _id: 'VTRAN-1',
@@ -133,6 +175,16 @@ const makeApp = (captures, {
             captures.push({ type: 'cancellationLookup', query })
             return writeCancellation
           },
+        }
+      }
+      if (name === 'zdata_lab_result_item') {
+        return {
+          findOne: async query => canonicalCurrent.find(row => String(row && row._id) === String(query && query._id)) || null,
+        }
+      }
+      if (name === RESULT_EDIT_LOG_COLLECTION) {
+        return {
+          findOne: async query => correctionLogRows.find(row => row && row.event_id === query.event_id) || null,
         }
       }
       if (name !== 'zdata_lab_work_item') throw new Error('Unexpected direct collection ' + name)
@@ -181,7 +233,7 @@ const makeApp = (captures, {
     if (from === 'zdata_master_item_order' && String(id) === writeMasterId) {
       return {
         success: true,
-        reply: { data: { _id: writeMasterId, section: { code: 'HH', name: 'Hematology-Homeostasis' } } },
+        reply: { data: { _id: writeMasterId, section: { code: writeSectionCode, name: writeSectionCode + ' section' } } },
       }
     }
     if (from === 'zdata_cpoe_order_item' && String(id) === manualItemId) {
@@ -217,6 +269,7 @@ const makeApp = (captures, {
               name: manualSectionCode === 'MY' ? 'Mycology' : 'Biochemistry',
             },
             lab_item: { unit_symbol: 'CFU/mL', reference_range: 'Not detected', ...manualMasterLabPatch },
+            ...manualMasterPatch,
           },
         },
       }
@@ -245,6 +298,9 @@ const makeApp = (captures, {
     captures.push(provider)
     if (provider.from === 'zdata_section') {
       return { success: true, reply: { data: sections } }
+    }
+    if (provider.from === 'zdata_zdata_lab_reject_cancel_reason') {
+      return { success: true, reply: { data: reasonRows } }
     }
     if (provider.from === 'zdata_specimen_code') {
       return {
@@ -297,8 +353,41 @@ const makeApp = (captures, {
         },
       }
     }
+    if (provider.from === 'zdata_lab_work_item') {
+      return { success: true, reply: { data: [{ _id: '999999999999999999999999', source_specimen_record_id: manualItemId, source_order_id: manualOrderId, section_code: manualSectionCode, lab_no: 'MY2608310001', visit_id: 'VN-NEW', xrstatx: 1 }] } }
+    }
+    if (provider.from === 'core_user') {
+      return { success: true, reply: { data: doctorAccount ? [doctorAccount] : [] } }
+    }
+    if (provider.from === 'zdata_emr_sensitive_access_grant') {
+      return { success: true, reply: { data: sensitiveGrantRows } }
+    }
+    if (provider.from === RESULT_EDIT_LOG_COLLECTION) {
+      return { success: true, reply: { data: correctionLogRows } }
+    }
+    if (provider.from === 'zdata_lab_result_item') {
+      return { success: true, reply: { data: canonicalCurrent.map(row => ({ result_report_id: row.result_report_id, xparentx: row.xparentx })) } }
+    }
     if (provider.from === 'zdata_cpoe_order_item') {
-      return { success: true, reply: { data: [facetResult] } }
+      const facetStage = provider.nosql && Array.isArray(provider.nosql.pipeline)
+        ? provider.nosql.pipeline.find(stage => stage.$facet)
+        : null
+      const result = facetStage && facetStage.$facet && facetStage.$facet.status_counts
+        ? {
+            ...facetResult,
+            status_counts: [
+              { _id: 'sent', total: 2 },
+              { _id: 'ready', total: 1 },
+              { _id: 'accepted', total: 3 },
+              { _id: 'resulted', total: 4 },
+              { _id: 'completed', total: 5 },
+              { _id: 'cancelled', total: 6 },
+              { _id: 'rejected', total: 7 },
+              { _id: 'draft', total: 99 },
+            ],
+          }
+        : facetResult
+      return { success: true, reply: { data: [result] } }
     }
     if (provider.from === 'zdata_cpoe_order' && provider.nosql.type === 'aggregate') {
       return { success: true, reply: { data: [facetResult] } }
@@ -306,10 +395,23 @@ const makeApp = (captures, {
     throw new Error('Unexpected collection ' + provider.from)
   },
   curDate: () => '2026-08-31 10:20:30',
+  dbInsert: async (data, collection, userInfo) => {
+    captures.push({ type: 'dbInsert', collection, data, userInfo })
+    if (collection === RESULT_EDIT_LOG_COLLECTION) {
+      captures.push({ type: 'correctionLog', collection, document: data, userInfo })
+      if (correctionLogWriteFails) return { success: false }
+      correctionLogRows.push({ _id: 'CORRECTION-LOG-ID', xrstatx: 1, ...data })
+      return { success: true, id: 'CORRECTION-LOG-ID' }
+    }
+    return { success: true, id: 'AUDIT-OR-GRANT-ID' }
+  },
   sdformGetAll: async provider => {
     captures.push({ type: 'sdformGetAll', provider })
     if (provider.providerId === RESULT_RECEIPT_FORM_ID) {
       return { success: true, data: unmatchedReceiptRows }
+    }
+    if (provider.providerId === RESULT_REVISION_LOG_FORM_ID) {
+      return { success: true, data: revisionRows }
     }
     if (provider.providerId === RESULT_REPORT_FORM_ID && provider.options.where.includes('report_key =')) {
       return { success: true, data: attachmentReport ? [attachmentReport] : [] }
@@ -318,6 +420,9 @@ const makeApp = (captures, {
       return { success: true, data: canonicalReports }
     }
     if (provider.providerId === RESULT_ITEM_FORM_ID && provider.options.where.includes('order_no = :workItemId')) {
+      return { success: true, data: canonicalCurrent }
+    }
+    if (provider.providerId === RESULT_ITEM_FORM_ID && provider.options.where.includes('order_no = :item0')) {
       return { success: true, data: canonicalCurrent }
     }
     if (provider.providerId === RESULT_ITEM_FORM_ID && provider.options.where.includes('hn = :patientHn')) {
@@ -357,11 +462,86 @@ const makeApp = (captures, {
   },
   sdformSetOne: async (formId, id, data) => {
     captures.push({ type: 'sdformSetOne', formId, id, data })
+    if (formId === RESULT_EDIT_LOG_FORM_ID) {
+      throw new Error('Correction logs must use the append-only collection insert')
+    }
+    if (formId === RESULT_ITEM_FORM_ID) {
+      const row = canonicalCurrent.find(entry => String(entry && entry._id) === String(id))
+      if (row) {
+        if (correctionResultUpdateFails) return { success: false }
+        Object.assign(row, data)
+      }
+    }
     return { success: true, id }
   },
 })
 
 const userAt = code => ({ roles: ['auth'], username: 'lab-test', unit: { code, name: code } })
+
+const makeFinalizeApp = (captures, {
+  resultRows,
+  workStatus = 'resulted',
+  cpoeStatus = 'resulted',
+} = {}) => {
+  const workItemId = '999999999999999999999999'
+  const resultReportId = '121212121212121212121212'
+  const cpoeItem = {
+    _id: manualItemId,
+    xrstatx: 1,
+    current_status: cpoeStatus,
+    service_type: { value: 'lab' },
+    order_id: { value: manualOrderId },
+    item_code: 'MY-CULTURE',
+    item_name: 'Fungal culture',
+    section_snapshot: { code: 'MY', name: 'Mycology' },
+  }
+  const workItem = {
+    _id: workItemId,
+    xrstatx: 1,
+    is_current_attempt: true,
+    source_specimen_record_id: manualItemId,
+    section_code: 'MY',
+    work_status: workStatus,
+  }
+  const canonicalCurrent = resultRows === undefined ? [{
+    _id: '343434343434343434343434',
+    result_report_id: resultReportId,
+    order_no: workItemId,
+    result_source: 'manual',
+    result_status: workStatus === 'completed' ? 'final' : 'entered',
+    result_value: 'Candida tropicalis',
+  }] : resultRows
+  const app = makeApp(captures, { canonicalCurrent })
+  const fallbackCollection = app.db.collection
+  app.db.collection = name => {
+    if (name === 'zdata_cpoe_order') return {
+      findOne: async () => ({ _id: manualOrderId, xrstatx: 1, current_status: cpoeStatus, order_number: 'R2608310001' }),
+      updateOne: async (filter, update) => {
+        captures.push({ type: 'directUpdate', from: name, filter, update })
+        return { matchedCount: 1, modifiedCount: 1 }
+      },
+    }
+    if (name === 'zdata_cpoe_order_item') return {
+      find: () => ({ toArray: async () => [cpoeItem] }),
+      updateOne: async (filter, update) => {
+        captures.push({ type: 'directUpdate', from: name, filter, update })
+        return { matchedCount: 1, modifiedCount: 1 }
+      },
+    }
+    if (name === 'zdata_master_item_order' || name === 'zdata_section') return {
+      findOne: async () => null,
+    }
+    if (name === 'zdata_lab_work_item') return {
+      findOne: async () => workItem,
+      updateOne: async (filter, update) => {
+        captures.push({ type: 'directUpdate', from: name, filter, update })
+        return { matchedCount: 1, modifiedCount: 1 }
+      },
+    }
+    return fallbackCollection(name)
+  }
+  return app
+}
 
 ;
 (async () => {
@@ -370,6 +550,39 @@ const userAt = code => ({ roles: ['auth'], username: 'lab-test', unit: { code, n
     componentMapFrom(receiverApiBody),
     'Worklist and Result Receiver must use the same ordered-test -> result-component mapping',
   )
+  assert.deepStrictEqual(
+    organizationCodesFrom(apiBody),
+    organizationCodesFrom(xrayApiBody),
+    'LAB cross-room lookup must grant exactly the same radiology Organizations as the X-ray Worklist',
+  )
+
+  {
+    const captures = []
+    const result = await Process({
+      action: 'get_reason_options',
+      organization_code: '10',
+      section_codes: ['BC'],
+      reason_section_code: 'BC',
+      reason_type: 'SPECIMEN_REJECT',
+    }, userAt('10'), makeApp(captures, {
+      reasonRows: [
+        { xrstatx: 1, reason_type: 'SPECIMEN_REJECT', section_code: 'ALL', reason_code: 'LABR-00002', reason_text: 'เหตุผลลำดับสอง', display_order: 2, is_active: true },
+        { xrstatx: 1, reason_type: 'SPECIMEN_REJECT', section_code: 'BC', reason_code: 'LABR-00001', reason_text: 'เหตุผลเฉพาะห้อง', display_order: 1, is_active: true },
+        { xrstatx: 1, reason_type: 'SPECIMEN_REJECT', section_code: 'IM', reason_code: 'LABR-IGNORE-ROOM', reason_text: 'ห้องอื่น', display_order: 0, is_active: true },
+        { xrstatx: 1, reason_type: 'SPECIMEN_REJECT', section_code: 'ALL', reason_code: 'LABR-IGNORE-OFF', reason_text: 'ปิดใช้งาน', display_order: 0, is_active: false },
+      ],
+    }))
+    assert.strictEqual(result.success, true)
+    assert.strictEqual(result.data.source, 'lab_reason_settings')
+    assert.deepStrictEqual(result.data.options, [
+      { value: 'LABR-00001', label: 'เหตุผลเฉพาะห้อง', display_order: 1, section_code: 'BC' },
+      { value: 'LABR-00002', label: 'เหตุผลลำดับสอง', display_order: 2, section_code: 'ALL' },
+    ])
+    const reasonProvider = captures.find(provider => provider.from === 'zdata_zdata_lab_reject_cancel_reason')
+    assert(reasonProvider, 'reason options must read the imported LAB Reason Settings collection')
+    assert.strictEqual(reasonProvider.nosql.query.reason_type, 'SPECIMEN_REJECT')
+    assert.deepStrictEqual(reasonProvider.nosql.query.xrstatx, { $nin: [0, 3] })
+  }
 
   {
     const captures = []
@@ -384,6 +597,8 @@ const userAt = code => ({ roles: ['auth'], username: 'lab-test', unit: { code, n
     assert.deepStrictEqual(result.data.statuses, ['sent'])
     assert.strictEqual(result.data.total, 1)
     assert.strictEqual(result.data.orders.length, 1)
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(result.data, 'status_counts'), false,
+      'default list response must preserve the existing contract')
     assert.strictEqual(result.data.orders[0].prior_medication, '2')
     assert.strictEqual(result.data.orders[0].prior_specify, 'abacavir')
     assert.strictEqual(result.data.orders[0].diagnosis.label, 'C4102 Maxilla malignant neoplasm')
@@ -432,6 +647,8 @@ const userAt = code => ({ roles: ['auth'], username: 'lab-test', unit: { code, n
     assert(pipelineText.includes('vid.value'))
 
     const facetStage = aggregateProvider.nosql.pipeline.find(stage => stage.$facet)
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(facetStage.$facet, 'status_counts'), false,
+      'default list pipeline must remain unchanged unless batching is requested')
     const diagnosisLookupIndex = facetStage.$facet.rows.findIndex(stage =>
       stage.$lookup && stage.$lookup.from === 'zdata_diagnosis'
     )
@@ -533,6 +750,14 @@ const userAt = code => ({ roles: ['auth'], username: 'lab-test', unit: { code, n
       $gte: '2026-08-31',
       $lte: '2026-08-31',
     })
+    const dailyDateMatchIndex = aggregateProvider.nosql.pipeline.indexOf(dailyDateMatch)
+    const setMasterLookupIndex = aggregateProvider.nosql.pipeline.findIndex(stage =>
+      stage.$lookup && stage.$lookup.from === 'zdata_master_item_order' && stage.$lookup.as === 'set_master'
+    )
+    assert(
+      setMasterLookupIndex > dailyDateMatchIndex && setMasterLookupIndex < orderGroupIndex,
+      'set master metadata must run after daily scoping but before items[].panel is grouped',
+    )
     assert(pipelineText.includes('daily_scope_day'), 'must normalize ISO and space-separated timestamps to YYYY-MM-DD')
     assert(pipelineText.includes('$substrCP'))
     assert(pipelineText.includes('$convert'))
@@ -542,6 +767,55 @@ const userAt = code => ({ roles: ['auth'], username: 'lab-test', unit: { code, n
       defaulted: true,
       all_dates: false,
       axis: 'status_time',
+    })
+  }
+
+  // Optional daily batching keeps the visible rows/total contract but derives
+  // every status-tab count in the same aggregate instead of six extra calls.
+  {
+    const captures = []
+    const result = await Process(
+      { statuses: ['sent', 'ready'], include_status_counts: true },
+      userAt('10'),
+      makeApp(captures),
+    )
+    assert.strictEqual(result.success, true)
+    assert.strictEqual(result.data.total, 1)
+    assert.strictEqual(result.data.orders.length, 1)
+    assert.deepStrictEqual(result.data.status_counts, {
+      waiting: 3,
+      received: 3,
+      partial: 4,
+      complete: 5,
+      cancelled: 13,
+      all: 28,
+    })
+
+    const aggregateProviders = captures.filter(provider =>
+      provider.from === 'zdata_cpoe_order_item' && provider.nosql && provider.nosql.type === 'aggregate'
+    )
+    assert.strictEqual(aggregateProviders.length, 1, 'batched refresh must use one Worklist aggregate')
+    const pipeline = aggregateProviders[0].nosql.pipeline
+    const rowStatusStageIndex = pipeline.findIndex(stage => stage.$addFields && stage.$addFields.row_filter_status)
+    const globalStatusFilterIndex = pipeline.findIndex((stage, index) =>
+      index > rowStatusStageIndex && stage.$match && stage.$match.row_filter_status
+    )
+    assert.strictEqual(globalStatusFilterIndex, -1, 'batched counts must retain all row-status buckets until the facet')
+    const facetStage = pipeline.find(stage => stage.$facet)
+    assert(facetStage && facetStage.$facet.status_counts, 'batched list must expose the status-count facet')
+    assert.deepStrictEqual(facetStage.$facet.rows[0], {
+      $match: { _row_filter_status: { $in: ['sent', 'ready'] } },
+    })
+    assert.deepStrictEqual(facetStage.$facet.meta[0], {
+      $match: { _row_filter_status: { $in: ['sent', 'ready'] } },
+    })
+    assert.deepStrictEqual(facetStage.$facet.status_counts.at(-1), {
+      $group: { _id: '$_row_filter_status', total: { $sum: 1 } },
+    })
+    const globalSort = pipeline.find(stage => stage.$sort && stage.$sort.requested_at)
+    assert.strictEqual(globalSort, undefined, 'batched counts must not sort rows that are used only for counters')
+    assert.deepStrictEqual(facetStage.$facet.rows[1], {
+      $sort: { requested_at: -1, order_number: -1 },
     })
   }
 
@@ -592,7 +866,7 @@ const userAt = code => ({ roles: ['auth'], username: 'lab-test', unit: { code, n
     assert.strictEqual(result.data.cross_section, true)
     assert.strictEqual(result.data.lookup_mode, 'results')
     assert.deepStrictEqual(result.data.statuses, ['resulted', 'completed'])
-    assert.deepStrictEqual(result.data.section_codes, ['BC', 'HM', 'HH', 'MB', 'MY'])
+    assert.deepStrictEqual(result.data.section_codes, ['BC', 'HM', 'HH', 'MB', 'MY', 'IM', 'MI-OUT'])
     assert.deepStrictEqual(result.data.date_scope, {
       from: '',
       to: '',
@@ -746,6 +1020,68 @@ const userAt = code => ({ roles: ['auth'], username: 'lab-test', unit: { code, n
     )
     assert.strictEqual(result.success, false)
     assert.strictEqual(result.error, 'lab_user_required')
+  }
+
+  // 2026-09-27: every configured radiology Organization may use only the
+  // read-only LAB lookup. Normal LAB worklist/write permissions stay closed.
+  for (const organizationCode of ['m0900', 'm0901', 'CT']) {
+    const captures = []
+    const result = await Process(
+      {
+        organization_code: organizationCode,
+        cross_section: true,
+        lookup_mode: 'results',
+        hn: 'HN-1',
+        all_dates: true,
+        include_specimens: false,
+      },
+      userAt(organizationCode),
+      makeApp(captures),
+    )
+    assert.strictEqual(result.success, true, organizationCode + ' must be able to search LAB results')
+    assert.strictEqual(result.data.cross_section, true)
+    assert.deepStrictEqual(result.data.section_codes, ['BC', 'HM', 'HH', 'MB', 'MY', 'IM', 'MI-OUT'])
+    assert(captures.some(provider => provider.from === 'zdata_cpoe_order'), 'radiology lookup must use the read-only cross-room query')
+
+    const orderedItems = await Process(
+      {
+        organization_code: organizationCode,
+        cross_section: true,
+        lookup_mode: 'orders',
+        date_from: '2026-08-01',
+        date_to: '2026-08-31',
+        include_specimens: false,
+      },
+      userAt(organizationCode),
+      makeApp([]),
+    )
+    assert.strictEqual(orderedItems.success, true, organizationCode + ' must be able to search LAB orders read-only')
+    assert.strictEqual(orderedItems.data.lookup_mode, 'orders')
+
+    const localOnly = await Process(
+      { organization_code: organizationCode },
+      userAt(organizationCode),
+      makeApp([]),
+    )
+    assert.strictEqual(localOnly.success, true)
+    assert.deepStrictEqual(localOnly.data.orders, [], organizationCode + ' must not receive a LAB owner-room worklist')
+
+    const writeCaptures = []
+    const blockedWrite = await Process(
+      {
+        action: 'save_manual_result',
+        organization_code: organizationCode,
+        item_id: manualItemId,
+        cross_section: true,
+        lookup_mode: 'results',
+        manual_result: { result_value: 'must-not-save' },
+      },
+      userAt(organizationCode),
+      makeApp(writeCaptures),
+    )
+    assert.strictEqual(blockedWrite.success, false)
+    assert.strictEqual(blockedWrite.error, 'cross_section_read_only')
+    assert.strictEqual(writeCaptures.length, 0, 'radiology write attempts must fail before any DB access')
   }
 
   {
@@ -983,6 +1319,24 @@ const userAt = code => ({ roles: ['auth'], username: 'lab-test', unit: { code, n
     assert.deepStrictEqual(update.filter.current_status.$in, ['sent', 'ready', 'accepted', 'prepared', 'dispensed'])
     assert.deepStrictEqual(update.filter.received_at.$in, [null, ''])
     assert.deepStrictEqual(update.filter.lab_no.$in, [null, ''])
+  }
+
+  for (const writeSectionCode of ['IM', 'MI-OUT']) {
+    const captures = []
+    const result = await Process(
+      {
+        action: 'update_specimen',
+        organization_code: 'm1006',
+        item_id: writeItemId,
+        specimen_code: 'BL',
+      },
+      userAt('m1006'),
+      makeApp(captures, { writeSectionCode }),
+    )
+    assert.strictEqual(result.success, false)
+    assert(result.message.includes('ภูมิคุ้มกัน'), writeSectionCode + ': ' + result.message)
+    assert(!captures.some(entry => entry.type === 'update'), writeSectionCode + ' must not update specimen')
+    assert(!captures.some(entry => entry.from === 'zdata_specimen_code'), writeSectionCode + ' must stop before specimen lookup')
   }
 
   {
@@ -1454,7 +1808,10 @@ const userAt = code => ({ roles: ['auth'], username: 'lab-test', unit: { code, n
     assert.strictEqual(result.data.result_visibility_reason, 'รอตรวจสอบผลซ้ำกับห้องปฏิบัติการ')
     assert.strictEqual(result.data.result_visibility_by.name, 'lab-test')
     assert.strictEqual(result.data.result_visibility_at, '2026-08-31 10:20:30')
-    assert.strictEqual(result.data.results[0].is_critical, true, 'visibility must not clear Critical Result')
+    assert.strictEqual(result.data.results[0].result_value, '98', 'manual hide must not remove the clinical value from the owning LAB editor')
+    assert.strictEqual(result.data.results[0].is_critical, true, 'manual hide must preserve the LAB clinical interpretation')
+    assert.strictEqual(result.data.results[0].redacted, false)
+    assert.strictEqual(result.data.results[0].redaction_reason, '')
 
     const updates = captures.filter(entry => entry.type === 'update')
     assert.strictEqual(updates.length, 1, 'visibility action must update only the selected CPOE Order Item')
@@ -1522,7 +1879,7 @@ const userAt = code => ({ roles: ['auth'], username: 'lab-test', unit: { code, n
         organization_code: '10',
         item_id: manualItemId,
         hidden: true,
-        reason: 'x',
+        reason: '',
       },
       userAt('10'),
       makeApp(captures, {
@@ -1538,9 +1895,11 @@ const userAt = code => ({ roles: ['auth'], username: 'lab-test', unit: { code, n
         }],
       }),
     )
-    assert.strictEqual(result.success, false)
-    assert(result.message.includes('3 ตัวอักษร'))
-    assert(!captures.some(entry => entry.type === 'update'))
+    assert.strictEqual(result.success, true, result.message)
+    const update = captures.find(entry => entry.type === 'update')
+    assert(update, 'hide/unhide reason must be optional while the visibility audit event is still recorded')
+    assert.strictEqual(update.data.result_visibility_reason, '')
+    assert.strictEqual(update.data.result_visibility_history[0].reason, '')
   }
 
   {
@@ -1600,6 +1959,41 @@ const userAt = code => ({ roles: ['auth'], username: 'lab-test', unit: { code, n
     )
     assert.strictEqual(result.success, true, 'waiting Item must allow read-only result lookup')
     assert.strictEqual(result.data.result_value, '')
+  }
+
+  {
+    const result = await Process(
+      { action: 'get_manual_result', organization_code: '10', item_id: manualItemId },
+      userAt('10'),
+      makeApp([], {
+        manualSectionCode: 'BC',
+        manualStatus: 'completed',
+        manualVisibility: { is_hide_result: true, result_visibility_action: 'hide' },
+        canonicalCurrent: [{
+          _id: 'acacacacacacacacacacacac',
+          order_no: '999999999999999999999999',
+          obs_code: 'C25.2',
+          obs_name: 'Potassium',
+          result_value: '4.23',
+          units: 'mmol/L',
+          interpretation_code: 'N',
+          reference_range_snapshot: '3.3-4.6',
+          result_comment: 'must stay hidden',
+          is_critical: true,
+        }],
+      }),
+    )
+    assert.strictEqual(result.success, true, result.message)
+    assert.strictEqual(result.data.is_hide_result, true)
+    assert.strictEqual(result.data.results[0].test_name, 'Potassium')
+    assert.strictEqual(result.data.results[0].result_value, '4.23')
+    assert.strictEqual(result.data.results[0].unit, 'mmol/L')
+    assert.strictEqual(result.data.results[0].interpretation, 'N')
+    assert.strictEqual(result.data.results[0].reference_range, '3.3-4.6')
+    assert.strictEqual(result.data.results[0].result_comment, 'must stay hidden')
+    assert.strictEqual(result.data.results[0].previous, null)
+    assert.strictEqual(result.data.results[0].redacted, false)
+    assert.strictEqual(result.data.results[0].is_critical, true)
   }
 
   {
@@ -1672,7 +2066,11 @@ const userAt = code => ({ roles: ['auth'], username: 'lab-test', unit: { code, n
     assert.strictEqual(result.data.result_status, 'entered')
     const reportSave = captures.find(entry => entry.type === 'sdformSetOne' && entry.formId === RESULT_REPORT_FORM_ID)
     assert(reportSave, 'must persist a Result Report before its Item')
-    assert.strictEqual(reportSave.data.report_key, 'manual|999999999999999999999999')
+    // 2026-09-25 confirmed change: every Manual Item in one Order+Section must
+    // share a canonical Result Report so the PDF includes the complete sheet.
+    assert.strictEqual(reportSave.data.report_key, 'manual-order|eeeeeeeeeeeeeeeeeeeeeeee|MY')
+    assert.strictEqual(reportSave.data.order_no, 'eeeeeeeeeeeeeeeeeeeeeeee')
+    assert.strictEqual(reportSave.data.xparentx, '111111111111111111111111')
     assert.strictEqual(reportSave.data.order_status_id, '999999999999999999999999')
     const save = captures.find(entry => entry.type === 'sdformSetOne' && entry.formId === RESULT_ITEM_FORM_ID)
     assert(save, 'must persist a Result Item')
@@ -1697,9 +2095,87 @@ const userAt = code => ({ roles: ['auth'], username: 'lab-test', unit: { code, n
     const captures = []
     const result = await Process(
       {
+        action: 'finalize_manual_results',
+        organization_code: 'm1000',
+        order_id: manualOrderId,
+        section_code: 'MY',
+      },
+      { roles: ['auth'], username: 'lab-final-approver', unit: { code: 'm1000', name: 'Mycology' } },
+      makeFinalizeApp(captures),
+    )
+    assert.strictEqual(result.success, true, result.message)
+    assert.strictEqual(result.data.completed_item_count, 1)
+    assert.strictEqual(result.data.order_completed, true)
+    assert.strictEqual(result.data.already_completed, false)
+    const resultFinal = captures.find(entry => entry.type === 'sdformSetOne' && entry.formId === RESULT_ITEM_FORM_ID)
+    assert(resultFinal, 'Final action must promote the persisted Manual Result Item')
+    assert.strictEqual(resultFinal.data.result_status, 'final')
+    assert.strictEqual(resultFinal.data.verified_by, 'lab-final-approver')
+    assert.strictEqual(resultFinal.data.verified_at, '2026-08-31 10:20:30')
+    const reportFinal = captures.find(entry => entry.type === 'sdformSetOne' && entry.formId === RESULT_REPORT_FORM_ID)
+    assert(reportFinal, 'Final action must promote the Manual Result Report')
+    assert.strictEqual(reportFinal.data.internal_overall_status, 'completed')
+    assert.strictEqual(reportFinal.data.verified_by_source_name, 'lab-final-approver')
+    const workFinal = captures.find(entry => entry.type === 'directUpdate' && entry.from === 'zdata_lab_work_item')
+    assert(workFinal, 'Final action must complete the authoritative Lab Work Item')
+    assert.strictEqual(workFinal.filter.work_status, 'resulted')
+    assert.strictEqual(workFinal.update.$set.work_status, 'completed')
+    assert.strictEqual(workFinal.update.$set.completed_by, 'lab-final-approver')
+    const cpoeFinal = captures.find(entry => entry.type === 'directUpdate' && entry.from === 'zdata_cpoe_order_item')
+    assert(cpoeFinal, 'Final action must reconcile the CPOE Item')
+    assert.strictEqual(cpoeFinal.update.$set.current_status, 'completed')
+    assert.strictEqual(cpoeFinal.update.$set.result_completed_source, 'his.manual')
+    const orderFinal = captures.find(entry => entry.type === 'directUpdate' && entry.from === 'zdata_cpoe_order')
+    assert(orderFinal, 'a one-Item CPOE Order must complete when its Manual Item completes')
+    assert.strictEqual(orderFinal.update.$set.current_status, 'completed')
+  }
+
+  {
+    const captures = []
+    const result = await Process(
+      {
+        action: 'finalize_manual_results',
+        organization_code: 'm1000',
+        order_id: manualOrderId,
+        section_code: 'MY',
+      },
+      userAt('m1000'),
+      makeFinalizeApp(captures, { resultRows: [] }),
+    )
+    assert.strictEqual(result.success, false)
+    assert.strictEqual(result.error, 'manual_result_value_required')
+    assert(!captures.some(entry => entry.type === 'directUpdate'), 'incomplete Manual results must not change operational status')
+    assert(!captures.some(entry => entry.type === 'sdformSetOne'), 'incomplete Manual results must not change clinical records')
+  }
+
+  {
+    const captures = []
+    const result = await Process(
+      {
+        action: 'finalize_manual_results',
+        organization_code: 'm1000',
+        order_id: manualOrderId,
+        section_code: 'MY',
+      },
+      userAt('m1000'),
+      makeFinalizeApp(captures, { workStatus: 'completed', cpoeStatus: 'completed' }),
+    )
+    assert.strictEqual(result.success, true)
+    assert.strictEqual(result.data.already_completed, true)
+    assert(!captures.some(entry => entry.type === 'directUpdate'), 'idempotent Final retry must preserve the original completion audit')
+    assert(!captures.some(entry => entry.type === 'sdformSetOne'), 'idempotent Final retry must preserve the original verification audit')
+  }
+
+  {
+    const captures = []
+    const resultItemId = '454545454545454545454545'
+    const result = await Process(
+      {
         action: 'save_manual_result',
         organization_code: 'm1000',
         item_id: manualItemId,
+        correction_reason: 'แก้ผลเพาะเชื้อตามใบงานที่ตรวจทานแล้ว',
+        request_id: 'manual-correction-test-1',
         manual_result: {
           result_value: 'Candida glabrata',
           unit: 'CFU/mL',
@@ -1711,7 +2187,7 @@ const userAt = code => ({ roles: ['auth'], username: 'lab-test', unit: { code, n
       makeApp(captures, {
         manualStatus: 'resulted',
         canonicalCurrent: [{
-          _id: 'CURRENT-MANUAL-RESULT',
+          _id: resultItemId,
           order_no: '999999999999999999999999',
           hn: 'HN-TEST',
           visit_id: 'VN-NEW',
@@ -1726,13 +2202,21 @@ const userAt = code => ({ roles: ['auth'], username: 'lab-test', unit: { code, n
       }),
     )
     assert.strictEqual(result.success, true)
-    const save = captures.find(entry => entry.type === 'sdformSetOne' && entry.formId === RESULT_ITEM_FORM_ID)
+    const save = captures.find(entry => entry.type === 'sdformSetOne' && entry.formId === RESULT_ITEM_FORM_ID && entry.id === resultItemId)
     assert(save, 'manual pencil correction must update the canonical Result Item')
-    assert.strictEqual(save.id, 'CURRENT-MANUAL-RESULT')
-    assert.strictEqual(save.data.entered_by, 'first-editor', 'manual correction must retain the original entry identity')
     assert.strictEqual(save.data.last_edited_by, 'his-pencil-editor', 'manual pencil must audit the logged-in HIS user')
     assert.strictEqual(save.data.last_edited_at, '2026-08-31 10:20:30')
     assert.strictEqual(save.data.change_kind, 'corrected')
+    assert.strictEqual(save.data.result_value, 'Candida glabrata')
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(save.data, 'entered_by'), false, 'manual correction must retain the original entry identity')
+    const log = captures.find(entry => entry.type === 'correctionLog')
+    assert(log, 'manual correction must append an immutable correction log first')
+    assert.strictEqual(log.collection, RESULT_EDIT_LOG_COLLECTION, 'correction audit must use the deployed Form collection')
+    assert.strictEqual(log.document.source_result_item_id, resultItemId)
+    assert.strictEqual(log.document.before_result_value, 'Candida tropicalis')
+    assert.strictEqual(log.document.after_result_value, 'Candida glabrata')
+    assert.strictEqual(log.document.correction_reason, 'แก้ผลเพาะเชื้อตามใบงานที่ตรวจทานแล้ว')
+    assert.strictEqual(log.document.corrected_by_username, 'his-pencil-editor')
   }
 
   {
@@ -1743,6 +2227,8 @@ const userAt = code => ({ roles: ['auth'], username: 'lab-test', unit: { code, n
         action: 'save_result_edits',
         organization_code: '10',
         item_id: manualItemId,
+        correction_reason: 'ตรวจทานค่าใหม่จากเครื่องมือแล้ว',
+        request_id: 'result-edit-test-1',
         results: [{
           result_item_id: resultItemId,
           result_value: '101',
@@ -1775,9 +2261,8 @@ const userAt = code => ({ roles: ['auth'], username: 'lab-test', unit: { code, n
     )
     assert.strictEqual(result.success, true, result.message)
     assert.strictEqual(result.data.results[0].result_report_id, 'cdcdcdcdcdcdcdcdcdcdcdcd', 'viewer response must preserve the canonical Result Report parent used by Report Factory')
-    const save = captures.find(entry => entry.type === 'sdformSetOne' && entry.formId === RESULT_ITEM_FORM_ID)
+    const save = captures.find(entry => entry.type === 'sdformSetOne' && entry.formId === RESULT_ITEM_FORM_ID && entry.id === resultItemId)
     assert(save, 'pencil correction must update the existing canonical Result Item')
-    assert.strictEqual(save.id, resultItemId)
     assert.strictEqual(save.data.result_value, '101')
     assert.strictEqual(save.data.unit_symbol_snapshot, 'mg/dL')
     assert.strictEqual(save.data.interpretation_code, 'H')
@@ -1787,8 +2272,193 @@ const userAt = code => ({ roles: ['auth'], username: 'lab-test', unit: { code, n
     assert.strictEqual(save.data.change_kind, 'corrected')
     assert.strictEqual(Object.prototype.hasOwnProperty.call(save.data, 'is_critical'), false, 'HIS edit must not recalculate Critical')
     assert.strictEqual(Object.prototype.hasOwnProperty.call(save.data, 'result_source'), false, 'HIS edit must preserve Agent/LIS source')
+    const log = captures.find(entry => entry.type === 'correctionLog')
+    assert(log, 'pencil correction must append a correction log')
+    assert.strictEqual(log.document.before_result_value, '98')
+    assert.strictEqual(log.document.after_result_value, '101')
+    assert.strictEqual(log.document.correction_reason, 'ตรวจทานค่าใหม่จากเครื่องมือแล้ว')
+    assert.deepStrictEqual(JSON.parse(log.document.changed_fields_json), ['result_value', 'interpretation'])
     assert.strictEqual(result.data.results[0].result_source, 'agent')
     assert.strictEqual(result.data.results[0].is_critical, false)
+  }
+
+  {
+    const captures = []
+    const resultItemId = '565656565656565656565656'
+    const result = await Process(
+      {
+        action: 'save_result_edits',
+        organization_code: '10',
+        item_id: manualItemId,
+        request_id: 'missing-reason-test',
+        results: [{ result_item_id: resultItemId, result_value: '102', unit: 'mg/dL', interpretation: 'H', reference_range: '70-100' }],
+      },
+      userAt('10'),
+      makeApp(captures, {
+        manualSectionCode: 'BC',
+        manualStatus: 'completed',
+        canonicalCurrent: [{ _id: resultItemId, order_no: '999999999999999999999999', obs_code: 'C23', result_value: '98', units: 'mg/dL', interpretation_code: 'N', reference_range_snapshot: '70-100', result_status: 'final', result_source: 'agent' }],
+      }),
+    )
+    assert.strictEqual(result.success, true, result.message)
+    const log = captures.find(entry => entry.type === 'correctionLog')
+    const save = captures.find(entry => entry.type === 'sdformSetOne' && entry.formId === RESULT_ITEM_FORM_ID && entry.id === resultItemId)
+    assert(log, 'correction audit must still be written when the optional reason is blank')
+    assert(save, 'blank optional reason must not block the correction update')
+    assert.strictEqual(log.document.correction_reason, '')
+  }
+
+  {
+    const captures = []
+    const resultItemId = '676767676767676767676767'
+    const result = await Process(
+      {
+        action: 'save_result_edits',
+        organization_code: '10',
+        item_id: manualItemId,
+        correction_reason: 'ทดสอบกรณีเขียน Log ไม่สำเร็จ',
+        request_id: 'log-write-failure-test',
+        results: [{ result_item_id: resultItemId, result_value: '103', unit: 'mg/dL', interpretation: 'H', reference_range: '70-100' }],
+      },
+      userAt('10'),
+      makeApp(captures, {
+        manualSectionCode: 'BC',
+        manualStatus: 'completed',
+        correctionLogWriteFails: true,
+        canonicalCurrent: [{ _id: resultItemId, order_no: '999999999999999999999999', obs_code: 'C23', result_value: '98', units: 'mg/dL', interpretation_code: 'N', reference_range_snapshot: '70-100', result_status: 'final', result_source: 'agent' }],
+      }),
+    )
+    assert.strictEqual(result.success, false)
+    assert.strictEqual(result.error, 'correction_log_write_failed')
+    assert(captures.some(entry => entry.type === 'correctionLog'))
+    assert(!captures.some(entry => entry.type === 'sdformSetOne' && entry.formId === RESULT_ITEM_FORM_ID && entry.id === resultItemId), 'current clinical value must not update after log Form save failure')
+  }
+
+  {
+    const captures = []
+    const resultItemId = '686868686868686868686868'
+    const result = await Process(
+      {
+        action: 'save_result_edits',
+        organization_code: '10',
+        item_id: manualItemId,
+        correction_reason: 'ทดสอบการบันทึกบน MongoDB standalone',
+        request_id: 'standalone-form-save-test',
+        results: [{ result_item_id: resultItemId, result_value: '104', unit: 'mg/dL', interpretation: 'H', reference_range: '70-100' }],
+      },
+      userAt('10'),
+      makeApp(captures, {
+        manualSectionCode: 'BC',
+        manualStatus: 'completed',
+        canonicalCurrent: [{ _id: resultItemId, order_no: '999999999999999999999999', obs_code: 'C23', result_value: '98', units: 'mg/dL', interpretation_code: 'N', reference_range_snapshot: '70-100', result_status: 'final', result_source: 'agent' }],
+      }),
+    )
+    assert.strictEqual(result.success, true, result.message)
+    assert(captures.some(entry => entry.type === 'correctionLog'), 'standalone flow must append the Edit Log to its Form collection')
+    assert(captures.some(entry => entry.type === 'sdformSetOne' && entry.formId === RESULT_ITEM_FORM_ID && entry.id === resultItemId), 'standalone flow must update the latest Result Item through its Form')
+  }
+
+  {
+    const captures = []
+    const resultItemId = '787878787878787878787878'
+    const correctionLogRows = [{
+      event_id: 'history-event-1',
+      source_result_item_id: resultItemId,
+      correction_reason: 'แก้ไขตามใบงาน',
+      changed_fields_json: '["result_value"]',
+      before_result_value: '98',
+      after_result_value: '101',
+      corrected_by_username: 'lab-editor',
+      corrected_by_name: 'LAB Editor',
+      corrected_at: '2026-08-31 10:20:30',
+    }]
+    const result = await Process(
+      { action: 'get_manual_result', organization_code: '10', item_id: manualItemId },
+      userAt('10'),
+      makeApp(captures, {
+        manualSectionCode: 'BC',
+        manualStatus: 'completed',
+        correctionLogRows,
+        canonicalCurrent: [{ _id: resultItemId, order_no: '999999999999999999999999', obs_code: 'C23', result_value: '101', result_status: 'final', result_source: 'agent' }],
+      }),
+    )
+    assert.strictEqual(result.success, true)
+    assert.strictEqual(result.data.results[0].correction_history.length, 1)
+    assert.strictEqual(result.data.results[0].correction_history[0].reason, 'แก้ไขตามใบงาน')
+    assert.strictEqual(result.data.results[0].correction_history[0].before.result_value, '98')
+    assert.strictEqual(result.data.results[0].correction_history[0].after.result_value, '101')
+  }
+
+  {
+    const captures = []
+    const resultItemId = '797979797979797979797979'
+    const revisionRows = [
+      {
+        revision_id: 'ORDER-1|MY2608310001|UID-2', order_no: 'ORDER-1', filler_order_no: 'MY2608310001',
+        result_uid: 'UID-2', report_seq: '2', stage: 'final', receipt_seq: '2',
+        source_reported_at: '2026-08-31T10:20:00+07:00', received_at: '2026-08-31T10:20:30+07:00',
+        receipt_id: 'RCPT-2', report_id: 'RPT-2', previous_revision_id: 'ORDER-1|MY2608310001|UID-1',
+        item_count: 1, changed_item_count: 1,
+        items_snapshot_json: JSON.stringify([{ obs_code: 'MY-CULTURE', obs_name: 'Fungal culture', value: 'Candida tropicalis', units: '', ref_range: 'Not detected', interpretation_code: 'POS', obx_status: 'F' }]),
+      },
+      {
+        revision_id: 'ORDER-1|MY2608310001|UID-1', order_no: 'ORDER-1', filler_order_no: 'MY2608310001',
+        result_uid: 'UID-1', report_seq: '1', stage: 'preliminary', receipt_seq: '1',
+        source_reported_at: '2026-08-31T10:10:00+07:00', received_at: '2026-08-31T10:10:30+07:00',
+        receipt_id: 'RCPT-1', report_id: 'RPT-1', previous_revision_id: '',
+        item_count: 1, changed_item_count: 0,
+        items_snapshot_json: JSON.stringify([{ obs_code: 'MY-CULTURE', obs_name: 'Fungal culture', value: 'Candida albicans', units: '', ref_range: 'Not detected', interpretation_code: 'POS', obx_status: 'P' }]),
+      },
+    ]
+    const result = await Process(
+      { action: 'get_manual_result', organization_code: '10', item_id: manualItemId },
+      userAt('10'),
+      makeApp(captures, {
+        manualSectionCode: 'BC',
+        manualStatus: 'completed',
+        revisionRows,
+        canonicalCurrent: [{ _id: resultItemId, order_no: '999999999999999999999999', obs_code: 'MY-CULTURE', result_value: 'Candida tropicalis', result_status: 'final', result_source: 'agent' }],
+      }),
+    )
+    assert.strictEqual(result.success, true)
+    assert.strictEqual(result.data.result_revisions.length, 2)
+    assert.strictEqual(result.data.result_revisions[0].latest, true)
+    assert.strictEqual(result.data.result_revisions[0].items[0].changed, true)
+    assert.strictEqual(result.data.result_revisions[0].items[0].previous_value, 'Candida albicans')
+    assert.strictEqual(result.data.result_revisions[1].items[0].changed, false)
+  }
+
+  {
+    const captures = []
+    const clinicalReportId = '898989898989898989898989'
+    const attachmentReportId = '909090909090909090909090'
+    const result = await Process(
+      { action: 'get_manual_result', organization_code: '10', item_id: manualItemId },
+      userAt('10'),
+      makeApp(captures, {
+        manualSectionCode: 'BC',
+        manualStatus: 'completed',
+        canonicalCurrent: [{
+          _id: '919191919191919191919191',
+          order_no: '999999999999999999999999',
+          obs_code: 'MY-CULTURE',
+          result_value: 'normal result',
+          result_status: 'final',
+          result_source: 'agent',
+          result_report_id: clinicalReportId,
+        }],
+        attachmentReport: {
+          _id: attachmentReportId,
+          report_key: `attachment-order|${manualOrderId}|BC`,
+          result_attachments: [{ name: 'supporting-file.pdf' }],
+        },
+      }),
+    )
+    assert.strictEqual(result.success, true, result.message)
+    assert.strictEqual(result.data.result_report_id, clinicalReportId, 'the printable parent must come from clinical Result Items')
+    assert.deepStrictEqual(result.data.result_report_ids, [clinicalReportId])
+    assert.strictEqual(result.data.attachment_report_id, attachmentReportId, 'the uploaded-file container must be exposed separately')
+    assert.strictEqual(result.data.result_attachments.length, 1)
   }
 
   {
@@ -2086,8 +2756,182 @@ const userAt = code => ({ roles: ['auth'], username: 'lab-test', unit: { code, n
     assert(result.message.includes('ไม่มีสิทธิ์'))
   }
 
+  {
+    const captures = []
+    const app = makeApp(captures, {
+      canonicalCurrent: [
+        { _id: '121212121212121212121212', order_no: manualItemId, result_report_id: '343434343434343434343434', result_value: 'first', result_status: 'entered' },
+        { _id: '565656565656565656565656', order_no: manualItemId, result_report_id: '787878787878787878787878', result_value: 'second', result_status: 'entered' },
+      ],
+    })
+    const prepared = await Process(
+      { action: 'prepare_result_pdf', organization_code: 'm1000', item_id: manualItemId },
+      userAt('m1000'), app,
+    )
+    assert.strictEqual(prepared.success, true, prepared.message)
+    assert.strictEqual(prepared.data.result_report_id, '343434343434343434343434')
+    const itemSaves = captures.filter(entry => entry.type === 'sdformSetOne' && entry.formId === RESULT_ITEM_FORM_ID)
+    assert.strictEqual(itemSaves.length, 2)
+    assert(itemSaves.every(entry => entry.data.result_report_id === '343434343434343434343434'))
+    assert(itemSaves.every(entry => entry.data.xparentx === '343434343434343434343434'), 'legacy Result Items must share the canonical PDF parent')
+  }
+
+  {
+    const captures = []
+    const app = makeApp(captures, {
+      manualSectionCode: 'IM',
+      manualMasterPatch: { is_hide_result: true },
+      canonicalCurrent: [{ _id: '121212121212121212121212', order_no: manualItemId, result_report_id: '343434343434343434343434', obs_code: 'IM2', obs_name: 'Anti-HIV', result_value: 'SECRET', result_status: 'final' }],
+    })
+    const prepared = await Process(
+      { action: 'prepare_result_pdf', organization_code: 'm1006', item_id: manualItemId },
+      userAt('m1006'), app,
+    )
+    assert.strictEqual(prepared.success, true, prepared.message)
+    assert.strictEqual(prepared.data.sensitive_grant_token, '', 'owner-room PDF preparation must not mint a Sensitive grant')
+    assert.strictEqual(prepared.data.sensitive_grant_expires_at_epoch, 0)
+    assert(!captures.some(entry => entry.type === 'dbInsert' && entry.collection === 'zdata_emr_sensitive_access_grant'), 'LAB-room ownership must never create a passwordless Sensitive grant')
+  }
+
+  {
+    const captures = []
+    const grantExpiresAt = Date.now() + (4 * 60 * 1000)
+    const app = makeApp(captures, {
+      manualSectionCode: 'IM',
+      manualMasterPatch: { is_hide_result: true },
+      sensitiveGrantRows: [{
+        grant_token: 'doctor-grant-for-pdf',
+        viewer_username: 'lab-test',
+        source_order_id: manualOrderId,
+        section_code: 'IM',
+        purpose: 'ดูแลรักษาผู้ป่วย',
+        expires_at_epoch: grantExpiresAt,
+        authorized_by_user_id: 'DOCTOR-1',
+        authorized_by_username: 'doctor.one',
+        xrstatx: 1,
+      }],
+      canonicalCurrent: [{ _id: '121212121212121212121212', order_no: manualItemId, result_report_id: '343434343434343434343434', obs_code: 'IM2', obs_name: 'Anti-HIV', result_value: 'SECRET', result_status: 'final' }],
+    })
+    const prepared = await Process(
+      { action: 'prepare_result_pdf', organization_code: 'm1006', item_id: manualItemId, sensitive_grant_token: 'doctor-grant-for-pdf', request_id: 'REQ-PDF-DOCTOR-GRANT' },
+      userAt('m1006'), app,
+    )
+    assert.strictEqual(prepared.success, true, prepared.message)
+    assert.strictEqual(prepared.data.sensitive_grant_token, '', 'LAB PDF must ignore even an existing doctor grant')
+    assert.strictEqual(prepared.data.sensitive_grant_expires_at_epoch, 0)
+    assert(!captures.some(entry => entry.from === 'zdata_emr_sensitive_access_grant'), 'LAB PDF must not query a grant that could disclose Sensitive values')
+    assert(!captures.some(entry => entry.type === 'dbInsert' && entry.collection === 'zdata_emr_sensitive_access_log'), 'redacted LAB PDF is not a Sensitive disclosure event')
+  }
+
+  {
+    const captures = []
+    const app = makeApp(captures, {
+      manualSectionCode: 'IM',
+      manualMasterPatch: { is_hide_result: true },
+      canonicalCurrent: [{ _id: '121212121212121212121212', order_no: '999999999999999999999999', result_report_id: '343434343434343434343434', obs_code: 'IM2', obs_name: 'Anti-HIV', result_value: 'SECRET', result_status: 'final' }],
+    })
+    const locked = await Process(
+      { action: 'get_manual_result', organization_code: 'm1000', cross_section: true, lookup_mode: 'results', item_id: manualItemId },
+      userAt('m1000'), app,
+    )
+    assert.strictEqual(locked.success, true)
+    assert.strictEqual(locked.data.sensitive_locked, true)
+    assert.strictEqual(locked.data.test_name, 'Fungal culture', 'ordered test name remains visible')
+    assert.strictEqual(locked.data.result_report_id, '343434343434343434343434', 'redacted PDF parent remains available before re-auth')
+    assert.deepStrictEqual(locked.data.result_report_ids, ['343434343434343434343434'])
+    assert.strictEqual(JSON.stringify(locked).includes('SECRET'), false, 'cross-room response must not disclose the Sensitive value before re-auth')
+    const parentLookup = captures.find(entry => entry.from === 'zdata_lab_result_item')
+    assert(parentLookup, 'locked flow must resolve only the Result Report parent needed for redacted PDF')
+    assert.deepStrictEqual(parentLookup.nosql.projection, { result_report_id: 1, xparentx: 1 })
+    assert(!captures.some(entry => entry.type === 'sdformGetAll' && entry.provider.providerId === RESULT_ITEM_FORM_ID), 'locked flow must not load clinical Result Items through the Form provider')
+  }
+
+  {
+    const captures = []
+    const app = makeApp(captures, {
+      manualSectionCode: 'IM',
+      manualMasterPatch: { is_hide_result: true },
+      // Legacy core_user account intentionally has no xrstatx.
+      doctorAccount: { _id: 'DOCTOR-1', username: 'doctor.one', password_hash: 'doctor-hash', roles: ['DOCTOR'] },
+      canonicalCurrent: [{ _id: '121212121212121212121212', order_no: '999999999999999999999999', result_report_id: '343434343434343434343434', obs_code: 'IM2', obs_name: 'Anti-HIV', result_value: 'SECRET', result_status: 'final' }],
+    })
+    const opened = await Process.call(
+      { compareHash: async (hash, password) => hash === 'doctor-hash' && password === 'correct-password' },
+      { action: 'authorize_sensitive_result', organization_code: 'M0900', cross_section: true, lookup_mode: 'results', item_id: manualItemId, username: 'doctor.one', password: 'correct-password', purpose: 'ดูแลรักษาผู้ป่วย', request_id: 'REQ-SENSITIVE-1' },
+      userAt('M0900'), app,
+    )
+    assert.strictEqual(opened.success, true, 'the isolated unimported X-ray lookup grant path must remain unchanged')
+    assert.strictEqual(opened.data.results[0].result_value, 'SECRET')
+    assert(opened.data.sensitive_grant_token)
+    const doctorLookup = captures.find(entry => entry.from === 'core_user')
+    assert(doctorLookup, 'doctor account must be resolved from core_user')
+    assert.deepStrictEqual(doctorLookup.nosql.query.xrstatx, { $nin: [0, 3] }, 'legacy doctor without xrstatx must remain eligible')
+    const inserts = captures.filter(entry => entry.type === 'dbInsert')
+    const grantInsert = inserts.find(entry => entry.collection === 'zdata_emr_sensitive_access_grant')
+    assert(grantInsert)
+    assert(grantInsert.data.expires_at_epoch > Date.now())
+    // 2026-09-28 user-confirmed policy change: Sensitive disclosure lasts five minutes.
+    assert.strictEqual(grantInsert.data.expires_at_epoch - grantInsert.data.issued_at_epoch, 5 * 60 * 1000, 'Sensitive grant TTL must equal five minutes')
+    assert(grantInsert.data.expires_at_epoch <= Date.now() + (5 * 60 * 1000), 'Sensitive grant TTL must be at most five minutes')
+    assert.strictEqual(inserts.filter(entry => entry.collection === 'zdata_emr_sensitive_access_log').length, 2, 'authorization and disclosure must each be logged')
+    assert.strictEqual(JSON.stringify(inserts).includes('correct-password'), false, 'password must never enter audit/grant storage')
+  }
+
+  {
+    const captures = []
+    const app = makeApp(captures, {
+      manualSectionCode: 'IM',
+      manualMasterPatch: { is_hide_result: true },
+      sensitiveGrantRows: [{
+        grant_token: 'legacy-lab-grant',
+        viewer_username: 'lab-test',
+        source_order_id: manualOrderId,
+        section_code: 'IM',
+        purpose: 'ดูแลรักษาผู้ป่วย',
+        expires_at_epoch: Date.now() + (4 * 60 * 1000),
+        authorized_by_user_id: 'DOCTOR-1',
+        authorized_by_username: 'doctor.one',
+        xrstatx: 1,
+      }],
+      canonicalCurrent: [{ _id: '121212121212121212121212', order_no: '999999999999999999999999', result_report_id: '343434343434343434343434', obs_code: 'IM2', obs_name: 'Anti-HIV', result_value: 'IMMUNOLOGY-VISIBLE', result_status: 'final' }],
+    })
+    const local = await Process(
+      { action: 'get_manual_result', organization_code: 'm1006', item_id: manualItemId, sensitive_grant_token: 'legacy-lab-grant', request_id: 'REQ-IM-LOCAL' },
+      userAt('m1006'), app,
+    )
+    assert.strictEqual(local.success, true)
+    assert.strictEqual(local.data.sensitive_locked, true)
+    assert.strictEqual(local.data.test_name, 'Fungal culture', 'Immunology still sees the ordered test name')
+    assert.strictEqual(JSON.stringify(local).includes('IMMUNOLOGY-VISIBLE'), false, 'Immunology must not receive the Sensitive value without a doctor grant')
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(local.data, 'sensitive_local_immunology'), false)
+    assert(!captures.some(entry => entry.from === 'zdata_emr_sensitive_access_grant'), 'LAB must ignore an old grant token and remain redacted')
+    assert(!captures.some(entry => entry.type === 'dbInsert' && entry.collection === 'zdata_emr_sensitive_access_log'), 'a redacted placeholder is not a disclosure event')
+  }
+
+  {
+    const captures = []
+    const app = makeApp(captures, {
+      manualSectionCode: 'IM',
+      manualMasterPatch: { is_hide_result: true },
+      doctorAccount: { _id: 'DOCTOR-1', username: 'doctor.one', password_hash: 'doctor-hash', roles: ['DOCTOR'] },
+      canonicalCurrent: [{ _id: '121212121212121212121212', order_no: manualItemId, result_report_id: '343434343434343434343434', obs_code: 'IM2', obs_name: 'Anti-HIV', result_value: 'SECRET', result_status: 'final' }],
+    })
+    const denied = await Process.call(
+      { compareHash: async () => true },
+      { action: 'authorize_sensitive_result', organization_code: 'm1006', cross_section: true, lookup_mode: 'results', item_id: manualItemId, username: 'doctor.one', password: 'correct-password', purpose: 'ดูแลรักษาผู้ป่วย', request_id: 'REQ-LAB-NO-AUTH' },
+      userAt('m1006'), app,
+    )
+    assert.strictEqual(denied.success, false)
+    assert.strictEqual(denied.error, 'lab_sensitive_redacted')
+    assert(!captures.some(entry => entry.from === 'core_user'), 'LAB must reject re-auth before reading credentials')
+    assert(!captures.some(entry => entry.type === 'dbInsert' && entry.collection === 'zdata_emr_sensitive_access_grant'), 'LAB must never mint a Sensitive grant')
+  }
+
   assert(apiBody.includes("action === 'retest_item'"))
   assert(apiBody.includes("action === 'swap_cbc_item'"))
+  assert(!apiBody.includes('localImmunologyAccess'), 'Sensitive access must not have an Immunology owner-room bypass')
+  assert(!apiBody.includes('immunology_local_access'), 'Sensitive audit must not record a passwordless Immunology access path')
+  assert(apiBody.includes("error: 'lab_sensitive_redacted'"), 'LAB authorization must be rejected server-side')
   assert(apiBody.includes('is_current_attempt: { $ne: false }'), 'Worklist must resolve only the latest active Work Item attempt')
   assert(apiBody.includes("retest_pending_lab_no: { $eq: ['$work_item.retest_pending_lab_no', true] }"))
   assert(apiBody.includes("attempt_no: { $ifNull: ['$work_item.attempt_no', 1] }"))

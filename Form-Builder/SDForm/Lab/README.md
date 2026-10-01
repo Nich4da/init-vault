@@ -9,6 +9,12 @@ This directory is the user-approved working location for the new LAB Workbench S
   the affected CPOE Item `current_status`.
 - Bound to API Factory Process ID `6a9434c3422c1ca959829d5e` through the
   authenticated `runProcess` connector.
+- `lab-result-edit-log-v1.json` — import candidate for the append-only HIS/Manual
+  result-correction audit. It is deployed as Form `LAB Result Edit Log` ID
+  `6ab78b7159662ac8f059105a`; its generated collection is
+  `zdata_6ab78b7159662ac8f059105a`. All fields are
+  read-only in the Form UI; the Worklist server process is the only approved writer.
+  Give LAB/admin read access for audit, and do not grant users direct create/update/delete.
 - Uses the compact structural pattern from Drug & Stock > Stock: small search
   toolbar, status chips, aligned list header, expandable Order rows and a
   borderless nested Item grid. LAB content and actions remain specific to the LAB design.
@@ -32,10 +38,10 @@ This directory is the user-approved working location for the new LAB Workbench S
 - Age is displayed exactly from the patient snapshot (for example `3y 3m 3d`),
   and specimen is an Element Plus dropdown backed by the Worklist Process.
 - Doctor display removes an email suffix and shows only the available person name.
-- Cancelled/rejected Order rows hide PDF and EMR and show `ตรวจใหม่` instead. This
-  action is currently a UI mock: it only explains that a real retest will create a
-  linked new Order No. and will receive a LAB NO. only when specimen is received;
-  it does not call a Write API or mutate CPOE/LAB data.
+- Cancelled/rejected rows hide PDF and EMR and expose the implemented `ตรวจใหม่`
+  actions. The original audit/history is retained, the current HIS attempt returns
+  to waiting receive, and a new LAB NO. is created only when specimen is received.
+  No LIS cancellation API is called.
 - The Order PDF is connected to Report `6a977ac8422c1ca959829f97`. The Worklist
   passes the row's CPOE `order_id`, the same `visit_id` used by the EMR deep link,
   and LAB `section_code`; SQL fails closed unless all three match. Missing context
@@ -56,6 +62,11 @@ This directory is the user-approved working location for the new LAB Workbench S
   cleared it. `sent` Items remain selectable for specimen correction/rejection, but Receive is
   disabled with tooltip `ยังไม่ผ่านการเงิน`; both Receive and LAB NO. APIs fail closed on a
   direct bypass. Already-received retries remain idempotent.
+  The outbound snapshot now also sends `encounter.class`: a non-empty Visit/CPOE snapshot `an`
+  maps to `IPD`, otherwise `OPD`. The legacy flat `visit_type` remains unchanged because it is a
+  service-type value, not the patient class. The Worklist exposes the same derived
+  `visit.encounter_class` and shows a read-only `AN : ...` badge only when AN exists. AN itself is
+  not added to the Agent payload until the Agent contract names its destination field.
   Agent failure never rolls back receipt/LAB NO.; the Outbound row retains retry/error audit.
   The deployed initCraft v1.6 `field.confirm` helper is callback-based
   (`confirm(message, callback, type, title)`). The Worklist therefore starts Receive only from
@@ -65,8 +76,11 @@ This directory is the user-approved working location for the new LAB Workbench S
   Order-row cancellation calls `action=cancel_order` on the existing Worklist Process:
   it requires a reason, sends the row's `section_code`, writes a Section-scoped audit lock,
   and cancels only eligible Work Items in that Section while preserving the original Order ID.
-  An Outbound row is cancelled only before its first Agent attempt; after dispatch the API
-  fails closed until the LIS cancellation contract exists.
+  Cancellation is intentionally HIS-only. An unsent Outbound row is stopped; a row
+  already sent to Agent/LIS stays unchanged for audit and does not block cancellation
+  of the LAB Work/CPOE Item. Staff delete the corresponding Order in LIS manually.
+  The item-level retest path still needs its legacy `lis_cancel_required` guard aligned
+  to an explicit manual-LIS-deletion confirmation.
 - Static JSON/event/binding checks and SDForm validation pass; Builder/Preview
   and deployed runtime evidence are still required.
 
@@ -119,7 +133,12 @@ This directory is the user-approved working location for the new LAB Workbench S
   Item mode creates/corrects one Item, while Order mode keeps an independent editor per child
   Item and saves only changed rows. Manual entry is available to every authorized LAB Section;
   existing Agent/LIS corrections preserve result source, status and the explicit critical decision
-  while recording only the latest HIS editor/time.
+  while recording the latest HIS editor/time on Result Item. A correction to an existing row also
+  requires a reason and atomically appends before/after values to
+  `zdata_6ab78b7159662ac8f059105a`;
+  if that log cannot be written, the current clinical value is not changed. The popup shows this
+  correction history separately from the longitudinal `ค่าก่อนหน้า`. Agent/LIS corrected callbacks
+  remain under Technical Receipt/Report and are outside this Manual correction log flow.
 - `ไฟล์แนบผลตรวจ` is always rendered below the result table inside the scrollable dialog, so it
   remains reachable for long multi-item results. It uses the proven Builder-exported File Upload
   definition and built-in file storage: PDF/JPG/JPEG/PNG, 10 MB per file, at most 3 files and
@@ -172,6 +191,13 @@ This directory is the user-approved working location for the new LAB Workbench S
   with no HTTP status while direct Mac/VPN curl worked. On 2026-09-03 the initCraft team reported
   outbound POST fixed; a new one-button runtime UAT must still prove the server route and Outbound
   audit update before production use.
+- `lab-reject-cancel-reason-settings-v1.json` — import candidate for maintaining selectable
+  reasons used by specimen rejection and Order cancellation. One record stores one reason type,
+  LAB Section scope, stable `reason_code`, displayed Thai text, display order, active state and an
+  optional internal note. Retire a reason with `is_active=false` instead of deleting it so prior
+  records can retain their original code/text. This Form is data storage only: it is not wired to
+  the Worklist or any reject/cancel API, so importing it does not change an existing LAB flow.
+  Builder/Preview, CRUD permissions, duplicate-code validation and runtime wiring remain pending.
 
 ## Canonical design inputs
 

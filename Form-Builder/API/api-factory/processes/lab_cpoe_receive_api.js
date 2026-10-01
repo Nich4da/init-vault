@@ -109,19 +109,36 @@ const agentSexFromCode = value => {
   const code = text(value).toUpperCase()
   return code === '1' || code === 'M' ? 'M' : code === '2' || code === 'F' ? 'F' : ''
 }
-const agentSexForOrder = async order => {
-  const visit = order && order.vid || {}
-  const snapshotCode = agentSexFromCode(visit.pid && visit.pid.p_gender)
-  const visitId = text(visit.value)
-  if (!/^[a-f0-9]{24}$/i.test(visitId)) return snapshotCode
+const encounterClassFromVisit = visit => {
+  if (text(visit && visit.an)) return 'IPD'
+  const explicitClass = text(
+    visit && (visit.encounter_class || visit.encounter && visit.encounter.class)
+  ).toUpperCase()
+  return ['OPD', 'IPD'].includes(explicitClass) ? explicitClass : 'OPD'
+}
+const agentVisitContextForOrder = async order => {
+  const snapshot = order && order.vid || {}
+  const snapshotCode = agentSexFromCode(snapshot.pid && snapshot.pid.p_gender)
+  const visitId = text(snapshot.value)
+  if (!/^[a-f0-9]{24}$/i.test(visitId)) {
+    return { sex: snapshotCode, encounterClass: encounterClassFromVisit(snapshot) }
+  }
   try {
     const source = await app.db.collection(VISIT_COLLECTION).findOne(
       { _id: app.dbObjectId(visitId), xrstatx: active },
-      { projection: { 'pid.p_gender': 1 } }
+      { projection: { 'pid.p_gender': 1, an: 1, encounter_class: 1, 'encounter.class': 1 } }
     )
-    return agentSexFromCode(source && source.pid && source.pid.p_gender) || snapshotCode
+    const mergedVisit = {
+      ...snapshot,
+      ...(source || {}),
+      an: text(source && source.an) || text(snapshot.an)
+    }
+    return {
+      sex: agentSexFromCode(source && source.pid && source.pid.p_gender) || snapshotCode,
+      encounterClass: encounterClassFromVisit(mergedVisit)
+    }
   } catch (error) {
-    return snapshotCode
+    return { sex: snapshotCode, encounterClass: encounterClassFromVisit(snapshot) }
   }
 }
 const lastSentAt = order => {
@@ -275,7 +292,7 @@ if (requestedItemIds.length > 1) {
 
   const batchPatient = batchOrder.vid && batchOrder.vid.pid || {}
   const batchVisit = batchOrder.vid || {}
-  const batchSex = await agentSexForOrder(batchOrder)
+  const batchVisitContext = await agentVisitContextForOrder(batchOrder)
   const rawBatchPriority = text(batchOrder.priority && (batchOrder.priority.code || batchOrder.priority.value) || batchOrder.priority).toUpperCase()
   const batchPriority = PRIORITY_MAP[rawBatchPriority] || ''
   const batchOrderedAt = toThaiIso(lastSentAt(batchOrder))
@@ -312,8 +329,9 @@ if (requestedItemIds.length > 1) {
     patient_first_name: text(batchPatient.p_fname || batchPatient.first_name),
     patient_last_name: text(batchPatient.p_lname || batchPatient.last_name),
     birth_date: birthDate(batchPatient.birth_date || batchVisit.birth_date),
-    sex: batchSex,
+    sex: batchVisitContext.sex,
     visit_type: text(batchVisit.visit_type),
+    encounter: { class: batchVisitContext.encounterClass },
     doctor_code: text(batchVisit.visit_doctor && (batchVisit.visit_doctor.code || batchVisit.visit_doctor.value)),
     doctor_title: text(batchVisit.visit_doctor && batchVisit.visit_doctor.title),
     doctor_name: text(batchVisit.visit_doctor && (batchVisit.visit_doctor.name || batchVisit.visit_doctor.label)),
@@ -329,7 +347,7 @@ if (requestedItemIds.length > 1) {
   const batchMissingOutbound = []
   if (!batchOrderedAt) batchMissingOutbound.push('ordered_at')
   if (!batchPriority) batchMissingOutbound.push('priority')
-  if (!batchSex) batchMissingOutbound.push('sex')
+  if (!batchVisitContext.sex) batchMissingOutbound.push('sex')
   batchItems.forEach((row, index) => {
     if (!row.test_code) batchMissingOutbound.push('items[' + index + '].test_code')
     if (!row.specimen_code) batchMissingOutbound.push('items[' + index + '].specimen_code')
@@ -778,7 +796,7 @@ const masterLab = master && master.lab_item && typeof master.lab_item === 'objec
 const masterSpecimen = masterLab.specimen && !Array.isArray(masterLab.specimen) ? masterLab.specimen : {}
 const patient = order.vid && order.vid.pid || {}
 const visit = order.vid || {}
-const sex = await agentSexForOrder(order)
+const agentVisitContext = await agentVisitContextForOrder(order)
 const rawPriority = text(order.priority && (order.priority.code || order.priority.value) || order.priority).toUpperCase()
 const priority = PRIORITY_MAP[rawPriority] || ''
 const collectedAt = toThaiIso(labData.specimen_at || labData.at)
@@ -800,8 +818,9 @@ const buildPayload = stableReceivedIso => {
     patient_first_name: text(patient.p_fname || patient.first_name),
     patient_last_name: text(patient.p_lname || patient.last_name),
     birth_date: birthDate(patient.birth_date || visit.birth_date),
-    sex,
+    sex: agentVisitContext.sex,
     visit_type: text(visit.visit_type),
+    encounter: { class: agentVisitContext.encounterClass },
     doctor_code: text(visit.visit_doctor && (visit.visit_doctor.code || visit.visit_doctor.value)),
     doctor_title: text(visit.visit_doctor && visit.visit_doctor.title),
     doctor_name: text(visit.visit_doctor && (visit.visit_doctor.name || visit.visit_doctor.label)),
@@ -832,7 +851,7 @@ const buildPayload = stableReceivedIso => {
 const missingOutbound = []
 if (!orderedAt) missingOutbound.push('ordered_at')
 if (!priority) missingOutbound.push('priority')
-if (!sex) missingOutbound.push('sex')
+if (!agentVisitContext.sex) missingOutbound.push('sex')
 if (!testCode) missingOutbound.push('items[0].test_code')
 if (!specimenCode) missingOutbound.push('items[0].specimen_code')
 const readinessCode = missingOutbound.length ? 'awaiting_outbound_data' : ''

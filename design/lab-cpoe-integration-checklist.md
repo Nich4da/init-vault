@@ -2,7 +2,7 @@
 type: checklist
 title: LAB CPOE Integration Checklist
 created: 2026-08-30
-updated: 2026-09-03
+updated: 2026-09-26
 status: active
 tags: [lab, cpoe, worklist, integration, checklist]
 ---
@@ -27,8 +27,16 @@ tags: [lab, cpoe, worklist, integration, checklist]
 - [x] รายการที่ LAB ปฏิเสธและต้องตรวจใหม่ให้สร้าง Order/Item ใหม่ โดยเก็บลิงก์กลับรายการเดิม
 - [x] ผลตรวจละเอียดใช้ Result Receipt, Result Report และ Result Item ที่มีอยู่แล้ว
 - [x] การรับ JSON ผลจาก Agent ใช้ `hl7_result_upsert_api.js`; ไม่สร้าง result persistence ซ้ำ
-- [x] การแก้ผลใช้ current-value overwrite: ทับค่าผลเดิมและทับชื่อ/เวลาเป็นผู้แก้ล่าสุด
-  ไม่เก็บรายชื่อผู้แก้ก่อนหน้าใน clinical Result Item
+- [x] Agent/LIS ส่ง `items[].is_critical` เป็น Boolean ทุก observation; `true` คือ Critical,
+  `false` คือไม่ Critical. HIS ใช้ค่านี้โดยตรงและไม่คำนวณจาก value/range หรือ rule text
+- [x] การแก้ผลจากดินสอ HIS/Manual ใช้ current+log: Result Item เก็บค่าปัจจุบันและ
+  ผู้แก้ล่าสุด ส่วน `zdata_6ab78b7159662ac8f059105a` (Form `LAB Result Edit Log`
+  ID `6ab78b7159662ac8f059105a`) เก็บ before/after + เหตุผล + ผู้แก้ + เวลา
+  แบบ append-only โดยบันทึกผ่าน Form ปกติ แล้วอัปเดตเฉพาะผลล่าสุดผ่าน Result Item Form
+- [x] flow แก้ผลไม่ใช้ `mongoTxn`; ถ้าบันทึก Result Edit Log Form ไม่สำเร็จ ต้องไม่แก้
+  clinical Result Item และเหตุผลการแก้ไขเป็นข้อมูล optional
+- [x] Agent/LIS corrected callback ยังใช้ Technical Receipt/Report ตาม contract เดิม และยังไม่
+  ถูกนับเป็น HIS/Manual Result Edit Log ในรอบนี้
 - [x] Technical Receipt ของ Agent ยังคงใช้รับ payload/deduplicate แต่ไม่ใช้แสดง correction history
 - [x] Diagnosis ดึงจาก EMR การรักษาของ VN และเปิดผ่านปุ่ม EMR ที่แนบกับแต่ละ Order
 
@@ -223,6 +231,11 @@ Local Step 1 artifact: `Form-Builder/API/api-factory/processes/lab_cpoe_worklist
 - [x] Receive อ่าน `request_payload_json` จาก Outbound แล้วเรียก
   `lab_agent_order_submit_api.js` นอก transaction; บันทึก attempt/status/response/error กลับ
   Outbound และไม่เปลี่ยนผล receipt เมื่อ transport fail
+- [x] เพิ่ม patient class ตาม Agent contract ที่ `encounter.class` โดยใช้ค่า `OPD`/`IPD`:
+  AN จาก Visit ปัจจุบันหรือ CPOE snapshot มีค่า = `IPD`, ไม่มี = `OPD`; คง flat `visit_type`
+  เดิมไว้เพื่อ backward compatibility. Gateway/schema ปฏิเสธ class อื่นและ nested field เกิน.
+  Worklist แสดง badge `AN : ...` เฉพาะเมื่อมี AN; ยังรอ deploy/runtime UAT และยังไม่ส่ง AN
+  แยกไป Agent จนกว่า Agent จะระบุ destination field.
 - [x] VPN curl จาก Mac เข้าถึง Agent และ key ผ่าน: payload ว่างได้ `422`
   ตามคาด จึงแยกปัญหา network/token ออกจาก payload contract ได้แล้ว
 - [x] ปรับ Agent `endpoint.behavior.labnoPattern`: Agent เดิมคาด 10 หลัก
@@ -286,8 +299,8 @@ Local Step 1 artifact: `Form-Builder/API/api-factory/processes/lab_cpoe_worklist
 - [x] Section-row cancellation ใช้ `cancel_type=lab_order_cancelled`, `cancel_scope=section`
   และ Work Item
   `work_status=cancelled`; specimen rejection ใช้ `work_status=rejected` จึงไม่ปนกัน
-- [ ] `ตรวจใหม่`: สร้าง CPOE Order/Item ใหม่และเก็บ `reorder_of_order_id`/
-  `reorder_of_item_id`; ห้ามแก้หรือลบประวัติเดิม
+- [x] Contract `ตรวจใหม่`: ทำใน HIS โดยเก็บประวัติรอบเดิม, กลับไปรอรับ specimen และออก
+  LAB NO. ใหม่; ไม่เรียก LIS Cancel. ถ้ารอบเดิมส่ง LIS แล้ว ผู้ใช้ลบ Order ใน LIS เองก่อนตรวจใหม่
 - [ ] ตกลงผลกระทบการเงินของ Item เดิมและ Item ใหม่กับ CPOE/การเงิน
 
 ## P4 — Result tab ใช้ของที่มีอยู่แล้ว
@@ -393,7 +406,10 @@ Local Step 1 artifact: `Form-Builder/API/api-factory/processes/lab_cpoe_worklist
 - [x] cancellation ระดับ Order มี canonical audit lock หนึ่ง record แล้ว cascade ทุก Item
   แบบ idempotent; standalone MongoDB ไม่มี multi-document transaction จึงบันทึก `conflict`
   และหยุดแบบ fail-closed หาก CAS ของ Item ใดแพ้ระหว่างทำรายการ
-- [ ] cancellation หลัง Outbound เคยส่ง Agent/LIS ต้องรอ LIS cancel API; ห้ามยกเลิกเฉพาะ HIS
+- [x] ยืนยัน 2026-09-30: การยกเลิกเป็น HIS-only และไม่เรียก LIS Cancel API. Outbound ที่ยังไม่ส่ง
+  ถูกหยุดใน HIS; ถ้าส่ง LIS แล้วให้คง Outbound audit เดิมและผู้ใช้ลบ Order ใน LIS เอง
+- [ ] Align `retest_item` guard: ปัจจุบันรอบที่เคยส่ง LIS ยังคืน `lis_cancel_required`; ต้องเปลี่ยน
+  เป็นการยืนยันว่าผู้ใช้ลบ Order ใน LIS แล้ว พร้อมเก็บผู้ยืนยัน/เวลา โดยไม่เรียก LIS Cancel API
 
 ## รายการค้าง / ต้องถาม
 

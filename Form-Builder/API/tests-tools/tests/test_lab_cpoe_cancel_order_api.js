@@ -390,7 +390,13 @@ const checkFinance = (harness, overrides = {}) => run(harness, {
   assert(source.includes("const BILL_COLLECTION = 'zdata_fa_bill'"))
   assert(source.includes("action === 'check_cancel_finance'"))
   assert(source.includes('cancellation is intentionally HIS-only'))
-  assert(!source.includes('orderCollection.updateOne'), 'CPOE Order must remain read-only')
+  // 2026-09-25 user-requested Manual Final action legitimately completes its
+  // CPOE Order. Keep the original cancellation contract scoped to its own block.
+  const cancelBlock = source.slice(
+    source.indexOf("if (action === 'cancel_order' || action === 'check_cancel_finance')"),
+    source.indexOf('const loadItemContext'),
+  )
+  assert(!cancelBlock.includes('orderCollection.updateOne'), 'Cancel must keep the CPOE Order read-only')
   assert(source.includes('itemCollection.updateOne'), 'Cancel must compare-and-set affected CPOE Items')
   console.log('LAB CPOE cancel Order API tests passed')
 })().catch(error => {

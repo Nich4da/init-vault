@@ -170,6 +170,12 @@ widget.content = `<div class="lab-cpoe">
       <el-button class="lab-create-button" size="small" type="primary" :loading="createOrderLoading"
         :disabled="viewMode!=='today'" :title="viewMode!=='today'?'ใช้ปุ่มนี้จากแท็บรายการวันนี้':''"
         @click="openCreateOrder">สร้างรายการใหม่</el-button>
+      <el-button class="lab-refresh-button" size="small" circle :loading="loading"
+        title="รีเฟรชรายการ" aria-label="รีเฟรชรายการ" @click="refreshWorklist">
+        <svg v-if="!loading" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M20 11a8 8 0 0 0-14.93-4M4 4v5h5M4 13a8 8 0 0 0 14.93 4M20 20v-5h-5" />
+        </svg>
+      </el-button>
     </div>
 
     <div v-if="scanMode" class="lab-scan-context" role="status" aria-live="polite">
@@ -245,10 +251,11 @@ widget.content = `<div class="lab-cpoe">
           <div class="lab-patient-summary">
             <div class="lab-patient-hn"><span class="lab-mono">{{ text(order.patient&&order.patient.hn) }}</span><span v-if="isUrgent(order)" class="lab-inline-tag lab-urgent-tag">เร่งด่วน</span></div>
             <div class="lab-patient-name">{{ patientName(order) }}</div>
-            <div class="lab-patient-demographic"><span v-if="text(order.patient&&order.patient.gender_text)" class="lab-inline-tag lab-gender-pill">{{ text(order.patient.gender_text) }}</span><span v-if="ageText(order)">{{ ageText(order) }}</span></div>
+            <div class="lab-patient-demographic"><span v-if="text(order.patient&&order.patient.gender_text)" class="lab-inline-tag lab-gender-pill">{{ text(order.patient.gender_text) }}</span><span v-if="orderAgeText(order)">{{ orderAgeText(order) }}</span></div>
           </div>
           <div class="lab-context-tags">
-            <div class="lab-context-top"><span v-if="sourceRoom(order)" class="lab-inline-tag lab-meta-pill lab-source-pill">{{ sourceRoom(order) }}</span><span v-if="showPaid(order)" class="lab-inline-tag lab-meta-pill lab-payment-pill">ชำระเงินแล้ว</span><span v-if="coverageAbbrev(order)" class="lab-inline-tag lab-meta-pill lab-coverage-pill">{{ coverageAbbrev(order) }}</span></div>
+            <div class="lab-context-top"><span v-if="sourceRoom(order)" class="lab-inline-tag lab-meta-pill lab-source-pill">{{ sourceRoom(order) }}</span><span v-if="showCashPayment(order)" class="lab-inline-tag lab-meta-pill lab-payment-pill" :class="{'is-unpaid':!isFinancePassed(order)}">{{ isFinancePassed(order) ? 'ชำระเงินแล้ว' : 'ยังไม่ได้ชำระเงิน' }}</span><span v-if="coverageAbbrev(order)" class="lab-inline-tag lab-meta-pill lab-coverage-pill">{{ coverageAbbrev(order) }}</span></div>
+            <span v-if="admissionNumber(order)" class="lab-admission-badge">AN : {{ admissionNumber(order) }}</span>
             <span class="lab-cbc-flag">🩸 CBC <span class="lab-mono">{{ text(cbcItem(order).item_code) }}</span> · {{ cbcItemCountText(order) }}</span>
           </div>
           <div class="lab-metric lab-items-cell" data-label="รายการ"><span class="lab-field-value">{{ order.item_count||0 }} orders</span></div>
@@ -314,16 +321,17 @@ widget.content = `<div class="lab-cpoe">
               <span v-if="text(order.patient && order.patient.gender_text)" class="lab-inline-tag lab-gender-pill">
                 {{ text(order.patient.gender_text) }}
               </span>
-              <span v-if="ageText(order)">{{ ageText(order) }}</span>
+              <span v-if="orderAgeText(order)">{{ orderAgeText(order) }}</span>
             </div>
           </div>
 
           <div class="lab-context-tags">
             <div class="lab-context-top">
               <span v-if="sourceRoom(order)" class="lab-inline-tag lab-meta-pill lab-source-pill">{{ sourceRoom(order) }}</span>
-              <span v-if="showPaid(order)" class="lab-inline-tag lab-meta-pill lab-payment-pill">ชำระเงินแล้ว</span>
+              <span v-if="showCashPayment(order)" class="lab-inline-tag lab-meta-pill lab-payment-pill" :class="{'is-unpaid':!isFinancePassed(order)}">{{ isFinancePassed(order) ? 'ชำระเงินแล้ว' : 'ยังไม่ได้ชำระเงิน' }}</span>
               <span v-if="coverageAbbrev(order)" class="lab-inline-tag lab-meta-pill lab-coverage-pill">{{ coverageAbbrev(order) }}</span>
             </div>
+            <span v-if="admissionNumber(order)" class="lab-admission-badge">AN : {{ admissionNumber(order) }}</span>
             <span v-if="hasPriorMedication(order)" class="lab-prior-medication">💊 {{ priorMedicationText(order) }}</span>
           </div>
 
@@ -424,7 +432,10 @@ widget.content = `<div class="lab-cpoe">
               <div data-label="Lab no." class="lab-mono">{{ text(item.lab_no) || '' }}</div>
               <div data-label="รายการสั่งตรวจ" class="lab-test-name">{{ text(item.item_code) }} {{ text(item.item_name) }}</div>
               <div data-label="specimen" class="lab-item-specimen-cell">
-                <el-select class="lab-specimen-select" :class="{'lab-specimen-changed':specimenChanged(item)}"
+                <el-input v-if="isImmunologyItem(item)" class="lab-specimen-select lab-specimen-locked"
+                  size="small" :model-value="specimenDisplay(item)" disabled
+                  @mousedown.prevent @click.stop />
+                <el-select v-else class="lab-specimen-select" :class="{'lab-specimen-changed':specimenChanged(item)}"
                   size="small" :model-value="specimenValue(item)" placeholder="ค้นหา / เลือก specimen"
                   filterable default-first-option :loading="!!specimenSaving[item.item_id]"
                   :disabled="viewMode==='lookup'||!isPendingReceiveItem(item)||!!specimenSaving[item.item_id]"
@@ -524,18 +535,36 @@ widget.content = `<div class="lab-cpoe">
     <div class="lab-cancel-summary">
       <strong>Order No. {{ text(cancelDialog.order && cancelDialog.order.order_number) || '' }}</strong>
       <span>ระบบจะยกเลิกเฉพาะ LAB Item ของ Section นี้ใน Order เดิม และเก็บผู้ทำรายการกับเวลาไว้ใน audit</span>
-      <span>ถ้ารายการถูกส่งไป Agent/LIS แล้ว ระบบจะหยุดและไม่ยกเลิกเฉพาะฝั่ง HIS</span>
+      <span>ยกเลิกเฉพาะฝั่ง HIS โดยไม่ส่งคำสั่งยกเลิกไป Agent/LIS</span>
+    </div>
+    <div class="lab-cancel-finance" :class="cancelFinanceClass()">
+      <template v-if="cancelDialog.financeLoading">
+        <strong>กำลังตรวจสอบสถานะการเงิน...</strong>
+        <span>กรุณารอสักครู่ ระบบกำลังตรวจ Bill และใบเสร็จล่าสุด</span>
+      </template>
+      <template v-else>
+        <strong>{{ cancelFinanceTitle() }}</strong>
+        <span>{{ cancelDialog.financeMessage || 'ยังไม่ได้ตรวจสอบสถานะการเงิน' }}</span>
+        <span v-if="cancelDialog.receiptNumbers && cancelDialog.receiptNumbers.length">
+          ใบเสร็จ: {{ cancelDialog.receiptNumbers.join(', ') }}
+        </span>
+        <el-button v-if="cancelDialog.financeChecked && !cancelDialog.canCancel" size="small" plain
+          :loading="cancelDialog.financeLoading" :disabled="cancelDialog.loading"
+          @click="checkCancelFinance">ตรวจสอบสถานะการเงินอีกครั้ง</el-button>
+      </template>
     </div>
     <label class="lab-cancel-reason"><span>เหตุผลการยกเลิก <b>*</b></span>
-      <el-select v-model="cancelDialog.reason" filterable clearable :disabled="cancelDialog.loading"
+      <el-select v-model="cancelDialog.reason" filterable clearable
+        :disabled="cancelDialog.loading||cancelDialog.financeLoading||!cancelDialog.canCancel"
         placeholder="กรุณาเลือกเหตุผล">
-        <el-option v-for="option in rejectReasonOptions" :key="option.value"
+        <el-option v-for="option in cancelReasonOptions" :key="option.value"
           :label="option.label" :value="option.value" />
       </el-select>
     </label>
     <template #footer>
       <el-button :disabled="cancelDialog.loading" @click="cancelDialog.visible=false">ไม่ยกเลิก</el-button>
-      <el-button type="danger" :loading="cancelDialog.loading" :disabled="!text(cancelDialog.reason)"
+      <el-button type="danger" :loading="cancelDialog.loading"
+        :disabled="cancelDialog.financeLoading||!cancelDialog.financeChecked||!cancelDialog.canCancel||!text(cancelDialog.reason)"
         @click="submitCancelOrder">ยืนยันยกเลิก Section นี้</el-button>
     </template>
   </el-dialog>
@@ -574,7 +603,7 @@ widget.content = `<div class="lab-cpoe">
             <strong>ผลตรวจทางห้องปฏิบัติการ</strong>
             <span v-if="isMicrobiologyResult()" class="lab-micro-source-tag">จุลชีววิทยา · MLab</span>
             <button v-if="viewMode==='today'&&!isMicrobiologyResult()" class="lab-result-edit-button" type="button"
-            :disabled="manual.loading || manual.saving || !canEditResult()" :aria-pressed="manual.editing"
+            :disabled="manual.loading || manual.saving || manual.finalizing || !canEditResult()" :aria-pressed="manual.editing"
             :aria-label="manual.editing ? 'ออกจากโหมดแก้ไขผลตรวจ' : 'แก้ไขผลตรวจทั้งหมด'"
             :title="editResultTitle()" @click="toggleResultEdit">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5 5 5M4 20l4.2-1 10-10a2 2 0 0 0-5-5l-10 10L4 20Z"></path><path d="m12 6 5 5"></path></svg>
@@ -599,16 +628,18 @@ widget.content = `<div class="lab-cpoe">
             <span v-if="resultReportedAt()"><b>ออกผลเมื่อ:</b> <strong class="lab-mono">{{ compactDateTime(resultReportedAt()) }}</strong></span>
           </div>
         </div>
-        <sd-report v-if="manual.orderView&&labResultPdfReady()" class="lab-result-report-action"
-          :report-list="activeLabResultPdfReportList()" :params="labResultPdfParams()" size="small" />
-        <el-button v-else-if="manual.orderView" class="lab-result-report-action" type="danger" size="small" disabled
-          :title="labResultPdfHint()">รายงานผล</el-button>
+        <span v-if="manual.orderView" class="lab-result-report-slot">
+          <sd-report v-if="labResultPdfReady()" class="lab-result-report-action"
+            :report-list="activeLabResultPdfReportList()" :params="labResultPdfParams()" size="small" />
+          <el-button v-else class="lab-result-report-action" type="danger" size="small" disabled
+            :title="labResultPdfHint()">รายงานผล</el-button>
+        </span>
       </div>
     </template>
     <div v-loading="manual.loading" class="lab-manual-form lab-result-viewer">
       <div v-if="!manual.orderView && resultHidden()" class="lab-result-hidden-notice" role="status">
         <strong>ผลนี้ถูกตั้งสถานะปกปิด</strong>
-        <span>{{ manual.data.result_visibility_reason || 'ไม่พบเหตุผล' }}</span>
+        <span>{{ manual.data.result_visibility_reason || 'ไม่ได้ระบุเหตุผล' }}</span>
         <small><template v-if="resultVisibilityActor()">โดย {{ resultVisibilityActor() }}</template><template v-if="manual.data.result_visibility_at"> · {{ compactDateTime(manual.data.result_visibility_at) }}</template></small>
       </div>
       <template v-if="isMicrobiologyResult()">
@@ -670,35 +701,62 @@ widget.content = `<div class="lab-cpoe">
       <template v-else>
       <div class="lab-result-profile-toolbar">
         <div><strong>รายการผลตรวจ</strong><small>{{ resultTestCount() }} รายการสั่งตรวจ · {{ resultRowsForDisplay().length }} ผลย่อย</small></div>
-        <div v-if="resultProfileCount()" class="lab-result-section-actions">
-          <el-button text type="primary" size="small" @click="expandAllResultGroups">กาง Profile ทั้งหมด</el-button>
-          <el-button text type="primary" size="small" @click="collapseAllResultGroups">พับทั้งหมด</el-button>
+        <div class="lab-result-section-actions">
+          <el-button v-if="resultRevisionCount()" plain type="primary" size="small" :disabled="manual.editing" @click="toggleResultRevisionHistory">{{ manual.revisionHistoryOpen ? 'กลับผลล่าสุด' : 'ประวัติผล '+resultRevisionCount()+' ฉบับ' }}</el-button>
+          <el-button v-if="resultProfileCount()&&!manual.revisionHistoryOpen" text type="primary" size="small" @click="expandAllResultGroups">กาง Profile ทั้งหมด</el-button>
+          <el-button v-if="resultProfileCount()&&!manual.revisionHistoryOpen" text type="primary" size="small" @click="collapseAllResultGroups">พับทั้งหมด</el-button>
         </div>
       </div>
-      <div class="lab-result-values">
+      <section v-if="manual.revisionHistoryOpen && selectedResultRevision()" class="lab-result-revision-view" aria-label="ประวัติผลตรวจทั้งฉบับ">
+        <aside class="lab-result-revision-rail">
+          <strong>ประวัติ CALLBACK ของ LAB NO. นี้</strong>
+          <button v-for="revision in resultRevisions()" :key="revision.revision_id" type="button" :class="{'is-active':revision.revision_id===manual.selectedRevisionId}" @click="selectResultRevision(revision)">
+            <span>Revision {{ revision.no }} · {{ compactDateTime(revision.source_reported_at || revision.received_at) || '-' }}</span>
+            <small>{{ revisionStageText(revision.stage) }} · report_seq {{ revision.report_seq || '-' }}</small>
+            <i v-if="revision.latest">CURRENT</i><i v-else>ถูกแทนที่</i>
+          </button>
+        </aside>
+        <div class="lab-result-revision-sheet">
+          <header><div><strong>Revision {{ selectedResultRevision().no }} · snapshot ผลทั้งฉบับ</strong><small>{{ selectedResultRevision().items.length }} รายการที่มองเห็น · เปลี่ยนจากรอบก่อน {{ selectedResultRevision().items.filter(item=>item.changed).length }} รายการ</small></div><span>{{ revisionStageText(selectedResultRevision().stage) }}</span></header>
+          <div v-if="!selectedResultRevision().latest" class="lab-result-revision-warning">นี่คือผลประวัติที่ถูก revision ใหม่แทนที่แล้ว · ไม่ใช่ผลปัจจุบัน</div>
+          <div class="lab-result-revision-table">
+            <div class="lab-result-revision-head"><span>#</span><span>รายการตรวจ</span><span>ค่าใน revision</span><span>ค่ารอบก่อน</span><span>สถานะ</span></div>
+            <div v-for="(item,index) in selectedResultRevision().items" :key="item.test_code || index" class="lab-result-revision-row" :class="{'is-changed':item.changed}">
+              <span>{{ index+1 }}</span><span><strong>{{ item.test_name || '-' }}</strong><small>{{ item.test_code || '-' }}</small></span><strong>{{ item.result_value || '-' }}<small v-if="item.unit"> {{ item.unit }}</small></strong><span>{{ item.previous_value || '-' }}</span><span>{{ item.changed ? 'เปลี่ยน' : 'คงเดิม' }}</span>
+            </div>
+          </div>
+          <footer><span>result_uid</span><strong class="lab-mono">{{ selectedResultRevision().result_uid || '-' }}</strong><span>receipt_id / report_id</span><strong class="lab-mono">{{ selectedResultRevision().receipt_id || '-' }} / {{ selectedResultRevision().report_id || '-' }}</strong></footer>
+        </div>
+      </section>
+      <div v-else class="lab-result-values">
         <div class="lab-result-value-head"><span>#</span><span><span class="lab-sr-only">สถานะ</span></span><span>รายการ</span><span title="ประวัติค่าที่เคยบันทึกของ Item นี้ · อ่านอย่างเดียว">ค่าก่อนหน้า</span><span>ค่าที่ตรวจได้</span><span>หน่วย</span><span>แปลผล</span><span>ค่าปกติ</span></div>
         <template v-for="(group,groupIndex) in resultGroupsForDisplay()" :key="resultGroupKey(group,groupIndex)">
-          <button v-if="resultGroupIsProfile(group)" type="button" class="lab-result-profile-row" :class="{'is-open':resultGroupExpanded(group,groupIndex)}" :aria-expanded="resultGroupExpanded(group,groupIndex)" @click="toggleResultGroup(group,groupIndex)">
+          <div v-if="group.sensitive_locked" class="lab-sensitive-result-locked">
+            <div><strong>{{ group.test_name || 'ผลตรวจ Sensitive' }}</strong><small>{{ group.test_code || '-' }}</small></div>
+            <strong class="lab-sensitive-result-label">ปกปิดผล</strong>
+          </div>
+          <button v-else-if="resultGroupIsProfile(group)" type="button" class="lab-result-profile-row" :class="{'is-open':resultGroupExpanded(group,groupIndex)}" :aria-expanded="resultGroupExpanded(group,groupIndex)" @click="toggleResultGroup(group,groupIndex)">
             <span class="lab-result-profile-index lab-mono">{{ groupIndex+1 }}</span>
             <span class="lab-result-profile-main"><strong>{{ group.test_name || '-' }}</strong><small>Profile · คลิกเพื่อ{{ resultGroupExpanded(group,groupIndex) ? 'พับ' : 'กาง' }}ผลย่อย {{ group.results.length }} รายการ</small></span><i aria-hidden="true">⌄</i>
           </button>
-          <template v-if="!resultGroupIsProfile(group) || resultGroupExpanded(group,groupIndex)">
-          <div v-for="(result,index) in group.results" :key="result.result_item_id || result.test_code || result.entered_at || index" class="lab-result-value-row" :class="{'is-profile-child':resultGroupIsProfile(group),'is-critical':result&&result.is_critical===true}">
+          <template v-if="!group.sensitive_locked && (!resultGroupIsProfile(group) || resultGroupExpanded(group,groupIndex))">
+          <div v-for="(result,index) in group.results" :key="result.result_item_id || result.test_code || result.entered_at || index" class="lab-result-value-row" :class="{'is-profile-child':resultGroupIsProfile(group),'is-critical':result&&result.is_critical===true,'is-redacted':result&&result.redacted===true}">
             <div class="lab-result-index lab-mono">{{ resultRowNumber(group,groupIndex,index) }}</div>
-            <div><i v-if="hasResultValue(result)" class="lab-result-signal" :class="resultSignalClass(result)" :title="resultSignalText(result)"></i></div>
+            <div><i v-if="!result.redacted && hasResultValue(result)" class="lab-result-signal" :class="resultSignalClass(result)" :title="resultSignalText(result)"></i></div>
             <div class="lab-result-test-name"><strong>{{ result.test_name || group.test_name || '-' }}</strong><small>{{ result.test_code || group.test_code || '-' }}<template v-if="resultSourceText(result.result_source)"> · ผลจาก {{ resultSourceText(result.result_source) }}</template></small></div>
-            <div class="lab-result-previous lab-mono">{{ result.previous && result.previous.value || '-' }}</div>
-            <div><el-input v-if="manual.editing && manual.editMap[result._edit_key]" v-model="manual.editMap[result._edit_key].result_value" type="textarea" :autosize="{minRows:1,maxRows:5}" /><strong v-else class="lab-result-measured" :class="resultMeasuredClass(result)">{{ result.result_value || 'รอผล' }}</strong></div>
-            <div><el-input v-if="manual.editing && manual.editMap[result._edit_key]" v-model="manual.editMap[result._edit_key].unit" /><template v-else>{{ result.unit || '-' }}</template></div>
-            <div><el-select v-if="manual.editing && manual.editMap[result._edit_key]" v-model="manual.editMap[result._edit_key].interpretation" clearable filterable allow-create default-first-option><el-option v-for="option in interpretationOptions" :key="option.value" :label="option.label" :value="option.value" /></el-select><span v-else class="lab-result-interpretation" :class="resultInterpretationClass(result)">{{ result.interpretation || '-' }}</span></div>
-            <div class="lab-mono"><el-input v-if="manual.editing && manual.editMap[result._edit_key]" v-model="manual.editMap[result._edit_key].reference_range" /><template v-else>{{ result.reference_range || '-' }}</template></div>
-            <div v-if="result.result_comment" class="lab-result-comment" role="note" aria-label="หมายเหตุผลตรวจ"><span>หมายเหตุผลตรวจ</span><p>{{ result.result_comment }}</p></div>
+            <div class="lab-result-previous lab-mono">{{ result.redacted ? '-' : (result.previous && result.previous.value || '-') }}</div>
+            <div><strong v-if="result.redacted" class="lab-result-redacted-value">ปกปิดผล</strong><el-input v-else-if="manual.editing && manual.editMap[result._edit_key]" v-model="manual.editMap[result._edit_key].result_value" type="textarea" :autosize="{minRows:1,maxRows:5}" /><strong v-else class="lab-result-measured" :class="resultMeasuredClass(result)">{{ result.result_value || 'รอผล' }}</strong></div>
+            <div><template v-if="result.redacted">-</template><el-input v-else-if="manual.editing && manual.editMap[result._edit_key]" v-model="manual.editMap[result._edit_key].unit" /><template v-else>{{ result.unit || '-' }}</template></div>
+            <div><template v-if="result.redacted">-</template><el-select v-else-if="manual.editing && manual.editMap[result._edit_key]" v-model="manual.editMap[result._edit_key].interpretation" clearable filterable allow-create default-first-option><el-option v-for="option in interpretationOptions" :key="option.value" :label="option.label" :value="option.value" /></el-select><span v-else class="lab-result-interpretation" :class="resultInterpretationClass(result)">{{ result.interpretation || '-' }}</span></div>
+            <div class="lab-mono"><template v-if="result.redacted">-</template><el-input v-else-if="manual.editing && manual.editMap[result._edit_key]" v-model="manual.editMap[result._edit_key].reference_range" /><template v-else>{{ result.reference_range || '-' }}</template></div>
+            <div v-if="result.result_comment && !result.redacted" class="lab-result-comment" role="note" aria-label="หมายเหตุผลตรวจ"><span>หมายเหตุผลตรวจ</span><p>{{ result.result_comment }}</p></div>
           </div>
           </template>
         </template>
       </div>
       <div v-if="!manual.loading && !hasRecordedResult()" class="lab-previous-result is-empty">ยังไม่มีผลตรวจ · รอผลจาก LIS หรือกดดินสอเพื่อกรอกผล</div>
-      <div v-if="manual.editing" class="lab-manual-hint">การแก้ไขใน HIS จะเก็บผู้แก้และเวลาล่าสุด แต่ไม่คำนวณ Critical ใหม่; ค่า Critical คงใช้ค่าที่ Agent/LIS ส่งมา</div>
+      <label v-if="manual.editing && correctionReasonRequired()" class="lab-correction-reason"><span>เหตุผลการแก้ไขผล <small>(ไม่บังคับ)</small></span><el-input v-model="manual.correctionReason" type="textarea" :rows="2" maxlength="1000" show-word-limit placeholder="ระบุเหตุผล (ถ้ามี)" /><small>ระบบจะเก็บค่าก่อน–หลัง ผู้แก้ไข เวลา และเหตุผลเมื่อมีการระบุใน LAB Result Edit Log</small></label>
+      <div v-if="manual.editing" class="lab-manual-hint">ผลเดิมที่แก้ไขจะเก็บประวัติแบบ append-only; ระบบไม่คำนวณ Critical ใหม่ และยังคงใช้ค่า Critical ที่ Agent/LIS ส่งมา</div>
       </template>
       <section v-if="manual.orderView && !isMicrobiologyResult()" class="lab-result-attachments" aria-label="ไฟล์แนบผลตรวจระดับ Order">
         <div class="lab-result-attachments-head"><div><strong>ไฟล์แนบผลตรวจ</strong><small>PDF / JPG / JPEG / PNG · ไม่เกิน 10 MB ต่อไฟล์ · สูงสุด 10 ไฟล์ · รวมไม่เกิน 50 MB</small></div><span>{{ manual.attachments.length }}/10</span></div>
@@ -714,7 +772,7 @@ widget.content = `<div class="lab-cpoe">
         <small v-if="viewMode==='lookup'" class="lab-result-upload-note">โหมดสืบค้นอ่านไฟล์แนบได้อย่างเดียว</small>
       </section>
     </div>
-    <template #footer><el-button v-if="isMicrobiologyResult()" @click="copyMicrobiologyResult">คัดลอกผลที่แสดง</el-button><el-button @click="manual.editing ? cancelResultEdit() : manual.visible=false">{{ manual.editing ? 'ยกเลิก' : 'ปิด' }}</el-button><el-button v-if="manual.editing && !isMicrobiologyResult()" type="primary" :loading="manual.saving" @click="requestSaveResult">บันทึกผล</el-button></template>
+    <template #footer><el-button v-if="isMicrobiologyResult()" @click="copyMicrobiologyResult">คัดลอกผลที่แสดง</el-button><el-button :disabled="manual.finalizing" @click="manual.editing ? cancelResultEdit() : manual.visible=false">{{ manual.editing ? 'ยกเลิก' : 'ปิด' }}</el-button><el-button v-if="canFinalizeManualResults()" type="success" :loading="manual.finalizing" :disabled="manual.loading || manual.saving || manual.uploading" @click="requestFinalizeManualResults">ยืนยันออกผลครบ</el-button><el-button v-if="manual.editing && !isMicrobiologyResult()" type="primary" :loading="manual.saving" :disabled="manual.finalizing" @click="requestSaveResult">บันทึกผล</el-button></template>
   </el-dialog>
 
   <el-dialog v-model="visibilityDialog.visible" :title="visibilityDialog.targetHidden ? 'ยืนยันปกปิดผล' : 'ยืนยันยกเลิกการปกปิดผล'"
@@ -728,15 +786,15 @@ widget.content = `<div class="lab-cpoe">
       <span v-else>ค่าผลจะกลับมาแสดงในหน้าที่เชื่อมกับสถานะนี้</span>
       <span v-if="manualCriticalCount()" class="is-critical">รายการนี้มี Critical Result {{ manualCriticalCount() }} ค่า · การปกปิดจะไม่ล้างสถานะหรือ workflow แจ้งค่าวิกฤติ</span>
     </div>
-    <label class="lab-visibility-reason"><span>เหตุผล <b>*</b></span>
+    <label class="lab-visibility-reason"><span>เหตุผล <small>(ไม่บังคับ)</small></span>
       <el-input v-model="visibilityDialog.reason" type="textarea" :rows="4" maxlength="1000"
         show-word-limit :disabled="visibilityDialog.loading"
-        :placeholder="visibilityDialog.targetHidden ? 'ระบุเหตุผลที่ต้องปกปิดผล' : 'ระบุเหตุผลที่ยกเลิกการปกปิดผล'" />
+        :placeholder="visibilityDialog.targetHidden ? 'ระบุเหตุผลที่ต้องปกปิดผล (ถ้ามี)' : 'ระบุเหตุผลที่ยกเลิกการปกปิดผล (ถ้ามี)'" />
     </label>
     <template #footer>
       <el-button :disabled="visibilityDialog.loading" @click="visibilityDialog.visible=false">ยกเลิก</el-button>
       <el-button :type="visibilityDialog.targetHidden ? 'danger' : 'primary'"
-        :loading="visibilityDialog.loading" :disabled="text(visibilityDialog.reason).length<3"
+        :loading="visibilityDialog.loading"
         @click="submitResultVisibility">
         {{ visibilityDialog.targetHidden ? 'ยืนยันปกปิดผล' : 'ยืนยันแสดงผล' }}
       </el-button>
@@ -770,6 +828,16 @@ const REJECT_REASON_LABELS={
   other:'อื่น ๆ'
 };
 const REJECT_REASON_OPTIONS=Object.keys(REJECT_REASON_LABELS).map(value=>({value:value,label:REJECT_REASON_LABELS[value]}));
+const CANCEL_REASON_LABELS={
+  doctor_cancel:'แพทย์ยกเลิกคำสั่งตรวจ',
+  duplicate_order:'สั่งตรวจซ้ำ',
+  wrong_patient:'สั่งผิดผู้ป่วย',
+  wrong_test:'สั่งผิดรายการตรวจ',
+  patient_declined:'ผู้ป่วยปฏิเสธการตรวจ',
+  ward_cancel:'Ward ยกเลิกการส่งตรวจ',
+  other:'อื่น ๆ'
+};
+const CANCEL_REASON_OPTIONS=Object.keys(CANCEL_REASON_LABELS).map(value=>({value:value,label:CANCEL_REASON_LABELS[value]}));
 const ITEM_RETEST_REASON_LABELS={reject_mistake:'ปฏิเสธผิดรายการ',recollect:'เก็บ specimen ใหม่',other:'อื่น ๆ'};
 const ITEM_RETEST_REASON_OPTIONS=Object.keys(ITEM_RETEST_REASON_LABELS).map(value=>({value:value,label:ITEM_RETEST_REASON_LABELS[value]}));
 /* ค่า fallback สำหรับ UI เท่านั้น จนกว่าจะมี CBC Swap Reason Master ที่ผู้ดูแลเพิ่ม/ปิดใช้งานได้ */
@@ -794,14 +862,19 @@ s.receiveLoading=false;
 s.agentDispatching={};
 s.rejectLoading=false;
 s.rejectReasonOptions=REJECT_REASON_OPTIONS;
-s.cancelDialog={visible:false,loading:false,order:null,reason:''};
+s.cancelReasonOptions=CANCEL_REASON_OPTIONS;
+s.rejectReasonLabels={...REJECT_REASON_LABELS};
+s.cancelReasonLabels={...CANCEL_REASON_LABELS};
+s.reasonOptionCache={};
+s.emptyCancelDialog=()=>({visible:false,loading:false,financeLoading:false,financeChecked:false,financeStatus:'',financeMessage:'',canCancel:false,receiptNumbers:[],order:null,reason:''});
+s.cancelDialog=s.emptyCancelDialog();
 s.cbcSwapReasonOptions=CBC_SWAP_REASON_OPTIONS;
 s.cbcSwapDialog={visible:false,loading:false,order:null,item:null,reasonCode:'',reasonDetail:''};
 s.cbcSwapCount=0;
 s.itemRetestReasonOptions=ITEM_RETEST_REASON_OPTIONS;
 s.itemRetestDialog={visible:false,loading:false,order:null,item:null,reasonCode:'',reasonDetail:''};
 s.visibilityDialog={visible:false,loading:false,targetHidden:true,reason:''};
-s.manual={visible:false,loading:false,saving:false,uploading:false,editing:false,orderView:false,item:null,order:null,data:{results:[]},groups:[],editRows:[],editMap:{},attachments:[]};
+s.manual={visible:false,loading:false,saving:false,finalizing:false,uploading:false,editing:false,orderView:false,item:null,order:null,data:{results:[]},groups:[],editRows:[],editMap:{},attachments:[],pdfParentId:'',correctionReason:'',revisions:[],revisionHistoryOpen:false,selectedRevisionId:''};
 s.resultUploadReservations={};
 s.resultUploadPersistPending=0;
 s.resultUploadBatchSucceeded=0;
@@ -896,8 +969,8 @@ s.personName=v=>{
 };
 s.rejectReasonText=i=>{
   const fallback=s.text(i&&i.reject_reason),detail=s.text(i&&i.reject_reason_detail);
-  const directCode=s.text(i&&i.reject_reason_code),code=directCode||(REJECT_REASON_LABELS[fallback]?fallback:'');
-  const label=REJECT_REASON_LABELS[code]||code;
+  const directCode=s.text(i&&i.reject_reason_code),code=directCode||(s.rejectReasonLabels[fallback]?fallback:'');
+  const label=s.rejectReasonLabels[code]||code;
   if(label&&detail&&label!==detail)return label+' · '+detail;
   return detail||label||fallback||'';
 };
@@ -924,12 +997,41 @@ s.coverageAbbrev=o=>{
 };
 s.requesterName=o=>{const r=o&&o.requester||{};return s.personName(r.cosign_user)||s.personName(r.visit_doctor);};
 s.sourceRoom=o=>s.text(o&&o.visit&&(o.visit.clinic||o.visit.ward));
+s.admissionNumber=o=>s.text(o&&o.visit&&o.visit.an);
+s.encounterClass=o=>s.admissionNumber(o)?'IPD':(s.text(o&&o.visit&&o.visit.encounter_class).toUpperCase()==='IPD'?'IPD':'OPD');
 s.isPaid=o=>{const f=o&&o.finance||{};const total=Number(f.total_amount||0);return total>0&&Number(f.paid_amount||0)>=total;};
 s.showPaid=o=>s.isPaid(o)&&!s.coverageAbbrev(o);
+s.showCashPayment=o=>{const f=o&&o.finance||{};return Number(f.total_amount||0)>0&&!s.coverageAbbrev(o);};
+s.isFinancePassed=o=>{
+  const terminal=['cancelled','rejected','returned','reversed'];
+  const passed=['ready','accepted','prepared','dispensed','processing','resulted','completed'];
+  const items=o&&Array.isArray(o.items)?o.items:[];
+  const active=items.filter(item=>!terminal.includes(s.text(item&&item.current_status).toLowerCase()));
+  return active.length?active.every(item=>passed.includes(s.text(item&&item.current_status).toLowerCase())):s.isPaid(o);
+};
 s.isUrgent=o=>{const p=s.text(o&&o.priority).toLowerCase();return p.includes('urgent')||p.includes('stat')||p.includes('ด่วน')||['2','3','4','5'].includes(p);};
 s.ageText=o=>s.text(o&&o.patient&&o.patient.age);
+s.orderAgeText=o=>{
+  const raw=o&&o.patient&&o.patient.age;
+  if(raw==null||raw==='')return '';
+  let year='',month='',day='';
+  if(typeof raw==='object'){
+    const value=(...keys)=>{for(let i=0;i<keys.length;i++){const v=raw[keys[i]];if(v!=null&&v!=='')return s.text(v);}return '';};
+    year=value('year','years','y');month=value('month','months','m');day=value('day','days','d');
+  }else{
+    const value=s.text(raw).trim();
+    const yearMatch=value.match(/(-?[0-9]+(?:[.][0-9]+)?)[ \t]*(?:y|ปี)/i);
+    const monthMatch=value.match(/(-?[0-9]+(?:[.][0-9]+)?)[ \t]*(?:m|เดือน)/i);
+    const dayMatch=value.match(/(-?[0-9]+(?:[.][0-9]+)?)[ \t]*(?:d|วัน)/i);
+    if(yearMatch||monthMatch||dayMatch){year=yearMatch?yearMatch[1]:'';month=monthMatch?monthMatch[1]:'';day=dayMatch?dayMatch[1]:'';}
+    else if(/^-?[0-9]+(?:[.][0-9]+)?$/.test(value))year=value;
+  }
+  if(!year&&!month&&!day)return '';
+  return year+' ปี '+month+' เดือน '+day+' วัน';
+};
 s.diagnosisText=o=>s.text(o&&(o.diagnosis||(o.emr_context&&o.emr_context.diagnosis)));
 s.itemTooltipLines=o=>(o&&Array.isArray(o.items)?o.items:[]).map(i=>[s.text(i&&i.item_code),s.text(i&&i.item_name)].filter(Boolean).join(' ')).filter(Boolean);
+s.isImmunologyItem=i=>['IM','MI-OUT'].includes(s.text(i&&i.section&&i.section.code).trim().toUpperCase());
 s.specimenDisplay=i=>s.text(i&&i.specimen&&i.specimen.ordered&&i.specimen.ordered.source)||s.text(i&&i.specimen&&i.specimen.master&&i.specimen.master.name)||s.specimenValue(i)||'ไม่ระบุ specimen';
 s.specimenTooltipLines=o=>(o&&Array.isArray(o.items)?o.items:[]).map(i=>{const specimen=s.specimenDisplay(i),test=[s.text(i&&i.item_code),s.text(i&&i.item_name)].filter(Boolean).join(' ');return test?specimen+' · '+test:specimen;}).filter(Boolean);
 s.specimenCount=o=>(o&&Array.isArray(o.items)?o.items.length:0);
@@ -961,7 +1063,7 @@ s.isMicrobiologyResult=()=>{
 s.resultEntryStatuses=['accepted','prepared','dispensed','resulted'];
 s.resultEditStatuses=['accepted','prepared','dispensed','resulted','completed'];
 s.canEditManual=i=>!!i&&s.resultEntryStatuses.includes(s.text(i&&i.current_status).toLowerCase());
-s.canEditResultRow=result=>{const item=result&&result._item,status=s.text(item&&item.current_status).toLowerCase(),persisted=/^[a-f0-9]{24}$/i.test(s.text(result&&result.result_item_id));return persisted?s.resultEditStatuses.includes(status):s.canEditManual(item);};
+s.canEditResultRow=result=>{if(result&&result.redacted===true)return false;const item=result&&result._item,status=s.text(item&&item.current_status).toLowerCase(),persisted=/^[a-f0-9]{24}$/i.test(s.text(result&&result.result_item_id));return persisted?s.resultEditStatuses.includes(status):s.canEditManual(item);};
 s.canEditResult=()=>{
   if(s.viewMode==='lookup')return false;
   if(s.isMicrobiologyResult())return false;
@@ -1049,17 +1151,45 @@ s.resultGroupExpanded=(group,index)=>s.resultGroupOpen[s.resultGroupKey(group,in
 s.initResultGroupOpen=()=>{const next={},previous=s.resultGroupOpen||{};let first=true;s.resultGroupsForDisplay().forEach((group,index)=>{if(!s.resultGroupIsProfile(group))return;const key=s.resultGroupKey(group,index);next[key]=Object.prototype.hasOwnProperty.call(previous,key)?previous[key]:first;first=false;});s.resultGroupOpen=next;};
 s.toggleResultGroup=(group,index)=>{const key=s.resultGroupKey(group,index);s.resultGroupOpen={...s.resultGroupOpen,[key]:!s.resultGroupExpanded(group,index)};};
 s.resultProfileCount=()=>s.resultGroupsForDisplay().filter(s.resultGroupIsProfile).length;
+s.mergeResultRevisions=groups=>{
+  const byId={},output=[];
+  (Array.isArray(groups)?groups:[]).forEach(group=>(Array.isArray(group&&group.revisions)?group.revisions:[]).forEach(revision=>{
+    const id=s.text(revision&&revision.revision_id);if(!id)return;
+    if(!byId[id]){byId[id]={...revision,items:[]};byId[id]._itemSeen={};output.push(byId[id]);}
+    (Array.isArray(revision&&revision.items)?revision.items:[]).forEach(item=>{const key=s.text(item&&item.test_code)||JSON.stringify(item);if(byId[id]._itemSeen[key])return;byId[id]._itemSeen[key]=true;byId[id].items.push({...item});});
+  }));
+  output.sort((left,right)=>s.text(right&&right.report_seq).localeCompare(s.text(left&&left.report_seq),undefined,{numeric:true})||s.text(right&&right.received_at).localeCompare(s.text(left&&left.received_at)));
+  output.forEach((revision,index)=>{delete revision._itemSeen;revision.latest=index===0;revision.no=output.length-index;});
+  return output;
+};
+s.resultRevisions=()=>Array.isArray(s.manual&&s.manual.revisions)?s.manual.revisions:[];
+s.resultRevisionCount=()=>s.resultRevisions().length;
+s.selectedResultRevision=()=>s.resultRevisions().find(revision=>s.text(revision&&revision.revision_id)===s.text(s.manual&&s.manual.selectedRevisionId))||s.resultRevisions()[0]||null;
+s.selectResultRevision=revision=>{s.manual={...s.manual,selectedRevisionId:s.text(revision&&revision.revision_id)};};
+s.toggleResultRevisionHistory=()=>{const revisions=s.resultRevisions();if(!revisions.length)return;const open=!s.manual.revisionHistoryOpen;s.manual={...s.manual,revisionHistoryOpen:open,selectedRevisionId:open?s.text(revisions[0]&&revisions[0].revision_id):''};};
+s.revisionStageText=stage=>({partial:'PARTIAL',preliminary:'PRELIMINARY',final:'FINAL',corrected:'CORRECTED',cancelled:'CANCELLED'})[s.text(stage).toLowerCase()]||s.text(stage).toUpperCase()||'-';
 s.setAllResultGroupsExpanded=open=>{const next={...s.resultGroupOpen};s.resultGroupsForDisplay().forEach((group,index)=>{if(!s.resultGroupIsProfile(group))return;next[s.resultGroupKey(group,index)]=open===true;});s.resultGroupOpen=next;};
 s.expandAllResultGroups=()=>s.setAllResultGroupsExpanded(true);
 s.collapseAllResultGroups=()=>s.setAllResultGroupsExpanded(false);
 s.labResultPdfParentIds=()=>{
-  const ids=[],seen={};
-  s.resultGroupsForDisplay().forEach(group=>(Array.isArray(group&&group.results)?group.results:[]).forEach(result=>{
-    const id=s.text(result&&result.result_report_id);
-    if(!/^[a-f0-9]{24}$/i.test(id)||seen[id])return;
-    seen[id]=true;ids.push(id);
-  }));
-  if(!ids.length&&s.resultRowsForDisplay().some(result=>s.text(result&&result.result_value)!=='')){
+  const prepared=s.text(s.manual&&s.manual.pdfParentId);
+  if(/^[a-f0-9]{24}$/i.test(prepared))return [prepared];
+  const rowIds=[],rowSeen={},fallbackIds=[],fallbackSeen={};
+  const add=(target,seen,id)=>{id=s.text(id);if(!/^[a-f0-9]{24}$/i.test(id)||seen[id])return;seen[id]=true;target.push(id);};
+  s.resultGroupsForDisplay().forEach(group=>{
+    (Array.isArray(group&&group.results)?group.results:[]).forEach(result=>add(rowIds,rowSeen,result&&result.result_report_id));
+    add(fallbackIds,fallbackSeen,group&&group.data&&group.data.result_report_id);
+    (Array.isArray(group&&group.data&&group.data.result_report_ids)?group.data.result_report_ids:[]).forEach(id=>add(fallbackIds,fallbackSeen,id));
+  });
+  // Clinical Result Item parents are authoritative. Older API versions reused
+  // data.result_report_id for the attachment container, which made an Order
+  // with one uploaded file look like two printable result sets and disabled
+  // the report button. Locked Sensitive groups have no rows, so they still use
+  // the server-supplied redacted-PDF parent as the fallback.
+  if(rowIds.length)return rowIds;
+  if(fallbackIds.length)return fallbackIds;
+  const ids=[];
+  if(s.resultRowsForDisplay().some(result=>s.text(result&&result.result_value)!=='')){
     const fallback=s.text(s.manual&&s.manual.data&&s.manual.data.result_report_id);
     if(/^[a-f0-9]{24}$/i.test(fallback))ids.push(fallback);
   }
@@ -1072,7 +1202,10 @@ s.labResultPdfReady=()=>{
   if(s.isMicrobiologyResult())return !!MICROBIOLOGY_RESULT_PDF_REPORT_ID;
   return !!(LAB_RESULT_PDF_REPORT_ID&&s.labResultPdfParentId());
 };
-s.labResultPdfParams=()=>s.isMicrobiologyResult()?{}:{xparentx:s.labResultPdfParentId()};
+s.labResultPdfParams=()=>{
+  if(s.isMicrobiologyResult())return {};
+  return {xparentx:s.labResultPdfParentId()};
+};
 s.labResultPdfHint=()=>{
   if(s.manual&&s.manual.loading)return 'กำลังอ่านผลตรวจ';
   if(s.isMicrobiologyResult())return MICROBIOLOGY_RESULT_PDF_REPORT_ID?'พร้อมสร้าง PDF รายงานผล Microbiology':'ยังไม่ได้ตั้งค่า Report Factory สำหรับ Microbiology';
@@ -1145,7 +1278,7 @@ s.resultTestCount=()=>s.resultGroupsForDisplay().length;
 s.resultReporterName=()=>{const names=[],seen={};s.resultRowsForDisplay().forEach(result=>{const name=s.text(result&&result.reported_by_source_name);if(name&&!seen[name]){seen[name]=true;names.push(name);}});const fallback=s.text(s.manual&&s.manual.data&&s.manual.data.reported_by_source_name);if(fallback&&!seen[fallback])names.push(fallback);return names.join(', ');};
 s.resultVerifierName=()=>{const names=[],seen={};s.resultRowsForDisplay().forEach(result=>{const name=s.text(result&&result.verified_by_source_name);if(name&&!seen[name]){seen[name]=true;names.push(name);}});const fallback=s.text(s.manual&&s.manual.data&&s.manual.data.verified_by_source_name);if(fallback&&!seen[fallback])names.push(fallback);return names.join(', ');};
 s.resultReportedAt=()=>{const times=s.resultRowsForDisplay().map(result=>s.text(result&&result.reported_at)||s.text(result&&result.entered_at)).filter(Boolean).sort();return times[times.length-1]||s.text(s.manual&&s.manual.data&&s.manual.data.reported_at);};
-s.hasRecordedResult=()=>s.resultRowsForDisplay().some(result=>s.text(result&&result.result_value)!=='');
+s.hasRecordedResult=()=>s.resultRowsForDisplay().some(result=>(result&&result.redacted===true)||s.text(result&&result.result_value)!=='');
 s.hasPersistedResult=()=>s.resultRowsForDisplay().some(result=>/^[a-f0-9]{24}$/i.test(s.text(result&&result.result_item_id)));
 s.manualCriticalCount=()=>s.resultRowsForDisplay().filter(result=>result&&result.is_critical===true).length;
 s.manualAbnormalCount=()=>s.resultRowsForDisplay().filter(result=>s.resultTone(result)==='is-abnormal').length;
@@ -1159,6 +1292,43 @@ s.standardResultStatusValue=()=>{
   return statuses.length&&statuses.every(value=>['f','final','completed','complete'].includes(value))?'final':'partial';
 };
 s.standardResultStatusText=()=>({final:'Final',partial:'Partial result',pending:'รอผล'})[s.standardResultStatusValue()];
+s.manualFinalizeContexts=()=>{
+  if(!s.manual||!s.manual.orderView||!s.manual.order)return[];
+  const terminal=['cancelled','rejected','returned','reversed'];
+  const items=(Array.isArray(s.manual.order.items)?s.manual.order.items:[]).filter(item=>!terminal.includes(s.text(item&&item.current_status).toLowerCase()));
+  const rows=s.resultRowsForDisplay();
+  return items.map(item=>({item:item,rows:rows.filter(row=>s.text(row&&row._item_id)===s.text(item&&item.item_id))}));
+};
+s.canFinalizeManualResults=()=>{
+  if(s.viewMode!=='today'||!s.manual||!s.manual.orderView||s.manual.loading||s.manual.editing||s.isMicrobiologyResult())return false;
+  if((Array.isArray(s.manual.groups)?s.manual.groups:[]).some(group=>group&&group.load_failed))return false;
+  const contexts=s.manualFinalizeContexts();
+  if(!contexts.length||contexts.every(context=>s.text(context.item&&context.item.current_status).toLowerCase()==='completed'))return false;
+  return contexts.every(context=>{
+    const status=s.text(context.item&&context.item.current_status).toLowerCase();
+    if(!['resulted','completed'].includes(status)||!context.rows.length)return false;
+    return context.rows.every(row=>/^[a-f0-9]{24}$/i.test(s.text(row&&row.result_item_id))&&s.hasResultValue(row)&&s.text(row&&row.result_source).toLowerCase()==='manual');
+  });
+};
+s.finalizeManualResults=async()=>{
+  if(!s.canFinalizeManualResults()||s.manual.finalizing)return;
+  const order=s.manual.order;
+  const sectionCode=s.text(order&&order.section_code)||s.text(s.manual&&s.manual.data&&s.manual.data.section_code);
+  if(!/^[a-f0-9]{24}$/i.test(s.text(order&&order.order_id))||!sectionCode){field.notify('ไม่พบ Order ID หรือ Section สำหรับยืนยันออกผลครบ','error',4000);return;}
+  s.manual={...s.manual,finalizing:true};
+  try{
+    const p=await s.processCall(PROCESS_ID,{action:'finalize_manual_results',organization_code:s.unitCode(),order_id:s.text(order.order_id),section_code:sectionCode});
+    if(!p||p.success===false)throw new Error(s.text(p&&p.message)||'ยืนยันออกผลครบไม่สำเร็จ');
+    const d=p.data||{},completedAt=s.text(d.completed_at),verifiedId=s.text(d.verified_by_source_id),verifiedName=s.text(d.verified_by_source_name)||s.text(d.completed_by),ids=Array.isArray(d.item_ids)?d.item_ids.map(s.text):[];
+    const idLookup={};ids.forEach(id=>{if(id)idLookup[id]=true;});
+    (Array.isArray(order.items)?order.items:[]).forEach(item=>{if(idLookup[s.text(item&&item.item_id)]){item.current_status='completed';item.work_status='completed';item.completed_at=completedAt||item.completed_at;}});
+    s.resultRowsForDisplay().forEach(row=>{if(idLookup[s.text(row&&row._item_id)]){row.result_status='final';row.verified_at=completedAt||row.verified_at;row.verified_by_source_id=verifiedId||row.verified_by_source_id;row.verified_by_source_name=verifiedName||row.verified_by_source_name;}});
+    s.manual={...s.manual,finalizing:false,data:{...s.manual.data,verified_at:completedAt||s.manual.data.verified_at,verified_by_source_id:verifiedId||s.manual.data.verified_by_source_id,verified_by_source_name:verifiedName||s.manual.data.verified_by_source_name}};
+    field.notify(s.text(p.message)||'ยืนยันออกผลครบแล้ว','success',3000);
+    s.refreshCounts();
+  }catch(error){s.manual={...s.manual,finalizing:false};field.notify(s.text(error&&error.message)||'ยืนยันออกผลครบไม่สำเร็จ','error',5000);}
+};
+s.requestFinalizeManualResults=()=>{if(!s.canFinalizeManualResults())return;if(typeof field.confirm==='function')return field.confirm('ยืนยันออกผลครบทุก Item ใน Order นี้?\\nหลังยืนยัน ระบบจะบันทึกผู้ยืนยันและเวลา Final',()=>s.finalizeManualResults(),'warning','ยืนยันออกผลครบ');return s.finalizeManualResults();};
 s.resultHidden=()=>!!(s.manual&&s.manual.data&&s.manual.data.is_hide_result===true);
 s.resultVisibilityActor=()=>s.personName(s.manual&&s.manual.data&&s.manual.data.result_visibility_by);
 s.hasResultValue=result=>s.text(result&&result.result_value)!=='';
@@ -1169,9 +1339,10 @@ s.resultMeasuredClass=result=>s.resultTone(result);
 s.resultInterpretationClass=result=>s.resultTone(result);
 s.editRow=result=>{const row={item_id:s.text(result&&result._item_id),result_item_id:s.text(result&&result.result_item_id),result_value:s.text(result&&result.result_value),unit:s.text(result&&result.unit),interpretation:s.text(result&&result.interpretation),reference_range:s.text(result&&result.reference_range)};return {...row,_initial:[row.result_value,row.unit,row.interpretation,row.reference_range].join('\u001f')};};
 s.editRowChanged=row=>s.text(row&&row._initial)!==[s.text(row&&row.result_value),s.text(row&&row.unit),s.text(row&&row.interpretation),s.text(row&&row.reference_range)].join('\u001f');
-s.resetManual=()=>{s.manual={visible:false,loading:false,saving:false,uploading:false,editing:false,orderView:false,item:null,order:null,data:s.emptyResultData(),groups:[],editRows:[],editMap:{},attachments:[]};s.resultUploadReservations={};s.resultUploadPersistPending=0;s.resultUploadBatchSucceeded=0;s.resultUploadBatchFailed=0;s.resultUploadQueue=Promise.resolve();s.resultGroupOpen={};s.microGroupOpen={};s.microUnmatchedOpen=true;};
-s.startManualEdit=()=>{if(!s.canEditResult())return;const editRows=[],editMap={};s.resultRowsForDisplay().forEach(result=>{if(!s.canEditResultRow(result))return;const row=s.editRow(result);editRows.push(row);editMap[result._edit_key]=row;});s.manual={...s.manual,editing:true,editRows:editRows,editMap:editMap};};
-s.cancelResultEdit=()=>{s.manual={...s.manual,editing:false,editRows:[],editMap:{}};};
+s.correctionReasonRequired=()=>s.manual.editRows.some(row=>s.editRowChanged(row)&&/^[a-f0-9]{24}$/i.test(s.text(row&&row.result_item_id)));
+s.resetManual=()=>{s.manual={visible:false,loading:false,saving:false,finalizing:false,uploading:false,editing:false,orderView:false,item:null,order:null,data:s.emptyResultData(),groups:[],editRows:[],editMap:{},attachments:[],pdfParentId:'',correctionReason:'',revisions:[],revisionHistoryOpen:false,selectedRevisionId:''};s.resultUploadReservations={};s.resultUploadPersistPending=0;s.resultUploadBatchSucceeded=0;s.resultUploadBatchFailed=0;s.resultUploadQueue=Promise.resolve();s.resultGroupOpen={};s.microGroupOpen={};s.microUnmatchedOpen=true;};
+s.startManualEdit=()=>{if(!s.canEditResult())return;const editRows=[],editMap={};s.resultRowsForDisplay().forEach(result=>{if(!s.canEditResultRow(result))return;const row=s.editRow(result);editRows.push(row);editMap[result._edit_key]=row;});s.manual={...s.manual,editing:true,editRows:editRows,editMap:editMap,correctionReason:'',revisionHistoryOpen:false,selectedRevisionId:''};};
+s.cancelResultEdit=()=>{s.manual={...s.manual,editing:false,editRows:[],editMap:{},correctionReason:''};};
 s.toggleResultEdit=()=>{if(s.manual.editing)s.cancelResultEdit();else s.startManualEdit();};
 s.resetVisibilityDialog=()=>{s.visibilityDialog={visible:false,loading:false,targetHidden:true,reason:''};};
 s.openResultVisibilityDialog=()=>{
@@ -1183,7 +1354,7 @@ s.openItemResultVisibility=async(item,order)=>{
   if(s.viewMode==='lookup'){field.notify('โหมดสืบค้นเป็นแบบอ่านอย่างเดียว','warning',3000);return;}
   if(!s.canViewResult(item)){field.notify('สถานะ Item นี้ไม่อนุญาตให้เปลี่ยนการมองเห็นผล','warning',3000);return;}
   const fallback=s.resultContext(item,order);
-  s.manual={...s.manual,visible:false,loading:true,uploading:false,editing:false,orderView:false,item:item,order:order,data:fallback,groups:[],editRows:[],editMap:{},attachments:[]};
+  s.manual={...s.manual,visible:false,loading:true,uploading:false,editing:false,orderView:false,item:item,order:order,data:fallback,groups:[],editRows:[],editMap:{},attachments:[],correctionReason:''};
   s.visibilityDialog={visible:false,loading:true,targetHidden:!s.resultHiddenItem(item),reason:''};
   try{
     const p=await s.processCall(PROCESS_ID,{action:'get_manual_result',organization_code:s.unitCode(),item_id:s.text(item&&item.item_id)});
@@ -1199,7 +1370,6 @@ s.submitResultVisibility=async()=>{
   if(s.viewMode==='lookup'){field.notify('โหมดสืบค้นเป็นแบบอ่านอย่างเดียว','warning',3000);return;}
   const item=s.manual&&s.manual.item,reason=s.text(s.visibilityDialog&&s.visibilityDialog.reason);
   if(!item||!s.hasPersistedResult()){field.notify('ไม่พบผลตรวจที่ต้องการเปลี่ยนการมองเห็น','error',3500);return;}
-  if(reason.length<3){field.notify('กรุณาระบุเหตุผลอย่างน้อย 3 ตัวอักษร','warning',3200);return;}
   const hidden=s.visibilityDialog.targetHidden===true;
   s.visibilityDialog={...s.visibilityDialog,loading:true};
   try{
@@ -1266,7 +1436,7 @@ s.persistResultAttachments=async(attachments,change)=>{
   if(!p||p.success===false)throw new Error(s.text(p&&p.message)||'บันทึกไฟล์แนบไม่สำเร็จ');
   const saved=Array.isArray(p.data&&p.data.result_attachments)?p.data.result_attachments:attachments;
   const visible=change&&change.preserveNewer?s.uniqueAttachments([...saved,...s.manual.attachments]):saved;
-  s.manual={...s.manual,uploading:change&&change.keepUploading===true,attachments:visible,data:{...s.manual.data,result_report_id:s.text(p.data&&p.data.result_report_id)||s.manual.data.result_report_id,result_attachments:visible}};
+  s.manual={...s.manual,uploading:change&&change.keepUploading===true,attachments:visible,data:{...s.manual.data,result_report_id:s.text(p.data&&p.data.result_report_id)||s.manual.data.result_report_id,attachment_report_id:s.text(p.data&&p.data.attachment_report_id)||s.manual.data.attachment_report_id,result_attachments:visible}};
   if(!(change&&change.silent))field.notify(operation==='remove'?'นำไฟล์ออกจากผลตรวจแล้ว':'อัปโหลดและบันทึกไฟล์แนบแล้ว','success',2800);
   return saved;
 };
@@ -1314,7 +1484,9 @@ s.resultGroup=(item,order,data)=>{
     reported_at:s.text(d.reported_at)||fallback.reported_at,
     results:Array.isArray(d.results)?d.results:[]
   };
-  return {item_id:s.text(item&&item.item_id),test_code:merged.test_code,test_name:merged.test_name,panel:item&&item.panel&&typeof item.panel==='object'?item.panel:{},data:merged,results:s.resultRowsWithEditKeys(item,s.resultRowsFromData(merged)),unmatched_receipts:Array.isArray(d.unmatched_receipts)?d.unmatched_receipts:[],attachments:Array.isArray(d.result_attachments)?d.result_attachments:[],load_failed:false};
+  const sensitiveLocked=d.sensitive_locked===true;
+  const displayRows=s.resultRowsFromData(merged);
+  return {item_id:s.text(item&&item.item_id),test_code:merged.test_code,test_name:merged.test_name,panel:item&&item.panel&&typeof item.panel==='object'?item.panel:{},data:merged,results:sensitiveLocked?[]:s.resultRowsWithEditKeys(item,displayRows),revisions:sensitiveLocked?[]:(Array.isArray(d.result_revisions)?d.result_revisions:[]),unmatched_receipts:Array.isArray(d.unmatched_receipts)?d.unmatched_receipts:[],attachments:sensitiveLocked?[]:(Array.isArray(d.result_attachments)?d.result_attachments:[]),sensitive_locked:sensitiveLocked,reauth_required:d.reauth_required===true,load_failed:false};
 };
 s.groupOrderResultGroups=groups=>{
   const grouped=[],byKey={};
@@ -1323,10 +1495,11 @@ s.groupOrderResultGroups=groups=>{
     const parentCode=s.text(panel.set_code)||s.text(panel.parent_code);
     const sectionCode=s.text(group&&group.data&&group.data.section_code).toUpperCase();
     const panelGroupingAllowed=sectionCode!=='MB';
-    const key=panelGroupingAllowed&&parentCode?'panel:'+parentCode:'item:'+s.text(group&&group.item_id);
-    const parentName=panelGroupingAllowed&&(s.text(panel.set_name)||s.text(panel.parent_name))||s.text(group&&group.test_name)||'-';
+    const sensitiveLocked=group&&group.sensitive_locked===true;
+    const key=!sensitiveLocked&&panelGroupingAllowed&&parentCode?'panel:'+parentCode:'item:'+s.text(group&&group.item_id);
+    const parentName=!sensitiveLocked&&panelGroupingAllowed&&(s.text(panel.set_name)||s.text(panel.parent_name))||s.text(group&&group.test_name)||'-';
     if(!byKey[key]){
-      byKey[key]={...group,group_key:key,test_code:panelGroupingAllowed&&parentCode||s.text(group&&group.test_code),test_name:parentName,item_ids:[s.text(group&&group.item_id)].filter(Boolean),results:Array.isArray(group&&group.results)?group.results.slice():[],unmatched_receipts:Array.isArray(group&&group.unmatched_receipts)?group.unmatched_receipts.slice():[],attachments:Array.isArray(group&&group.attachments)?group.attachments.slice():[]};
+      byKey[key]={...group,group_key:key,test_code:panelGroupingAllowed&&parentCode||s.text(group&&group.test_code),test_name:parentName,item_ids:[s.text(group&&group.item_id)].filter(Boolean),results:Array.isArray(group&&group.results)?group.results.slice():[],unmatched_receipts:Array.isArray(group&&group.unmatched_receipts)?group.unmatched_receipts.slice():[],attachments:Array.isArray(group&&group.attachments)?group.attachments.slice():[],sensitive_locked:group&&group.sensitive_locked===true};
       grouped.push(byKey[key]);
       return;
     }
@@ -1335,6 +1508,7 @@ s.groupOrderResultGroups=groups=>{
     target.results=target.results.concat(Array.isArray(group&&group.results)?group.results:[]);
     target.unmatched_receipts=target.unmatched_receipts.concat(Array.isArray(group&&group.unmatched_receipts)?group.unmatched_receipts:[]);
     target.attachments=target.attachments.concat(Array.isArray(group&&group.attachments)?group.attachments:[]);
+    target.sensitive_locked=target.sensitive_locked||!!(group&&group.sensitive_locked);
     target.load_failed=target.load_failed||!!(group&&group.load_failed);
   });
   return grouped;
@@ -1342,20 +1516,21 @@ s.groupOrderResultGroups=groups=>{
 s.openResult=async(item,order,startEdit)=>{
   if(!s.canViewResult(item)){field.notify('สถานะ Item นี้ไม่อนุญาตให้เปิดผลตรวจ','warning',3000);return;}
   const fallback=s.resultContext(item,order);
-  s.manual={...s.manual,visible:true,loading:true,uploading:false,editing:false,orderView:false,item:item,order:order,data:fallback,groups:[],editRows:[],editMap:{},attachments:[]};
+  s.manual={...s.manual,visible:true,loading:true,saving:false,finalizing:false,uploading:false,editing:false,orderView:false,item:item,order:order,data:fallback,groups:[],editRows:[],editMap:{},attachments:[],correctionReason:'',revisions:[],revisionHistoryOpen:false,selectedRevisionId:''};
   try{
     const p=await s.processCall(PROCESS_ID,{action:'get_manual_result',organization_code:s.unitCode(),item_id:s.text(item.item_id)});
     if(!p||p.success===false){s.manual={...s.manual,loading:false};field.notify((p&&p.message)||'อ่านผลตรวจไม่สำเร็จ','error',4000);return;}
     const d=p.data||{};
     const group=s.resultGroup(item,order,d);
-    s.manual={...s.manual,loading:false,data:group.data,attachments:group.attachments};
+    s.manual={...s.manual,loading:false,data:group.data,attachments:group.attachments,revisions:s.mergeResultRevisions([group])};
     if(startEdit)s.startManualEdit();
   }catch(error){s.manual={...s.manual,loading:false};field.notify(s.text(error&&error.message)||'อ่านผลตรวจไม่สำเร็จ','error',4000);}
 };
 s.loadOrderResultGroup=async(item,order)=>{
   const fallback=s.resultGroup(item,order,{});
   try{
-    const p=await s.processCall(PROCESS_ID,{action:'get_manual_result',organization_code:s.unitCode(),item_id:s.text(item.item_id)});
+    const request={action:'get_manual_result',organization_code:s.unitCode(),item_id:s.text(item.item_id)};
+    const p=await s.processCall(PROCESS_ID,request);
     if(!p||p.success===false)return {...fallback,load_failed:true};
     return s.resultGroup(item,order,p.data||{});
   }catch(error){return {...fallback,load_failed:true};}
@@ -1364,13 +1539,23 @@ s.openOrderResults=async order=>{
   const items=s.resultItems(order);
   if(!items.length){field.notify('ไม่มีรายการผลตรวจใน Order นี้','warning',3000);return;}
   const fallback=s.resultContext(items[0],order);
-  s.manual={...s.manual,visible:true,loading:true,uploading:false,editing:false,orderView:true,item:null,order:order,data:fallback,groups:[],editRows:[],editMap:{},attachments:[]};
+  s.manual={...s.manual,visible:true,loading:true,saving:false,finalizing:false,uploading:false,editing:false,orderView:true,item:null,order:order,data:fallback,groups:[],editRows:[],editMap:{},attachments:[],pdfParentId:'',correctionReason:'',revisions:[],revisionHistoryOpen:false,selectedRevisionId:''};
   const loadedGroups=await Promise.all(items.map(item=>s.loadOrderResultGroup(item,order)));
   if(!s.manual.visible||!s.manual.orderView||s.manual.order!==order)return;
   const groups=s.groupOrderResultGroups(loadedGroups);
   const attachments=s.uniqueAttachments(loadedGroups.reduce((all,group)=>all.concat(Array.isArray(group&&group.attachments)?group.attachments:[]),[]));
   const firstData=groups[0]&&groups[0].data||fallback;
-  s.manual={...s.manual,loading:false,data:{...fallback,...firstData,results:[]},groups:groups,attachments:attachments};
+  let pdfParentId='';
+  if(s.viewMode==='today'&&!groups.some(group=>group.sensitive_locked)&&!s.isMicrobiologyItem(items[0])&&loadedGroups.some(group=>(group.results||[]).some(result=>s.text(result&&result.result_value)!==''))){
+    try{
+      const pdfRequest={action:'prepare_result_pdf',organization_code:s.unitCode(),item_id:s.text(items[0].item_id),request_id:'lab-pdf-'+Date.now()+'-'+Math.random().toString(36).slice(2,9)};
+      const prepared=await s.processCall(PROCESS_ID,pdfRequest);
+      if(prepared&&prepared.success!==false){
+        pdfParentId=s.text(prepared.data&&prepared.data.result_report_id);
+      }
+    }catch(error){}
+  }
+  s.manual={...s.manual,loading:false,saving:false,data:{...fallback,...firstData,results:[]},groups:groups,attachments:attachments,pdfParentId:pdfParentId,revisions:s.mergeResultRevisions(loadedGroups),revisionHistoryOpen:false,selectedRevisionId:''};
   s.initResultGroupOpen();
   const failed=loadedGroups.filter(group=>group.load_failed).length;
   if(failed)field.notify('มี '+failed+' รายการที่อ่านผลไม่สำเร็จ จึงแสดงข้อมูลจาก Order แทน','warning',4500);
@@ -1383,14 +1568,16 @@ s.saveResult=async()=>{
   try{
     const rows=s.manual.editRows.filter(s.editRowChanged).map(row=>({...row}));
     if(!rows.length)throw new Error('ไม่มีค่าผลที่เปลี่ยนแปลง');
+    const correctionReason=s.text(s.manual&&s.manual.correctionReason).trim();
+    const correctionRequestId='lab-result-correction-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10);
     const byItem={};
     rows.forEach(row=>{const itemId=s.text(row&&row.item_id)||s.text(item&&item.item_id);if(!itemId)return;(byItem[itemId]=byItem[itemId]||[]).push(row);});
     let lastData={};
     for(const itemId of Object.keys(byItem)){
       const itemRows=byItem[itemId],persisted=itemRows.every(row=>/^[a-f0-9]{24}$/i.test(s.text(row&&row.result_item_id)));
       const request=persisted
-        ?{action:'save_result_edits',organization_code:s.unitCode(),item_id:itemId,results:itemRows}
-        :{action:'save_manual_result',organization_code:s.unitCode(),item_id:itemId,manual_result:{...(itemRows[0]||{})}};
+        ?{action:'save_result_edits',organization_code:s.unitCode(),item_id:itemId,results:itemRows,correction_reason:correctionReason,request_id:correctionRequestId}
+        :{action:'save_manual_result',organization_code:s.unitCode(),item_id:itemId,manual_result:{...(itemRows[0]||{})},correction_reason:correctionReason,request_id:correctionRequestId};
       const p=await s.processCall(PROCESS_ID,request);
       if(!p||p.success===false)throw new Error(s.text(p&&p.message)||'บันทึกผลไม่สำเร็จ');
       const d=p.data||{};lastData=d;
@@ -1398,14 +1585,15 @@ s.saveResult=async()=>{
       const target=targetItems.find(candidate=>s.text(candidate&&candidate.item_id)===itemId)||(!orderView?item:null);
       if(target&&d.result_status==='entered'){target.current_status='resulted';target.resulted_at=s.text(d.entered_at)||target.resulted_at;}
     }
-    if(orderView){await s.openOrderResults(order);}else{s.manual={...s.manual,saving:false,editing:false,editRows:[],editMap:{},data:{...s.manual.data,...lastData,results:Array.isArray(lastData.results)?lastData.results:s.manual.data.results}};}
+    if(orderView){await s.openOrderResults(order);}else{s.manual={...s.manual,saving:false,editing:false,editRows:[],editMap:{},correctionReason:'',data:{...s.manual.data,...lastData,results:Array.isArray(lastData.results)?lastData.results:s.manual.data.results}};}
     field.notify(orderView?'บันทึกผลระดับ Order แล้ว '+Object.keys(byItem).length+' Item':'บันทึกผลแล้ว','success',2600);
     s.refreshCounts();
   }catch(error){s.manual={...s.manual,saving:false};field.notify(s.text(error&&error.message)||'บันทึกผลไม่สำเร็จ','error',4500);}
 };
-s.requestSaveResult=()=>{if(s.viewMode==='lookup'){field.notify('โหมดสืบค้นเป็นแบบอ่านอย่างเดียว','warning',3000);return;}if(typeof field.confirm==='function')return field.confirm('ยืนยันบันทึกผลที่แก้ไข?\\nระบบจะเก็บผู้แก้ไขและเวลาล่าสุด โดยไม่เปลี่ยนค่า Critical ที่ Agent/LIS ส่งมา',()=>s.saveResult(),'warning','ยืนยันการบันทึกผลตรวจ');return s.saveResult();};
+s.requestSaveResult=()=>{if(s.viewMode==='lookup'){field.notify('โหมดสืบค้นเป็นแบบอ่านอย่างเดียว','warning',3000);return;}if(typeof field.confirm==='function')return field.confirm('ยืนยันบันทึกผลที่แก้ไข?\\nผลเดิมจะถูกเก็บเป็นประวัติแบบ append-only โดยไม่เปลี่ยนค่า Critical ที่ Agent/LIS ส่งมา',()=>s.saveResult(),'warning','ยืนยันการบันทึกผลตรวจ');return s.saveResult();};
 s.setSpecimen=async(item,value)=>{
   if(s.viewMode==='lookup'){field.notify('โหมดสืบค้นเป็นแบบอ่านอย่างเดียว','warning',3000);return;}
+  if(s.isImmunologyItem(item)){field.notify('ห้องภูมิคุ้มกันล็อก specimen ตามรายการสั่งตรวจ จึงเปลี่ยนไม่ได้','warning',3000);return;}
   const id=s.text(item&&item.item_id);
   const code=s.text(value).toUpperCase();
   if(!id||!code||s.specimenSaving[id])return;
@@ -1743,7 +1931,7 @@ s.receiveSelected=order=>{
   return s.performReceive(order,items);
 };
 
-s.rejectSelected=order=>{
+s.rejectSelected=async order=>{
   if(s.viewMode==='lookup'){field.notify('โหมดสืบค้นเป็นแบบอ่านอย่างเดียว','warning',3000);return;}
   const items=s.selectedItems(order);
   if(items.length!==1){field.notify('กรุณาเลือก LAB Item ใน Order นี้ที่ต้องการปฏิเสธ 1 รายการ','warning',3000);return;}
@@ -1752,7 +1940,9 @@ s.rejectSelected=order=>{
   if(!order||!(Array.isArray(order.items)&&order.items.some(row=>s.text(row&&row.item_id)===s.text(item.item_id)))){field.notify('Item ที่เลือกไม่ตรงกับ Order นี้','error',3500);return;}
   const form=field.getFormRef&&field.getFormRef();
   if(!form||typeof form.openForm!=='function'){field.notify('ไม่พบตัวเปิดฟอร์มเหตุผลการปฏิเสธ','error',3500);return;}
-  const itemId=s.text(item.item_id),orderId=s.text(order.order_id),orderNumber=s.text(order.order_number),sectionCode=s.text(item.section&&item.section.code).toUpperCase();
+  const itemId=s.text(item.item_id),orderId=s.text(order.order_id),orderNumber=s.text(order.order_number),sectionCode=(s.text(item.section&&item.section.code)||s.reportSectionCode(order)).toUpperCase();
+  const reasonOptions=await s.loadReasonOptions('SPECIMEN_REJECT',sectionCode);
+  if(!reasonOptions.length){field.notify('ห้อง LAB นี้ยังไม่มีเหตุผลปฏิเสธสิ่งส่งตรวจที่เปิดใช้งาน','warning',4500);return;}
   const patientHn=s.text(order.patient&&order.patient.hn),patientName=s.patientName(order);
   const itemSnapshot=[{source_item_id:itemId,item_code:s.text(item.item_code),item_name:s.text(item.item_name),section_code:sectionCode,specimen:item.specimen||{}}];
   const initData={
@@ -1771,7 +1961,7 @@ s.rejectSelected=order=>{
     rejection_status:'recorded'
   };
   form.openForm(REJECTION_FORM_ID,null,null,initData,{
-    params:Object.assign({},form.formParams||{},{from:'lab-cpoe-worklist',item_id:itemId,order_id:orderId,order_number:orderNumber,section_code:sectionCode}),
+    params:Object.assign({},form.formParams||{},{from:'lab-cpoe-worklist',item_id:itemId,order_id:orderId,order_number:orderNumber,section_code:sectionCode,reason_options:reasonOptions}),
     popupType:'dialog',backdrop:false,
     beforeSaveCallback:()=>({source_order_id:itemId,order_group_id:orderNumber||orderId,lab_section:sectionCode,rejection_status:'recorded'}),
     afterSaveCallback:async saved=>{
@@ -1797,7 +1987,7 @@ s.rejectSelected=order=>{
   });
 };
 
-s.resetCancelDialog=()=>{if(s.cancelDialog.loading)return;s.cancelDialog={visible:false,loading:false,order:null,reason:''};};
+s.resetCancelDialog=()=>{if(s.cancelDialog.loading)return;s.cancelDialog=s.emptyCancelDialog();};
 s.resetItemRetestDialog=()=>{if(s.itemRetestDialog.loading)return;s.itemRetestDialog={visible:false,loading:false,order:null,item:null,reasonCode:'',reasonDetail:''};};
 s.itemRetestReason=()=>{
   const code=s.text(s.itemRetestDialog.reasonCode),label=ITEM_RETEST_REASON_LABELS[code]||code,detail=s.text(s.itemRetestDialog.reasonDetail);
@@ -1830,22 +2020,61 @@ s.submitItemRetest=async()=>{
     s.loadOrders();s.refreshCounts();
   }catch(error){s.itemRetestDialog={...s.itemRetestDialog,loading:false};field.notify(s.text(error&&error.message)||'เรียก API เปิดตรวจใหม่ไม่สำเร็จ','error',6500);}
 };
-s.openCancelOrder=order=>{
+s.cancelFinanceClass=()=>{
+  if(s.cancelDialog.financeLoading)return 'is-checking';
+  if(!s.cancelDialog.financeChecked)return 'is-unknown';
+  return s.cancelDialog.canCancel?'is-ready':'is-blocked';
+};
+s.cancelFinanceTitle=()=>{
+  if(s.cancelDialog.financeLoading)return 'กำลังตรวจสอบสถานะการเงิน';
+  const status=s.text(s.cancelDialog.financeStatus);
+  if(status==='not_billed')return 'ยังไม่ส่งการเงิน';
+  if(status==='unpaid')return 'ยังไม่ชำระเงิน';
+  if(status==='receipt_withdrawn')return 'ถอนใบเสร็จแล้ว';
+  if(status==='paid_receipt_active')return 'ชำระเงินแล้ว — ยังยกเลิกไม่ได้';
+  if(status==='review_required')return 'ต้องให้การเงินตรวจสอบ';
+  return 'สถานะการเงิน';
+};
+s.applyCancelFinance=payload=>{
+  const d=payload&&payload.data||{},ok=payload&&payload.success!==false&&d.can_cancel===true;
+  s.cancelDialog={...s.cancelDialog,financeLoading:false,financeChecked:true,financeStatus:s.text(d.finance_status)||'review_required',financeMessage:s.text(d.finance_message||payload&&payload.message)||'ตรวจสอบสถานะการเงินไม่สำเร็จ',canCancel:ok,receiptNumbers:Array.isArray(d.receipt_numbers)?d.receipt_numbers:[]};
+};
+s.checkCancelFinance=async()=>{
+  const order=s.cancelDialog.order;
+  if(!order)return;
+  const sectionCode=s.reportSectionCode(order);
+  if(!sectionCode){s.applyCancelFinance({success:false,message:'ไม่พบ Section ของแถว Order'});return;}
+  s.cancelDialog={...s.cancelDialog,financeLoading:true,financeChecked:false,canCancel:false,financeMessage:'กำลังตรวจสอบ Bill และใบเสร็จล่าสุด',receiptNumbers:[]};
+  try{
+    const p=await s.processCall(PROCESS_ID,{action:'check_cancel_finance',organization_code:s.unitCode(),section_codes:[sectionCode],order_id:s.text(order.order_id),order_number:s.text(order.order_number)});
+    s.applyCancelFinance(p||{success:false,message:'ไม่พบผลตรวจสอบสถานะการเงิน'});
+  }catch(error){s.applyCancelFinance({success:false,message:s.text(error&&error.message)||'เรียกตรวจสอบสถานะการเงินไม่สำเร็จ'});}
+};
+s.openCancelOrder=async order=>{
   if(s.viewMode==='lookup'){field.notify('โหมดสืบค้นเป็นแบบอ่านอย่างเดียว','warning',3000);return;}
-  if(!s.canCancelOrder(order)){field.notify('ยกเลิก Section นี้ได้เฉพาะรายการที่ยังรอรับหรือรับแล้วแต่ยังไม่ส่ง Agent/LIS','warning',4500);return;}
-  if(!s.reportSectionCode(order)){field.notify('ไม่พบ Section ของแถว Order จึงยกเลิกไม่ได้','warning',4500);return;}
+  if(!s.canCancelOrder(order)){field.notify('ยกเลิก Section นี้ได้เฉพาะรายการที่ยังรอรับหรือรับแล้วและยังไม่มีผลตรวจ','warning',4500);return;}
+  const sectionCode=s.reportSectionCode(order);
+  if(!sectionCode){field.notify('ไม่พบ Section ของแถว Order จึงยกเลิกไม่ได้','warning',4500);return;}
+  const reasonOptions=await s.loadReasonOptions('ORDER_CANCEL',sectionCode);
+  if(!reasonOptions.length){field.notify('ห้อง LAB นี้ยังไม่มีเหตุผลยกเลิก Order ที่เปิดใช้งาน','warning',4500);return;}
   s.selected={};
-  s.cancelDialog={visible:true,loading:false,order:order,reason:''};
+  s.cancelDialog={...s.emptyCancelDialog(),visible:true,order:order};
+  await s.checkCancelFinance();
 };
 s.submitCancelOrder=async()=>{
-  const order=s.cancelDialog.order,reasonCode=s.text(s.cancelDialog.reason),reason=REJECT_REASON_LABELS[reasonCode]||reasonCode;
+  const order=s.cancelDialog.order,reasonCode=s.text(s.cancelDialog.reason),reason=s.cancelReasonLabels[reasonCode]||reasonCode;
   if(!order){field.notify('ไม่พบ Order ที่ต้องการยกเลิก','error',3500);return;}
+  if(!s.cancelDialog.financeChecked||!s.cancelDialog.canCancel){field.notify('กรุณาตรวจสอบสถานะการเงินให้ผ่านก่อนยกเลิก','warning',4500);return;}
   if(!reason){field.notify('กรุณาระบุเหตุผลการยกเลิก Order','warning',3500);return;}
   if(s.cancelDialog.loading)return;
   s.cancelDialog={...s.cancelDialog,loading:true};
   try{
     const p=await s.processCall(PROCESS_ID,{action:'cancel_order',organization_code:s.unitCode(),section_codes:[s.reportSectionCode(order)],order_id:s.text(order.order_id),order_number:s.text(order.order_number),cancel_reason:reason});
-    if(!p||p.success===false){s.cancelDialog={...s.cancelDialog,loading:false};field.notify((p&&p.message)||'ยกเลิก LAB Order ไม่สำเร็จ','error',5500);return;}
+    if(!p||p.success===false){
+      s.cancelDialog={...s.cancelDialog,loading:false};
+      if(p&&['finance_receipt_active','finance_state_unknown','finance_item_sync_failed'].includes(s.text(p.error))){s.applyCancelFinance(p);}
+      field.notify((p&&p.message)||'ยกเลิก LAB Order ไม่สำเร็จ','error',6500);return;
+    }
     const d=p.data||{},terminal=['cancelled','rejected','returned','reversed'];
     (Array.isArray(order.items)?order.items:[]).forEach(item=>{
       if(terminal.includes(s.text(item&&item.current_status).toLowerCase()))return;
@@ -1853,7 +2082,7 @@ s.submitCancelOrder=async()=>{
       item.cancel_type=s.text(d.cancel_type)||'lab_order_cancelled';item.cancel_reason=s.text(d.cancel_reason)||reason;
       item.cancelled_at=s.text(d.cancelled_at);item.cancelled_by=d.cancelled_by||'';
     });
-    s.cancelDialog={visible:false,loading:false,order:null,reason:''};
+    s.cancelDialog=s.emptyCancelDialog();
     field.notify(p.message||'ยกเลิก LAB Order แล้ว',d.audit_sync_pending?'warning':'success',d.audit_sync_pending?5000:3200);
     s.loadOrders();s.refreshCounts();
   }catch(error){s.cancelDialog={...s.cancelDialog,loading:false};field.notify(s.text(error&&error.message)||'เรียก API ยกเลิก Order ไม่สำเร็จ','error',5500);}
@@ -1916,6 +2145,10 @@ s.createOrderVisitContext=visit=>{
     visit_id:s.text(visit&&visit._id||visit&&visit.value),
     vn:s.text(visit&&visit.vn),
     visit_type:s.text(visit&&visit.visit_type),
+    an:s.text(visit&&visit.an),
+    encounter_class:s.text(visit&&visit.an)?'IPD':'OPD',
+    ward:s.text(visit&&visit.ward),
+    bed:s.text(visit&&visit.bed),
     visit_datetime:s.text(visit&&visit.visit_date||visit&&visit.created_at),
     visit_clinic:s.text(visit&&visit.visit_clinic),
     visit_doctor:s.text(visit&&visit.visit_doctor),
@@ -1936,7 +2169,8 @@ s.openCreateOrder=async()=>{
     source:'lab-worklist',
     lab_scope:true,
     organization_code:s.unitCode(),
-    section_codes:sectionCodes
+    section_codes:sectionCodes,
+    on_order_sent:()=>{s.page={...s.page,current:1};s.refreshWorklist();}
   });
   const hn=s.createOrderSearchHn();
   if(hn){
@@ -1970,6 +2204,32 @@ s.processCall=(id,params)=>new Promise((resolve,reject)=>{
   api.runProcess(id,params||{},out=>resolve(s.extractProcess(out)),error=>reject(error||new Error('เรียก API Process ไม่สำเร็จ')));
 });
 s.unitCode=()=>{const user=field.globalUserState&&field.globalUserState.user;return s.text(user&&user.unit&&user.unit.code).toUpperCase();};
+s.normalizeReasonOptions=rows=>(Array.isArray(rows)?rows:[]).map(row=>({value:s.text(row&&row.value),label:s.text(row&&row.label)})).filter(row=>row.value&&row.label);
+s.applyReasonOptions=(reasonType,options)=>{
+  const clean=s.normalizeReasonOptions(options),labels=Object.fromEntries(clean.map(option=>[option.value,option.label]));
+  if(reasonType==='SPECIMEN_REJECT'){
+    s.rejectReasonOptions=clean;
+    s.rejectReasonLabels={...s.rejectReasonLabels,...labels};
+  }else if(reasonType==='ORDER_CANCEL'){
+    s.cancelReasonOptions=clean;
+    s.cancelReasonLabels={...s.cancelReasonLabels,...labels};
+  }
+  return clean;
+};
+s.loadReasonOptions=async(reasonType,sectionCode)=>{
+  const type=s.text(reasonType).toUpperCase(),section=s.text(sectionCode).toUpperCase();
+  const fallback=type==='SPECIMEN_REJECT'?REJECT_REASON_OPTIONS:CANCEL_REASON_OPTIONS;
+  const key=type+'|'+(section||'ALL');
+  if(Object.prototype.hasOwnProperty.call(s.reasonOptionCache,key))return s.applyReasonOptions(type,s.reasonOptionCache[key]);
+  try{
+    const p=await s.processCall(PROCESS_ID,{action:'get_reason_options',organization_code:s.unitCode(),section_codes:section?[section]:[],reason_section_code:section,reason_type:type});
+    const rows=p&&p.success!==false&&p.data&&Array.isArray(p.data.options)?p.data.options:null;
+    if(rows===null)return s.applyReasonOptions(type,fallback);
+    const clean=s.normalizeReasonOptions(rows);
+    s.reasonOptionCache={...s.reasonOptionCache,[key]:clean};
+    return s.applyReasonOptions(type,clean);
+  }catch(error){return s.applyReasonOptions(type,fallback);}
+};
 s.params=(statuses,limit,page,lookupModeOverride)=>{
   const scopedStatuses=Array.isArray(statuses)?statuses:[];
   const p={statuses:scopedStatuses,page:page||s.page.current,limit:limit||s.page.size,organization_code:s.unitCode()};
@@ -1996,7 +2256,8 @@ s.call=(params,ok,fail)=>{s.processCall(PROCESS_ID,params).then(p=>{if(p&&p.succ
 s.refreshLookupCounts=()=>{if(s.viewMode!=='lookup'||!s.lookupSearched)return;const seq=++s.countSeq;['results','orders'].forEach(mode=>{const p=s.params(s.lookupStatusMap[mode],1,1,mode);p.include_specimens=false;s.call(p,payload=>{if(seq!==s.countSeq)return;s.lookupCounts={...s.lookupCounts,[mode]:Number(payload.total||0)};},()=>{});});};
 s.refreshCbcSwapCount=()=>{if(!s.canUseCbcSwap())return;const seq=++s.cbcCountSeq;const dates=s.todayFilters&&s.todayFilters.dates;const p={action:'list_cbc_swap',organization_code:s.unitCode(),page:1,limit:1};if(dates&&dates.length===2){p.date_from=dates[0];p.date_to=dates[1];}s.call(p,payload=>{if(seq!==s.cbcCountSeq)return;s.cbcSwapCount=Number(payload.total||0);},()=>{});};
 s.refreshCounts=()=>{if(s.viewMode==='lookup'){s.refreshLookupCounts();return;}if(s.viewMode==='cbc_swap'){s.refreshCbcSwapCount();return;}const seq=++s.countSeq;s.statusFilters.forEach(filter=>{const p=s.params(s.statusMap[filter.key],1,1);p.include_specimens=false;s.call(p,payload=>{if(seq!==s.countSeq)return;s.counts={...s.counts,[filter.key]:Number(payload.total||0)};},()=>{});});s.refreshCbcSwapCount();};
-s.loadOrders=()=>{if(s.viewMode==='lookup'&&!s.lookupSearched){s.loading=false;s.errorMessage='';s.orders=[];s.page={...s.page,current:1,total:0};return;}const seq=++s.loadSeq;s.loading=true;s.errorMessage='';s.selected={};s.specimenEdits={};const statuses=s.viewMode==='lookup'?s.lookupStatusMap[s.lookupMode]:(s.viewMode==='cbc_swap'?[]:s.statusMap[s.statusKey]);s.call(s.params(statuses),payload=>{if(seq!==s.loadSeq)return;s.orders=payload.orders||[];s.specimenMasterOptions=Array.isArray(payload.specimen_options)?payload.specimen_options:[];s.allowedSectionCodes=Array.isArray(payload.section_codes)?payload.section_codes.map(code=>s.text(code).toUpperCase()).filter(Boolean):[];s.page={...s.page,current:Number(payload.page||s.page.current),size:Number(payload.limit||s.page.size),total:Number(payload.total||0)};if(s.viewMode==='cbc_swap')s.cbcSwapCount=Number(payload.total||0);s.loading=false;if(s.viewMode==='lookup')s.detailTabs=Object.fromEntries(s.orders.map(order=>[s.orderRowKey(order),s.lookupMode==='results'?'results':'order']));if(s.scanNoticePending){s.scanNoticePending=false;field.notify(s.orders.length?'พบรายการของ HN '+s.scannedHn:'ไม่พบรายการของ HN '+s.scannedHn+' ในสถานะนี้',s.orders.length?'success':'warning',3500);}},()=>{if(seq!==s.loadSeq)return;s.orders=[];s.specimenMasterOptions=[];s.allowedSectionCodes=[];s.page={...s.page,total:0};s.errorMessage='โหลดรายการไม่สำเร็จ';s.scanNoticePending=false;s.loading=false;});};
+s.loadOrders=(after,includeStatusCounts)=>{if(s.viewMode==='lookup'&&!s.lookupSearched){s.loading=false;s.errorMessage='';s.orders=[];s.page={...s.page,current:1,total:0};if(typeof after==='function')after(null);return;}const seq=++s.loadSeq;if(includeStatusCounts)++s.countSeq;s.loading=true;s.errorMessage='';s.selected={};s.specimenEdits={};const statuses=s.viewMode==='lookup'?s.lookupStatusMap[s.lookupMode]:(s.viewMode==='cbc_swap'?[]:s.statusMap[s.statusKey]);const request=s.params(statuses);if(includeStatusCounts&&s.viewMode==='today')request.include_status_counts=true;s.call(request,payload=>{if(seq!==s.loadSeq)return;s.orders=payload.orders||[];s.specimenMasterOptions=Array.isArray(payload.specimen_options)?payload.specimen_options:[];s.allowedSectionCodes=Array.isArray(payload.section_codes)?payload.section_codes.map(code=>s.text(code).toUpperCase()).filter(Boolean):[];if(s.viewMode==='today')s.allowedSectionCodes.forEach(code=>{s.loadReasonOptions('SPECIMEN_REJECT',code);});s.page={...s.page,current:Number(payload.page||s.page.current),size:Number(payload.limit||s.page.size),total:Number(payload.total||0)};if(s.viewMode==='today')s.counts={...s.counts,[s.statusKey]:Number(payload.total||0)};const batched=payload.status_counts;if(s.viewMode==='today'&&batched&&typeof batched==='object'){const next={...s.counts};s.statusFilters.forEach(filter=>{if(Object.prototype.hasOwnProperty.call(batched,filter.key))next[filter.key]=Number(batched[filter.key]||0);});s.counts=next;}if(s.viewMode==='cbc_swap')s.cbcSwapCount=Number(payload.total||0);s.loading=false;if(s.viewMode==='lookup')s.detailTabs=Object.fromEntries(s.orders.map(order=>[s.orderRowKey(order),s.lookupMode==='results'?'results':'order']));if(s.scanNoticePending){s.scanNoticePending=false;field.notify(s.orders.length?'พบรายการของ HN '+s.scannedHn:'ไม่พบรายการของ HN '+s.scannedHn+' ในสถานะนี้',s.orders.length?'success':'warning',3500);}if(typeof after==='function')after(payload);},()=>{if(seq!==s.loadSeq)return;s.orders=[];s.specimenMasterOptions=[];s.allowedSectionCodes=[];s.page={...s.page,total:0};s.errorMessage='โหลดรายการไม่สำเร็จ';s.scanNoticePending=false;s.loading=false;if(typeof after==='function')after(null);});};
+s.refreshWorklist=()=>{s.loadOrders(payload=>{if(payload&&payload.status_counts&&typeof payload.status_counts==='object'){s.refreshCbcSwapCount();return;}s.refreshCounts();},true);};
 s.applyFilters=()=>{s.scanMode=false;s.scannedHn='';s.scanNoticePending=false;s.page={...s.page,current:1};if(s.viewMode==='lookup'){const hn=s.text(s.filters.hn),hasDates=Array.isArray(s.filters.dates)&&s.filters.dates.length===2;if(!hn&&!hasDates){s.lookupSearched=false;s.lookupCounts={results:0,orders:0};s.orders=[];s.errorMessage='';return;}s.lookupSearched=true;s.lookupFilters={hn:hn,dates:hasDates?s.filters.dates.slice():[]};s.filters={...s.lookupFilters};s.loadOrders();s.refreshLookupCounts();return;}s.todayFilters={hn:s.text(s.filters.hn),dates:Array.isArray(s.filters.dates)?s.filters.dates.slice():[]};s.loadOrders();s.refreshCounts();};
 s.setViewMode=mode=>{if(!['today','lookup','cbc_swap'].includes(mode)||s.viewMode===mode)return;if(mode==='cbc_swap'&&!s.canUseCbcSwap())return;if(s.viewMode==='today')s.todayFilters={hn:s.text(s.filters.hn),dates:Array.isArray(s.filters.dates)?s.filters.dates.slice():[]};s.viewMode=mode;s.scanMode=false;s.scannedHn='';s.scanNoticePending=false;s.expanded={};s.detailTabs={};s.selected={};s.errorMessage='';s.page={...s.page,current:1,total:0};if(mode==='lookup'){s.lookupMode='results';s.lookupSearched=false;s.lookupCounts={results:0,orders:0};s.lookupFilters={hn:'',dates:[]};s.filters={...s.lookupFilters};s.orders=[];return;}s.filters={...s.todayFilters,dates:Array.isArray(s.todayFilters.dates)?s.todayFilters.dates.slice():[]};s.loadOrders();s.refreshCounts();};
 s.setLookupMode=mode=>{if(!s.lookupStatusMap[mode]||s.lookupMode===mode)return;s.lookupMode=mode;s.expanded={};s.detailTabs={};s.selected={};s.page={...s.page,current:1,total:0};if(s.lookupSearched)s.loadOrders();};
@@ -2043,8 +2304,7 @@ if(!s.__crossSectionResultReadWrapped){
 if(!s.__initialLoadStarted){
   s.__initialLoadStarted=true;
   s.currentUnitCode=s.unitCode();
-  s.loadOrders();
-  s.refreshCounts();
+  s.refreshWorklist();
 }
 if(!s.__unitWatch){
   s.__unitWatch=setInterval(()=>s.handleUnitChange(),1000);
@@ -2056,6 +2316,8 @@ form.formConfig.cssCode = `.lab-cpoe{--primary:var(--el-color-primary,#409eff);-
 .lab-item-actor-cell{min-width:0;overflow-wrap:anywhere}.lab-item-action-cell{display:flex;align-items:center}.lab-item-action-cell .el-button{margin-left:0}.lab-item-retest-detail{margin-top:12px}.lab-item-retest-detail>span>span{color:var(--danger)}
 .lab-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
 .lab-toolbar .el-button+.el-button{margin-left:0}
+.lab-refresh-button{width:32px!important;height:32px;padding:0;flex:0 0 32px}
+.lab-refresh-button svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .lab-search-control{width:290px}.lab-toolbar .lab-date-control{width:220px!important;flex:0 0 220px}
 .lab-dropdown-caret{margin-left:5px;color:var(--muted);font-size:12px}
 .lab-scan-context{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:0 0 10px;padding:8px 10px;border:1px solid var(--el-color-primary-light-5,#a0cfff);border-radius:6px;background:var(--primary-50);color:var(--primary)}.lab-scan-context-label{font-size:11px;font-weight:700}.lab-scan-context strong{color:var(--ink);font-size:14px}.lab-scan-context>span:not(.lab-scan-context-label){font-size:11px}.lab-scan-context .el-button{margin-left:auto}
@@ -2079,7 +2341,7 @@ form.formConfig.cssCode = `.lab-cpoe{--primary:var(--el-color-primary,#409eff);-
 .lab-expand-button{display:grid;width:28px;height:30px;place-items:center;padding:0;border:0;border-radius:4px;background:transparent;color:var(--muted);cursor:pointer}.lab-expand-button:hover{background:var(--fill-light);color:var(--primary)}.lab-expand-button svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;transition:transform .16s}.lab-patient-block.is-open .lab-expand-button svg{transform:rotate(90deg)}
 .lab-patient-summary,.lab-context-tags,.lab-metric,.lab-doctor-cell{min-width:0}.lab-patient-hn{display:flex;align-items:center;gap:6px;min-width:0;color:var(--ink);font-weight:700}.lab-patient-hn .lab-mono{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lab-patient-name{margin-top:1px;overflow:hidden;color:var(--ink);font-weight:650;text-overflow:ellipsis;white-space:nowrap}.lab-patient-demographic{display:flex;align-items:center;gap:6px;margin-top:1px;color:var(--muted);font-size:11px}
 .lab-inline-tag,.lab-state-tag{display:inline-flex;min-height:20px;align-items:center;justify-content:center;padding:1px 6px;border:1px solid;border-radius:4px;font-size:10px;font-weight:650;white-space:nowrap}.lab-state-tag.status-waiting{border-color:#fadb14;background:var(--lab-wait-bg);color:var(--lab-wait-text)}.lab-state-tag.status-received{border-color:#e6a23c;background:var(--warning-50);color:var(--warning)}.lab-state-tag.status-resulted,.lab-state-tag.status-result-partial{border-color:var(--el-color-success-light-3,#95d475);background:var(--success-50);color:var(--el-color-success-dark-2,#529b2e)}.lab-state-tag.status-result-complete{border-color:#67c23a;background:var(--success-50);color:var(--success)}.lab-state-tag.status-cancelled{border-color:#f56c6c;background:var(--danger-50);color:var(--danger)}.lab-state-tag.status-mixed{border-color:var(--el-text-color-placeholder,#a8abb2);background:var(--fill);color:var(--muted)}.lab-urgent-tag{min-height:18px;padding:0 5px;border-color:var(--el-color-danger-light-5,#fab6b6);background:var(--danger-50);color:var(--danger);font-size:9px}.lab-meta-pill{min-height:21px;padding:1px 8px;border-color:var(--el-border-color-darker,#c8c9cc);border-radius:999px;background:var(--white);color:var(--text)}.lab-gender-pill{min-height:18px;padding:0 6px;border-color:var(--el-border-color-darker,#c8c9cc);border-radius:999px;background:var(--white);color:var(--text);font-size:9px}
-.lab-context-top{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:4px}.lab-context-top .lab-source-pill{border-color:var(--el-color-primary-light-5,#a0cfff);background:var(--primary-50);color:var(--primary)}.lab-context-top .lab-payment-pill{border-color:var(--el-color-success-light-5,#b3e19d);background:var(--success-50);color:var(--success)}.lab-context-top .lab-coverage-pill{border-color:var(--el-color-warning-light-5,#f3d19e);background:var(--warning-50);color:var(--warning)}.lab-prior-medication{display:flex;width:max-content;max-width:100%;min-height:22px;align-items:center;margin:0 0 4px;padding:1px 9px;overflow:hidden;border:1px solid var(--el-color-danger-light-5,#fab6b6);border-radius:999px;background:var(--danger-50);color:var(--danger);font-size:11px;font-weight:700;text-overflow:ellipsis;white-space:nowrap}
+.lab-context-top{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:4px}.lab-context-top .lab-source-pill{border-color:var(--el-color-primary-light-5,#a0cfff);background:var(--primary-50);color:var(--primary)}.lab-context-top .lab-payment-pill{border-color:var(--el-color-success-light-5,#b3e19d);background:var(--success-50);color:var(--success)}.lab-context-top .lab-payment-pill.is-unpaid{border-color:var(--el-color-danger-light-5,#fab6b6);background:var(--danger-50);color:var(--danger)}.lab-context-top .lab-coverage-pill{border-color:var(--el-color-warning-light-5,#f3d19e);background:var(--warning-50);color:var(--warning)}.lab-admission-badge{display:flex;width:max-content;max-width:100%;min-height:24px;align-items:center;margin:0 0 5px;padding:3px 10px;overflow:hidden;border-radius:6px;background:var(--el-color-danger,#f56c6c);color:#fff;font-size:12px;font-weight:750;line-height:1.2;text-overflow:ellipsis;white-space:nowrap}.lab-prior-medication{display:flex;width:max-content;max-width:100%;min-height:22px;align-items:center;margin:0 0 4px;padding:1px 9px;overflow:hidden;border:1px solid var(--el-color-danger-light-5,#fab6b6);border-radius:999px;background:var(--danger-50);color:var(--danger);font-size:11px;font-weight:700;text-overflow:ellipsis;white-space:nowrap}
 .lab-section-code{display:inline-flex;min-width:36px;min-height:23px;align-items:center;justify-content:center;padding:1px 7px;border:1px solid var(--el-color-primary-light-5,#a0cfff);border-radius:5px;background:var(--primary-50);color:var(--primary);font-family:var(--mono);font-size:11px;font-weight:750}
 .lab-field-value{display:block;min-width:0;overflow:hidden;color:var(--ink);font-size:12px;font-weight:650;text-overflow:ellipsis;white-space:nowrap}.lab-hover-summary{cursor:help}.lab-time-value{margin-top:3px;line-height:1.25}.lab-time-value span{display:block}.lab-order-no-tag{display:inline-flex;max-width:100%;min-height:18px;align-items:center;padding:0 6px;overflow:hidden;border:1px solid var(--el-color-primary-light-5,#a0cfff);border-radius:999px;background:var(--primary-50);color:var(--primary);font-family:var(--mono);font-size:9px;text-overflow:ellipsis;white-space:nowrap}.lab-diagnosis-summary{display:block;max-width:100%;margin-top:2px;overflow:hidden;color:var(--muted);font-size:10px;text-overflow:ellipsis;white-space:nowrap;cursor:help}.lab-cpoe-list-popper .lab-pop-line{line-height:1.5;white-space:nowrap}.lab-cpoe-diagnosis-popper{max-width:420px}.lab-cpoe-diagnosis-popper .lab-diagnosis-pop{line-height:1.5;white-space:normal;overflow-wrap:anywhere}
 .lab-row-status-check{display:flex;min-width:0;align-items:center;justify-self:start;gap:8px}.lab-order-status-step{display:inline-flex;align-items:center;gap:3px;color:var(--text);font-size:10px;cursor:default}.lab-order-status-step b{font-weight:650;line-height:1}.lab-order-status-dot{width:10px;height:10px;flex:none;border-radius:50%}.lab-order-status-step.is-waiting .lab-order-status-dot{background:#fadb14}.lab-order-status-step.is-waiting b{color:var(--lab-wait-text)}.lab-order-status-step.is-received .lab-order-status-dot{background:#e6a23c}.lab-order-status-step.is-received b{color:var(--warning)}.lab-order-status-step.is-partial .lab-order-status-dot{background:var(--el-color-success-light-3,#95d475)}.lab-order-status-step.is-partial b{color:var(--el-color-success-dark-2,#529b2e)}.lab-order-status-step.is-complete .lab-order-status-dot{background:#67c23a}.lab-order-status-step.is-complete b{color:var(--success)}.lab-order-status-step.is-cancelled .lab-order-status-dot{background:#f56c6c}.lab-order-status-step.is-cancelled b{color:var(--danger)}
@@ -2089,12 +2351,13 @@ form.formConfig.cssCode = `.lab-cpoe{--primary:var(--el-color-primary,#409eff);-
 .lab-detail-panel{padding:0 10px 14px 42px;border-top:1px solid var(--border-lighter);background:var(--fill-lighter)}.lab-detail-top{display:flex;min-height:42px;align-items:flex-end;gap:16px;border-bottom:1px solid var(--border-light)}.lab-detail-tab{height:42px;padding:0;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:650;cursor:pointer}.lab-detail-tab.is-active{border-bottom-color:var(--primary);color:var(--primary)}.lab-detail-tab:disabled{color:var(--placeholder);cursor:not-allowed}.lab-bulk-actions{display:flex;align-items:center;gap:6px;margin-left:auto;padding-bottom:6px}.lab-bulk-actions .el-button+.el-button{margin-left:0}.lab-receive-tooltip{display:inline-flex}.lab-receive-tooltip .el-button{margin-left:0}
 /* ใช้ pattern เดียวกับ X-ray เฉพาะงานภาพ: header ชิด tab, ครบความกว้าง และ checkbox sticky
    โครงคอลัมน์/การเลือก specimen/LAB NO. ของ LAB ไม่เปลี่ยน */
-.lab-item-grid-wrap{overflow-x:auto;margin-left:-42px;padding-top:0}.lab-item-grid{display:grid;grid-template-columns:42px 52px 100px minmax(190px,1.5fr) minmax(170px,1.1fr) 135px 125px 86px minmax(115px,.9fr) minmax(105px,.8fr) 96px;gap:10px;align-items:center;min-width:1316px;padding:6px 0}.lab-item-head{min-height:44px;color:var(--ink);font-size:11px;font-weight:650;border-top:1px solid var(--el-color-primary-light-7,#c6e2ff);border-bottom:1px solid var(--el-color-primary-light-7,#c6e2ff);background:var(--primary-50)}.lab-item-row{min-height:52px;border-bottom:1px dashed var(--border-lighter);font-size:12px;transition:background-color .12s}.lab-item-row:last-child{border-bottom:0}.lab-item-row.is-selectable{cursor:pointer}.lab-item-row.is-selectable:hover{background:var(--fill-light)}.lab-item-row.is-selected,.lab-item-row.is-selected:hover{background:var(--primary-50)}.lab-item-check-cell{position:sticky;left:0;z-index:2;align-self:stretch;display:flex;align-items:center;padding-left:12px;background:var(--fill-lighter);box-shadow:1px 0 0 var(--border-lighter)}.lab-item-head>.lab-item-check-cell{z-index:3;background:var(--primary-50);box-shadow:1px 0 0 var(--el-color-primary-light-7,#c6e2ff)}.lab-item-row.is-selectable:hover>.lab-item-check-cell{background:var(--fill-light)}.lab-item-row.is-selected>.lab-item-check-cell,.lab-item-row.is-selected:hover>.lab-item-check-cell{background:var(--primary-50)}.lab-test-name{color:var(--ink);font-weight:650}.lab-item-specimen-cell{padding-right:8px;transform:translateX(-8px)}.lab-specimen-select{width:100%}.lab-specimen-select .el-select__wrapper{min-height:30px}.lab-specimen-select .el-select__selected-item{color:var(--text);font-weight:700}.lab-specimen-select.lab-specimen-changed .el-select__selected-item{color:var(--danger);font-weight:700}.lab-item-collected-time span{display:block;font-weight:400;line-height:1.35}.lab-item-row [data-label]:before{display:none}
+.lab-item-grid-wrap{overflow-x:auto;margin-left:-42px;padding-top:0}.lab-item-grid{display:grid;grid-template-columns:42px 52px 100px minmax(190px,1.5fr) minmax(170px,1.1fr) 135px 125px 86px minmax(115px,.9fr) minmax(105px,.8fr) 96px;gap:10px;align-items:center;min-width:1316px;padding:6px 0}.lab-item-head{min-height:44px;color:var(--ink);font-size:11px;font-weight:650;border-top:1px solid var(--el-color-primary-light-7,#c6e2ff);border-bottom:1px solid var(--el-color-primary-light-7,#c6e2ff);background:var(--primary-50)}.lab-item-row{min-height:52px;border-bottom:1px dashed var(--border-lighter);font-size:12px;transition:background-color .12s}.lab-item-row:last-child{border-bottom:0}.lab-item-row.is-selectable{cursor:pointer}.lab-item-row.is-selectable:hover{background:var(--fill-light)}.lab-item-row.is-selected,.lab-item-row.is-selected:hover{background:var(--primary-50)}.lab-item-check-cell{position:sticky;left:0;z-index:2;align-self:stretch;display:flex;align-items:center;padding-left:12px;background:var(--fill-lighter);box-shadow:1px 0 0 var(--border-lighter)}.lab-item-head>.lab-item-check-cell{z-index:3;background:var(--primary-50);box-shadow:1px 0 0 var(--el-color-primary-light-7,#c6e2ff)}.lab-item-row.is-selectable:hover>.lab-item-check-cell{background:var(--fill-light)}.lab-item-row.is-selected>.lab-item-check-cell,.lab-item-row.is-selected:hover>.lab-item-check-cell{background:var(--primary-50)}.lab-test-name{color:var(--ink);font-weight:650}.lab-item-specimen-cell{padding-right:8px;transform:translateX(-8px)}.lab-specimen-select{width:100%}.lab-specimen-select .el-select__wrapper{min-height:30px}.lab-specimen-locked .el-input__wrapper{min-height:30px;background:var(--white);box-shadow:0 0 0 1px var(--border) inset;cursor:default}.lab-specimen-select .el-select__selected-item{color:var(--text);font-weight:700}.lab-specimen-locked .el-input__inner{color:var(--text);font-weight:700;-webkit-text-fill-color:var(--text);cursor:default}.lab-specimen-select.lab-specimen-changed .el-select__selected-item{color:var(--danger);font-weight:700}.lab-item-collected-time span{display:block;font-weight:400;line-height:1.35}.lab-item-row [data-label]:before{display:none}
 /* แท็บออกผลใช้ขนาด/สีเดียวกับ tab order แต่เว้น gutter 42px โดยไม่มี checkbox */
 .lab-result-list{padding-top:0;overflow-x:auto;margin-left:-42px}.lab-result-list-head,.lab-result-list-row{display:grid;grid-template-columns:52px minmax(260px,1.8fr) 130px 120px minmax(120px,.8fr);gap:12px;align-items:center;min-width:772px;padding:6px 0 6px 42px}.lab-result-list-head{min-height:44px;border-top:1px solid var(--el-color-primary-light-7,#c6e2ff);border-bottom:1px solid var(--el-color-primary-light-7,#c6e2ff);background:var(--primary-50);color:var(--ink);font-size:11px;font-weight:650}.lab-result-list-row{min-height:52px;border-bottom:1px dashed var(--border-lighter)}.lab-result-list-status{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.lab-critical-status{display:inline-flex;min-height:26px;align-items:center;padding:2px 8px;border:1px solid;border-radius:4px;font-size:11px;font-weight:650;white-space:nowrap}.lab-critical-status.is-critical{border-color:var(--el-color-danger-light-5,#fab6b6);background:var(--danger-50);color:var(--danger)}.lab-critical-status.is-normal,.lab-critical-status.is-resulted{border-color:var(--el-color-success-light-5,#b3e19d);background:var(--success-50);color:var(--success)}.lab-critical-status.is-pending{border-color:var(--el-border-color-darker,#c8c9cc);background:var(--fill);color:var(--muted)}.lab-result-hidden-tag{display:inline-flex;min-height:22px;align-items:center;padding:1px 7px;border:1px solid var(--el-color-warning-light-5,#f3d19e);border-radius:999px;background:var(--warning-50);color:var(--warning);font-size:10px;font-weight:700;white-space:nowrap}
 .lab-result-list.is-lookup .lab-result-list-head,.lab-result-list.is-lookup .lab-result-list-row{grid-template-columns:52px minmax(300px,2fr) 130px minmax(140px,.9fr);min-width:650px}
-.lab-cancel-summary{display:grid;gap:6px;margin-bottom:14px;padding:13px 14px;border:1px solid #fab6b6;border-radius:6px;background:#fef0f0;color:#c45656}.lab-cancel-summary strong{color:var(--ink)}.lab-cancel-summary span{font-size:12px;line-height:1.5}.lab-cancel-reason{display:block}.lab-cancel-reason>span{display:block;margin-bottom:6px;color:var(--ink);font-weight:650}.lab-cancel-reason b{color:var(--danger)}.lab-cancel-reason .el-select{width:100%}
+.lab-cancel-summary{display:grid;gap:6px;margin-bottom:12px;padding:13px 14px;border:1px solid #fab6b6;border-radius:6px;background:#fef0f0;color:#c45656}.lab-cancel-summary strong{color:var(--ink)}.lab-cancel-summary span{font-size:12px;line-height:1.5}.lab-cancel-finance{display:grid;gap:6px;margin-bottom:14px;padding:12px 14px;border:1px solid var(--border-light);border-radius:6px;background:var(--fill-lighter);color:var(--text)}.lab-cancel-finance strong{color:var(--ink)}.lab-cancel-finance span{font-size:12px;line-height:1.5}.lab-cancel-finance.is-checking{border-color:var(--el-color-primary-light-5,#a0cfff);background:var(--primary-50);color:var(--primary)}.lab-cancel-finance.is-ready{border-color:var(--el-color-success-light-5,#b3e19d);background:var(--success-50);color:var(--el-color-success-dark-2,#529b2e)}.lab-cancel-finance.is-blocked{border-color:var(--el-color-warning-light-5,#f3d19e);background:var(--warning-50);color:#b88230}.lab-cancel-finance .el-button{justify-self:start;margin:4px 0 0}.lab-cancel-reason{display:block}.lab-cancel-reason>span{display:block;margin-bottom:6px;color:var(--ink);font-weight:650}.lab-cancel-reason b{color:var(--danger)}.lab-cancel-reason .el-select{width:100%}
 .lab-result-comment{grid-column:3/-1;display:grid;gap:3px;align-self:stretch;padding:0 10px 10px!important}.lab-result-comment>span{display:block;margin:0;color:var(--muted);font-size:10px;font-weight:700}.lab-result-comment>p{margin:0;padding:8px 10px;border-left:3px solid var(--primary);border-radius:4px;background:var(--primary-50);color:var(--text);font-size:12px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere}
+.lab-result-revision-view{display:grid;grid-template-columns:260px minmax(0,1fr);min-height:420px;overflow:hidden;border:1px solid var(--border);border-radius:8px;background:var(--fill-lighter)}.lab-result-revision-rail{display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--fill-light)}.lab-result-revision-rail>strong{padding:14px 16px 10px;color:var(--muted);font-size:10px;letter-spacing:.04em}.lab-result-revision-rail>button{display:grid;gap:3px;padding:12px 16px;border:0;border-top:1px solid var(--border);background:transparent;color:var(--text);font:inherit;text-align:left;cursor:pointer}.lab-result-revision-rail>button.is-active{background:var(--primary-50);box-shadow:inset 3px 0 var(--primary)}.lab-result-revision-rail>button span{color:var(--ink);font-size:12px;font-weight:750}.lab-result-revision-rail>button small{color:var(--muted);font-size:10px}.lab-result-revision-rail>button i{justify-self:start;padding:1px 6px;border:1px solid var(--border);border-radius:999px;color:var(--muted);font-size:9px;font-style:normal}.lab-result-revision-rail>button.is-active i{border-color:#b3e19d;background:#f0f9eb;color:#529b2e}.lab-result-revision-sheet{display:grid;align-content:start;min-width:0;padding:16px}.lab-result-revision-sheet>header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.lab-result-revision-sheet>header>div{display:grid;gap:3px}.lab-result-revision-sheet>header strong{color:var(--ink);font-size:15px}.lab-result-revision-sheet>header small{color:var(--muted);font-size:10px}.lab-result-revision-sheet>header>span{padding:3px 8px;border:1px solid var(--border);border-radius:999px;color:var(--text);font-size:10px;font-weight:750}.lab-result-revision-warning{margin-top:12px;padding:9px 11px;border:1px solid #f3d19e;border-radius:6px;background:#fdf6ec;color:#b88230;font-size:11px;font-weight:650}.lab-result-revision-table{margin-top:12px;overflow-x:auto;border:1px solid var(--border);border-radius:7px}.lab-result-revision-head,.lab-result-revision-row{display:grid;grid-template-columns:42px minmax(220px,1fr) minmax(130px,.75fr) minmax(110px,.65fr) 80px;min-width:720px;align-items:center}.lab-result-revision-head{min-height:38px;background:var(--fill-light);color:var(--muted);font-size:10px;font-weight:700}.lab-result-revision-head>span,.lab-result-revision-row>span,.lab-result-revision-row>strong{padding:9px 10px}.lab-result-revision-row{min-height:48px;border-top:1px solid var(--border);background:#fff;color:var(--text);font-size:11px}.lab-result-revision-row.is-changed{background:#fffaf0}.lab-result-revision-row>span:nth-child(2){display:grid;gap:2px}.lab-result-revision-row>span:nth-child(2)>strong{color:var(--ink);font-size:12px}.lab-result-revision-row small{color:var(--muted);font-size:9px}.lab-result-revision-row.is-changed>span:last-child,.lab-result-revision-row.is-changed>strong{color:#b88230}.lab-result-revision-sheet>footer{display:grid;grid-template-columns:auto minmax(0,1fr) auto minmax(0,1fr);gap:5px 9px;margin-top:12px;padding:10px;border-radius:6px;background:var(--fill-light);font-size:9px}.lab-result-revision-sheet>footer span{color:var(--muted)}.lab-result-revision-sheet>footer strong{overflow:hidden;color:var(--text);text-overflow:ellipsis;white-space:nowrap}.lab-correction-reason{display:grid;gap:6px;margin-top:12px;padding:12px;border:1px solid #f3d19e;border-radius:7px;background:#fdf6ec}.lab-correction-reason>span{color:var(--ink);font-size:12px;font-weight:700}.lab-correction-reason>span b{color:var(--danger)}.lab-correction-reason>small{color:var(--muted);font-size:10px}
 .lab-manual-form{min-height:300px}.lab-result-viewer{color:var(--text)}.lab-result-critical-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;padding:10px 13px;border:1px solid #fab6b6;border-radius:7px;background:#fef0f0;color:#c45656}.lab-result-critical-banner span{font-size:11px}.lab-result-patient-card{display:grid;grid-template-columns:52px minmax(190px,1.35fr) repeat(3,minmax(108px,.7fr));gap:13px 16px;align-items:center;padding:15px;border:1px solid var(--border-light);border-radius:8px;background:var(--fill-lighter)}.lab-result-avatar{display:grid;width:44px;height:44px;grid-row:1/3;place-items:center;border-radius:50%;background:#ecf5ff;color:#337ecc;font-size:13px;font-weight:750}.lab-result-patient-main{min-width:0}.lab-result-patient-main span,.lab-result-meta span,.lab-manual-fields label>span,.lab-result-value-row>div>span{display:block;margin-bottom:4px;color:var(--muted);font-size:11px;font-weight:650}.lab-result-patient-main strong{display:block;overflow:hidden;color:var(--ink);font-size:16px;text-overflow:ellipsis;white-space:nowrap}.lab-result-patient-main small{display:block;margin-top:3px;color:var(--muted);font-size:11px}.lab-result-meta{min-width:0}.lab-result-meta strong{display:block;overflow:hidden;color:var(--ink);font-size:12px;text-overflow:ellipsis;white-space:nowrap}.lab-result-dialog-action{position:relative;padding-right:42px}.lab-result-dialog-action>.el-button{position:absolute;top:0;right:0}.lab-result-section-head{display:flex;align-items:center;justify-content:space-between;margin-top:17px;padding-bottom:8px}.lab-result-section-head strong{color:var(--ink);font-size:14px}.lab-result-section-head span{color:var(--warning);font-size:11px}.lab-result-values{border:1px solid var(--border-light);border-radius:7px;overflow-x:auto}.lab-result-value-head,.lab-result-value-row{display:grid;grid-template-columns:90px minmax(180px,1.45fr) minmax(110px,.8fr) minmax(115px,.8fr) 80px minmax(105px,.8fr) minmax(130px,1fr);gap:12px;min-width:940px;padding:10px 12px}.lab-result-value-head{border-bottom:1px solid var(--border);background:var(--fill);color:var(--muted);font-size:11px;font-weight:700}.lab-result-value-row{align-items:center;border-bottom:1px solid var(--border-lighter)}.lab-result-value-row:last-child{border-bottom:0}.lab-result-value-row>div{min-width:0}.lab-result-value-row strong,.lab-result-value-row small{display:block;overflow-wrap:anywhere}.lab-result-value-row small{margin-top:2px;color:var(--muted);font-size:10px}.lab-result-measured{color:var(--primary);font-size:17px}.lab-result-previous{padding:7px 9px;border-radius:5px;background:var(--fill-light)}.lab-critical-value{color:var(--danger)!important}.lab-previous-result{margin:12px 0;padding:10px 12px;border:1px solid #b3d8ff;border-radius:6px;background:#ecf5ff;color:#337ecc}.lab-previous-result.is-empty{border-color:var(--border-light);background:var(--fill-light);color:var(--muted)}.lab-manual-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}.lab-manual-fields label{display:block;min-width:0}.lab-manual-fields .el-select{width:100%}.lab-manual-hint{margin-top:9px;color:var(--muted);font-size:11px}
 .lab-result-dialog .el-dialog__body{max-height:calc(100vh - 190px);overflow:auto}.lab-result-dialog-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding-right:28px}.lab-result-dialog-head>div:first-child{display:grid;gap:3px}.lab-result-dialog-head strong{color:var(--ink);font-size:18px}.lab-result-dialog-head small{color:var(--muted);font-size:12px}.lab-result-dialog-tools{display:flex;align-items:center;gap:9px}.lab-result-edit-button svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.lab-result-mode{display:inline-flex;min-height:25px;align-items:center;padding:2px 9px;border:1px solid var(--border);border-radius:999px;background:var(--fill-light);color:var(--muted);font-size:11px;font-weight:650;white-space:nowrap}.lab-result-mode.is-editing{border-color:#a0cfff;background:#ecf5ff;color:#337ecc}.lab-result-visibility-button{margin-left:auto!important}.lab-result-hidden-notice{display:grid;gap:3px;margin-bottom:12px;padding:10px 12px;border:1px solid #f3d19e;border-radius:7px;background:#fdf6ec;color:#b88230}.lab-result-hidden-notice strong{color:#b88230}.lab-result-hidden-notice span{font-size:12px}.lab-result-hidden-notice small{color:var(--muted);font-size:11px}.lab-visibility-summary{display:grid;gap:6px;margin-bottom:14px;padding:13px 14px;border:1px solid var(--el-color-warning-light-5,#f3d19e);border-radius:7px;background:var(--el-color-warning-light-9,#fdf6ec);color:var(--el-text-color-regular,#606266)}.lab-visibility-summary strong{color:var(--el-text-color-primary,#303133)}.lab-visibility-summary span{color:var(--el-text-color-regular,#606266);font-size:12px;line-height:1.5}.lab-visibility-summary .is-critical{color:var(--el-color-danger,#f56c6c);font-weight:650}.lab-visibility-reason{display:block}.lab-visibility-reason>span{display:block;margin-bottom:6px;color:var(--ink);font-weight:650}.lab-visibility-reason b{color:var(--danger)}.lab-result-value-head,.lab-result-value-row{grid-template-columns:56px 48px minmax(180px,1fr) 132px 132px 94px 104px 188px;min-width:940px}.lab-result-value-row .el-select{width:100%}.lab-result-signal{display:block;width:10px;height:10px;margin-left:7px;border:1px solid;border-radius:50%}.lab-result-signal.is-normal{border-color:#4e9631;background:#2f761e;box-shadow:0 0 0 3px rgba(103,194,58,.10)}.lab-result-signal.is-critical{border-color:#d46a6a;background:#b84d4d;box-shadow:0 0 0 3px rgba(245,108,108,.12)}.lab-result-attachments{display:grid;gap:10px;margin-top:16px;padding:14px;border:1px solid var(--border-light);border-radius:7px;background:var(--fill-lighter)}.lab-result-attachments-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.lab-result-attachments-head>div{display:grid;gap:3px}.lab-result-attachments-head strong{color:var(--ink);font-size:14px}.lab-result-attachments-head small,.lab-result-upload-note{color:var(--muted);font-size:11px}.lab-result-attachments-head>span{color:var(--muted);font-size:11px}.lab-result-file-list{display:grid;gap:6px}.lab-result-file{display:grid;grid-template-columns:58px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--border-light);border-radius:6px;background:var(--white);color:var(--text);text-decoration:none}.lab-result-file:hover{border-color:#a0cfff;color:#337ecc}.lab-result-file>span{color:#337ecc;font-size:10px;font-weight:700}.lab-result-file>strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lab-result-file>small{color:var(--muted);font-size:10px}.lab-result-upload .el-upload{display:inline-flex}
 .lab-sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}.lab-result-dialog .el-dialog__header{margin:0;padding:15px 18px;border-bottom:1px solid var(--border-lighter)}.lab-result-dialog .el-dialog__headerbtn{top:9px;right:10px}.lab-result-dialog .el-dialog__body{max-height:calc(100vh - 160px);padding:18px;overflow:auto;overscroll-behavior:contain}.lab-result-dialog .el-dialog__footer{padding:12px 18px;border-top:1px solid var(--border-lighter)}.lab-result-dialog-head{display:block;padding-right:32px}.lab-result-dialog-head>div:first-child{display:grid;gap:2px}.lab-result-title-row{display:flex;align-items:center;gap:8px}.lab-result-dialog-head strong{font-size:17px}.lab-result-dialog-head small{font-size:11px}.lab-result-edit-button{display:grid;width:28px;height:28px;place-items:center;padding:0;border:1px solid transparent;border-radius:5px;background:transparent;color:var(--muted);cursor:pointer}.lab-result-edit-button:hover:not(:disabled){border-color:#a0cfff;background:#ecf5ff;color:var(--primary)}.lab-result-edit-button[aria-pressed=true]{border-color:var(--primary);background:#ecf5ff;color:var(--primary)}.lab-result-edit-button:disabled{cursor:not-allowed;opacity:.45}.lab-result-edit-button svg{width:15px;height:15px}.lab-result-mode{min-height:20px;margin-left:4px;padding:0 7px;background:var(--fill-lighter);font-size:10px}.lab-result-values{border-color:var(--border);border-radius:7px}.lab-result-value-head,.lab-result-value-row{grid-template-columns:56px 48px minmax(180px,1fr) 132px 132px 94px 104px 188px;gap:0;min-width:940px;padding:0}.lab-result-value-head{min-height:42px;align-items:center;background:var(--fill-soft)}.lab-result-value-head>span,.lab-result-value-row>div{box-sizing:border-box;padding:10px}.lab-result-value-row{min-height:46px;align-items:start}.lab-result-profile-row{display:flex;min-width:940px;min-height:40px;align-items:center;padding:5px 10px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--fill-light)}.lab-result-value-head+.lab-result-profile-row{border-top:0}.lab-result-profile-row strong{color:var(--ink);font-size:13px}.lab-result-test-name{color:var(--ink);font-weight:650}.lab-result-previous{padding:10px!important;border-radius:0;background:transparent;color:var(--muted)}.lab-result-measured{color:var(--ink);font-size:inherit;font-weight:700}.lab-result-value-row .el-input,.lab-result-value-row .el-select{width:100%}
@@ -2102,10 +2365,11 @@ form.formConfig.cssCode = `.lab-cpoe{--primary:var(--el-color-primary,#409eff);-
 .lab-micro-organism-list{display:grid;gap:3px;margin:0;padding-left:20px;color:var(--ink);font-size:13px;font-weight:700}.lab-micro-organism-list li{padding-left:2px;overflow-wrap:anywhere}
 .lab-micro-timeline{grid-template-columns:repeat(3,1fr)}.lab-micro-wire-results{display:grid;gap:10px}.lab-micro-wire-result{overflow:hidden;border:1px solid var(--border-light);border-radius:8px;background:var(--white)}.lab-micro-wire-meta{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:0;border-bottom:1px solid var(--border-lighter);background:var(--fill-lighter)}.lab-micro-wire-meta>div{min-width:0;padding:9px 11px;border-right:1px solid var(--border-lighter)}.lab-micro-wire-meta>div:last-child{border-right:0}.lab-micro-wire-meta span{display:block;margin-bottom:3px;color:var(--muted);font-size:10px}.lab-micro-wire-meta strong{display:block;overflow:hidden;color:var(--ink);font-size:11px;text-overflow:ellipsis;white-space:nowrap}.lab-micro-wire-value>strong{display:block;padding:9px 11px 0;color:var(--ink);font-size:11px}.lab-micro-wire-value pre{max-height:360px;margin:0;padding:10px 11px 12px;overflow:auto;color:var(--text);font:11px/1.6 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere}
 .lab-micro-unmatched{margin-top:14px;overflow:hidden;border:1px solid var(--border-light);border-radius:8px;background:var(--white)}.lab-micro-unmatched-head{display:flex;width:100%;align-items:center;justify-content:space-between;gap:12px;padding:11px 13px;border:0;border-bottom:1px solid var(--border-light);background:transparent;color:var(--ink);cursor:pointer;text-align:left}.lab-micro-unmatched-head strong{font-size:13px}.lab-micro-unmatched-head span{color:var(--muted);font-size:11px}.lab-micro-unmatched pre{max-height:480px;margin:0;padding:14px;overflow:auto;background:var(--fill-lighter);color:var(--text);font:12px/1.65 var(--mono);white-space:pre;tab-size:4}
-.lab-result-dialog-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.lab-result-dialog-head>div:first-child{min-width:0}.lab-result-report-action{flex:none;margin-right:4px}.lab-result-report-action .el-button,.el-button.lab-result-report-action{min-width:94px;margin:0!important}.lab-result-report-action .el-button:not(.is-disabled){border-color:var(--danger)!important;background:var(--danger)!important;color:#fff!important}
+.lab-result-dialog-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.lab-result-dialog-head>div:first-child{min-width:0}.lab-result-report-slot{display:flex;width:94px;min-width:94px;max-width:94px;flex:0 0 94px;align-items:flex-start;justify-content:flex-end}.lab-result-report-action{flex:none;margin-right:4px}.lab-result-report-action .el-button,.el-button.lab-result-report-action{min-width:94px;margin:0!important}.lab-result-report-action .el-button:not(.is-disabled){border-color:var(--danger)!important;background:var(--danger)!important;color:#fff!important}
 .lab-result-byline{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:4px;color:var(--muted);font-size:11px}.lab-result-byline b{font-weight:500}.lab-result-byline strong{color:var(--ink);font-size:11px}.lab-result-profile-row{display:grid;width:100%;grid-template-columns:56px 48px minmax(180px,1fr) 132px 132px 94px 104px 188px;gap:0;min-width:940px;min-height:44px;align-items:center;padding:0;border:0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--fill-light);color:var(--ink);font:inherit;text-align:left;cursor:pointer}.lab-result-value-head+.lab-result-profile-row{border-top:0}.lab-result-profile-index{grid-column:1;padding:10px}.lab-result-profile-main{display:grid;grid-column:3/8;gap:1px;padding:10px}.lab-result-profile-row strong{color:var(--ink);font-size:13px}.lab-result-profile-row small{color:var(--muted);font-size:10px}.lab-result-profile-row i{grid-column:8;justify-self:end;margin-right:10px;color:var(--muted);font-size:16px;font-style:normal;transition:transform .15s}.lab-result-profile-row.is-open i{transform:rotate(180deg)}.lab-result-profile-row:hover{background:var(--primary-50)}
 .lab-result-profile-toolbar{display:flex;align-items:center;gap:10px;margin:0 0 9px}.lab-result-profile-toolbar>div:first-child{display:flex;min-width:0;align-items:baseline;gap:10px}.lab-result-profile-toolbar>div:first-child>strong{color:var(--ink);font-size:15px}.lab-result-profile-toolbar>div:first-child>small{color:var(--muted);font-size:11px}.lab-result-section-actions{display:flex;align-items:center;gap:2px;margin-left:auto}.lab-result-section-actions .el-button+.el-button{margin-left:0}.lab-result-value-row.is-profile-child{padding-left:16px}
 .lab-result-dialog:not(.is-microbiology){--lab-result-surface:var(--el-bg-color,#fff);--lab-result-surface-soft:#f7f9fc;--lab-result-surface-blue:#f2f7ff;--lab-result-ink:var(--el-text-color-primary,#303133);--lab-result-text:var(--el-text-color-regular,#606266);--lab-result-muted:var(--el-text-color-secondary,#909399);--lab-result-border:var(--el-border-color,#dcdfe6);--lab-result-border-light:var(--el-border-color-light,#e4e7ed);--lab-result-primary-dark:#337ecc;max-height:calc(100vh - 48px);overflow:hidden;border:1px solid rgba(255,255,255,.65);border-radius:12px;background:var(--lab-result-surface);color:var(--lab-result-text);box-shadow:0 24px 72px rgba(31,45,61,.22);font-family:"Noto Sans Thai","Leelawadee UI",Tahoma,Arial,sans-serif;font-size:13px}.lab-result-dialog:not(.is-microbiology) .el-dialog__header{margin:0;padding:16px 20px 14px;border-bottom:1px solid var(--lab-result-border-light)}.lab-result-dialog:not(.is-microbiology) .el-dialog__headerbtn{top:10px;right:10px;width:34px;height:34px}.lab-result-dialog:not(.is-microbiology) .el-dialog__body{max-height:calc(100vh - 160px);padding:16px 20px 20px;overflow:auto}.lab-result-dialog:not(.is-microbiology) .el-dialog__footer{padding:11px 20px;border-top:1px solid var(--lab-result-border-light);background:var(--lab-result-surface-soft)}.lab-result-dialog:not(.is-microbiology) .lab-result-dialog-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding-right:42px}.lab-result-dialog:not(.is-microbiology) .lab-result-title-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.lab-result-dialog:not(.is-microbiology) .lab-result-dialog-head>div:first-child{display:block;min-width:0}.lab-result-dialog:not(.is-microbiology) .lab-result-dialog-head>div:first-child>.lab-result-title-row>strong{color:var(--lab-result-ink);font-size:20px;line-height:1.25}.lab-result-dialog:not(.is-microbiology) .lab-result-dialog-head>div:first-child>small{display:block;margin-top:5px;color:var(--lab-result-muted);font-size:12px}.lab-result-dialog:not(.is-microbiology) .lab-result-mode{min-height:23px;margin-left:0;padding:2px 8px;border:1px solid #a0cfff;border-radius:999px;background:#ecf5ff;color:var(--lab-result-primary-dark);font-size:10px;font-weight:700}.lab-result-dialog:not(.is-microbiology) .lab-result-byline{gap:6px 14px;margin-top:7px;color:var(--lab-result-text);font-size:11px}.lab-result-dialog:not(.is-microbiology) .lab-result-byline span{display:inline-flex;align-items:baseline;gap:4px}.lab-result-dialog:not(.is-microbiology) .lab-result-byline b{color:var(--lab-result-muted);font-size:10px;font-weight:650}.lab-result-dialog:not(.is-microbiology) .lab-result-byline strong{color:var(--lab-result-ink);font-size:11px}.lab-result-dialog:not(.is-microbiology) .lab-result-report-action{flex:none;margin:0 42px 0 0!important}.lab-result-dialog:not(.is-microbiology) .lab-result-report-action .el-button,.lab-result-dialog:not(.is-microbiology) .el-button.lab-result-report-action{min-width:94px;min-height:34px;margin:0!important;padding:6px 14px;border-radius:6px}.lab-result-dialog:not(.is-microbiology) .lab-result-report-action .el-button:not(.is-disabled),.lab-result-dialog:not(.is-microbiology) .el-button.lab-result-report-action:not(.is-disabled){border-color:var(--lab-result-border)!important;background:var(--lab-result-surface)!important;color:var(--lab-result-text)!important}.lab-result-dialog:not(.is-microbiology) .lab-result-report-action .el-button:not(.is-disabled):hover,.lab-result-dialog:not(.is-microbiology) .el-button.lab-result-report-action:not(.is-disabled):hover{border-color:#a0cfff!important;color:var(--lab-result-primary-dark)!important}.lab-result-dialog:not(.is-microbiology) .lab-result-profile-toolbar{margin:18px 0 9px}.lab-result-dialog:not(.is-microbiology) .lab-result-profile-toolbar>div:first-child>strong{color:var(--lab-result-ink);font-size:15px}.lab-result-dialog:not(.is-microbiology) .lab-result-profile-toolbar>div:first-child>small{color:var(--lab-result-muted);font-size:11px}.lab-result-dialog:not(.is-microbiology) .lab-result-section-actions{gap:6px}.lab-result-dialog:not(.is-microbiology) .lab-result-section-actions .el-button{min-height:auto;padding:4px 7px;border:0;border-radius:4px;background:transparent;color:var(--lab-result-primary-dark);font-size:11px}.lab-result-dialog:not(.is-microbiology) .lab-result-section-actions .el-button:hover{background:#ecf5ff}.lab-result-dialog:not(.is-microbiology) .lab-result-values{overflow-x:auto;border:1px solid var(--lab-result-border);border-radius:8px}.lab-result-dialog:not(.is-microbiology) .lab-result-value-head,.lab-result-dialog:not(.is-microbiology) .lab-result-value-row{grid-template-columns:44px 34px minmax(230px,1.5fr) 125px 130px 92px 115px 145px;min-width:920px}.lab-result-dialog:not(.is-microbiology) .lab-result-value-head{min-height:42px;border-bottom:0;background:#f5f7fa;color:var(--lab-result-muted);font-size:11px;font-weight:700}.lab-result-dialog:not(.is-microbiology) .lab-result-value-head>span,.lab-result-dialog:not(.is-microbiology) .lab-result-value-row>div{min-width:0;padding:10px}.lab-result-dialog:not(.is-microbiology) .lab-result-value-row{min-height:52px;align-items:center;border-top:1px solid var(--lab-result-border-light);border-bottom:0;background:var(--lab-result-surface)}.lab-result-dialog:not(.is-microbiology) .lab-result-value-row:hover{background:#fbfcfe}.lab-result-dialog:not(.is-microbiology) .lab-result-value-row.is-critical{background:#fff8f8}.lab-result-dialog:not(.is-microbiology) .lab-result-value-row.is-profile-child{padding-left:16px}.lab-result-dialog:not(.is-microbiology) .lab-result-value-row.is-profile-child>div:first-child{color:var(--lab-result-muted)}.lab-result-dialog:not(.is-microbiology) .lab-result-signal{margin:auto}.lab-result-dialog:not(.is-microbiology) .lab-result-signal.is-abnormal{border-color:#cf8f2b;background:#e6a23c;box-shadow:0 0 0 3px rgba(230,162,60,.11)}.lab-result-dialog:not(.is-microbiology) .lab-result-test-name{color:var(--lab-result-ink);font-size:13px;font-weight:700}.lab-result-dialog:not(.is-microbiology) .lab-result-previous{padding:10px!important;background:transparent;color:var(--lab-result-muted)}.lab-result-dialog:not(.is-microbiology) .lab-result-measured{color:var(--lab-result-ink);font-size:15px;font-weight:800}.lab-result-dialog:not(.is-microbiology) .lab-result-measured.is-abnormal{color:#b88230}.lab-result-dialog:not(.is-microbiology) .lab-result-measured.is-critical{color:#c45656}.lab-result-dialog:not(.is-microbiology) .lab-result-interpretation{display:inline-flex;min-height:23px;align-items:center;padding:2px 8px;border:1px solid var(--lab-result-border);border-radius:999px;background:var(--lab-result-surface-soft);color:var(--lab-result-muted);font-size:10px;font-weight:700;white-space:nowrap}.lab-result-dialog:not(.is-microbiology) .lab-result-interpretation.is-normal{border-color:#b3e19d;background:#f0f9eb;color:#529b2e}.lab-result-dialog:not(.is-microbiology) .lab-result-interpretation.is-abnormal{border-color:#f3d19e;background:#fdf6ec;color:#b88230}.lab-result-dialog:not(.is-microbiology) .lab-result-interpretation.is-critical{border-color:#fab6b6;background:#fef0f0;color:#c45656}.lab-result-dialog:not(.is-microbiology) .lab-result-profile-row{display:grid;width:100%;grid-template-columns:32px minmax(260px,1fr) 28px;gap:10px;min-width:920px;min-height:54px;align-items:center;padding:10px 13px;border:0;border-top:1px solid var(--lab-result-border);border-bottom:0;background:var(--lab-result-surface-soft);color:var(--lab-result-text)}.lab-result-dialog:not(.is-microbiology) .lab-result-value-head+.lab-result-profile-row{border-top:0}.lab-result-dialog:not(.is-microbiology) .lab-result-profile-row:hover{background:#edf4ff}.lab-result-dialog:not(.is-microbiology) .lab-result-profile-row.is-open{background:var(--lab-result-surface-blue)}.lab-result-dialog:not(.is-microbiology) .lab-result-profile-index{grid-column:1;padding:0;color:var(--lab-result-muted)}.lab-result-dialog:not(.is-microbiology) .lab-result-profile-main{display:block;min-width:0;grid-column:2;padding:0}.lab-result-dialog:not(.is-microbiology) .lab-result-profile-main strong{display:block;overflow:hidden;color:var(--lab-result-ink);font-size:13px;text-overflow:ellipsis;white-space:nowrap}.lab-result-dialog:not(.is-microbiology) .lab-result-profile-main small{display:block;margin-top:2px;color:var(--lab-result-muted);font-size:10px}.lab-result-dialog:not(.is-microbiology) .lab-result-profile-row i{grid-column:3;justify-self:end;margin:0;color:var(--lab-result-muted);font-size:17px;transition:transform .16s ease}.lab-result-dialog:not(.is-microbiology) .lab-result-profile-row.is-open i{transform:rotate(180deg)}.lab-result-dialog:not(.is-microbiology) .lab-result-attachments{gap:10px;margin-top:12px;padding:10px 12px;border:1px solid var(--lab-result-border-light);border-radius:7px;background:var(--lab-result-surface-soft)}.lab-result-dialog:not(.is-microbiology) .lab-result-attachments-head strong{font-size:13px}.lab-result-dialog:not(.is-microbiology) .lab-result-attachments-head small,.lab-result-dialog:not(.is-microbiology) .lab-result-upload-note{font-size:10px}
+.lab-sensitive-result-locked{display:flex;min-width:920px;align-items:center;justify-content:space-between;gap:16px;padding:13px 16px;border-top:1px solid var(--el-color-danger-light-5,#fab6b6);background:var(--el-color-danger-light-9,#fef0f0)}.lab-sensitive-result-locked>div{display:grid;gap:3px}.lab-sensitive-result-locked>div>strong{color:var(--el-text-color-primary,#303133)}.lab-sensitive-result-locked small{color:var(--el-text-color-secondary,#909399);font-size:11px}.lab-sensitive-result-label{display:inline-flex;min-height:26px;align-items:center;padding:3px 10px;border:1px solid var(--el-color-danger-light-5,#fab6b6);border-radius:999px;background:var(--el-bg-color,#fff);color:var(--el-color-danger,#f56c6c);font-size:12px;white-space:nowrap}
 .lab-result-file-row{display:grid;grid-template-columns:minmax(0,1fr) 28px;gap:8px;align-items:center}.lab-result-file-row .lab-result-file{min-width:0}.lab-result-file-remove{width:28px!important;height:28px!important;margin-left:0!important;padding:0!important}.lab-result-file-remove span{font-size:18px;font-weight:400;line-height:1}
 /* Standard result popup viewport contract mirrors the approved HTML mockup.
    Keep this scoped away from Microbiology, whose dialog layout is independent. */
@@ -2115,7 +2379,9 @@ form.formConfig.cssCode = `.lab-cpoe{--primary:var(--el-color-primary,#409eff);-
 @media(max-width:1100px){.lab-list-head{display:none}.lab-patient-row{grid-template-columns:32px minmax(160px,1.25fr) minmax(120px,1fr) minmax(125px,1fr) 72px 78px 64px;gap:6px 10px}.lab-expand-button{grid-column:1;grid-row:1/3}.lab-patient-summary{grid-column:2;grid-row:1}.lab-context-tags{grid-column:3;grid-row:1}.lab-row-status-check{grid-column:4;grid-row:1}.lab-patient-row>.lab-plain-action:nth-last-child(3){grid-column:5;grid-row:1}.lab-patient-row>.lab-plain-action:nth-last-child(2){grid-column:6;grid-row:1}.lab-patient-row>.lab-plain-action:last-child{grid-column:7;grid-row:1}.lab-items-cell{grid-column:2;grid-row:2}.lab-specimen-cell{grid-column:3;grid-row:2}.lab-order-cell{grid-column:4;grid-row:2}.lab-doctor-cell{grid-column:2/8;grid-row:3}.lab-patient-row.is-lookup .lab-section-cell{grid-column:4;grid-row:2}.lab-patient-row.is-lookup .lab-order-cell{grid-column:2;grid-row:3}.lab-patient-row.is-lookup .lab-doctor-cell{grid-column:3/8;grid-row:3}.lab-metric:before,.lab-doctor-cell:before{display:block;content:attr(data-label);margin-bottom:3px;color:var(--muted);font-size:10px;font-weight:650}}
 @media(max-width:900px){.lab-search-control{width:calc(50% - 5px)}.lab-date-control{width:calc(50% - 5px)}.lab-create-button{margin-left:0}.lab-item-grid-wrap{overflow:visible;margin-left:0}.lab-item-head{display:none}.lab-item-grid.lab-item-row{display:grid;grid-template-columns:1fr 1fr;gap:0 14px;min-width:0;padding:10px 0}.lab-item-grid.lab-item-row>.lab-item-check-cell{position:static;z-index:auto;padding-left:0;background:transparent;box-shadow:none}.lab-item-row>div{display:grid;grid-template-columns:minmax(92px,.42fr) minmax(0,1fr);align-items:center;gap:8px;min-height:34px;padding:3px 0;border-bottom:1px dashed var(--border-lighter)}.lab-item-row>div:before{display:block;content:attr(data-label);color:var(--muted);font-size:10px;font-weight:650}.lab-item-row>div:last-child{border-bottom:0}.lab-item-specimen-cell{padding-right:0;transform:none}.lab-item-collected-time span:last-child{grid-column:2}.lab-specimen-select{max-width:none}.lab-result-list{margin-left:0}.lab-result-list-head,.lab-result-list-row{grid-template-columns:44px minmax(180px,1fr) 110px 120px 82px;min-width:584px;padding:6px 0}}
 @media(max-width:720px){.lab-toolbar{display:grid;grid-template-columns:1fr 1fr;gap:8px}.lab-search-control,.lab-toolbar .lab-date-control{width:100%!important;max-width:none;flex:auto;grid-column:1/-1}.lab-toolbar>.el-button,.lab-toolbar>.el-dropdown{width:100%}.lab-toolbar>.el-dropdown .el-button{width:100%}.lab-create-button{grid-column:1/-1}.lab-scan-context .el-button{width:100%;margin-left:0}.lab-status-strip{flex-wrap:nowrap;overflow-x:auto;padding-bottom:3px}.lab-status-chip,.lab-status-legend{flex:0 0 auto}.lab-lookup-strip>small{width:100%;margin-left:0}.lab-patient-row{grid-template-columns:28px minmax(0,1fr) 58px 58px 58px;padding:9px 8px}.lab-expand-button{grid-column:1;grid-row:1}.lab-patient-summary{grid-column:2;grid-row:1}.lab-row-status-check{grid-column:3/6;grid-row:1;justify-self:end}.lab-context-tags{grid-column:2/6;grid-row:2}.lab-items-cell{grid-column:2;grid-row:3}.lab-specimen-cell{grid-column:3/6;grid-row:3}.lab-order-cell{grid-column:2/6;grid-row:4}.lab-doctor-cell{grid-column:2/6;grid-row:5}.lab-patient-row.is-lookup .lab-section-cell{grid-column:2;grid-row:4}.lab-patient-row.is-lookup .lab-order-cell{grid-column:3/6;grid-row:4}.lab-patient-row>.lab-plain-action:nth-last-child(3){grid-column:2/6;grid-row:6}.lab-patient-row>.lab-plain-action:nth-last-child(2){grid-column:2/6;grid-row:7}.lab-patient-row>.lab-plain-action:last-child{grid-column:2/6;grid-row:8}.lab-detail-panel{padding:0 8px 12px}.lab-detail-top{align-items:flex-start;flex-wrap:wrap}.lab-bulk-actions{width:100%;margin:0;padding-bottom:7px;flex-wrap:wrap}.lab-item-grid.lab-item-row{grid-template-columns:1fr}.lab-pagination{justify-content:flex-start;overflow-x:auto}.lab-result-patient-card{grid-template-columns:44px 1fr}.lab-result-avatar{grid-row:auto}.lab-result-patient-main{grid-column:2}.lab-result-meta{grid-column:1/-1}.lab-manual-fields{grid-template-columns:1fr}.lab-result-list-head{display:none}.lab-result-list-row{grid-template-columns:1fr 1fr;min-width:0;padding:8px 0}.lab-result-list-row>div:nth-child(2){grid-column:1/-1;grid-row:1}.lab-micro-patient-strip{grid-template-columns:1fr 1fr}.lab-micro-patient-main{grid-column:1/-1}.lab-micro-timeline{grid-template-columns:1fr 1fr}.lab-micro-result-head{grid-template-columns:28px minmax(0,1fr) auto 22px}.lab-micro-result-head>span:nth-child(3){display:none}.lab-micro-result-body{padding-left:13px}.lab-micro-wire-meta{grid-template-columns:1fr 1fr}.lab-micro-wire-meta>div:nth-child(2){border-right:0}}
+@media(max-width:820px){.lab-result-revision-view{grid-template-columns:1fr}.lab-result-revision-rail{max-height:190px;overflow:auto;border-right:0;border-bottom:1px solid var(--border)}.lab-result-revision-sheet>footer{grid-template-columns:1fr}.lab-result-revision-sheet>footer span{margin-top:4px}}
 @media(max-width:520px){.lab-cbc-patient-card{grid-template-columns:38px minmax(0,1fr)}.lab-cbc-avatar{width:38px;height:38px}.lab-cbc-patient-card>.lab-source-pill{grid-column:1/-1;justify-self:start}.lab-cbc-swap-summary{grid-template-columns:1fr}.lab-cbc-swap-summary>i{transform:rotate(90deg)}.lab-cbc-swap-cell{min-height:auto}.lab-micro-patient-strip,.lab-micro-timeline,.lab-micro-summary-grid,.lab-micro-wire-meta{grid-template-columns:1fr}.lab-micro-wire-meta>div{border-right:0}.lab-micro-notice{flex-direction:column;gap:3px}.lab-micro-result-head{grid-template-columns:24px minmax(0,1fr) auto 20px;gap:7px}.lab-micro-section-head{align-items:flex-start;flex-direction:column;gap:2px}}
+.lab-result-value-row.is-redacted{background:var(--danger-50)}.lab-result-redacted-value{color:var(--danger);font-weight:800}
 @media(prefers-reduced-motion:reduce){.lab-cpoe *{scroll-behavior:auto!important;transition-duration:.001ms!important}}`
 
 fs.writeFileSync(outputPath, JSON.stringify(form, null, 2) + '\n')

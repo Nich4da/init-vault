@@ -354,7 +354,13 @@ const runItem = (harness, overrides = {}) => Process({
   assert(source.includes("action === 'retest_item'"))
   assert(source.includes("work_status: 'waiting_receive'"))
   assert(source.includes("current_status: 'sent'"))
-  assert(!source.includes('orderCollection.updateOne'), 'the retest action must not modify the CPOE Order header')
+  // 2026-09-25 user-requested Manual Final action may complete its CPOE Order;
+  // keep the original read-only guarantee scoped to both retest actions.
+  const retestBlock = source.slice(
+    source.indexOf("if (action === 'retest_item')"),
+    source.indexOf("if (action === 'cancel_order' || action === 'check_cancel_finance')"),
+  )
+  assert(!retestBlock.includes('orderCollection.updateOne'), 'the retest actions must not modify the CPOE Order header')
   console.log('LAB CPOE retest_order + retest_item API tests passed')
 })().catch(error => {
   console.error(error)

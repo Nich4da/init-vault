@@ -31,7 +31,9 @@ const makeHarness = ({
   patientPrename = 'ด.ช.',
   patientBirthDate = '2020-01-02',
   visitBirthDate = null,
-  visitGenderCode = '1'
+  visitGenderCode = '1',
+  orderVisitAn = '',
+  visitAn = ''
 } = {}) => {
   const item = {
     _id: ids.item,
@@ -76,6 +78,7 @@ const makeHarness = ({
         ...(patientBirthDate == null ? {} : { birth_date: patientBirthDate })
       },
       ...(visitBirthDate == null ? {} : { birth_date: visitBirthDate }),
+      ...(orderVisitAn ? { an: orderVisitAn } : {}),
       visit_clinic: { code: 'OPD', name: 'OPD Clinic' },
       gender_text: 'ชาย'
     },
@@ -183,7 +186,7 @@ const makeHarness = ({
       collection: name => ({
         zdata_cpoe_order_item: itemCollection,
         zdata_cpoe_order: { findOne: async query => String(query._id) === ids.order ? clone(order) : null },
-        zdata_visit: { findOne: async query => String(query._id) === ids.visit ? { pid: { p_gender: visitGenderCode } } : null },
+        zdata_visit: { findOne: async query => String(query._id) === ids.visit ? { pid: { p_gender: visitGenderCode }, an: visitAn } : null },
         zdata_master_item_order: { findOne: async query => clone(masters.get(String(query._id)) || null) },
         zdata_lab_work_item: workCollection,
         zdata_lab_outband_order: outboundCollection,
@@ -348,6 +351,7 @@ const makeHarness = ({
     const noCollectionPayload = JSON.parse(outbound.request_payload_json)
     assert.strictEqual(noCollectionPayload.labno, '106908310001')
     assert.strictEqual(noCollectionPayload.sex, 'M', 'coded Visit gender 1 must be sent as M')
+    assert.deepStrictEqual(noCollectionPayload.encounter, { class: 'OPD' }, 'visit without AN must be sent as OPD')
     assert.strictEqual(noCollectionPayload.patient_prefix, 'ด.ช.', 'plain-text prefix must remain supported')
     assert.strictEqual(noCollectionPayload.birth_date, '20200102', 'existing vid.pid.birth_date mapping must remain supported')
     assert.strictEqual(noCollectionPayload.items[0].received_at, '2026-08-31T08:20:00+07:00')
@@ -382,6 +386,23 @@ const makeHarness = ({
     assert.strictEqual(harness.calls().generatorCalls, 1)
     assert.strictEqual(harness.calls().agentCalls, 1, 'already queued retry must not send Agent twice')
     assert.strictEqual(repeated.data.agent_transport_state, 'already_queued')
+  }
+
+  {
+    const harness = makeHarness({ workPatch: {}, visitAn: 'AN690001' })
+    const result = await Process.call(harness.context, { item_id: ids.item }, harness.userInfo, harness.app)
+    assert.strictEqual(result.success, true)
+    const payload = JSON.parse(harness.outboundRows.get(ids.item).request_payload_json)
+    assert.deepStrictEqual(payload.encounter, { class: 'IPD' }, 'non-empty live Visit AN must be sent as IPD')
+    assert.deepStrictEqual(harness.calls().agentPayloads[0].encounter, { class: 'IPD' })
+  }
+
+  {
+    const harness = makeHarness({ workPatch: {}, orderVisitAn: 'AN-SNAPSHOT-690002' })
+    const result = await Process.call(harness.context, { item_id: ids.item }, harness.userInfo, harness.app)
+    assert.strictEqual(result.success, true)
+    const payload = JSON.parse(harness.outboundRows.get(ids.item).request_payload_json)
+    assert.deepStrictEqual(payload.encounter, { class: 'IPD' }, 'CPOE AN snapshot must remain the IPD fallback')
   }
 
   {
@@ -480,6 +501,7 @@ const makeHarness = ({
     assert.strictEqual(payload.birth_date, '20200304')
     assert.strictEqual(payload.sex, 'F', 'batch payload must use coded Visit gender 2')
     assert.strictEqual(payload.patient_prefix, 'ด.ช.', 'batch payload must use prefix text, not the stored code')
+    assert.deepStrictEqual(payload.encounter, { class: 'OPD' })
     assert.deepStrictEqual(payload.items.map(row => row.test_code), ['1087CD', '1088CD'])
     assert.strictEqual(harness.calls().agentCalls, 0)
 

@@ -14,8 +14,8 @@
  *
  * Input:
  * {
- *   action?: 'list' | 'list_cbc_swap' | 'swap_cbc_item' | 'list_open_visits' | 'update_specimen' | 'get_manual_result' | 'save_manual_result' | 'save_result_edits' | 'save_result_attachments' | 'set_result_visibility' | 'check_cancel_finance' | 'cancel_order' | 'retest_order' | 'retest_item',
- *   organization_code?: string,                      // App Organization (m1000-m1007)
+ *   action?: 'list' | 'get_reason_options' | 'list_cbc_swap' | 'swap_cbc_item' | 'list_open_visits' | 'update_specimen' | 'get_manual_result' | 'authorize_sensitive_result' | 'prepare_result_pdf' | 'save_manual_result' | 'finalize_manual_results' | 'save_result_edits' | 'save_result_attachments' | 'set_result_visibility' | 'check_cancel_finance' | 'cancel_order' | 'retest_order' | 'retest_item',
+ *   organization_code?: string,                      // App Organization (LAB rooms; radiology M0900/M0901/CT for cross_section read-only)
  *   section_codes?: string[] | comma-separated string,
  *   statuses?: string[] | comma-separated string, // default: ['sent']
  *   date_from?: 'YYYY-MM-DD',
@@ -26,11 +26,14 @@
  *   lookup_mode?: 'results' | 'orders',            // required with cross_section; get_manual_result requires results
  *   priorities?: string[] | comma-separated string,
  *   include_specimens?: boolean,                     // default true; false for count-only calls
+ *   include_status_counts?: boolean,                  // default false; batch daily tab counts into the list response
  *   item_id?: string,                                // update_specimen only
  *   specimen_code?: string,                          // update_specimen only
  *   attachment_scope?: 'item' | 'order',             // save_result_attachments only; default item
  *   attachment_operation?: 'replace' | 'remove',      // save_result_attachments only; default replace
  *   removed_attachment_key?: string,                  // required when attachment_operation=remove
+ *   correction_reason?: string,                       // optional note when an existing Result Item value is changed
+ *   request_id?: string,                              // idempotency/audit correlation for result correction
  *   page?: number,                                // default: 1
  *   limit?: number                                // default: 30, max: 100
  * }
@@ -50,11 +53,16 @@ const SPECIMEN_COLLECTION = 'zdata_specimen_code'
 const WORK_ITEM_COLLECTION = 'zdata_lab_work_item'
 const OUTBOUND_COLLECTION = 'zdata_lab_outband_order'
 const ORDER_CANCELLATION_COLLECTION = 'zdata_lab_order_cancellation'
+const REASON_SETTINGS_COLLECTION = 'zdata_zdata_lab_reject_cancel_reason'
 const BILL_COLLECTION = 'zdata_fa_bill'
 const BILL_ITEM_COLLECTION = 'zdata_fa_bill_item'
 const DIAGNOSIS_COLLECTION = 'zdata_diagnosis'
 const VISIT_COLLECTION = 'zdata_visit'
 const VISIT_TRAN_COLLECTION = 'zdata_visit_tran'
+const CORE_USER_COLLECTION = 'core_user'
+const SENSITIVE_ACCESS_LOG_COLLECTION = 'zdata_emr_sensitive_access_log'
+const SENSITIVE_ACCESS_GRANT_COLLECTION = 'zdata_emr_sensitive_access_grant'
+const SENSITIVE_GRANT_TTL_MS = 5 * 60 * 1000
 /* สถานะคิวที่จอ "ผู้มารับบริการวันนี้" (patient.json · visit_list) นับว่ายังเปิดอยู่
    คัดลอกมาจาก where ของ ListView ตัวจริง ห้ามเดาเพิ่มเอง */
 const OPEN_VTRAN_STATUSES = ['waiting', 'called', 'in_progress']
@@ -63,13 +71,21 @@ const CBC_SWAP_SECTION_BY_CODE = { HM1: 'HM', MS1: 'ML' }
 const RESULT_RECEIPT_FORM_ID = '6a8b1c03f851000f28e501ef'
 const RESULT_REPORT_FORM_ID = '6a8d4334f851000f28e5025b'
 const RESULT_ITEM_FORM_ID = '6a8bc91df851000f28e501fb'
+const RESULT_ITEM_COLLECTION = 'zdata_lab_result_item'
+const RESULT_REVISION_LOG_FORM_ID = '6abbabdcc54b3f93ce799576'
+// Form Factory stores LAB Result Edit Log records in the imported form's
+// generated zdata collection. Keep read-history and append-only writes bound to
+// this exact Form ID so the audit Form and its stored records cannot silently
+// drift onto different collections.
+const RESULT_EDIT_LOG_FORM_ID = '6ab78b7159662ac8f059105a'
+const RESULT_EDIT_LOG_COLLECTION = 'zdata_' + RESULT_EDIT_LOG_FORM_ID
 const LEGACY_RESULT_ITEM_FORM_ID = '6a7aa641935ed08882467374'
 const RESULT_ATTACHMENT_MAX_FILES = 10
 const RESULT_ATTACHMENT_MAX_FILE_BYTES = 10 * 1024 * 1024
 const RESULT_ATTACHMENT_MAX_TOTAL_BYTES = 50 * 1024 * 1024
 // 2026-09-23: `ready` now has an explicit financial meaning: Finance has
 // cleared the CPOE Item and LAB may receive its specimen. Keep the older
-// no-receipt recovery aliases separate so the Worklist never collapses
+// no-receipt recovery aliases separate so the ้ทWorklist never collapses
 // `ready` back to `sent` and loses the payment gate.
 const LEGACY_WAITING_CPOE_STATUSES = ['accepted', 'prepared', 'dispensed']
 const PRE_RECEIVE_CPOE_STATUSES = ['sent', 'ready', ...LEGACY_WAITING_CPOE_STATUSES]
@@ -185,6 +201,12 @@ const ORGANIZATION_SECTION_CODES = {
   '70': ['BG']
 }
 
+const IMMUNOLOGY_SECTION_CODES = ['IM', 'MI-OUT']
+
+/* หน่วยรังสีที่หน้า X-ray อนุญาตอยู่แล้ว ใช้ได้เฉพาะ cross_section read-only
+   สำหรับแท็บสืบค้นผล LAB เท่านั้น ห้ามนำรายการนี้ไปเปิดสิทธิ์ write ของ LAB */
+const XRAY_ORGANIZATION_CODES = ['M0900', 'M0901', 'CT']
+
 const valueText = value => {
   if (value == null) return ''
   if (typeof value === 'object') {
@@ -195,6 +217,42 @@ const valueText = value => {
   }
   return String(value)
 }
+
+const roleCode = role => valueText(role && typeof role === 'object' ? role.code || role.value || role.name : role).trim().toUpperCase()
+const isDoctorRoles = roles => [].concat(roles || []).some(role => roleCode(role) === 'DOCTOR')
+const sessionUsername = valueText(userInfo && userInfo.username || userInfo && userInfo.account && (userInfo.account.username || userInfo.account.name)).trim()
+const sessionRoles = [].concat(userInfo && userInfo.roles || []).map(roleCode).filter(Boolean)
+const dbRows = async (collection, query, projection, limit = 100) => {
+  const found = await app.dbFindAll({
+    from: collection,
+    nosql: { type: 'query', collection, query, projection: projection || {}, limit }
+  }, false, false)
+  return found && found.success !== false && found.reply && Array.isArray(found.reply.data) ? found.reply.data : []
+}
+const auditSensitive = async ({ action: auditAction, outcome, reasonCode, requestId, orderId, sectionCode, itemId, itemCode, purpose, authorizedBy } = {}) => {
+  const now = typeof app.curDate === 'function' ? valueText(app.curDate('YYYY-MM-DD HH:mm:ss')) : new Date().toISOString()
+  const doctor = authorizedBy || {}
+  const log = {
+    event_id: valueText(requestId), request_id: valueText(requestId),
+    action: valueText(auditAction || 'sensitive_result_view'), outcome: valueText(outcome), reason_code: valueText(reasonCode), event_at: now,
+    user_id: valueText(userInfo && userInfo.account && (userInfo.account.id || userInfo.account._id)),
+    username: sessionUsername, roles_snapshot: sessionRoles,
+    authorized_by_user_id: valueText(doctor._id || doctor.id),
+    authorized_by_username: valueText(doctor.username),
+    authorized_by_roles_snapshot: [].concat(doctor.roles || []).map(roleCode).filter(Boolean),
+    site: userInfo && userInfo.site || null, unit: userInfo && userInfo.unit || null,
+    source_order_id: valueText(orderId), section_code: valueText(sectionCode).toUpperCase(),
+    item_id: valueText(itemId), item_code: valueText(itemCode), sensitive: true,
+    purpose: valueText(purpose), source: 'lab_worklist', screen: 'lab_result_lookup', xrstatx: 1
+  }
+  try {
+    const saved = await app.dbInsert(log, SENSITIVE_ACCESS_LOG_COLLECTION, userInfo)
+    return Boolean(saved && saved.success)
+  } catch (error) {
+    return false
+  }
+}
+const sensitiveGrantToken = () => [Date.now().toString(36), ...Array.from({ length: 4 }, () => Math.random().toString(36).slice(2, 12))].join('-')
 
 const jsonArray = value => {
   if (Array.isArray(value)) return value
@@ -260,11 +318,15 @@ const requestedSectionCodes = listText(params.section_codes || params.section_co
 const action = valueText(params.action).trim().toLowerCase() || 'list'
 const crossSectionRequested = params.cross_section === true || valueText(params.cross_section).trim().toLowerCase() === 'true'
 const lookupMode = valueText(params.lookup_mode).trim().toLowerCase()
+const includeStatusCounts = !crossSectionRequested && (
+  params.include_status_counts === true ||
+  valueText(params.include_status_counts).trim().toLowerCase() === 'true'
+)
 
 // cross_section is an explicit read-only capability. The cross-room lookup may
 // read one Result Item through get_manual_result, but every write action must
 // still fail before any CPOE, Work Item, Outbound, or Result access.
-const crossSectionReadActions = ['list', 'get_manual_result']
+const crossSectionReadActions = ['list', 'get_manual_result', 'authorize_sensitive_result']
 if (crossSectionRequested && !crossSectionReadActions.includes(action)) {
   return { success: false, error: 'cross_section_read_only', message: 'โหมดสืบค้นข้ามห้องเป็นแบบอ่านอย่างเดียว' }
 }
@@ -330,6 +392,7 @@ const contextSections = enabledSections.filter(row =>
 )
 
 const localSectionCodes = contextSections.map(row => valueText(row.code).trim().toUpperCase())
+const isXrayLookupOrganization = XRAY_ORGANIZATION_CODES.includes(organizationCode)
 const sectionScopeRows = crossSectionRequested ? enabledSections : contextSections
 const allowedByContext = sectionScopeRows.map(row => valueText(row.code).trim().toUpperCase())
 const allowedLookup = Object.fromEntries(allowedByContext.map(code => [code, true]))
@@ -339,7 +402,7 @@ const contextSectionMetadata = sectionScopeRows.map(row => ({
   label: valueText(row.name_th || row.name || row.code).trim()
 }))
 
-if (crossSectionRequested && !localSectionCodes.length) {
+if (crossSectionRequested && !localSectionCodes.length && !isXrayLookupOrganization) {
   return { success: false, error: 'lab_user_required', message: 'บัญชีผู้ใช้ไม่ได้อยู่ในห้อง LAB ที่เปิดใช้งาน' }
 }
 
@@ -352,6 +415,95 @@ const allowedSectionCodes = requestedSectionCodes.length
   : allowedByContext
 const selectedSectionLookup = Object.fromEntries(allowedSectionCodes.map(code => [code, true]))
 const allowedSections = contextSectionMetadata.filter(section => selectedSectionLookup[section.code])
+
+/* Settings-backed reason options are deliberately a read-only action. The
+   reject/cancel write payloads and their existing Processes remain unchanged. */
+if (action === 'get_reason_options') {
+  const reasonType = valueText(params.reason_type).trim().toUpperCase()
+  if (!['SPECIMEN_REJECT', 'ORDER_CANCEL'].includes(reasonType)) {
+    return { success: false, error: 'invalid_reason_type', message: 'ประเภทเหตุผลไม่ถูกต้อง' }
+  }
+
+  const reasonSectionCode = valueText(
+    params.reason_section_code || (requestedSectionCodes.length === 1 ? requestedSectionCodes[0] : '')
+  ).trim().toUpperCase()
+  if (reasonSectionCode && !allowedLookup[reasonSectionCode]) {
+    return { success: false, error: 'reason_section_forbidden', message: 'ไม่มีสิทธิ์อ่านเหตุผลของ Section ที่ร้องขอ' }
+  }
+
+  let reasonRows = []
+  try {
+    const found = await app.dbFindAll(
+      {
+        from: REASON_SETTINGS_COLLECTION,
+        nosql: {
+          type: 'query',
+          collection: REASON_SETTINGS_COLLECTION,
+          query: {
+            xrstatx: { $nin: [0, 3] },
+            reason_type: reasonType
+          },
+          projection: {
+            reason_type: 1,
+            section_code: 1,
+            reason_code: 1,
+            reason_text: 1,
+            display_order: 1,
+            is_active: 1
+          },
+          limit: 500
+        }
+      },
+      false,
+      false
+    )
+    if (!found || found.success === false) {
+      return { success: false, error: 'reason_settings_read_failed', message: 'อ่านรายการเหตุผลไม่สำเร็จ' }
+    }
+    reasonRows = found.reply && Array.isArray(found.reply.data) ? found.reply.data : []
+  } catch (error) {
+    return { success: false, error: 'reason_settings_read_failed', message: 'อ่านรายการเหตุผลไม่สำเร็จ' }
+  }
+
+  const activeValue = value => value === true || value === 1 || ['true', '1'].includes(valueText(value).trim().toLowerCase())
+  const seenReasonCodes = {}
+  const options = reasonRows
+    .filter(row => row && activeValue(row.is_active))
+    .filter(row => {
+      const scope = valueText(row.section_code).trim().toUpperCase()
+      return scope === 'ALL' || (!!reasonSectionCode && scope === reasonSectionCode)
+    })
+    .sort((left, right) => {
+      const leftOrder = Number(left && left.display_order)
+      const rightOrder = Number(right && right.display_order)
+      const orderDiff = (Number.isFinite(leftOrder) ? leftOrder : 999999) - (Number.isFinite(rightOrder) ? rightOrder : 999999)
+      if (orderDiff) return orderDiff
+      return valueText(left && left.reason_text).localeCompare(valueText(right && right.reason_text), 'th')
+    })
+    .reduce((rows, row) => {
+      const value = valueText(row.reason_code).trim()
+      const label = valueText(row.reason_text).trim()
+      if (!value || !label || seenReasonCodes[value]) return rows
+      seenReasonCodes[value] = true
+      rows.push({
+        value,
+        label,
+        display_order: Number.isFinite(Number(row.display_order)) ? Number(row.display_order) : null,
+        section_code: valueText(row.section_code).trim().toUpperCase() || 'ALL'
+      })
+      return rows
+    }, [])
+
+  return {
+    success: true,
+    data: {
+      reason_type: reasonType,
+      section_code: reasonSectionCode || 'ALL',
+      options,
+      source: 'lab_reason_settings'
+    }
+  }
+}
 
 /* ── ย้ายขึ้นมาก่อนด่าน Section 2026-09-03 ────────────────────────────────
    `list_open_visits` เป็นรายการ Visit ของทั้งโรงพยาบาลในวันนี้ ไม่ได้ใช้ Section เลย
@@ -390,6 +542,10 @@ if (action === 'list_open_visits') {
     vn: 1,
     visit_date: 1,
     visit_type: 1,
+    an: 1,
+    ward: 1,
+    bed: 1,
+    admit_status: 1,
     visit_clinic: 1,
     visit_doctor: 1,
     inscl_hos: 1,
@@ -865,7 +1021,15 @@ if (action === 'list_cbc_swap') {
           hn: '$order.vid.pid.hn', prename: '$order.vid.pid.prename', first_name: '$order.vid.pid.p_fname',
           last_name: '$order.vid.pid.p_lname', age: '$order.vid.pid.age', gender_text: '$order.vid.gender_text'
         },
-        visit: { visit_id: { $toString: '$order.xparentx' }, vn: '$order.vid.vn', clinic: '$order.vid.visit_clinic', ward: '$order.vid.ward' },
+        visit: {
+          visit_id: { $toString: '$order.xparentx' },
+          vn: '$order.vid.vn',
+          an: '$order.vid.an',
+          encounter_class: { $cond: [{ $ne: [{ $ifNull: ['$order.vid.an', ''] }, ''] }, 'IPD', 'OPD'] },
+          clinic: '$order.vid.visit_clinic',
+          ward: '$order.vid.ward',
+          bed: '$order.vid.bed'
+        },
         requester: { cosign_user: '$order.cosign_user', visit_doctor: '$order.vid.visit_doctor' },
         finance: { total_amount: '$order.total_amount', paid_amount: '$order.paid_amount', coverage: '$order.inscl_hos' },
         cbc_items: 1,
@@ -2066,7 +2230,489 @@ const optionalLegacyResultRows = async (where, queryParams, orderBy, limit) => {
   }
 }
 
-if (['get_manual_result', 'save_manual_result', 'save_result_edits', 'save_result_attachments', 'set_result_visibility'].includes(action)) {
+// Manual/HIS-pencil corrections use the normal current+log Form pattern:
+// LAB Result Edit Log receives one immutable before/after record and LAB Result
+// Item keeps the latest value. The append-only log uses the same plain SDK insert
+// pattern as other audit forms; the current Result Item keeps the Form save pipeline.
+// This flow intentionally does not require MongoDB transaction support.
+const correctionSnapshot = row => ({
+  result_value: valueText(row && row.result_value),
+  unit: valueText(row && (row.unit_symbol_snapshot || row.unit_symbol || row.units)),
+  interpretation: valueText(row && row.interpretation_code),
+  reference_range: valueText(row && (row.reference_range_snapshot || row.ref_range))
+})
+
+const correctionChangedFields = (before, after) => [
+  ['result_value', before.result_value, after.result_value],
+  ['unit', before.unit, after.unit],
+  ['interpretation', before.interpretation, after.interpretation],
+  ['reference_range', before.reference_range, after.reference_range]
+].filter(entry => entry[1] !== entry[2]).map(entry => entry[0])
+
+const correctionErrorMessage = code => ({
+  CORRECTION_RESULT_NOT_FOUND: 'ไม่พบ Result Item ล่าสุดระหว่างบันทึกประวัติการแก้ผล',
+  CORRECTION_RESULT_CONFLICT: 'ผลตรวจถูกแก้ไขจากคำขออื่นแล้ว กรุณาโหลดผลใหม่ก่อนแก้อีกครั้ง',
+  CORRECTION_LOG_WRITE_FAILED: 'บันทึกประวัติการแก้ผลไม่สำเร็จ จึงไม่แก้ไขผล',
+  CORRECTION_RESULT_UPDATE_FAILED: 'บันทึกประวัติแล้ว แต่อัปเดตผลล่าสุดไม่สำเร็จ กรุณาลองอีกครั้ง',
+  CORRECTION_REQUEST_REUSED: 'request_id นี้ถูกใช้กับข้อมูลแก้ไขชุดอื่นแล้ว'
+})[code] || ('บันทึกการแก้ผลไม่สำเร็จ: ' + code)
+
+const persistCorrectionBatch = async ({ edits, reason, requestId, context }) => {
+  const cleanReason = valueText(reason).trim().slice(0, 1000)
+  const now = valueText(app.curDate('YYYY-MM-DD HH:mm:ss')).trim()
+  const actorCode = valueText(
+    userInfo.employee_code || userInfo.username || userInfo.account && (userInfo.account.username || userInfo.account.code || userInfo.account.name)
+  ).trim()
+  const actorName = valueText(
+    userInfo.fullname || userInfo.display_name || userInfo.account && (userInfo.account.label || userInfo.account.name) || actorCode
+  ).trim()
+  const actorId = valueText(
+    userInfo._id || userInfo.id || userInfo.account && (userInfo.account._id || userInfo.account.id)
+  ).trim()
+  const requestedGroupId = valueText(requestId).trim().slice(0, 200)
+  const correctionGroupId = requestedGroupId || [
+    'lab-correction', Date.now().toString(36), Math.random().toString(36).slice(2, 10)
+  ].join('-')
+
+  const resultCollection = app.db.collection(RESULT_ITEM_COLLECTION)
+  const logCollection = app.db.collection(RESULT_EDIT_LOG_COLLECTION)
+  const applied = []
+
+  for (const edit of edits) {
+    const resultItemId = valueText(edit && edit.resultItemId).trim()
+    if (!/^[a-f0-9]{24}$/i.test(resultItemId)) throw new Error('CORRECTION_RESULT_NOT_FOUND')
+    const resultObjectId = app.dbObjectId(resultItemId)
+    const live = await resultCollection.findOne({ _id: resultObjectId, xrstatx: { $nin: [0, 3] } })
+    if (!live) throw new Error('CORRECTION_RESULT_NOT_FOUND')
+
+    const expected = correctionSnapshot(edit.currentRow)
+    const before = correctionSnapshot(live)
+    const after = {
+      result_value: valueText(edit.clean && edit.clean.result_value),
+      unit: valueText(edit.clean && edit.clean.unit_symbol_snapshot),
+      interpretation: valueText(edit.clean && edit.clean.interpretation_code),
+      reference_range: valueText(edit.clean && edit.clean.reference_range_snapshot)
+    }
+    const eventId = (correctionGroupId + ':' + resultItemId).slice(0, 500)
+    const existingLog = await logCollection.findOne({ event_id: eventId, xrstatx: { $nin: [0, 3] } })
+    if (existingLog) {
+      if (JSON.stringify(correctionSnapshot(live)) === JSON.stringify(after)) {
+        applied.push({ resultItemId, patch: {}, idempotent: true })
+        continue
+      }
+      throw new Error('CORRECTION_REQUEST_REUSED')
+    }
+    if (JSON.stringify(before) !== JSON.stringify(expected)) throw new Error('CORRECTION_RESULT_CONFLICT')
+    const changedFields = correctionChangedFields(before, after)
+    if (!changedFields.length) continue
+
+    const logDocument = {
+      event_id: eventId,
+      request_id: requestedGroupId,
+      correction_group_id: correctionGroupId,
+      action: 'manual_result_correction',
+      outcome: 'success',
+      source: 'lab_worklist',
+      source_result_item_id: resultItemId,
+      source_result_report_id: valueText(live.result_report_id || live.xparentx),
+      source_work_item_id: valueText(context && context.workItemId),
+      source_cpoe_order_id: valueText(context && context.orderId),
+      source_cpoe_item_id: valueText(context && context.itemId),
+      order_number: valueText(context && context.orderNumber),
+      lab_no: valueText(context && context.labNo),
+      section_code: valueText(context && context.sectionCode).toUpperCase(),
+      hn: valueText(context && context.patientHn),
+      visit_id: valueText(context && context.visitId),
+      test_code: valueText(live.test_code || live.obs_code || context && context.testCode),
+      obs_code: valueText(live.obs_code || live.test_code || context && context.testCode),
+      test_name: valueText(live.test_name || live.obs_name || context && context.testName),
+      correction_reason: cleanReason,
+      changed_fields_json: JSON.stringify(changedFields),
+      before_result_value: before.result_value,
+      after_result_value: after.result_value,
+      before_unit: before.unit,
+      after_unit: after.unit,
+      before_interpretation: before.interpretation,
+      after_interpretation: after.interpretation,
+      before_reference_range: before.reference_range,
+      after_reference_range: after.reference_range,
+      corrected_by_user_id: actorId,
+      corrected_by_username: actorCode,
+      corrected_by_name: actorName || actorCode,
+      corrected_at: now
+    }
+    let logSaved
+    try {
+      logSaved = await app.dbInsert(logDocument, RESULT_EDIT_LOG_COLLECTION, userInfo)
+    } catch (error) {
+      throw new Error('CORRECTION_LOG_WRITE_FAILED')
+    }
+    if (!logSaved || logSaved.success === false) throw new Error('CORRECTION_LOG_WRITE_FAILED')
+
+    const patch = {
+      result_value: after.result_value,
+      units: after.unit,
+      unit_symbol_snapshot: after.unit,
+      interpretation_code: after.interpretation,
+      ref_range: after.reference_range,
+      reference_range_snapshot: after.reference_range,
+      change_kind: 'corrected',
+      last_edited_by: actorCode,
+      last_edited_at: now
+    }
+    let resultSaved
+    try {
+      resultSaved = await app.sdformSetOne(RESULT_ITEM_FORM_ID, resultItemId, patch, 1, userInfo)
+    } catch (error) {
+      throw new Error('CORRECTION_RESULT_UPDATE_FAILED')
+    }
+    if (!resultSaved || resultSaved.success === false) throw new Error('CORRECTION_RESULT_UPDATE_FAILED')
+    applied.push({ resultItemId, patch, logDocument })
+  }
+  return { correctionGroupId, applied }
+}
+
+if (action === 'finalize_manual_results') {
+  const orderId = valueText(params.order_id).trim()
+  const requestedSectionCode = valueText(params.section_code).trim().toUpperCase()
+  if (!/^[a-f0-9]{24}$/i.test(orderId)) {
+    return { success: false, error: 'order_id_invalid', message: 'order_id ไม่ถูกต้อง' }
+  }
+  if (!requestedSectionCode || !allowedLookup[requestedSectionCode]) {
+    return { success: false, error: 'section_forbidden', message: 'ไม่มีสิทธิ์ยืนยันผลครบของ Section ที่ร้องขอ' }
+  }
+
+  const now = valueText(app.curDate('YYYY-MM-DD HH:mm:ss')).trim()
+  const actorCode = valueText(
+    userInfo.employee_code || userInfo.username || userInfo.account && (userInfo.account.code || userInfo.account.name)
+  ).trim()
+  const actorName = valueText(
+    userInfo.fullname || userInfo.display_name || userInfo.account && (userInfo.account.label || userInfo.account.name) || actorCode
+  ).trim()
+  const actorId = valueText(
+    userInfo._id || userInfo.id || userInfo.account && (userInfo.account._id || userInfo.account.id) || actorCode
+  ).trim()
+  if (!actorCode) {
+    return { success: false, error: 'actor_missing', message: 'ไม่พบผู้ยืนยันผลจากบัญชีผู้ใช้' }
+  }
+
+  const active = { $nin: [0, 3] }
+  const terminalStatuses = ['cancelled', 'rejected', 'returned', 'reversed']
+  const orderObjectId = app.dbObjectId(orderId)
+  const orderCollection = app.db.collection(ORDER_COLLECTION)
+  const itemCollection = app.db.collection(ITEM_COLLECTION)
+  const masterCollection = app.db.collection(ITEM_MASTER_COLLECTION)
+  const sectionCollection = app.db.collection(SECTION_COLLECTION)
+  const workCollection = app.db.collection(WORK_ITEM_COLLECTION)
+  const order = await orderCollection.findOne({ _id: orderObjectId, xrstatx: active })
+  if (!order) {
+    return { success: false, error: 'order_not_found', message: 'ไม่พบ CPOE Order ที่ต้องการยืนยันผลครบ' }
+  }
+
+  const serviceTypeOf = item => valueText(
+    item && item.service_type && item.service_type.value != null
+      ? item.service_type.value
+      : item && item.service_type
+  ).trim().toLowerCase()
+  const orderLinks = [orderObjectId, orderId]
+  const allItems = await itemCollection.find({
+    xrstatx: active,
+    $or: [
+      { 'order_id.value': { $in: orderLinks } },
+      { order_ref_id: { $in: orderLinks } },
+      { xparentx: { $in: orderLinks } }
+    ]
+  }).toArray()
+  const labItems = allItems.filter(item => serviceTypeOf(item) === 'lab')
+  if (!labItems.length) {
+    return { success: false, error: 'lab_items_not_found', message: 'Order นี้ไม่มี LAB Item' }
+  }
+
+  const contexts = []
+  for (let index = 0; index < labItems.length; index += 1) {
+    const item = labItems[index]
+    const itemId = valueText(item && item._id).trim()
+    let master = null
+    if (item.item_data_id) master = await masterCollection.findOne({ _id: item.item_data_id, xrstatx: active })
+    const workItem = await workCollection.findOne({
+      xrstatx: active,
+      is_current_attempt: { $ne: false },
+      $or: [{ _id: item._id }, { source_specimen_record_id: itemId }]
+    })
+    let section = item.section_snapshot || item.lab_context_snapshot && item.lab_context_snapshot.section || master && master.section || {}
+    if (!valueText(section.code).trim() && section.value) {
+      const sectionId = typeof section.value === 'string' ? app.dbObjectId(section.value) : section.value
+      const foundSection = await sectionCollection.findOne({ _id: sectionId, xrstatx: active, enable: { $ne: false } })
+      if (foundSection) section = foundSection
+    }
+    const sectionCode = valueText(
+      workItem && workItem.cbc_swap_active === true ? workItem.section_code : section.code
+    ).trim().toUpperCase()
+    if (sectionCode !== requestedSectionCode) continue
+    const workStatus = valueText(workItem && workItem.work_status).trim().toLowerCase()
+    const cpoeStatus = valueText(item.current_status).trim().toLowerCase()
+    if (terminalStatuses.includes(workStatus) || terminalStatuses.includes(cpoeStatus)) continue
+    contexts.push({ item, itemId, workItem, workStatus, cpoeStatus })
+  }
+  if (!contexts.length) {
+    return { success: false, error: 'section_items_not_found', message: 'Order นี้ไม่มี Active Item ใน Section ที่เลือก' }
+  }
+
+  const statusBlockers = contexts.filter(context =>
+    !context.workItem || !['resulted', 'completed'].includes(context.workStatus)
+  )
+  if (statusBlockers.length) {
+    const labels = statusBlockers.map(context =>
+      valueText(context.item && (context.item.item_code || context.item.item_name)).trim() || context.itemId
+    )
+    return {
+      success: false,
+      error: 'manual_results_incomplete',
+      message: 'ยังยืนยันออกผลครบไม่ได้ เพราะมีรายการที่ยังไม่บันทึกผล Manual: ' + labels.join(', ')
+    }
+  }
+
+  const resultContexts = []
+  const reportIds = new Set()
+  for (let index = 0; index < contexts.length; index += 1) {
+    const context = contexts[index]
+    const workItemId = valueText(context.workItem && context.workItem._id).trim()
+    let rows
+    try {
+      rows = await resultRows(
+        '(order_no = :workItemId OR order_no = :itemId) AND xrstatx NOT IN (0,3)',
+        { workItemId, itemId: context.itemId },
+        [
+          { column: 'result_sequence', sort: 'ASC' },
+          { column: 'xupdatx', sort: 'DESC' }
+        ],
+        500
+      )
+    } catch (error) {
+      return { success: false, error: 'result_lookup_failed', message: 'ตรวจสอบความครบถ้วนของผล Manual ไม่สำเร็จ' }
+    }
+    const clinicalRows = rows.filter(row => {
+      const status = valueText(row && row.result_status).trim().toLowerCase()
+      return !['void', 'cancelled'].includes(status)
+    })
+    const manualRows = clinicalRows.filter(row =>
+      valueText(row && row.result_source).trim().toLowerCase() === 'manual'
+    )
+    const hasNonManual = clinicalRows.some(row =>
+      valueText(row && row.result_source).trim().toLowerCase() !== 'manual'
+    )
+    const missingValue = !manualRows.length || manualRows.some(row => !valueText(row && row.result_value).trim())
+    if (hasNonManual || missingValue) {
+      const label = valueText(context.item && (context.item.item_code || context.item.item_name)).trim() || context.itemId
+      return {
+        success: false,
+        error: hasNonManual ? 'manual_source_required' : 'manual_result_value_required',
+        message: hasNonManual
+          ? 'ยืนยันออกผลครบจากปุ่มนี้ได้เฉพาะผล Manual: ' + label
+          : 'กรุณากรอกค่าผล Manual ให้ครบก่อนยืนยัน: ' + label
+      }
+    }
+    manualRows.forEach(row => {
+      const reportId = valueText(row && (row.result_report_id || row.xparentx)).trim()
+      if (/^[a-f0-9]{24}$/i.test(reportId)) reportIds.add(reportId)
+    })
+    resultContexts.push({ ...context, workItemId, manualRows })
+  }
+
+  const alreadyCompleted = resultContexts.every(context =>
+    context.workStatus === 'completed' && context.manualRows.every(row =>
+      ['final', 'corrected', 'completed'].includes(valueText(row && row.result_status).trim().toLowerCase())
+    )
+  )
+  if (alreadyCompleted) {
+    return {
+      success: true,
+      data: {
+        order_id: orderId,
+        section_code: requestedSectionCode,
+        item_ids: resultContexts.map(context => context.itemId),
+        completed_item_count: resultContexts.length,
+        already_completed: true
+      },
+      message: 'Order นี้ออกผลครบแล้ว'
+    }
+  }
+
+  const verifierPatch = {
+    result_status: 'final',
+    verified_at: now,
+    verified_by: actorCode,
+    verified_by_source_id: actorId || actorCode,
+    verified_by_source_name: actorName || actorCode
+  }
+  try {
+    for (let contextIndex = 0; contextIndex < resultContexts.length; contextIndex += 1) {
+      const context = resultContexts[contextIndex]
+      for (let rowIndex = 0; rowIndex < context.manualRows.length; rowIndex += 1) {
+        const row = context.manualRows[rowIndex]
+        const status = valueText(row && row.result_status).trim().toLowerCase()
+        if (['final', 'corrected', 'completed'].includes(status)) continue
+        const resultItemId = valueText(row && (row._id || row.id)).trim()
+        if (!/^[a-f0-9]{24}$/i.test(resultItemId)) {
+          return { success: false, error: 'result_item_id_invalid', message: 'ไม่พบ Result Item ที่บันทึกจริงสำหรับยืนยันผลครบ' }
+        }
+        const saved = await app.sdformSetOne(RESULT_ITEM_FORM_ID, resultItemId, verifierPatch, 1, userInfo)
+        if (!saved || saved.success === false) {
+          return { success: false, error: 'result_item_finalize_failed', message: 'ยืนยันสถานะ Final ของ Result Item ไม่สำเร็จ' }
+        }
+      }
+    }
+    for (const reportId of reportIds) {
+      const saved = await app.sdformSetOne(RESULT_REPORT_FORM_ID, reportId, {
+        internal_overall_status: 'completed',
+        verified_at: now,
+        verified_by_source_id: actorId || actorCode,
+        verified_by_source_name: actorName || actorCode,
+        confirmed_at: now,
+        confirmed_by: actorCode
+      }, 1, userInfo)
+      if (!saved || saved.success === false) {
+        return { success: false, error: 'result_report_finalize_failed', message: 'ยืนยันสถานะ Final ของ Result Report ไม่สำเร็จ' }
+      }
+    }
+  } catch (error) {
+    return { success: false, error: 'result_finalize_failed', message: 'ยืนยันผลครบไม่สำเร็จ: ' + valueText(error && error.message || error) }
+  }
+
+  let completedItemCount = 0
+  for (let index = 0; index < resultContexts.length; index += 1) {
+    const context = resultContexts[index]
+    if (context.workStatus !== 'completed') {
+      const workSaved = await workCollection.updateOne(
+        { _id: context.workItem._id, xrstatx: active, work_status: 'resulted' },
+        { $set: { work_status: 'completed', completed_at: now, completed_by: actorCode } }
+      )
+      if (!workSaved || Number(workSaved.matchedCount) !== 1) {
+        return { success: false, error: 'work_status_conflict', message: 'สถานะ Lab Work Item เปลี่ยนระหว่างยืนยันผล กรุณาโหลดใหม่แล้วลองอีกครั้ง' }
+      }
+    }
+    const currentCpoeStatus = valueText(context.item && context.item.current_status).trim().toLowerCase()
+    if (currentCpoeStatus !== 'completed') {
+      const cpoeSaved = await itemCollection.updateOne(
+        { _id: context.item._id, xrstatx: active, current_status: { $nin: ['completed', 'rejected', 'cancelled'] } },
+        { $set: { current_status: 'completed', result_completed_at: now, result_completed_by: actorCode, result_completed_source: 'his.manual' } }
+      )
+      if (!cpoeSaved || Number(cpoeSaved.matchedCount) !== 1) {
+        return { success: false, error: 'cpoe_status_conflict', message: 'สถานะ CPOE Item เปลี่ยนระหว่างยืนยันผล กรุณาโหลดใหม่แล้วลองอีกครั้ง' }
+      }
+    }
+    completedItemCount += 1
+  }
+
+  const completedItemLookup = Object.fromEntries(resultContexts.map(context => [context.itemId, true]))
+  const parentOrderCompleted = allItems.length > 0 && allItems.every(item => {
+    const itemId = valueText(item && item._id).trim()
+    return completedItemLookup[itemId] || valueText(item && item.current_status).trim().toLowerCase() === 'completed'
+  })
+  if (parentOrderCompleted && valueText(order.current_status).trim().toLowerCase() !== 'completed') {
+    await orderCollection.updateOne(
+      { _id: orderObjectId, xrstatx: active, current_status: { $nin: ['completed', 'rejected', 'cancelled'] } },
+      { $set: { current_status: 'completed', result_completed_at: now, result_completed_by: actorCode, result_completed_source: 'his.manual' } }
+    )
+  }
+
+  return {
+    success: true,
+    data: {
+      order_id: orderId,
+      section_code: requestedSectionCode,
+      item_ids: resultContexts.map(context => context.itemId),
+      completed_item_count: completedItemCount,
+      completed_at: now,
+      completed_by: actorName || actorCode,
+      verified_by_source_id: actorId || actorCode,
+      verified_by_source_name: actorName || actorCode,
+      order_completed: parentOrderCompleted,
+      already_completed: false
+    },
+    message: 'ยืนยันออกผลครบแล้ว'
+  }
+}
+
+/* Normalize legacy per-Item Manual parents into the confirmed one-parent-per-
+   Order+Section contract. Existing reports are retained; only active Result
+   Items are repointed to the canonical parent so Report Factory prints all rows. */
+if (action === 'prepare_result_pdf') {
+  if (crossSectionRequested) return { success: false, error: 'cross_section_read_only', message: 'การเตรียม PDF ทำได้จากห้อง LAB เจ้าของผลเท่านั้น' }
+  const itemId = valueText(params.item_id).trim()
+  if (!/^[a-f0-9]{24}$/i.test(itemId)) return { success: false, error: 'invalid_item_id', message: 'item_id ไม่ถูกต้อง' }
+  let context
+  try { context = await loadItemContext(itemId) } catch (error) { context = null }
+  if (!context || !context.order || valueText(context.item && context.item.service_type && context.item.service_type.value).toLowerCase() !== 'lab') {
+    return { success: false, error: 'item_not_found', message: 'ไม่พบ CPOE LAB Item ที่เลือก' }
+  }
+  const sectionCode = valueText(context.section && context.section.code).trim().toUpperCase()
+  if (!localSectionCodes.includes(sectionCode)) return { success: false, error: 'section_forbidden', message: 'Item นี้ไม่ได้อยู่ใน Section ของ Organization ปัจจุบัน' }
+  const orderId = valueText(context.order._id).trim()
+  const reportKey = 'manual-order|' + orderId + '|' + sectionCode
+  const workRows = await dbRows(WORK_ITEM_COLLECTION, { source_order_id: orderId, section_code: sectionCode, xrstatx: { $nin: [0, 3] } }, { _id: 1, source_specimen_record_id: 1, lab_no: 1, visit_id: 1 }, 500)
+  const itemIds = Array.from(new Set(workRows.map(row => valueText(row.source_specimen_record_id || row._id).trim()).filter(id => /^[a-f0-9]{24}$/i.test(id))))
+  if (!itemIds.length) itemIds.push(itemId)
+  const clauses = itemIds.map((id, index) => 'order_no = :item' + index)
+  const variables = Object.fromEntries(itemIds.map((id, index) => ['item' + index, id]))
+  let rows = []
+  try {
+    rows = await resultRows('(' + clauses.join(' OR ') + ') AND xrstatx NOT IN (0,3)', variables, [{ column: 'result_sequence', sort: 'ASC' }], 1000)
+  } catch (error) {
+    return { success: false, error: 'result_lookup_failed', message: 'อ่าน Result Item สำหรับเตรียม PDF ไม่สำเร็จ' }
+  }
+  if (!rows.length) return { success: false, error: 'result_not_found', message: 'ยังไม่มีผลตรวจสำหรับสร้าง PDF' }
+  let reports = []
+  try { reports = await formRows(RESULT_REPORT_FORM_ID, 'report_key = :reportKey AND xrstatx NOT IN (0,3)', { reportKey }, [{ column: 'xupdatx', sort: 'DESC' }], 2) } catch (error) { reports = [] }
+  let resultReportId = valueText(reports[0] && reports[0]._id).trim()
+  if (!resultReportId) {
+    resultReportId = rows.map(row => valueText(row && (row.result_report_id || row.xparentx)).trim()).find(id => /^[a-f0-9]{24}$/i.test(id)) || ''
+  }
+  try {
+    if (!resultReportId) {
+      const draft = await app.insertData(RESULT_REPORT_FORM_ID, userInfo)
+      resultReportId = valueText(draft && (draft.id || draft.data && (draft.data._id || draft.data.id) || draft.reply && (draft.reply.id || draft.reply.data && draft.reply.data._id))).trim()
+      if (!draft || draft.success === false || !resultReportId) return { success: false, error: 'result_report_create_failed', message: 'สร้าง Result Report หลักไม่สำเร็จ' }
+    }
+    const now = typeof app.curDate === 'function' ? valueText(app.curDate('YYYY-MM-DD HH:mm:ss')) : new Date().toISOString()
+    const firstWork = workRows[0] || context.workItem || {}
+    const patient = context.order.vid && context.order.vid.pid || {}
+    const reportSaved = await app.sdformSetOne(RESULT_REPORT_FORM_ID, resultReportId, {
+      xparentx: app.dbObjectId(resultReportId), result_report_id: resultReportId,
+      report_key: reportKey, record_kind: 'report', source_channel: 'manual',
+      order_no: orderId, order_status_id: itemId,
+      filler_order_no: valueText(firstWork.lab_no), hn: valueText(patient.hn),
+      visit_id: valueText(context.order.vid && context.order.vid.vn || firstWork.visit_id),
+      lab_section: sectionCode, lab_section_name: valueText(context.section && (context.section.name_th || context.section.name)),
+      internal_overall_status: rows.every(row => ['final', 'corrected', 'completed'].includes(valueText(row.result_status).toLowerCase())) ? 'completed' : 'partial',
+      item_count: rows.length, matched_item_count: rows.length, unmatched_item_count: 0, processed_at: now
+    }, 1, userInfo)
+    if (!reportSaved || reportSaved.success === false) return { success: false, error: 'result_report_save_failed', message: 'บันทึก Result Report หลักไม่สำเร็จ' }
+    for (const row of rows) {
+      const rowId = valueText(row && (row._id || row.id)).trim()
+      if (!/^[a-f0-9]{24}$/i.test(rowId)) continue
+      const saved = await app.sdformSetOne(RESULT_ITEM_FORM_ID, rowId, { xparentx: app.dbObjectId(resultReportId), result_report_id: resultReportId }, 1, userInfo)
+      if (!saved || saved.success === false) return { success: false, error: 'result_item_parent_failed', message: 'รวม Result Item เข้าใบ PDF หลักไม่สำเร็จ' }
+    }
+    // LAB-room PDF output is permanently redacted for Sensitive rows. The LAB
+    // process never accepts or echoes a doctor grant; Report SQL receives no
+    // token and keeps the test name while blanking every clinical cell.
+    const pdfContexts = []
+    for (const candidateItemId of itemIds) {
+      try {
+        const candidateContext = candidateItemId === itemId ? context : await loadItemContext(candidateItemId)
+        if (candidateContext) pdfContexts.push(candidateContext)
+      } catch (error) {
+        return { success: false, error: 'sensitive_policy_lookup_failed', message: 'ตรวจสอบนโยบาย Sensitive ของรายการในใบ PDF ไม่สำเร็จ' }
+      }
+    }
+    return { success: true, data: { order_id: orderId, section_code: sectionCode, result_report_id: resultReportId, result_count: rows.length, sensitive_grant_token: '', sensitive_grant_expires_at_epoch: 0 }, message: 'เตรียม PDF ผลตรวจครบทั้งใบแล้ว' }
+  } catch (error) {
+    return { success: false, error: 'prepare_result_pdf_failed', message: 'เตรียม PDF ไม่สำเร็จ: ' + valueText(error && error.message || error) }
+  }
+}
+
+if (['get_manual_result', 'authorize_sensitive_result', 'save_manual_result', 'save_result_edits', 'save_result_attachments', 'set_result_visibility'].includes(action)) {
   const itemId = valueText(params.item_id).trim()
   if (!/^[a-f0-9]{24}$/i.test(itemId)) {
     return { success: false, message: 'item_id ไม่ถูกต้อง' }
@@ -2089,7 +2735,7 @@ if (['get_manual_result', 'save_manual_result', 'save_result_edits', 'save_resul
   const itemStatus = effectiveItemStatus(context)
   const editableStatuses = ['accepted', 'prepared', 'dispensed', 'resulted']
   const viewableStatuses = ['sent', ...editableStatuses, 'completed']
-  if (action === 'get_manual_result' && !viewableStatuses.includes(itemStatus)) {
+  if (['get_manual_result', 'authorize_sensitive_result'].includes(action) && !viewableStatuses.includes(itemStatus)) {
     return { success: false, message: 'สถานะ Item นี้ไม่อนุญาตให้ดูผลตรวจ' }
   }
   const resultEditStatuses = [...editableStatuses, 'completed']
@@ -2136,6 +2782,109 @@ if (['get_manual_result', 'save_manual_result', 'save_result_edits', 'save_resul
   const testName = valueText(context.item.item_name || (context.master && context.master.item_name) || testCode).trim()
   const specimenCode = valueText(labData.spec_source_code).trim()
   const specimenName = valueText(labData.spec_source || labData.source).trim()
+  const aggregateManualReportKey = 'manual-order|' + orderId + '|' + itemSectionCode
+
+  // Item Master is the only Sensitive policy source. CPOE Item is_hide_result
+  // belongs to the separate result-correction workflow and must not be reused.
+  const masterSensitive = context.master && context.master.is_hide_result === true
+  // 2026-09-28 corrected policy: every LAB-room surface is permanently
+  // redacted. Doctor re-auth remains outside LAB (EMR). The radiology lookup
+  // candidate retains its existing isolated grant path and is not changed here.
+  let sensitiveAccess = !masterSensitive
+  let sensitiveGrant = null
+  const requestId = valueText(params.request_id).trim()
+  const purpose = valueText(params.purpose).trim()
+
+  if (masterSensitive && action === 'authorize_sensitive_result' && !isXrayLookupOrganization) {
+    return { success: false, error: 'lab_sensitive_redacted', message: 'ห้อง LAB แสดงได้เฉพาะชื่อรายการและสถานะปกปิดผล กรุณาดูผลผ่าน EMR ตามสิทธิ์แพทย์' }
+  }
+
+  if (masterSensitive && action === 'authorize_sensitive_result') {
+    const submittedUsername = valueText(params.username).trim()
+    const password = valueText(params.password)
+    const denySensitive = async (code, outcome, reasonCode, message, account) => {
+      const logged = await auditSensitive({ action: 'sensitive_result_authorize', outcome, reasonCode, requestId, orderId, sectionCode: itemSectionCode, itemId, itemCode: testCode, purpose, authorizedBy: account })
+      return logged ? { success: false, error: code, message } : { success: false, error: 'audit_failed', message: 'ไม่สามารถบันทึก Access Log ได้ จึงไม่เปิดเผยผลตรวจ' }
+    }
+    if (!crossSectionRequested || lookupMode !== 'results') return denySensitive('sensitive_scope_required', 'denied', 'cross_section_result_required', 'การยืนยันผล Sensitive ใช้ได้จากหน้าสืบค้นผลข้ามห้องเท่านั้น')
+    if (!requestId || !submittedUsername || !password || !purpose) return denySensitive('missing_required_input', 'denied', 'missing_required_input', 'กรุณากรอก username แพทย์, password และเหตุผลให้ครบ')
+    // core_user รุ่นเก่าบางบัญชีไม่มี xrstatx; $nin ยอมรับ field ที่ไม่มี
+    // แต่ยังตัด record ที่ถูกยกเลิก/ลบ (0/3) และ blocked_at ตรวจแยกด้านล่าง
+    const accounts = await dbRows(CORE_USER_COLLECTION, { username: submittedUsername, xrstatx: { $nin: [0, 3] } }, { username: 1, password_hash: 1, blocked_at: 1, roles: 1 }, 1)
+    const account = accounts[0] || null
+    if (!account || account.blocked_at || !isDoctorRoles(account.roles)) {
+      return denySensitive('doctor_required', 'forbidden', account && account.blocked_at ? 'account_blocked' : 'doctor_role_required', 'ต้องใช้บัญชีแพทย์ที่ยังใช้งานอยู่เพื่อเปิดผล Sensitive', account)
+    }
+    let passwordOk = false
+    try {
+      const compareHash = this && typeof this.compareHash === 'function' ? this.compareHash.bind(this) : app && typeof app.compareHash === 'function' ? app.compareHash.bind(app) : null
+      passwordOk = Boolean(compareHash && account.password_hash && await compareHash(account.password_hash, password))
+    } catch (error) {
+      passwordOk = false
+    }
+    if (!passwordOk) return denySensitive('bad_credentials', 'bad_credentials', 'bad_credentials', 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง', account)
+    const grantToken = sensitiveGrantToken()
+    const nowEpoch = Date.now()
+    const grantData = {
+      grant_token: grantToken, viewer_username: sessionUsername,
+      viewer_user_id: valueText(userInfo && userInfo.account && (userInfo.account.id || userInfo.account._id)),
+      source_order_id: orderId, section_code: itemSectionCode,
+      authorized_by_user_id: valueText(account._id), authorized_by_username: valueText(account.username),
+      purpose, issued_at_epoch: nowEpoch, expires_at_epoch: nowEpoch + SENSITIVE_GRANT_TTL_MS,
+      xrstatx: 1
+    }
+    const logged = await auditSensitive({ action: 'sensitive_result_authorize', outcome: 'success', reasonCode: 'doctor_reauth_success', requestId, orderId, sectionCode: itemSectionCode, itemId, itemCode: testCode, purpose, authorizedBy: account })
+    if (!logged) return { success: false, error: 'audit_failed', message: 'ไม่สามารถบันทึก Access Log ได้ จึงไม่เปิดเผยผลตรวจ' }
+    let grantSaved = null
+    try { grantSaved = await app.dbInsert(grantData, SENSITIVE_ACCESS_GRANT_COLLECTION, userInfo) } catch (error) { grantSaved = null }
+    if (!grantSaved || grantSaved.success === false) return { success: false, error: 'grant_failed', message: 'สร้างสิทธิ์เปิดดูชั่วคราวไม่สำเร็จ' }
+    sensitiveAccess = true
+    sensitiveGrant = { token: grantToken, expires_at_epoch: grantData.expires_at_epoch, authorizedBy: account, purpose }
+  } else if (masterSensitive && action === 'get_manual_result') {
+    const grantToken = valueText(params.sensitive_grant_token).trim()
+    if (isXrayLookupOrganization && grantToken) {
+      const grants = await dbRows(SENSITIVE_ACCESS_GRANT_COLLECTION, {
+        grant_token: grantToken, viewer_username: sessionUsername,
+        source_order_id: orderId, section_code: itemSectionCode,
+        expires_at_epoch: { $gte: Date.now() }, xrstatx: 1
+      }, { grant_token: 1, purpose: 1, expires_at_epoch: 1, authorized_by_user_id: 1, authorized_by_username: 1 }, 1)
+      const grant = grants[0] || null
+      if (grant) {
+        sensitiveAccess = true
+        sensitiveGrant = { token: grantToken, expires_at_epoch: grant.expires_at_epoch, purpose: grant.purpose, authorizedBy: { _id: grant.authorized_by_user_id, username: grant.authorized_by_username, roles: ['DOCTOR'] } }
+      }
+    }
+    if (!sensitiveAccess) {
+      // LAB-room response is display-only redaction: return the ordered test
+      // identity and redacted-PDF parent, never clinical values or attachments.
+      let lockedReportIds = []
+      try {
+        const parentRows = await dbRows(
+          RESULT_ITEM_COLLECTION,
+          { order_no: { $in: [workItemId, workOrderNo, itemId].filter(Boolean) }, xrstatx: { $nin: [0, 3] } },
+          { result_report_id: 1, xparentx: 1 },
+          500
+        )
+        lockedReportIds = Array.from(new Set(parentRows
+          .map(row => valueText(row && (row.result_report_id || row.xparentx)).trim())
+          .filter(id => /^[a-f0-9]{24}$/i.test(id))))
+      } catch (error) {
+        lockedReportIds = []
+      }
+      return {
+        success: true,
+        data: {
+          item_id: itemId, order_id: orderId, order_no: orderNo, section_code: itemSectionCode,
+          test_code: testCode, test_name: testName, sensitive_locked: true, reauth_required: true,
+          result_report_id: lockedReportIds.length === 1 ? lockedReportIds[0] : '',
+          result_report_ids: lockedReportIds,
+          visibility: { state: 'reauth_required', sensitive: true, source: 'item_master' },
+          results: [], result_attachments: []
+        },
+        message: 'ผล Sensitive ถูกปิดบังจนกว่าแพทย์จะยืนยันตัวตน'
+      }
+    }
+  }
 
   let currentRows = []
   let currentReportRows = []
@@ -2163,6 +2912,18 @@ if (['get_manual_result', 'save_manual_result', 'save_result_edits', 'save_resul
         ],
         100
       )
+      const aggregateReports = await formRows(
+        RESULT_REPORT_FORM_ID,
+        'report_key = :aggregateManualReportKey AND xrstatx NOT IN (0,3)',
+        { aggregateManualReportKey },
+        [{ column: 'xupdatx', sort: 'DESC' }],
+        2
+      )
+      const reportSeen = Object.fromEntries(currentReportRows.map(report => [valueText(report && (report._id || report.id)), true]))
+      aggregateReports.forEach(report => {
+        const reportId = valueText(report && (report._id || report.id))
+        if (!reportSeen[reportId]) currentReportRows.push(report)
+      })
     }
     if (!currentRows.length) {
       currentRows = await optionalLegacyResultRows(
@@ -2315,6 +3076,149 @@ if (['get_manual_result', 'save_manual_result', 'save_result_edits', 'save_resul
   const currentClinicalRows = workReceiptBatchId && workBatchItemCount > 1
     ? allCurrentClinicalRows.filter(row => batchItemCodes.has(resultIdentity(row)) || batchItemCodes.has(valueText(row && (row.obs_code || row.test_code)).trim()))
     : allCurrentClinicalRows
+  let resultRevisions = []
+  if (action === 'get_manual_result' && !masterSensitive) {
+    try {
+      const revisionRows = await formRows(
+        RESULT_REVISION_LOG_FORM_ID,
+        '(order_no = :workItemId OR order_no = :workOrderNo OR order_no = :itemId OR filler_order_no = :labNo) AND xrstatx NOT IN (0,3)',
+        { workItemId, workOrderNo, itemId, labNo },
+        [
+          { column: 'report_seq', sort: 'DESC' },
+          { column: 'received_at', sort: 'DESC' }
+        ],
+        200
+      )
+      const allowedRevisionCodes = batchItemCodes.size ? batchItemCodes : new Set([testCode].filter(Boolean))
+      const orderedRevisions = revisionRows.slice().sort((left, right) => {
+        const sequenceOrder = valueText(right && right.report_seq).localeCompare(valueText(left && left.report_seq), undefined, { numeric: true })
+        return sequenceOrder || valueText(right && right.received_at).localeCompare(valueText(left && left.received_at))
+      })
+      const snapshotByRevision = new Map(orderedRevisions.map(row => [
+        valueText(row && row.revision_id).trim(),
+        jsonArray(row && row.items_snapshot_json)
+      ]))
+      const comparableRevisionItem = item => JSON.stringify({
+        value: valueText(item && (item.value != null ? item.value : item.result_value)),
+        unit: valueText(item && (item.units != null ? item.units : item.unit)),
+        reference_range: valueText(item && (item.ref_range != null ? item.ref_range : item.reference_range)),
+        interpretation: valueText(item && (item.interpretation_code != null ? item.interpretation_code : item.interpretation)),
+        obx_status: valueText(item && item.obx_status),
+        comment: valueText(item && (item.comment != null ? item.comment : item.result_comment))
+      })
+      resultRevisions = orderedRevisions.map((row, index) => {
+        const previousItems = snapshotByRevision.get(valueText(row && row.previous_revision_id).trim()) || []
+        const previousByCode = new Map(previousItems.map(item => [valueText(item && (item.obs_code || item.test_code)).trim(), item]))
+        const items = (snapshotByRevision.get(valueText(row && row.revision_id).trim()) || [])
+          .filter(item => allowedRevisionCodes.has(valueText(item && (item.obs_code || item.test_code)).trim()))
+          .map(item => {
+            const code = valueText(item && (item.obs_code || item.test_code)).trim()
+            const previousItem = previousByCode.get(code) || null
+            return {
+              test_code: code,
+              test_name: valueText(item && (item.obs_name || item.test_name)) || code,
+              result_value: valueText(item && (item.value != null ? item.value : item.result_value)),
+              unit: valueText(item && (item.units != null ? item.units : item.unit)),
+              reference_range: valueText(item && (item.ref_range != null ? item.ref_range : item.reference_range)),
+              interpretation: valueText(item && (item.interpretation_code != null ? item.interpretation_code : item.interpretation)),
+              obx_status: valueText(item && item.obx_status),
+              result_comment: valueText(item && (item.comment != null ? item.comment : item.result_comment)),
+              previous_value: previousItem ? valueText(previousItem.value != null ? previousItem.value : previousItem.result_value) : '',
+              changed: Boolean(previousItem && comparableRevisionItem(previousItem) !== comparableRevisionItem(item))
+            }
+          })
+        return {
+          revision_id: valueText(row && row.revision_id),
+          no: orderedRevisions.length - index,
+          latest: index === 0,
+          order_no: valueText(row && row.order_no),
+          lab_no: valueText(row && row.filler_order_no),
+          result_uid: valueText(row && row.result_uid),
+          report_seq: valueText(row && row.report_seq),
+          stage: valueText(row && row.stage),
+          receipt_seq: valueText(row && row.receipt_seq),
+          source_reported_at: valueText(row && row.source_reported_at),
+          received_at: valueText(row && row.received_at),
+          receipt_id: valueText(row && row.receipt_id),
+          report_id: valueText(row && row.report_id),
+          previous_revision_id: valueText(row && row.previous_revision_id),
+          item_count: Number(row && row.item_count) || items.length,
+          changed_item_count: Number(row && row.changed_item_count) || 0,
+          items
+        }
+      }).filter(revision => revision.items.length)
+    } catch (error) {
+      // Revision history is additive. During phased deployment, a missing Form
+      // must not block the current-result viewer or its established edit flow.
+      resultRevisions = []
+    }
+  }
+  let correctionLogRows = []
+  const currentResultItemIds = currentClinicalRows
+    .map(row => valueText(row && (row._id || row.id)).trim())
+    .filter(id => /^[a-f0-9]{24}$/i.test(id))
+  if (currentResultItemIds.length) {
+    try {
+      correctionLogRows = await dbRows(
+        RESULT_EDIT_LOG_COLLECTION,
+        {
+          source_result_item_id: { $in: currentResultItemIds },
+          outcome: 'success',
+          xrstatx: { $nin: [0, 3] }
+        },
+        {
+          event_id: 1, source_result_item_id: 1, correction_reason: 1,
+          changed_fields_json: 1, before_result_value: 1, after_result_value: 1,
+          before_unit: 1, after_unit: 1,
+          before_interpretation: 1, after_interpretation: 1,
+          before_reference_range: 1, after_reference_range: 1,
+          corrected_by_username: 1, corrected_by_name: 1, corrected_at: 1
+        },
+        500
+      )
+    } catch (error) {
+      // History display is read-only enrichment. A missing/not-yet-imported log
+      // Form must not hide the current clinical result.
+      correctionLogRows = []
+    }
+  }
+  const correctionHistoryByResultItem = correctionLogRows.reduce((map, row) => {
+    const id = valueText(row && row.source_result_item_id).trim()
+    if (!id) return map
+    if (!map[id]) map[id] = []
+    let changedFields = []
+    try {
+      const parsed = JSON.parse(valueText(row && row.changed_fields_json) || '[]')
+      changedFields = Array.isArray(parsed) ? parsed.map(valueText).filter(Boolean) : []
+    } catch (error) {
+      changedFields = []
+    }
+    map[id].push({
+      event_id: valueText(row && row.event_id),
+      reason: valueText(row && row.correction_reason),
+      changed_fields: changedFields,
+      corrected_by_username: valueText(row && row.corrected_by_username),
+      corrected_by_name: valueText(row && row.corrected_by_name),
+      corrected_at: valueText(row && row.corrected_at),
+      before: {
+        result_value: valueText(row && row.before_result_value),
+        unit: valueText(row && row.before_unit),
+        interpretation: valueText(row && row.before_interpretation),
+        reference_range: valueText(row && row.before_reference_range)
+      },
+      after: {
+        result_value: valueText(row && row.after_result_value),
+        unit: valueText(row && row.after_unit),
+        interpretation: valueText(row && row.after_interpretation),
+        reference_range: valueText(row && row.after_reference_range)
+      }
+    })
+    return map
+  }, {})
+  Object.values(correctionHistoryByResultItem).forEach(rows => rows.sort((left, right) =>
+    valueText(right.corrected_at).localeCompare(valueText(left.corrected_at)) ||
+    valueText(right.event_id).localeCompare(valueText(left.event_id))
+  ))
   const itemAttachmentReportKey = 'attachment|' + workItemId
   const orderAttachmentReportKey = 'attachment-order|' + orderId + '|' + itemSectionCode
   let attachmentReport = null
@@ -2423,8 +3327,11 @@ if (['get_manual_result', 'save_manual_result', 'save_result_edits', 'save_resul
     last_edited_by: valueText(row && row.last_edited_by),
     last_edited_at: valueText(row && row.last_edited_at),
     change_kind: valueText(row && row.change_kind),
+    correction_history: correctionHistoryByResultItem[valueText(row && (row._id || row.id)).trim()] || [],
     ...reportMeta(row),
-    previous: previousData(previousFor(row))
+    previous: previousData(previousFor(row)),
+    redacted: false,
+    redaction_reason: ''
   })
 
   const responseData = savedRow => {
@@ -2444,6 +3351,11 @@ if (['get_manual_result', 'save_manual_result', 'save_result_edits', 'save_resul
       if (!latest) return row
       return timeValue(reportMeta(row).reported_at) >= timeValue(reportMeta(latest).reported_at) ? row : latest
     }, base))
+    const clinicalReportIds = Array.from(new Set(displayRows
+      .map(row => valueText(row && (row.result_report_id || row.xparentx)).trim())
+      .filter(id => /^[a-f0-9]{24}$/i.test(id))))
+    const baseReportId = valueText(base && (base.result_report_id || base.xparentx)).trim()
+    if (!clinicalReportIds.length && /^[a-f0-9]{24}$/i.test(baseReportId)) clinicalReportIds.push(baseReportId)
     return {
       item_id: itemId,
       result_item_id: valueText(base && (base._id || base.id)).trim(),
@@ -2466,7 +3378,11 @@ if (['get_manual_result', 'save_manual_result', 'save_result_edits', 'save_resul
       entered_at: rowTime(base),
       ...meta,
       previous: previousData(previous),
-      result_report_id: valueText(attachmentReport && attachmentReport._id) || valueText(base && (base.result_report_id || base.xparentx)),
+      // Result Report and attachment container are different records. Keep the
+      // printable clinical parent stable even when the Order has uploaded files.
+      result_report_id: clinicalReportIds.length === 1 ? clinicalReportIds[0] : '',
+      result_report_ids: clinicalReportIds,
+      attachment_report_id: valueText(attachmentReport && attachmentReport._id),
       result_attachments: attachmentReport && Array.isArray(attachmentReport.result_attachments)
         ? attachmentReport.result_attachments
         : [],
@@ -2476,6 +3392,7 @@ if (['get_manual_result', 'save_manual_result', 'save_result_edits', 'save_resul
       result_visibility_by: context.item.result_visibility_by || null,
       result_visibility_at: valueText(context.item.result_visibility_at),
       unmatched_receipts: unmatchedReceipts,
+      result_revisions: resultRevisions,
       results: displayRows.map(resultData)
     }
   }
@@ -2494,9 +3411,6 @@ if (['get_manual_result', 'save_manual_result', 'save_result_edits', 'save_resul
       return { success: false, message: 'ยังไม่มีผลตรวจที่บันทึกไว้ จึงยังเปลี่ยนการมองเห็นผลไม่ได้' }
     }
     const reason = valueText(params.reason).trim().slice(0, 1000)
-    if (reason.length < 3) {
-      return { success: false, message: 'กรุณาระบุเหตุผลอย่างน้อย 3 ตัวอักษร' }
-    }
 
     const currentHidden = context.item.is_hide_result === true
     if (currentHidden === hidden) {
@@ -2561,10 +3475,30 @@ if (['get_manual_result', 'save_manual_result', 'save_result_edits', 'save_resul
     }
   }
 
-  if (action === 'get_manual_result') {
+  if (['get_manual_result', 'authorize_sensitive_result'].includes(action)) {
+    if (action === 'authorize_sensitive_result' && !masterSensitive) {
+      return { success: false, error: 'not_sensitive', message: 'รายการนี้ไม่ใช่ผล Sensitive' }
+    }
+    const data = responseData(current || null)
+    if (masterSensitive) {
+      const viewPurpose = valueText(sensitiveGrant && sensitiveGrant.purpose || purpose || 'ดูแลรักษาผู้ป่วย')
+      const logged = await auditSensitive({
+        action: 'sensitive_result_view', outcome: 'success',
+        reasonCode: 'valid_doctor_grant',
+        requestId: requestId || valueText(params.sensitive_grant_token), orderId, sectionCode: itemSectionCode,
+        itemId, itemCode: testCode, purpose: viewPurpose,
+        authorizedBy: sensitiveGrant && sensitiveGrant.authorizedBy
+      })
+      if (!logged) return { success: false, error: 'audit_failed', message: 'ไม่สามารถบันทึก Access Log ได้ จึงไม่เปิดเผยผลตรวจ' }
+      data.sensitive_authorized = true
+      if (sensitiveGrant) {
+        data.sensitive_grant_token = sensitiveGrant.token
+        data.sensitive_grant_expires_at_epoch = sensitiveGrant.expires_at_epoch
+      }
+    }
     return {
       success: true,
-      data: responseData(current || null),
+      data,
       message: currentClinicalRows.length
         ? 'อ่านผลตรวจแล้ว'
         : itemStatus === 'sent'
@@ -2605,34 +3539,30 @@ if (['get_manual_result', 'save_manual_result', 'save_result_edits', 'save_resul
         valueText(currentRow.reference_range_snapshot || currentRow.ref_range) !== clean.reference_range_snapshot
       if (changed) edits.push({ resultItemId, currentRow, clean })
     }
-    const now = app.curDate('YYYY-MM-DD HH:mm:ss')
-    const actor = valueText(userInfo.username || userInfo.account && userInfo.account.name).trim()
+    if (!edits.length) {
+      return { success: true, data: responseData(null), message: 'ไม่มีค่าผลที่เปลี่ยนแปลง' }
+    }
     try {
-      for (const edit of edits) {
-        const patch = {
-          result_value: edit.clean.result_value,
-          units: edit.clean.unit_symbol_snapshot,
-          unit_symbol_snapshot: edit.clean.unit_symbol_snapshot,
-          interpretation_code: edit.clean.interpretation_code,
-          ref_range: edit.clean.reference_range_snapshot,
-          reference_range_snapshot: edit.clean.reference_range_snapshot,
-          change_kind: 'corrected',
-          last_edited_by: actor,
-          last_edited_at: now
+      const committed = await persistCorrectionBatch({
+        edits,
+        reason: params.correction_reason,
+        requestId: params.request_id,
+        context: {
+          workItemId, orderId, itemId, orderNumber: orderNo, labNo,
+          sectionCode: itemSectionCode, patientHn, visitId: visitVn,
+          testCode, testName
         }
-        const saved = await app.sdformSetOne(RESULT_ITEM_FORM_ID, edit.resultItemId, patch, 1, userInfo)
-        if (!saved || saved.success === false) {
-          return { success: false, message: 'บันทึก Result Item ที่แก้ไขไม่สำเร็จ' }
-        }
-        Object.assign(edit.currentRow, patch)
-      }
+      })
+      const patchById = new Map((committed.applied || []).map(entry => [entry.resultItemId, entry.patch || {}]))
+      edits.forEach(edit => Object.assign(edit.currentRow, patchById.get(edit.resultItemId) || {}))
     } catch (error) {
-      return { success: false, message: 'บันทึกผลที่แก้ไขไม่สำเร็จ: ' + valueText(error && error.message || error) }
+      const code = valueText(error && error.message || error)
+      return { success: false, error: code.toLowerCase(), message: correctionErrorMessage(code) }
     }
     return {
       success: true,
       data: responseData(null),
-      message: edits.length ? 'บันทึกผลที่แก้ไขแล้ว ' + edits.length + ' รายการ' : 'ไม่มีค่าผลที่เปลี่ยนแปลง'
+      message: 'บันทึกผลและประวัติการแก้ไขแล้ว ' + edits.length + ' รายการ'
     }
   }
 
@@ -2771,7 +3701,7 @@ if (['get_manual_result', 'save_manual_result', 'save_result_edits', 'save_resul
     else itemAttachmentReport = attachmentReport
     return {
       success: true,
-      data: { ...responseData(null), result_report_id: resultReportId, result_attachments: attachments },
+      data: { ...responseData(null), attachment_report_id: resultReportId, result_attachments: attachments },
       message: 'บันทึกไฟล์แนบผลตรวจแล้ว'
     }
   }
@@ -2788,7 +3718,54 @@ if (['get_manual_result', 'save_manual_result', 'save_result_edits', 'save_resul
   const hasClinicalValue = Object.values(clinical).some(value => value.trim())
   const now = app.curDate('YYYY-MM-DD HH:mm:ss')
   const actor = valueText(userInfo.username || userInfo.account && userInfo.account.name).trim()
-  const reportKey = 'manual|' + workItemId
+  const manualCorrectionChanged = Boolean(
+    current && !currentIsLegacy && correctionChangedFields(
+      correctionSnapshot(current),
+      {
+        result_value: clinical.result_value,
+        unit: clinical.unit_symbol_snapshot,
+        interpretation: clinical.interpretation_code,
+        reference_range: clinical.reference_range_snapshot
+      }
+    ).length
+  )
+
+  // Existing canonical Manual results are corrections, not a fresh save. Save
+  // one before/after Edit Log record, then update the latest Result Item through
+  // the regular Form pipeline before touching report metadata.
+  if (current && !currentIsLegacy) {
+    if (!manualCorrectionChanged) {
+      return { success: true, data: responseData(null), message: 'ไม่มีค่าผลที่เปลี่ยนแปลง' }
+    }
+    try {
+      const resultItemId = valueText(current && (current._id || current.id)).trim()
+      const committed = await persistCorrectionBatch({
+        edits: [{ resultItemId, currentRow: current, clean: clinical }],
+        reason: params.correction_reason,
+        requestId: params.request_id,
+        context: {
+          workItemId, orderId, itemId, orderNumber: orderNo, labNo,
+          sectionCode: itemSectionCode, patientHn, visitId: visitVn,
+          testCode, testName
+        }
+      })
+      const applied = committed && Array.isArray(committed.applied) ? committed.applied[0] : null
+      if (applied && applied.patch) Object.assign(current, applied.patch)
+      return {
+        success: true,
+        data: responseData(null),
+        message: 'บันทึกผลและประวัติการแก้ไขแล้ว'
+      }
+    } catch (error) {
+      const code = valueText(error && error.message || error)
+      return { success: false, error: code.toLowerCase(), message: correctionErrorMessage(code) }
+    }
+  }
+
+  // 2026-09-25 confirmed change: one Result Report parent per Order+Section so
+  // a sheet with multiple Manual Items (for example Anti-HIV + RPR) produces
+  // one complete PDF instead of disabling the report button.
+  const reportKey = aggregateManualReportKey
   let reportRowsForWork = []
   try {
     reportRowsForWork = await formRows(
@@ -2804,11 +3781,13 @@ if (['get_manual_result', 'save_manual_result', 'save_result_edits', 'save_resul
 
   let resultReportId = valueText(reportRowsForWork[0] && reportRowsForWork[0]._id).trim()
   const reportData = {
-    xparentx: app.dbObjectId(workItemId),
+    // Filled with the canonical report id after the draft exists; Report Factory
+    // and every Result Item must share this same xparentx.
+    xparentx: resultReportId && /^[a-f0-9]{24}$/i.test(resultReportId) ? app.dbObjectId(resultReportId) : app.dbObjectId(workItemId),
     filler_order_no: labNo,
     hn: patientHn,
     visit_id: visitVn,
-    order_no: workItemId,
+    order_no: orderId,
     order_status_id: workItemId,
     lab_section: itemSectionCode,
     lab_section_name: valueText(context.section && (context.section.name_th || context.section.name)),
@@ -2841,7 +3820,7 @@ if (['get_manual_result', 'save_manual_result', 'save_result_edits', 'save_resul
     const reportSaved = await app.sdformSetOne(
       RESULT_REPORT_FORM_ID,
       resultReportId,
-      { ...reportData, result_report_id: resultReportId },
+      { ...reportData, xparentx: app.dbObjectId(resultReportId), result_report_id: resultReportId },
       1,
       userInfo
     )
@@ -2852,9 +3831,6 @@ if (['get_manual_result', 'save_manual_result', 'save_result_edits', 'save_resul
     return { success: false, message: 'บันทึก Result Report ไม่สำเร็จ: ' + valueText(error && error.message || error) }
   }
 
-  const manualValueChanged = Boolean(
-    current && hasClinicalValue && valueText(current.result_value) !== clinical.result_value
-  )
   const reportParent = app.dbObjectId(resultReportId)
   const rowData = {
     xparentx: reportParent,
@@ -2886,12 +3862,12 @@ if (['get_manual_result', 'save_manual_result', 'save_result_edits', 'save_resul
     interpretation_code: clinical.interpretation_code,
     result_source: 'manual',
     result_status: hasClinicalValue ? 'entered' : 'draft',
-    change_kind: manualValueChanged ? 'corrected' : valueText(current && current.change_kind) || 'first',
+    change_kind: 'first',
     previous_value: '',
     entered_at: hasClinicalValue ? valueText(current && current.entered_at) || now : '',
     entered_by: hasClinicalValue ? valueText(current && current.entered_by) || actor : '',
-    last_edited_at: manualValueChanged ? now : '',
-    last_edited_by: manualValueChanged ? actor : '',
+    last_edited_at: '',
+    last_edited_by: '',
     edit_history_json: '[]'
   }
 
@@ -3001,6 +3977,9 @@ if (action === 'update_specimen') {
   const itemSectionCode = valueText(section && section.code).trim().toUpperCase()
   if (!allowedLookup[itemSectionCode]) {
     return { success: false, message: 'Item นี้ไม่ได้อยู่ใน Section ของ Organization ปัจจุบัน' }
+  }
+  if (IMMUNOLOGY_SECTION_CODES.includes(itemSectionCode)) {
+    return { success: false, message: 'ห้องภูมิคุ้มกันล็อก specimen ตามรายการสั่งตรวจ จึงเปลี่ยนไม่ได้' }
   }
 
   const orderRef = item.order_id && item.order_id.value ? item.order_id.value : item.xparentx
@@ -3604,25 +4583,6 @@ const pipeline = [
       }
     }
   },
-  {
-    $lookup: {
-      from: ITEM_MASTER_COLLECTION,
-      let: { item_code: '$item_code' },
-      pipeline: [
-        {
-          $match: {
-            $expr: {
-              $in: ['$$item_code', { $ifNull: ['$sub_order.value', []] }]
-            }
-          }
-        },
-        { $project: { _id: 1, item_code: 1, item_name: 1 } },
-        { $limit: 1 }
-      ],
-      as: 'set_master'
-    }
-  },
-  { $unwind: { path: '$set_master', preserveNullAndEmptyArrays: true } },
   ...(crossSectionRequested ? [] : [
     {
       $lookup: {
@@ -3655,6 +4615,28 @@ const pipeline = [
     },
     ...(dateFrom || dateTo ? [{ $match: { daily_scope_day: dailyDateMatch } }] : [])
   ]),
+  // `set_master` is presentation metadata used only while building items[].panel
+  // below. Keep the exact lookup semantics, but run it after Order/date scoping so
+  // historical Items outside the requested Worklist day do not scan the master.
+  {
+    $lookup: {
+      from: ITEM_MASTER_COLLECTION,
+      let: { item_code: '$item_code' },
+      pipeline: [
+        {
+          $match: {
+            $expr: {
+              $in: ['$$item_code', { $ifNull: ['$sub_order.value', []] }]
+            }
+          }
+        },
+        { $project: { _id: 1, item_code: 1, item_name: 1 } },
+        { $limit: 1 }
+      ],
+      as: 'set_master'
+    }
+  },
+  { $unwind: { path: '$set_master', preserveNullAndEmptyArrays: true } },
   { $sort: { 'order.created_at': -1, created_at: 1, item_no: 1, item_code: 1 } },
   {
     $group: {
@@ -3908,13 +4890,14 @@ const pipeline = [
       }
     }
   },
-  ...(!crossSectionRequested
+  ...(!crossSectionRequested && !includeStatusCounts
     ? [{ $match: { row_filter_status: { $in: rowFilterStatuses } } }]
     : []),
   {
     $project: {
       _id: 0,
       _diagnosis_visit_id: '$order.xparentx',
+      ...(includeStatusCounts ? { _row_filter_status: '$row_filter_status' } : {}),
       row_key: {
         $concat: [{ $toString: '$_id.order_id' }, '|', '$_id.section_code']
       },
@@ -3939,6 +4922,7 @@ const pipeline = [
         visit_id: { $toString: '$order.xparentx' },
         vn: '$order.vid.vn',
         an: '$order.vid.an',
+        encounter_class: { $cond: [{ $ne: [{ $ifNull: ['$order.vid.an', ''] }, ''] }, 'IPD', 'OPD'] },
         visit_date: '$order.vid.visit_date',
         clinic: '$order.vid.visit_clinic',
         ward: '$order.vid.ward',
@@ -3967,10 +4951,14 @@ const pipeline = [
   ...(crossSectionRequested && lookupMode === 'results'
     ? [{ $match: { 'items.current_status': { $in: ['resulted', 'completed'] } } }]
     : []),
-  { $sort: { requested_at: -1, order_number: -1 } },
+  ...(!includeStatusCounts ? [{ $sort: { requested_at: -1, order_number: -1 } }] : []),
   {
     $facet: {
       rows: [
+        ...(includeStatusCounts ? [
+          { $match: { _row_filter_status: { $in: rowFilterStatuses } } },
+          { $sort: { requested_at: -1, order_number: -1 } }
+        ] : []),
         { $skip: skip },
         { $limit: limit },
         {
@@ -3993,9 +4981,32 @@ const pipeline = [
         },
         { $unwind: { path: '$diagnosis_record', preserveNullAndEmptyArrays: true } },
         { $addFields: { diagnosis: '$diagnosis_record.primary_dx' } },
-        { $project: { _diagnosis_visit_id: 0, diagnosis_record: 0 } }
+        {
+          $project: {
+            _diagnosis_visit_id: 0,
+            ...(includeStatusCounts ? { _row_filter_status: 0 } : {}),
+            diagnosis_record: 0
+          }
+        }
       ],
-      meta: [{ $count: 'total' }]
+      meta: [
+        ...(includeStatusCounts
+          ? [{ $match: { _row_filter_status: { $in: rowFilterStatuses } } }]
+          : []),
+        { $count: 'total' }
+      ],
+      ...(includeStatusCounts ? {
+        status_counts: [
+          {
+            $match: {
+              _row_filter_status: {
+                $in: ['sent', 'ready', 'accepted', 'resulted', 'completed', 'cancelled', 'rejected']
+              }
+            }
+          },
+          { $group: { _id: '$_row_filter_status', total: { $sum: 1 } } }
+        ]
+      } : {})
     }
   }
 ]
@@ -4030,6 +5041,25 @@ const orders = Array.isArray(facet.rows) ? facet.rows : []
 const total = Array.isArray(facet.meta) && facet.meta[0]
   ? Number(facet.meta[0].total || 0)
   : 0
+const statusCountRows = includeStatusCounts && Array.isArray(facet.status_counts)
+  ? facet.status_counts
+  : []
+const statusCountByRowStatus = statusCountRows.reduce((counts, row) => {
+  const key = valueText(row && row._id).trim().toLowerCase()
+  if (key) counts[key] = Number(row && row.total || 0)
+  return counts
+}, {})
+const statusCounts = includeStatusCounts
+  ? {
+      waiting: Number(statusCountByRowStatus.sent || 0) + Number(statusCountByRowStatus.ready || 0),
+      received: Number(statusCountByRowStatus.accepted || 0),
+      partial: Number(statusCountByRowStatus.resulted || 0),
+      complete: Number(statusCountByRowStatus.completed || 0),
+      cancelled: Number(statusCountByRowStatus.cancelled || 0) + Number(statusCountByRowStatus.rejected || 0),
+      all: ['sent', 'ready', 'accepted', 'resulted', 'completed', 'cancelled', 'rejected']
+        .reduce((sum, key) => sum + Number(statusCountByRowStatus[key] || 0), 0)
+    }
+  : null
 
 return {
   success: true,
@@ -4038,6 +5068,7 @@ return {
     total,
     page,
     limit,
+    ...(includeStatusCounts ? { status_counts: statusCounts } : {}),
     section_codes: allowedSectionCodes,
     sections: allowedSections,
     statuses,
