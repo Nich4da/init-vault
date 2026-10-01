@@ -983,6 +983,54 @@ const lastPipeline = captures => captures.filter(c => c.from === 'zdata_cpoe_ord
   assert(!apiBody.includes('dbUpdate'), 'this process is read-only')
   assert(!apiBody.includes('dbInsert'), 'this process is read-only')
 
+  /* ── ผู้ใช้เลือกลำดับการจัดเรียงเองได้ (เพิ่ม 2026-09-25 · TOR §3.4.3.1) ──────
+     🔴 สัญญาที่ห้ามพัง: "ไม่ส่ง sort" ต้องได้คีย์เดิมเป๊ะทุกตัวทุกทิศทาง
+     ลำดับเดิมคือ status_at:-1, requested_at:-1, order_number:-1 ซึ่งทำให้ใบเดิม
+     ที่ตรวจใหม่วันนี้ขึ้นต้นรายการ — ห้ามเปลี่ยนโดยไม่ได้รับอนุญาต */
+  const DEFAULT_SORT = { status_at: -1, requested_at: -1, order_number: -1 }
+  const sortOf = async request => {
+    captures = []
+    const result = await Configured(request, userInfo, makeApp(captures))
+    assert.strictEqual(result.success, true)
+    const rows = stage(lastPipeline(captures), '$facet').pop().$facet.rows
+    const sorts = rows.filter(step => step.$sort)
+    assert.strictEqual(sorts.length, 1, 'the rows facet must keep exactly one $sort')
+    return { sort: sorts[0].$sort, data: result.data }
+  }
+  {
+    const base = await sortOf({})
+    assert.deepStrictEqual(base.sort, DEFAULT_SORT, 'no sort param must behave exactly as before')
+    assert.strictEqual(base.data.sort, 'latest', 'the response must say which order was used')
+    assert.deepStrictEqual(base.data.sort_options, ['latest', 'oldest'])
+
+    const latest = await sortOf({ sort: 'latest' })
+    assert.deepStrictEqual(latest.sort, DEFAULT_SORT, 'asking for latest is the same as asking for nothing')
+
+    const oldest = await sortOf({ sort: 'oldest' })
+    assert.deepStrictEqual(
+      oldest.sort, { status_at: 1, requested_at: 1, order_number: 1 },
+      'oldest flips every key of the same set — it must not change which keys are used',
+    )
+    assert.strictEqual(oldest.data.sort, 'oldest')
+    assert.deepStrictEqual(
+      Object.keys(oldest.sort), Object.keys(DEFAULT_SORT),
+      'the sort keys and their order must stay identical between the two choices',
+    )
+
+    /* ค่าที่ไม่รู้จักต้องตกกลับค่าเริ่มต้นแบบ fail-closed ไม่ใช่ทำคำขอล้ม */
+    for (const bogus of ['name', 'asc', 'ORDER', '', null, 0, [], {}]) {
+      const fallback = await sortOf({ sort: bogus })
+      assert.deepStrictEqual(fallback.sort, DEFAULT_SORT, 'an unknown sort must fall back to the old order')
+      assert.strictEqual(fallback.data.sort, 'latest')
+    }
+    /* sort_by เป็นชื่อสำรองของพารามิเตอร์เดียวกัน */
+    assert.deepStrictEqual((await sortOf({ sort_by: 'oldest' })).sort, { status_at: 1, requested_at: 1, order_number: 1 })
+
+    /* การจัดเรียงห้ามไปแตะตัวกรองหรือตัวนับ — chip ต้องเหมือนกันทั้งสองลำดับ */
+    assert.deepStrictEqual(base.data.counts, oldest.data.counts, 'sorting must not change the chip counts')
+    assert.strictEqual(base.data.total, oldest.data.total, 'sorting must not change the total')
+  }
+
   console.log('X-ray CPOE worklist API tests passed')
 })().catch(error => {
   console.error(error)

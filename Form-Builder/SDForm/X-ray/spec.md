@@ -27,6 +27,7 @@ tags: [xray, sdform, spec, worklist]
 | Form · RIS Order Status Change (`xray_order_status_change.json` → `zdata_xray_order_status_change`) | `6a9eeef2a8772e80309592e3` |
 | Form · บันทึกการใช้สารทึบรังสี (`xray-contrast-media-record-v1.json`) | `6aa2424809c1bad08952da71` — import แล้ว · **ยังไม่ยืนยันว่า Builder เรนเดอร์ครบ** (แก้ checkbox 2026-09-10 ต้อง import ทับแล้วดูอีกรอบ) |
 | Form · คลังหนังสือยินยอม (`xray-consent-document-library-v1.json`) | `6aab93911c5232627d0c6ee1` — ผู้ใช้ยืนยันการใช้งานคลัง/พรีวิว/พิมพ์บน HIS 2026-09-17; ไม่มีหลักฐานเคสใบลงนามผูกผู้ป่วย |
+| Form · ประวัติการใช้สารทึบรังสี (`xray-contrast-history-v1.json`) | **ยังไม่ import** (สร้าง 2026-09-27) — อ่านอย่างเดียว ใช้ Process worklist เดิม `6a957009422c1ca959829e45` · ขึ้นกับการ join `zdata_xray_contrast_media` ที่ฝั่ง API ซึ่งยังไม่มี |
 | Process · order status change (ขาเข้า RIS→HIS) | `6a861d99f851000f28e44ab2` |
 | Process · worklist (`list` · `get_report` · `cancel_order`) | `6a957009422c1ca959829e45` |
 | Process · LAB worklist สำหรับแท็บสืบค้นแบบอ่านอย่างเดียว (`list` · `get_manual_result`) | `6a9434c3422c1ca959829d5e` |
@@ -288,8 +289,9 @@ validator ผ่านและเป็น pattern เดียวกับท�
 
 ```text
 input : { action?, organization_code?, modality?, statuses?, date_from?, date_to?,
-          hn?, q?, page?, limit? }
-output: { success, data: { orders[], total, page, limit, modalities[], counts{} }, message }
+          hn?, q?, page?, limit?, sort? }
+output: { success, data: { orders[], total, page, limit, modalities[], counts{},
+          sort, sort_options[] }, message }
 ```
 
 Query:
@@ -363,6 +365,292 @@ Item object ต้องมีอย่างน้อย: `item_id`, `item_code
 ข้อความสีแดง/น้ำเงินคือการทำเครื่องหมายข้อใหม่ในคอลัมน์ “HIS ใหม่” ซึ่งมีมาตั้งแต่ฉบับ ส.ค.
 ไม่ใช่เครื่องหมายสถานะงาน และไม่มี PDF annotation/highlight ในไฟล์
 จำนวนข้อกำหนดจึงยังเป็น **73 ข้อ** เท่าเดิม ตัวเลขที่ขยับมาจากงานที่ทำเสร็จล้วน ๆ
+
+**อัปเดต TOR 2026-09-21 (audit จากฐานข้อมูล read-only):** ปิดข้อส่ง work list ของ §3.4.3.2 และ
+§3.4.3.5 เป็น “ครบ” และเลื่อน §3.4.3.1 ข้อมูลตรงกัน RIS/HIS กับ §3.4.3.5 รหัสบริการตรงกัน
+เป็น “บางส่วน” ⇒ **ครบ 14 / บางส่วน 13 / ยังไม่มี 46** จาก 73 ข้อ (ถ่วงน้ำหนัก ≈ 28%)
+บันทึกไว้ใน `00-home/log.md` แต่รอบนั้นยังไม่ได้ย้อนมาแก้ตัวเลขในไฟล์นี้
+
+**อัปเดต TOR 2026-09-25 — ระบบนัดล่วงหน้า X-ray เดินจริงแล้ว**
+
+หลักฐาน (Mongo read-only 2026-09-25): `zdata_xr_booking` มีใบนัดจริง **7 ใบ** ล่าสุด
+`XR-260928-0001` และมีการทำรายการวันนี้ 11:39–11:43 · ทุกใบมาจาก `source: "liff"` ผูก
+`line_user_id` สร้างโดยบัญชี `guest visit` ⇒ ผู้ปกครองจองเองผ่าน LINE ได้
+· ใบจริงมี `confirmed_at/by`, `moved_from`/`moved_at`/`moved_by`, `status: cancelled` พร้อม
+`status_reason`/`status_by`, `card_sent_at`, `remind_1d_at`, `remind_7d_at`,
+`items[].price` + `price_total`, `age_text`/`age_band`, `guardian_phone`, `prepare_note`
+· `zdata_appt_items` ที่ `service_type: xray` มี **promoted 4 · planned 10**
+
+ขยับ 9 ข้อ — ปิดครบ 1 ข้อ และเป็น “บางส่วน” 8 ข้อ:
+
+| TOR | ข้อ | เดิม → ใหม่ |
+|---|---|---|
+| §3.4.3.1 | ขึ้นรายชื่อผู้นัด · ลงทะเบียนด้วยข้อมูลที่ดึงมา · บันทึกคนไม่มาตามนัด | ยังไม่มี → **บางส่วน** |
+| §3.4.3.4 | ตอบรับ / แก้ไข / ยกเลิกการนัดหมาย | ยังไม่มี → **ครบ** |
+| §3.4.3.4 | ใบสรุปประวัติ / indication ประกอบการนัด | ยังไม่มี → **บางส่วน** |
+| §3.4.3.4 | ตารางนัดทั้งหมด (ตาราง + ปฏิทิน) | ยังไม่มี → **บางส่วน** |
+| §3.4.3.4 | จัดเรียง/กรองรายการนัด | ยังไม่มี → **บางส่วน** |
+| §3.4.3.4 | จองคิวออนไลน์ + แจ้งเตือนยืนยันอัตโนมัติ | ยังไม่มี → **บางส่วน** |
+| §3.4.3.4 | บันทึกรายการที่เลื่อนนัดและเรียกดูภายหลัง | ยังไม่มี → **บางส่วน** |
+| §3.4.3.4 | ดูสรุปค่ารักษา | ยังไม่มี → **บางส่วน** |
+| §3.4.3.5 | ดำเนินการนัดหมายผู้เข้ารับบริการ | ยังไม่มี → **บางส่วน** |
+
+ผลรวมใหม่: **ครบ 15 / บางส่วน 21 / ยังไม่มี 37** จาก 73 ข้อ
+(20% / 29% / 51% · ถ่วงน้ำหนัก ≈ 35%) · ข้อกำหนดยังเป็น 73 ข้อเท่าเดิม ไม่มีการเพิ่ม/ลด
+
+ข้อที่ **ไม่ขยับ** เพราะยังไม่มีหลักฐาน: §3.4.3.4 เชื่อมไปประวัติการรักษาในวันนัด ·
+§3.4.3.4 ผู้ป่วยใหม่ลงทะเบียนออนไลน์ (ใบจริงทุกใบมี HN อยู่แล้ว) · §3.4.3.4 บันทึกพยาบาล/Consult ·
+§3.4.3.2 กดดูใบสรุป indication ในการนัด (`has_request: false` ทุกใบ)
+
+🔴 สองเรื่องที่ยังกั้นไม่ให้ปิดหมวดนี้:
+
+1. **ใบจองยังไม่แปลงเป็นใบสั่งในวันนัด** — `zdata_xr_booking` ไม่มี `visit_id`/`order_id` เลย
+   ตัว promote ที่รันจริงคือ `appt-items-promote` `6a96956c422c1ca959829f1b` ของระบบนัดกลาง
+   ซึ่งรองรับ `xray` อยู่แล้ว แต่ยังไม่ต่อกับใบจองของ X-ray (มติ 2026-09-23 เลือกทาง A แล้ว
+   แต่ผู้ใช้สั่ง standby ยังไม่ลงมือ) · `arrived_at` ยังว่างทุกใบ
+2. **จอกั้นสิทธิ์** `['RIS','XRAY','ADMIN']` ใน `xr-staff-data` — role `RIS` มีในระบบแต่ 0 บัญชีถือ
+   และไม่มี role ชื่อ `XRAY` เลย ⇒ ตอนนี้มีแต่ ADMIN (24 บัญชี) ที่เปิดจอได้
+
+ข้อที่ต้องยืนยันด้วยตาบนหน้าจอจึงจะปิดได้ (มุมมองปฏิทิน · ตัวกรองบนจอ) ยังไม่ถูกปิดในรอบนี้
+เพราะ `form_model` ของจอ `XR Staff Booking` `6ab207459a834d51703fc158` ถูกเข้ารหัสในฐานข้อมูล
+อ่านโค้ดของจอไม่ได้
+
+**Artifact อัปเดตแล้ว 2026-09-25:** [TOR รังสีวิทยา งวดที่ 2](https://claude.ai/code/artifact/842038a1-fb08-4aae-8f15-347ff32f9d2e)
+— แก้ในลิงก์เดิม · tally ทุกหมวดตรงกับจำนวน chip จริงและรวม 73 ข้อ (ตรวจด้วยสคริปต์หลังแก้)
+
+**อัปเดต TOR 2026-09-25 รอบสอง — ตามที่ผู้ใช้ชี้ 5 เรื่อง**
+
+เพิ่ม **หมวดสถานะที่ 4: “ไม่ทำตามนโยบาย”** สำหรับข้อที่หน่วยงานตัดออกจากขอบเขตเอง
+ไม่ใช่งานค้าง
+
+| TOR | ข้อ | เดิม → ใหม่ | หลักฐาน |
+|---|---|---|---|
+| §3.4.3.1 | แก้ไขรายการตรวจและราคาตามจริง | ยังไม่มี → **ไม่ทำตามนโยบาย** | ผู้ใช้ยืนยัน: ห้องรังสีแก้รายการเองไม่ได้โดยเจตนา ต้องสั่งใหม่หรือให้แพทย์ผู้สั่งยกเลิก · setting การเงินไม่เปิดให้ห้องรังสีเพราะจะวุ่นวาย ให้เห็นแค่ราคา ซึ่งทำได้แล้ว |
+| §3.4.3.2 | บันทึกชนิด ปริมาณ ชื่อสารทึบรังสี | บางส่วน → **ครบ** | ปุ่ม “สารทึบ” เป็นคอลัมน์ที่ 12 ของ Worklist ตั้งแต่ 2026-09-23 · `zdata_xray_contrast_media` มีบันทึกจริง 1 แถว (2026-09-24 13:19) ผูก `accession_no` `SM20260918DX004` / `order_no` `R2609180006` / `item_code` `RD030` / `visit_id` · ฟอร์มมี `contrast_types`, `contrast_volume_ml`, `contrast_brand` ครบ |
+| §3.4.3.2 | กดดูใบสรุปประวัติ / indication ในการนัด | ยังไม่มี → **บางส่วน** | อยู่ในระบบนัด: `has_request`, `request_files[]`, `source_ref`, `note`, `prepare_note` และ `xr-staff-book` ต่อ `core_files_manage` · แต่ใบจริงทั้ง 7 ใบยัง `has_request:false` |
+| §3.4.3.2 | บันทึกใบสรุปประวัติ / indication เพิ่มได้ | ยังไม่มี → **บางส่วน** | `xr-staff-book` รับ `note`/`prepare_note`/`files`/`has_request`/`source_ref` · แม่แบบแก้ได้ด้วย `prepTpl`/`prepTplEdit` · ยังไม่ดึงจากประวัติการรักษามาตั้งต้น |
+| §3.4.3.5 | ดูสรุปค่าใช้จ่าย | ยังไม่มี → **ครบ** | ผู้ใช้ยืนยันว่าสรุปในใบสั่งตอนสั่งอยู่แล้ว · `CPOE_app.json` มี `ราคา` 32 จุด, `สิทธิ` 23 จุด, `inscl` 21 จุด · Worklist คืน `finance{total_amount, paid_amount, coverage}` และมีด่าน “ยังไม่ผ่านการเงิน” |
+| §3.4.3.4 | ดูสรุปค่ารักษา | บางส่วน → **ครบ** | เหตุผลเดียวกัน + ใบนัดมี `items[].price` และ `price_total` (ใบจริง 4,400 บาท) |
+
+**คำสั่งยกเลิกถึง RIS แล้วจริง — ตัวขวางเดิมตกไป**
+
+ผู้ใช้ทักว่าเคยลองแล้ว และฟิลด์ที่ส่งชื่อคล้าย cancel — ตรวจแล้วคือ **`IsDeleted`**
+(`xray_order.json` default `False`) ซึ่ง `xray_cpoe_worklist_api.js:1087` ส่ง `payload.IsDeleted = true`
+ตามที่ผู้ใช้ยืนยันไว้ 2026-09-18
+
+หลักฐานจาก `zdata_xray_order_cancellation` (read-only 2026-09-25) — **สองใบที่ RIS ตอบรับ**:
+
+| Accession | เวลา | ris_cancel.status | ris_ack | forward_http_status |
+|---|---|---|---|---|
+| `SM20260918DX001` | 2026-09-18 14:23:00 | `confirmed` | `AA` | 200 |
+| `SM20260918DX003` | 2026-09-18 15:19:05 | `confirmed` | `AA` | 200 |
+
+ใบที่เคยยกมาเป็นหลักฐานว่า “ยังไปไม่ถึง” (`SM20260918MR003`, `SM20260918CT002` ที่ 401
+`ERR_BAD_REQUEST` · `local_saved:true`) เกิด **13:31–13:38 คือก่อนทีมแก้ `xray_api_order` 14:05**
+และทั้งคู่ `cancel_status: reopened` ไปแล้ว ⇒ ข้อความเดิมล้าสมัย ถอดออกจากรายการค้าง
+· `zdata_xray_order` มี 7 ใบที่ `IsDeleted: true`
+
+ผลรวมใหม่: **ครบ 18 / บางส่วน 21 / ยังไม่มี 33 / ไม่ทำตามนโยบาย 1** จาก 73 ข้อ
+(25% / 29% / 45% / 1% · ถ่วงน้ำหนัก ≈ 39%) · ตรวจหลังแก้ด้วยสคริปต์: tally ทุกหมวดตรงกับ
+จำนวน chip จริง, tile ตรงกับผลรวม, รวม 73 ข้อ
+
+🔶 ยังรอผู้ใช้เคาะ: §3.4.3.8 “จัดการราคาของแต่ละรายการตรวจ (Override price)” ควรย้ายไป
+หมวด “ไม่ทำตามนโยบาย” ด้วยหรือไม่ เพราะเป็น setting การเงินเหมือนกัน — รอบนี้ยังคงเป็น
+“ยังไม่มี” เพราะผู้ใช้ไม่ได้ระบุถึงข้อนี้โดยตรง
+
+### 4.1.1 `sort` — ผู้ใช้เลือกลำดับการจัดเรียงเองได้ (2026-09-25)
+
+ผู้ใช้สั่ง: *“เพิ่มตัวกรองหน้า xray อีกช่องนึงเพื่อปิดอันนี้ การจัดเรียงเองไม่ได้
+(เรียงตามเวลาสั่งใหม่→เก่าตายตัว) อาจจะเป็น dropdown เลือกเช่น เรียงจากเวลาสั่งล่าสุด /
+เรียงจากเวลาสั่งเก่าสุด”* และ *“ข้างๆ filter เลือกเครื่อง modality เลย”*
+พร้อมกำกับว่า *“ห้ามกระทบ flow อื่นที่สำเร็จแล้วนะ”*
+
+| `sort` | คีย์ที่ใช้ | หมายเหตุ |
+|---|---|---|
+| ไม่ส่ง / `latest` | `{ status_at: -1, requested_at: -1, order_number: -1 }` | **ค่าเริ่มต้น = ลำดับเดิมทุกประการ** ใบเดิมที่ตรวจใหม่วันนี้ยังขึ้นต้นรายการ |
+| `oldest` | `{ status_at: 1, requested_at: 1, order_number: 1 }` | กลับทิศของคีย์ชุดเดิม ไม่เปลี่ยนว่าใช้คีย์ไหน |
+| ค่าอื่น | ตกกลับ `latest` | fail-closed ไม่ทำคำขอล้ม · รับชื่อสำรอง `sort_by` ด้วย |
+
+แกนเวลา: `status_at` มี `$ifNull` กลับไปที่ `requested_at` อยู่แล้ว ⇒ ใบที่ยังไม่มีความ
+เคลื่อนไหวหลังสั่ง คีย์นี้คือ “เวลาสั่ง” ตรงตัว จึงใช้ป้าย “เวลาสั่งล่าสุด/เก่าสุด” ได้
+
+จอ: `div.xr-sort-field` + `el-select.xr-sort-select` วาง **ถัดจาก `xr-modality-field` ทันที**
+และก่อนปุ่ม Search · `s.sortKey` เริ่มที่ `latest` · `s.setSort` กรองค่าให้อยู่ใน whitelist
+รีเซ็ตเป็นหน้า 1 แล้วเรียก `loadOrders()` เท่านั้น (ไม่ `refreshCounts` เพราะ chip ไม่ขึ้นกับลำดับ)
+· `s.params()` ใส่ `sort` **ก่อน early return ทุกอัน** ⇒ โหมดสแกนและโหมดเปิดจากคิวเรียงตามที่เลือกด้วย
+· ค่าเริ่มต้นไม่ส่งคีย์ `sort` เลย ⇒ คำขอเดิมเหมือนเดิมทุกไบต์
+
+หลักฐานว่าไม่กระทบของเดิม (2026-09-25):
+
+- diff JSON ที่ generate ใหม่เทียบไฟล์ก่อนหน้าแบบ path-by-path: **เพิ่ม/หาย path = 0** ·
+  เปลี่ยนแค่ 3 ค่า คือ `options.content` (+8 บรรทัด), `options.onCreated` (+19) และ
+  `formConfig.cssCode` (+4/-1 บรรทัดที่เป็นจุดแทรก) — ไม่มีบรรทัดเดิมถูกลบ
+- 🔴 รอบแรกที่ generate โดยไม่ตั้ง env ทำให้ `RIS_VIEWER_ENABLED` พลิก `true → false`
+  จับได้จาก diff และ generate ใหม่ด้วย `XRAY_RIS_VIEWER_ENABLED=1` ตามที่หัวไฟล์ generator
+  เตือนไว้เอง ⇒ **ต้องใช้ env นี้ทุกครั้งที่ regenerate ไฟล์นี้**
+- เทสชุดเต็ม **40 ผ่าน / 10 แดง** ซึ่ง 10 ตัวแดงเป็นชุดเดิมที่แดงอยู่ก่อนแล้ว · SDForm
+  validator exit 0 (คำเตือนเท่าเดิม) · เพิ่ม regression ที่ล็อกว่า “ไม่ส่ง sort = คีย์เดิมเป๊ะ”,
+  `oldest` ใช้คีย์ชุดเดียวกันแค่กลับทิศ, ค่าพิการตกกลับค่าเดิม, chip/total ไม่เปลี่ยนตามลำดับ,
+  ตัวกรองเครื่องไม่ถูกแตะ และ dropdown ต้องอยู่ถัดจากตัวกรองเครื่อง
+
+ยังไม่ deploy: ต้อง import `xray-cpoe-worklist-v1.json` และ replace Process
+`xray_cpoe_worklist_api.js` แล้วยืนยันบนจอจริงก่อนถือว่าปิดข้อ TOR
+
+### 4.1.2 ปุ่ม “นัดล่วงหน้า” — ถอดออก 2026-09-26
+
+ผู้ใช้สั่ง: *“เอาปุ่มนัดล่วงหน้าออกได้เลย ฉันเปลี่ยนแพลนว่าควรแยก module ดีกว่า
+เพราะในระบบนัดล่วงหน้ามีทุกอย่างครบแล้ว ลองเข้าไปศึกษาฟอร์มดู มีทั้งรายการนัด ตาราง schedule”*
+
+ประวัติ: สั่งทำปุ่ม 2026-09-08 → เชื่อมจอ `XR Staff Booking` `6ab207459a834d51703fc158`
+2026-09-23 → **ถอดออก 2026-09-26** เพราะระบบนัดโตเป็นโมดูลแยกของตัวเองแล้ว
+
+ที่ถอดออก: markup ปุ่มใน `.xr-create-group` · `APPOINTMENT_FORM_ID` · `s.appointmentHint` ·
+`s.openAppointment` · CSS `.xr-appointment-button` · ค่าคงที่และ env `XRAY_APPOINTMENT_FORM_ID`
+ในตัว generator · ปุ่ม **หนังสือยินยอม** เลื่อนจาก `grid-row:2` ขึ้น `grid-row:1`
+แทนช่องที่ว่างลง ไม่ปล่อยแถวที่สองว่างเปล่า
+
+หลักฐานว่าไม่กระทบของเดิม: diff JSON path-by-path — เพิ่ม/หาย path = 0 · `content` −2 บรรทัด
+(ตัวปุ่ม) · `onCreated` −35/+1 (ค่าคงที่ + hint + handler + คอมเมนต์อ้างอิงที่ล้าสมัย) ·
+`cssCode` −2/+1 · ปุ่มสร้างรายการใหม่ · หนังสือยินยอม · สารทึบ · dropdown เรียงตาม และ
+`RIS_VIEWER_ENABLED=true` ยังอยู่ครบ · validator ผ่าน
+
+เทส: แทน assertion เดิมที่ล็อกว่า “ปุ่มต้องมีและเชื่อมจอ” ด้วย assertion ตรงข้ามใน 3 ไฟล์
+(`test_xray_cpoe_worklist_form.js`, `test_xray_queue_deeplink.js`,
+`test_xray_consent_document_library.js`) เพื่อกันปุ่มแอบกลับมา และคงการตรวจปุ่มที่เหลือไว้ครบ
+
+### 4.1.5 แท็บสืบค้นผลแลป — ความกว้าง toolbar และด่านสิทธิ์ 2026-09-27
+
+**(ก) ความกว้างช่อง Date Range — แก้แล้ว**
+
+ผู้ใช้ทัก: *“ช่อง daterang ยาวมากไม่ใช่ pattern เดียวกับแลป”* · ของเดิมมีแต่
+`.xll-date{width:220px!important}` ซึ่งล็อกแค่ `width` แต่ Element Plus ยังยืดตัว
+ในกล่อง flex ได้ · LAB ล็อก **สองชั้น** คือ scope ใต้ toolbar + ล็อก flex-basis:
+
+```css
+.lab-toolbar .lab-date-control{width:220px!important;flex:0 0 220px}
+```
+
+ยกมาใช้ตรง ๆ กับ lookup แล้ว พร้อมขั้น responsive ชุดเดียวกับ LAB:
+
+| ความกว้างจอ | LAB | X-ray lookup (หลังแก้) |
+|---|---|---|
+| ปกติ | search 290 · date 220 ล็อก flex | เท่ากัน |
+| ≤ 900px | ครึ่งแถวละช่อง | `calc(50% - 5px)` ล็อก flex |
+| ≤ 760/720px | เต็มแถว `flex:auto` | เต็มแถว `flex:auto` |
+
+diff JSON: เพิ่ม/หาย path = 0 · เปลี่ยนเฉพาะ `formConfig.cssCode` (+3/−2 บรรทัด) ·
+ไม่แตะ markup/สคริปต์/ลำดับแท็บ · เทส 44 ผ่าน / 10 แดงชุดเดิม · validator ผ่าน
+
+**(ข) ด่านสิทธิ์รังสี — แก้แล้วใน local candidate**
+
+ผู้ใช้ทดสอบ HN `6900023` จาก Organization `กลุ่มงานรังสีวิทยา` แล้วถูกปฏิเสธ
+ต้นเหตุอยู่ที่ `lab_cpoe_worklist_api.js:386`:
+
+```js
+if (crossSectionRequested && !localSectionCodes.length) {
+  return { success: false, error: 'lab_user_required',
+           message: 'บัญชีผู้ใช้ไม่ได้อยู่ในห้อง LAB ที่เปิดใช้งาน' }
+}
+```
+
+`localSectionCodes` มาจาก `ORGANIZATION_SECTION_CODES[organizationCode]` ⇒ โหมด
+cross-section ถูกออกแบบให้ “คน LAB ห้องหนึ่งอ่านห้องอื่น” ไม่ได้เผื่อผู้ใช้ที่
+**ไม่มีห้อง LAB เลย** อย่างห้องรังสี จึงตกด่านนี้ทุกครั้ง
+
+ทางแก้ที่ใช้ (additive): ยอมให้ org ของรังสีผ่านด่านนี้เฉพาะโหมดอ่าน
+(`cross_section` + `lookup_mode`) โดยไม่แตะ write action ใด — ชุด org ของรังสีมีอยู่แล้ว
+ที่ `xray_cpoe_worklist_api.js` (`XRAY_ORGANIZATION_CODES = ['m0900','m0901','CT']`)
+
+local API/test ยืนยันว่า `M0900`, `M0901`, `CT` อ่านข้าม Section ได้เฉพาะ lookup;
+owner Worklist และ write actions ยังถูกบล็อกตามเดิม การ replace Process/runtime UAT ยังรอทำ
+
+### 4.1.6 สืบค้นผล LAB ของ X-ray ใช้ UI ของ LAB จริง 2026-09-27
+
+ผู้ใช้ยืนยันขอบเขตว่าให้เปลี่ยนเฉพาะพื้นที่ `สืบค้นผลแลป` ของ X-ray โดยนำ UI ของ
+ส่วน `สืบค้นผลแลป` ใน LAB มาใช้ ไม่ใช่ยกทั้งหน้า LAB และห้ามกระทบแท็บ/flow อื่น
+
+- generator clone `vue-ui` ของ LAB จาก generated LAB Form โดยตรง จึงใช้ toolbar, lookup
+  strip, list, expanded detail, pagination, result dialog, Microbiology และ Sensitive UI/CSS
+  ชุดเดียวกัน ไม่เหลือ markup/CSS `.xll-*` ใน generated Form
+- เอาออกเพียงแถบ `รายการวันนี้ | สืบค้นผลแลป | สลับ CBC` เพราะ top tab ของ X-ray
+  เลือกพื้นที่นี้ให้อยู่แล้ว; state ถูก lock ที่ `viewMode='lookup'`
+- Process allowlist ฝั่ง Form ยอมเฉพาะ list (action ว่าง/`list`),
+  `get_manual_result` และ `authorize_sensitive_result`; action อื่น fail closed ก่อนถึง connector
+- คง Process LAB, `cross_section:true`, `lookup_mode`, authorization และ Access Log เดิม
+- parity regression เปรียบ content กับ LAB widget แบบ exact หลังตัด view switcher และพิสูจน์
+  ว่า tab เปิดว่าง, ค้น HN/date ได้, dialog อ่านทุก Item, Sensitive flow อยู่ และ write ถูกบล็อก
+- ไม่เปลี่ยน pane/lifecycle ของ Unit Queue, My Room, X-ray, Completed, RIS viewer, ordering,
+  cancellation, contrast หรือ LAB Worklist ต้นทาง
+
+### 4.1.4 ลำดับแท็บของฟอร์ม X-ray — ย้ายสืบค้นผลแลปไปท้ายสุด 2026-09-27
+
+ผู้ใช้ทัก: *“tab สืบค้นผลแลปของ xray เราเอามาทำเป็น tab แบบของแลปไม่ได้หรอ ตอนนี้มันเป็น
+tab รวมใหญ่อ่ะ มันคนละหน้าที่ tab ใหญ่คือสำหรับคิว”* แล้วเคาะว่า *“แค่ย้าย tab สืบค้นผลแลป
+ไปอยู่สุดท้าย”*
+
+ลำดับใหม่: `Unit Queue` · `My Room` · `X-ray` · `Completed` · **`สืบค้นผลแลป`**
+(เดิมสืบค้นผลแลปแทรกอยู่ระหว่าง `X-ray` กับ `Completed`) · แท็บที่ `active: true`
+ยังเป็น `xray_tab_worklist` เหมือนเดิม
+
+🔴 **ทำไมไม่ทำเป็น tab ซ้อนชั้น**
+
+- LAB ไม่มี tab ใหญ่เลย — root เป็น `grid > grid-col > vue-ui` ตัวเดียว และ “สืบค้นผลแลป”
+  เป็น `viewMode` **ข้างในวิดเจ็ตเดียวกัน** (`รายการวันนี้ | สืบค้นผลแลป | สลับ CBC`)
+  ใช้ตาราง/ตัวกรอง/สถานะร่วมกันทั้งหมด
+- X-ray คง `xray_lab_lookup` เป็น **วิดเจ็ตแยก** เพื่อไม่ให้ state/lifecycle ชนกับ
+  `xray_cpoe_worklist`; ตั้งแต่ §4.1.6 เนื้อหาของวิดเจ็ตนี้ clone จาก LAB widget จริงและ
+  lock ไว้ที่ lookup ไม่ได้ใช้ UI custom ของ X-ray แล้ว
+- ทางเลือก tab ซ้อนชั้น: **สแกนฟอร์มในรีโป 129 ไฟล์ (รวม export จาก HIS จริง) ไม่พบ
+  `tab` ซ้อนใน `tab-pane` แม้แต่จุดเดียว** และ `SDFORM_JSON_RULES.md` ห้ามประกอบโครง
+  container ขึ้นเอง โดยมีหลักฐานว่าโครงที่ไม่มีแม่แบบเคย render ว่างมาแล้ว
+  ⇒ ผู้ใช้เลือกทางที่ปลอดภัยที่สุดคือย้ายลำดับเท่านั้น
+
+หลักฐานว่าไม่กระทบของเดิม: `formConfig` เหมือนเดิมทุกไบต์ · `scan-code-ui` และ
+`local-agent-ui` ระดับ root เหมือนเดิมทุกไบต์ · `options` ของ tab root เหมือนเดิม ·
+ชุด pane เท่ากันและ **เนื้อหาทุก pane เหมือนเดิมทุกไบต์ เปลี่ยนเฉพาะลำดับใน `tabs[]`** ·
+`RIS_VIEWER_ENABLED=true`, dropdown เรียงตาม และปุ่มสารทึบยังอยู่ · เทสชุดเต็ม 44 ผ่าน /
+10 แดงซึ่งเป็นชุดเดิม · validator ผ่าน
+
+เทส: ย้าย assertion ลำดับ pane ไปเป็นลำดับใหม่ พร้อมคอมเมนต์ว่าใครสั่งและเมื่อไหร่ ·
+เพิ่ม assertion ว่า `xray_tab_worklist` ยังเป็นแท็บที่เปิดมาก่อน และสืบค้นผลแลปต้องเป็น
+pane ตัวสุดท้ายจริง · เปลี่ยนการอ้าง pane ของวิดเจ็ตคิวจาก `tabs[index]` มาเป็นค้นด้วย
+ชื่อ pane เพื่อไม่ให้เทสผูกกับลำดับที่ผู้ใช้สั่งย้ายได้อีก
+
+### 4.1.3 โมดูลนัดล่วงหน้า X-ray — ที่สำรวจได้จากฐานข้อมูล 2026-09-26
+
+`sdform_manage` มีฟอร์มตระกูลนัด **23 ตัว** · ฝั่ง X-ray: `XR Staff Booking`
+`6ab207459a834d51703fc158` (form_ui) · **`XR Nurse App` `6ab62fa9469a0989e63a59d1`
+(form_ui · สร้าง 2026-09-25 15:24 แก้ล่าสุด 19:20)** · `XR Booking`/`XR Item`/
+`XR Round Rule`/`XR Round Close` (form_db) · ฝั่งกลาง: `APPT Nurse Console` ·
+`APPT Slot Setting` · `APPT LIFF` · `APPT Doctor Book UI` · `APPT Holiday` ·
+`APPT Prepare Template` · `APPT Slot Rule/Slot Day/Time Slot` · `APPT Register Request` ฯลฯ
+
+🔴 `form_model` ของจอทั้ง `XR Staff Booking` และ `XR Nurse App` **ถูกเข้ารหัส** (`key/iv/data`)
+⇒ อ่านโค้ดของจอจากฐานไม่ได้ ต้องอาศัยคำยืนยันจากผู้ใช้สำหรับข้อที่ต้องดูด้วยตา
+
+โครงข้อมูลที่ตรวจได้จริง (read-only):
+
+| collection | เก็บอะไร | ฟิลด์สำคัญ |
+|---|---|---|
+| `zdata_xr_round_rule` | **กติกาตารางออกตรวจ** | `room` · `weekdays[]` · `start_time`/`end_time` · `slot_minutes` · `period` (am/pm) · `capacity` · `quota_online` · `lead_days` · `ahead_days` · `multi_mode` · `active_from`/`active_to` · `enable` · ผูก `xunitx` รายหน่วย |
+| `zdata_xr_slot` | **ช่องเวลารายวันที่ generate จากกติกา** | `room` · `slot_date` · `time_slot` · `booked_count` · `booked_online` · `closed` (ปัจจุบัน US 8 ช่อง/5 วัน จองแล้ว 4 · RF 1 ช่อง) |
+| `zdata_xr_item` | **รายการตรวจที่เปิดให้นัด 75 รายการ** | `room` · `item_code`/`item_name` · `online` · `slots` (กินกี่ช่อง) · `prep_mode`/`prep_all`/`prep_b1..b3` (คำแนะนำเตรียมตัว) · `contrast` · `price_ref` · `sort` · `enable` |
+| `zdata_xr_booking` | ใบจอง (ดู §TOR 2026-09-25) | `booking_no` · `status` · `moved_from` · `price_total` · `source: liff` ฯลฯ |
+| `zdata_xr_round_close` · `zdata_xr_hold` · `zdata_xr_job_state` | ปิดรอบ · จองค้าง · สถานะงานเบื้องหลัง | — |
+
+⇒ โมดูลนี้มีครบทั้ง **รายการนัด** และ **ตาราง schedule** (กติการอบ → ช่องเวลารายวัน →
+ใบจอง) ตามที่ผู้ใช้บอก · การพัฒนาเรื่องนัดจากนี้ควรไปทำในโมดูลนั้น ไม่ใช่ในหน้า Worklist
+
+**อัปเดต TOR 2026-09-26:** ผู้ใช้ยืนยันบนหน้าจอว่าตาราง schedule ของโมดูลนัด
+**มีมุมมองปฏิทินด้วย** ⇒ §3.4.3.4 “แสดงตารางนัดหมายล่วงหน้าทั้งหมด ทั้งแบบตารางและปฏิทิน”
+ขยับจาก **บางส่วน → ครบ**
+
+ผลรวมใหม่: **ครบ 19 / บางส่วน 20 / ยังไม่มี 33 / ไม่ทำตามนโยบาย 1** จาก 73 ข้อ
+(26% / 28% / 45% / 1% · ถ่วงน้ำหนัก ≈ 40%) · §3.4.3.4 เป็น 3/4/3
+
+ยังไม่ขยับในรอบนี้: §3.4.3.4 “จัดเรียง/กรองรายการนัดตาม Modality, อายุ, ชื่อ, รายการตรวจ,
+Code, แหล่งที่มา” — ข้อมูลครบทุกมิติในใบนัดแล้ว แต่ผู้ใช้ยังไม่ได้ยืนยันว่าจอเปิดให้
+จัดเรียง/กรองครบทุกมิติ (โค้ดจอเข้ารหัส ตรวจเองไม่ได้)
 
 ### 4.2 `xray-cpoe-dispatch`
 
@@ -533,6 +821,11 @@ API ใช้ vocabulary ของตัวเอง
 เพื่อปฏิเสธหรือยกเลิก. ทั้ง `xray-accession-generate` และ `xray-cpoe-dispatch` ต้องปฏิเสธ
 การรับครั้งแรกจาก `sent` ก่อนจองเลข/แก้สถานะ/เรียก RIS. Retry, repair, incomplete dispatch
 และ resend ที่มีหลักฐานว่าเคยรับแล้วไม่ถูกบล็อกด้วย gate นี้.
+
+กล่องชำระเงินแสดงเฉพาะสิทธิ์เงินสดที่มียอด `total_amount > 0`. ข้อความและสีต้องอ่าน
+สถานะ Item ชุดเดียวกับปุ่ม: ถ้ายังมี Item active เป็น `sent` ให้แสดงแดง
+`ยังไม่ได้ชำระเงิน`; เมื่อทุก Item active เป็น `ready` หรือสถานะหลังรับแล้วให้แสดงเขียว
+`ชำระเงินแล้ว`. สิทธิ์อื่นไม่แสดงกล่องชำระเงินและคง badge สิทธิ์เดิม.
 
 ---
 
@@ -730,8 +1023,8 @@ CPOE ยัง `dispatched` และ cancellation ค้าง `ris_pending` �
 
 ## 5. โครง UI ที่ต้องมีในไฟล์
 
-แท็บระดับบนต้องเรียงเป็น `Unit Queue` · `My Room` · `X-ray` · `สืบค้นผลแลป` ·
-`Completed` และเปิดเริ่มต้นที่ `X-ray` เหมือนเดิม
+แท็บระดับบนต้องเรียงเป็น `Unit Queue` · `My Room` · `X-ray` · `Completed` ·
+`สืบค้นผลแลป` และเปิดเริ่มต้นที่ `X-ray` เหมือนเดิม
 
 ```
 .xray-cpoe
@@ -759,19 +1052,31 @@ CPOE ยัง `dispatched` และ cancellation ค้าง `ris_pending` �
 
 ### 5.1 แท็บสืบค้นผล LAB ข้ามทุกห้อง (2026-09-24)
 
-- widget ชื่อ `xray_lab_lookup` อยู่ใน pane `xray_tab_lab_lookup` และแยก state/CSS จาก
-  `xray_cpoe_worklist`
-- เริ่มต้นด้วยคำแนะนำ `โปรดระบุ HN / เลือกวันที่`; `onMounted` ห้ามเรียก `load()`
+- widget ชื่อ `xray_lab_lookup` อยู่ใน pane `xray_tab_lab_lookup` และแยก state/lifecycle
+  จาก `xray_cpoe_worklist` แต่ clone content, event logic และ stylesheet จาก generated
+  LAB widget จริง; ตัดเฉพาะ LAB-level view switcher แล้ว lock ที่ `viewMode='lookup'`
+- เริ่มต้นด้วยคำแนะนำ `โปรดระบุ HN / เลือกวันที่`; lifecycle อาจเรียก `loadOrders()`
+  เหมือน LAB จริง แต่ต้องไม่เรียก connector จนกว่าจะมี HN หรือ Date Range ครบ
 - scope ที่ยอมรับมีเพียง HN แบบตรงตัว (ไม่มีวันที่ = `all_dates:true`) หรือ Date Range
   ครบสองฝั่ง; HN ว่างและวันที่ไม่ครบต้องไม่เรียก Process
 - ใช้ Process `6a9434c3422c1ca959829d5e`, `organization_code` จากผู้ใช้ปัจจุบัน,
   `cross_section:true` และ `lookup_mode:'results'|'orders'`
-- เปิดผลราย item ด้วย `action:'get_manual_result'`, `cross_section:true`,
-  `lookup_mode:'results'`; แสดง result, unit, reference range, interpretation, critical และเวลา
-- contract นี้เป็น read-only โดยเด็ดขาด: Form ห้ามมี write action ฝั่ง LAB และต้องพึ่ง guard
-  ฝั่ง LAB Process ที่อนุญาตเฉพาะ `list`/`get_manual_result` เมื่อข้าม section
-- ก่อน import ต้องตรวจว่ากลุ่มผู้ใช้ X-ray มีสิทธิ์เรียก Process นี้ แล้วทดสอบใน Builder/Preview
-  และ runtime จริงด้วยบัญชี X-ray
+- list, expanded detail, pagination และ result dialog ต้องตรงกับ LAB widget ต้นทางแบบ exact;
+  ปุ่ม `ดูผล` ระดับ Order อ่านทุก Item ด้วย `get_manual_result` และใช้ dialog LAB จริง
+  รวมถึง Profile, Microbiology, attachments, previous values และ Sensitive lock/auth UI
+- การเปิด Sensitive ต้องผ่านบัญชีแพทย์, grant แบบ Order+Section และ Access Log ตามเดิม
+- สิทธิ์ดูใช้ contract เดียวกับ LAB ทั้งชุด: ก่อน re-auth คืนได้เฉพาะชื่อ/รหัสและ parent
+  สำหรับ PDF ที่ redact ฝั่ง server; ห้ามคืนค่า, comment หรือไฟล์แนบ และหลังยืนยันแล้ว Form
+  ส่ง grant ที่ server ออกให้ไปทั้ง `get_manual_result` และ Report Factory อัตโนมัติ
+- grant ต้องผูกกับ viewer + Order + Section, หมดอายุ 5 นาที และใช้ข้ามใบ/ข้ามห้องไม่ได้;
+  รหัสผ่านแพทย์ต้องถูกล้างจาก state ทันทีและห้ามเข้า log/grant storage
+- contract นี้เป็น read-only โดยเด็ดขาด: Form-level allowlist ยอมเฉพาะ action ว่าง/`list`,
+  `get_manual_result`, `authorize_sensitive_result`; action อื่นต้อง reject ก่อนถึง connector
+  แม้ cloned LAB widget จะมี method ของ Worklist อยู่ภายใน
+- 2026-09-27: LAB Process อนุญาต cross-section read-only ให้ Organization รังสีชุดเดียวกับ
+  X-ray Worklist (`M0900`, `M0901`, `CT`) แล้ว; Organization อื่นที่ไม่มี Section LAB ยังถูกปฏิเสธ
+- parity/isolation regression และ SDForm validator ต้องผ่านก่อน import; หลัง replace Process
+  และ Form ต้องทดสอบ runtime จริงด้วยบัญชีของทั้งสาม Organization
 
 ---
 

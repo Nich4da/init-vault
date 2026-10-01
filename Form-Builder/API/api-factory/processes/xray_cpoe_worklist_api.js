@@ -11,7 +11,7 @@
  *
  * Input:
  * {
- *   action?: 'list' | 'resolve_open_visit' | 'get_report' | 'cancel_order' | 'queue' | 'queue_call' | 'queue_done',
+ *   action?: 'list' | 'resolve_open_visit' | 'get_report' | 'set_staff' | 'cancel_order' | 'queue' | 'queue_call' | 'queue_done',
  *   // get_report อ่านจาก zdata_xray_result ด้วย AccessionNo (RIS เขียนเข้ามา)
  *   organization_code?: string,       // App Organization; ต้องตรงกับ unit ของผู้ใช้
  *   modality?: string | string[],     // code ของเครื่อง (array/CSV/ค่าเดี่ยว) — ตัวกรองการแสดงผลเท่านั้น
@@ -31,9 +31,9 @@
  * { success, data: { orders[], total, page, limit, modalities[], counts{}, statuses,
  *                    date_scope{}, organization_code }, message }
  *
- * เขียนได้ทางเดียวเท่านั้นคือ action 'cancel_order' (เพิ่ม 2026-09-01 · โครงเดียวกับ
- * lab_cpoe_worklist_api.js) — การรับ/ออกเลข/ส่งเข้าเครื่องยังอยู่ที่ xray-cpoe-dispatch
- * และการปฏิเสธรายเดียวอยู่ที่ xray-cpoe-reject ตามเดิม
+ * action ที่เขียนข้อมูลใน Process นี้มีเฉพาะ `cancel_order` และ `set_staff` ระดับ item
+ * — การรับ/ออกเลข/ส่งเข้าเครื่องยังอยู่ที่ xray-cpoe-dispatch และการปฏิเสธรายเดียว
+ * อยู่ที่ xray-cpoe-reject ตามเดิม จึงไม่เปลี่ยน flow เหล่านั้น
  * - ไม่แตะ Agent submit ของ LAB ซึ่งบังคับ labno/specimen_code (decision X3)
  *
  * การตัดสินใจของผู้ใช้ 2026-08-31 (แทนสมมติฐานเดิมที่ผูกกับ Section รังสี):
@@ -46,6 +46,9 @@
 const ITEM_COLLECTION = 'zdata_cpoe_order_item'
 const ORDER_COLLECTION = 'zdata_cpoe_order'
 const ITEM_MASTER_COLLECTION = 'zdata_master_item_order'
+/* X-ray Member Master · Form ID 6abcb7c0c54b3f93ce7a0489
+   ใช้ตรวจ member_id/ตำแหน่งซ้ำฝั่ง server ก่อนบันทึก selector ใน Worklist */
+const XRAY_MEMBER_COLLECTION = 'zdata_xray_member_master'
 const SECTION_COLLECTION = 'zdata_section'
 /* Organization master — collection zdata_organization (Form ID 6a3790c04cfbfdbe257f86fb)
    ผู้ใช้ยืนยัน 2026-08-31 · ฟิลด์: unit_code, unit_name, unit_parent.unit_code, unit_parent.unit_name
@@ -639,11 +642,14 @@ if (action === 'get_report') {
    ตัวเดียวของเขา) การยกเลิกเฉพาะฝั่งเราจะทำให้สองระบบขัดกัน ⇒ หยุดและบอกให้ชัด
    จนกว่าจะได้ contract ยกเลิกจากทีม RIS (decision X9)
    ตรงกับกฎ lis_cancel_required ของ LAB ที่ห้ามยกเลิกใบที่ส่งออก Agent ไปแล้ว   */
-/* ── บันทึกเจ้าหน้าที่ระดับ item + เก็บ log (ผู้ใช้สั่ง 2026-09-03) ───────────
-   ใช้กับ Radiographer (ผู้ถ่าย) ที่เลือกจาก dropdown ในตารางระดับ item
+/* ── บันทึกเจ้าหน้าที่ระดับ item + เก็บ log ───────────────────────────────
+   2026-09-30 ผู้ใช้ให้เชื่อมทั้ง Radiographer / Radiologist กับ X-ray Member Master
+   · Radiographer ต้องเป็น master ใน UI; server ตรวจตำแหน่งเมื่อได้รับ metadata รุ่นใหม่
+   · Radiologist เลือก master หรือพิมพ์แพทย์ภายนอก (source=external) ได้
+   · client รุ่นเก่าที่ส่ง radiographer string อย่างเดียวยังทำงานต่อได้ระหว่าง deploy
    · ไม่แตะ dispatched_by — นั่นคือบัญชีที่กดปุ่มส่งเข้าเครื่อง คนละความหมายกัน
    · ทุกการเปลี่ยนต้องมีร่องรอย: ค่าเก่า ค่าใหม่ เวลา และคนแก้ ถูก push ลง
-     radiographer_log[] ของ item เอง (ทรงเดียวกับ accession_history)
+     <kind>_log[] ของ item เอง (ทรงเดียวกับ accession_history)
      ห้ามเขียนทับเฉย ๆ เพราะเวชระเบียนต้องตอบได้ว่าใครแก้อะไรเมื่อไหร่
    · การล้างค่า (ส่งค่าว่าง) ก็ถูกบันทึกเป็น log เหมือนกัน ไม่ใช่ลบเงียบ ๆ */
 if (action === 'set_staff') {
@@ -651,12 +657,56 @@ if (action === 'set_staff') {
   if (!/^[a-f0-9]{24}$/i.test(itemId)) {
     return { success: false, error: 'invalid_item_id', message: 'item_id ไม่ถูกต้อง' }
   }
-  if (!Object.prototype.hasOwnProperty.call(params, 'radiographer')) {
+  const staffFields = ['radiographer', 'radiologist'].filter(field =>
+    Object.prototype.hasOwnProperty.call(params, field)
+  )
+  if (staffFields.length !== 1) {
     return { success: false, error: 'nothing_to_save', message: 'ไม่มีข้อมูลเจ้าหน้าที่ที่จะบันทึก' }
   }
-  const radiographer = valueText(params.radiographer).trim()
-  if (radiographer.length > 120) {
-    return { success: false, error: 'radiographer_too_long', message: 'ชื่อ Radiographer ต้องไม่เกิน 120 ตัวอักษร' }
+  const staffField = staffFields[0]
+  const staffLabel = staffField === 'radiologist' ? 'Radiologist' : 'Radiographer'
+  let staffName = valueText(params[staffField]).trim().replace(/\s+/g, ' ')
+  if (staffName.length > 120) {
+    return { success: false, error: staffField + '_too_long', message: 'ชื่อ ' + staffLabel + ' ต้องไม่เกิน 120 ตัวอักษร' }
+  }
+  let source = staffName ? valueText(params[staffField + '_source']).trim().toLowerCase() : ''
+  let memberId = staffName ? valueText(params[staffField + '_member_id']).trim() : ''
+
+  if (source && source !== 'master' && source !== 'external') {
+    return { success: false, error: 'invalid_staff_source', message: 'แหล่งข้อมูล ' + staffLabel + ' ไม่ถูกต้อง' }
+  }
+  if (source === 'external' && staffField !== 'radiologist') {
+    return { success: false, error: 'external_radiographer_not_allowed', message: 'Radiographer ต้องเลือกจาก X-ray Member Master' }
+  }
+  if (source === 'external') memberId = ''
+
+  const active = { $nin: [0, 3] }
+  if (source === 'master') {
+    if (!/^[a-f0-9]{24}$/i.test(memberId)) {
+      return { success: false, error: 'invalid_member_id', message: 'รหัส X-ray Member ไม่ถูกต้อง' }
+    }
+    const member = await app.db.collection(XRAY_MEMBER_COLLECTION).findOne({
+      _id: app.dbObjectId(memberId), xrstatx: active
+    })
+    if (!member) {
+      return { success: false, error: 'member_not_found', message: 'ไม่พบรายชื่อใน X-ray Member Master' }
+    }
+    const position = valueText(member.position).trim().toUpperCase()
+    const allowedPositions = staffField === 'radiologist'
+      ? ['RADIOLOGIST_PRO', 'RADIOLOGIST_SENIOR']
+      : ['RADIOGRAPHER_PRO', 'RADIOGRAPHER_PRACTICE']
+    if (allowedPositions.indexOf(position) < 0) {
+      return { success: false, error: 'member_role_mismatch', message: 'ตำแหน่งใน X-ray Member Master ไม่ตรงกับช่อง ' + staffLabel }
+    }
+    const memberPrename = labelText(member.prename)
+    const memberFirstName = valueText(member.first_name).trim()
+    const masterName = [memberPrename + memberFirstName, valueText(member.last_name).trim()]
+      .filter(Boolean).join(' ').replace(/\s+/g, ' ').trim()
+    if (!masterName) {
+      return { success: false, error: 'member_name_missing', message: 'X-ray Member ยังไม่มีชื่อที่ใช้แสดงผล' }
+    }
+    /* ใช้ชื่อจากฐานจริงเสมอ ไม่เชื่อข้อความที่ client ส่งคู่มากับ member_id */
+    staffName = masterName
   }
 
   const now = valueText(app.curDate('YYYY-MM-DD HH:mm:ss')).trim()
@@ -671,7 +721,6 @@ if (action === 'set_staff') {
     (userInfo.account && (userInfo.account._id || userInfo.account.id)) || ''
   const actorAudit = { id: actorId, name: actorName || actorCode }
 
-  const active = { $nin: [0, 3] }
   const itemCollection = app.db.collection(ITEM_COLLECTION)
   const item = await itemCollection.findOne({ _id: app.dbObjectId(itemId), xrstatx: active })
   if (!item) return { success: false, error: 'item_not_found', message: 'ไม่พบรายการที่ต้องการบันทึก' }
@@ -689,53 +738,66 @@ if (action === 'set_staff') {
     return {
       success: false,
       error: 'item_terminal',
-      message: 'รายการนี้ถูกยกเลิก/ปฏิเสธแล้ว จึงบันทึก Radiographer ไม่ได้'
+      message: 'รายการนี้ถูกยกเลิก/ปฏิเสธแล้ว จึงบันทึก ' + staffLabel + ' ไม่ได้'
     }
   }
 
-  const previous = valueText(item.radiographer).trim()
-  if (previous === radiographer) {
+  const previous = valueText(item[staffField]).trim()
+  const previousSource = valueText(item[staffField + '_source']).trim()
+  const previousMemberId = valueText(item[staffField + '_member_id']).trim()
+  if (previous === staffName && previousSource === source && previousMemberId === memberId) {
+    const data = { item_id: itemId, staff_field: staffField, previous, changed: false }
+    data[staffField] = staffName
     return {
       success: true,
-      data: { item_id: itemId, radiographer, previous, changed: false },
+      data,
       message: 'ค่าเดิมอยู่แล้ว ไม่มีการเปลี่ยนแปลง'
     }
   }
 
   try {
+    const setFields = { updated_at: now, updated_by: actorCode }
+    setFields[staffField] = staffName
+    setFields[staffField + '_at'] = staffName ? now : ''
+    setFields[staffField + '_by'] = staffName ? actorAudit : ''
+    setFields[staffField + '_source'] = source
+    setFields[staffField + '_member_id'] = memberId
+    const pushFields = {}
+    pushFields[staffField + '_log'] = {
+      value: staffName,
+      previous,
+      source,
+      previous_source: previousSource,
+      member_id: memberId,
+      previous_member_id: previousMemberId,
+      action: staffName ? 'set' : 'clear',
+      at: now,
+      by: actorAudit
+    }
     await itemCollection.updateOne(
       { _id: item._id, xrstatx: active },
       {
-        $set: {
-          radiographer: radiographer,
-          radiographer_at: radiographer ? now : '',
-          radiographer_by: radiographer ? actorAudit : '',
-          updated_at: now,
-          updated_by: actorCode
-        },
-        $push: {
-          radiographer_log: {
-            value: radiographer,
-            previous: previous,
-            action: radiographer ? 'set' : 'clear',
-            at: now,
-            by: actorAudit
-          }
-        }
+        $set: setFields,
+        $push: pushFields
       }
     )
   } catch (error) {
     return {
       success: false,
       error: 'save_failed',
-      message: 'บันทึก Radiographer ไม่สำเร็จ: ' + String((error && error.message) || error)
+      message: 'บันทึก ' + staffLabel + ' ไม่สำเร็จ: ' + String((error && error.message) || error)
     }
   }
 
+  const data = {
+    item_id: itemId, staff_field: staffField, previous, previous_source: previousSource,
+    previous_member_id: previousMemberId, source, member_id: memberId, changed: true, at: now, by: actorAudit
+  }
+  data[staffField] = staffName
   return {
     success: true,
-    data: { item_id: itemId, radiographer, previous, changed: true, at: now, by: actorAudit },
-    message: radiographer ? ('บันทึก Radiographer: ' + radiographer) : 'ล้าง Radiographer แล้ว'
+    data,
+    message: staffName ? ('บันทึก ' + staffLabel + ': ' + staffName) : ('ล้าง ' + staffLabel + ' แล้ว')
   }
 }
 
@@ -1981,6 +2043,21 @@ const requestedModalities = listText(params.modality || params.modalities)
 /* คงชื่อเดิมไว้เพื่อไม่ให้ผู้เรียกเก่าและ response เดิมพัง — เลือกตัวเดียวได้ค่าเท่าเดิม */
 const requestedModality = requestedModalities.join(',')
 
+/* ── ผู้ใช้เลือกลำดับการจัดเรียงเองได้ (ผู้ใช้ขอ 2026-09-25 · TOR §3.4.3.1) ───
+   ก่อนหน้านี้เรียงตายตัวใหม่→เก่า · เพิ่มแบบ additive:
+     latest (ค่าเริ่มต้น) = คีย์เดิมทุกตัวทุกทิศทาง ⇒ ไม่ส่ง sort มา = พฤติกรรมเดิมเป๊ะ
+     oldest              = กลับทิศของคีย์ชุดเดียวกัน เก่าสุดขึ้นก่อน
+   ค่าที่ไม่รู้จักตกกลับ latest แบบ fail-closed ไม่ทำให้คำขอล้ม
+   หมายเหตุแกนเวลา: status_at มี $ifNull กลับไปที่ requested_at อยู่แล้ว
+   ⇒ ใบที่ยังไม่มีความเคลื่อนไหวหลังสั่ง คีย์นี้คือ "เวลาสั่ง" ตรงตัว */
+const SORT_SPECS = {
+  latest: { status_at: -1, requested_at: -1, order_number: -1 },
+  oldest: { status_at: 1, requested_at: 1, order_number: 1 }
+}
+const requestedSort = valueText(params.sort || params.sort_by).trim().toLowerCase()
+const sortKey = SORT_SPECS[requestedSort] ? requestedSort : 'latest'
+const sortSpec = SORT_SPECS[sortKey]
+
 if ((dateFrom && !validDate(dateFrom)) || (dateTo && !validDate(dateTo))) {
   return { success: false, message: 'date_from/date_to ต้องเป็น YYYY-MM-DD' }
 }
@@ -2268,6 +2345,13 @@ const pipeline = [
              ซึ่งเป็นบัญชีที่กดปุ่มส่งเข้าเครื่อง · เขียนโดย action set_staff (2026-09-03) */
           radiographer: '$radiographer',
           radiographer_at: '$radiographer_at',
+          radiographer_source: '$radiographer_source',
+          radiographer_member_id: '$radiographer_member_id',
+          /* Radiologist ที่เลือกจาก master หรือพิมพ์แพทย์ภายนอกใน Worklist */
+          radiologist: '$radiologist',
+          radiologist_at: '$radiologist_at',
+          radiologist_source: '$radiologist_source',
+          radiologist_member_id: '$radiologist_member_id',
           transport: '$transport',
           performed_at: { $ifNull: ['$ris_result.latest.ImageCapturedDateTime', '$performed_at'] },
           /* เวลาออกผลจริงมาจาก RIS ก่อนเสมอ ค่าใน CPOE เป็นทางสำรองของข้อมูลเก่า */
@@ -2611,8 +2695,9 @@ pipeline.push({
     rows: [
       ...modalityMatch,
       ...statusMatch,
-      /* ใบเดิมที่ตรวจใหม่วันนี้ต้องอยู่ต้นรายการวันนี้ ไม่ตกท้ายตามวันสั่งเดิม */
-      { $sort: { status_at: -1, requested_at: -1, order_number: -1 } },
+      /* ใบเดิมที่ตรวจใหม่วันนี้ต้องอยู่ต้นรายการวันนี้ ไม่ตกท้ายตามวันสั่งเดิม
+         (เดิมเป็นค่าคงที่ · 2026-09-25 ให้ผู้ใช้สลับทิศได้ ค่าเริ่มต้นยังเป็นชุดเดิม) */
+      { $sort: sortSpec },
       { $skip: skip },
       { $limit: limit },
       /* join หลัง skip/limit เพื่ออ่านแค่ visit ของหน้านั้น ไม่ใช่ทั้งชุดผลลัพธ์ */
@@ -2804,6 +2889,9 @@ return {
     statuses,
     modality: requestedModality,
     modality_codes: requestedModalities,
+    /* เพิ่ม 2026-09-25 — คีย์ใหม่แบบ additive ผู้อ่าน response เดิมไม่กระทบ */
+    sort: sortKey,
+    sort_options: Object.keys(SORT_SPECS),
     date_scope: {
       from: scopeFrom,
       to: scopeTo,

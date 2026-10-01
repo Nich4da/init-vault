@@ -15,6 +15,7 @@ SDForm JSON รอบแรกอยู่ที่ `xray-cpoe-worklist-v1.json`
 | ไฟล์ | หน้าที่ |
 |---|---|
 | `xray-cpoe-worklist-v1.json` | artifact ที่ import เข้า Builder |
+| `xray-contrast-history-v1.json` | หน้า "ประวัติการใช้สารทึบรังสี" — อ่านอย่างเดียว · ยกโครงจากแท็บสืบค้นผลแลป · generator `../../seed/tests-tools/scripts/build_xray_contrast_history_ui.js` · เทส `../../API/tests-tools/tests/test_xray_contrast_history_form.js` · ต้นแบบ HTML `../../../02-his/ui/xray-contrast-media-record-mockup.html` |
 | `../../../design/xray-worklist-ui-design-update.md` | สรุป UI design ที่ผู้ใช้ตรวจและอนุมัติรอบ 2026-09-11 |
 | `../../seed/tests-tools/scripts/build_xray_cpoe_worklist_ui.js` | generator — regenerate ได้ ไม่ต้องแก้ JSON ด้วยมือ |
 | `../../API/tests-tools/tests/test_xray_cpoe_worklist_form.js` | behaviour test ของตัวกรอง/การจัดกลุ่ม |
@@ -35,6 +36,10 @@ Finance gate ใช้แบบเดียวกับ LAB: `sent` และ `r
 tooltip `ยังไม่ผ่านการเงิน`; ยังเลือก item เพื่อปฏิเสธหรือยกเลิกได้. Process dispatch
 `6a967029422c1ca959829edc` และ Process ออกเลข enforce กติกานี้ฝั่ง server ด้วย โดยไม่บล็อก
 retry/repair/resend ของรายการที่เคยรับแล้ว.
+
+Badge การเงินใช้เฉพาะสิทธิ์เงินสดที่มี `total_amount > 0`: ถ้า Item ที่ยัง active ทุกตัวผ่าน
+`ready` หรือสถานะหลังรับแล้ว แสดงเขียว `ชำระเงินแล้ว`; ถ้ายังมี `sent` แสดงแดง
+`ยังไม่ได้ชำระเงิน`. สิทธิ์อื่นแสดง badge สิทธิ์เดิมและไม่แสดง badge การเงิน.
 
 แท็บระดับบนเรียง `Unit Queue` · `My Room` · `X-ray` · `สืบค้นผลแลป` · `Completed` โดย
 ยังเปิดเริ่มต้นที่ `X-ray`. แท็บใหม่ใช้ LAB Process `6a9434c3422c1ca959829d5e` แบบ
