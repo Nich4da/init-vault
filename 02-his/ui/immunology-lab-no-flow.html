@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Immunology LAB NO — Order-time issuance flow</title>
+  <style>
+    :root {
+      --primary: #409eff;
+      --primary-50: #ecf5ff;
+      --primary-200: #a0cfff;
+      --success: #67c23a;
+      --success-50: #f0f9eb;
+      --success-200: #b3e19d;
+      --warning: #e6a23c;
+      --warning-50: #fdf6ec;
+      --warning-200: #f3d19e;
+      --danger: #f56c6c;
+      --danger-50: #fef0f0;
+      --danger-200: #fab6b6;
+      --ink: #303133;
+      --text: #606266;
+      --muted: #909399;
+      --line: #dcdfe6;
+      --line-light: #ebeef5;
+      --fill: #f5f7fa;
+      --fill-soft: #fafafa;
+      --surface: #ffffff;
+      --page: #f2f5f9;
+      --font: "Leelawadee UI", "Noto Sans Thai", Tahoma, "Segoe UI", sans-serif;
+      --mono: "SFMono-Regular", "Roboto Mono", Consolas, monospace;
+      --shadow: 0 12px 32px rgba(31, 35, 41, 0.09);
+    }
+
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--page);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 14px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+    button { font: inherit; }
+    button, a { -webkit-tap-highlight-color: transparent; }
+    :focus-visible { outline: 3px solid rgba(64, 158, 255, .34); outline-offset: 2px; }
+    .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+    .page {
+      width: min(1460px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 24px 0 56px;
+    }
+
+    .notice {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 14px;
+      border: 1px solid var(--warning-200);
+      background: var(--warning-50);
+      color: #8a6525;
+      border-radius: 7px;
+      font-size: 12px;
+    }
+    .notice strong { color: #6d4d17; }
+    .notice svg { width: 17px; height: 17px; flex: 0 0 auto; margin-top: 1px; }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 24px;
+      align-items: end;
+      padding: 28px 0 20px;
+    }
+    .eyebrow {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      color: var(--primary);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .eyebrow::before { content: ""; width: 18px; height: 2px; background: var(--primary); }
+    h1 { margin: 0; color: var(--ink); font-size: clamp(25px, 3vw, 38px); line-height: 1.18; letter-spacing: -.025em; }
+    .hero p { max-width: 820px; margin: 10px 0 0; color: var(--text); font-size: 15px; }
+    .hero-actions { display: flex; gap: 8px; }
+    .button {
+      min-height: 36px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      font-weight: 650;
+    }
+    .button:hover { border-color: var(--primary); color: var(--primary); }
+
+    .decision-strip {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--surface);
+    }
+    .decision {
+      min-height: 88px;
+      padding: 14px 16px;
+      border-right: 1px solid var(--line-light);
+    }
+    .decision:last-child { border-right: 0; }
+    .decision span { display: block; color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+    .decision strong { display: block; margin-top: 5px; color: var(--ink); font-size: 15px; }
+    .decision small { display: block; margin-top: 2px; color: var(--muted); }
+
+    .workspace {
+      margin-top: 18px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .workspace-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line-light);
+      background: var(--fill-soft);
+    }
+    .workspace-head h2 { margin: 0; color: var(--ink); font-size: 17px; }
+    .workspace-head p { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
+    .switcher { display: inline-flex; padding: 3px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+    .switcher button {
+      min-height: 31px;
+      padding: 0 12px;
+      border: 0;
+      border-radius: 4px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-weight: 700;
+    }
+    .switcher button[aria-selected="true"] { background: var(--primary-50); color: #337ecc; }
+
+    .flow-wrap { padding: 22px 18px 18px; overflow-x: auto; }
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(150px, 1fr));
+      min-width: 1060px;
+      align-items: stretch;
+    }
+    .step { position: relative; display: flex; min-width: 0; }
+    .step:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      top: 36px;
+      right: -1px;
+      width: 18px;
+      height: 10px;
+      z-index: 2;
+      background: var(--surface);
+      clip-path: polygon(0 40%, 62% 40%, 62% 0, 100% 50%, 62% 100%, 62% 60%, 0 60%);
+      transform: translateX(50%);
+      box-shadow: inset 0 0 0 1px var(--line);
+    }
+    .step-card {
+      width: 100%;
+      min-height: 150px;
+      margin: 0 7px;
+      padding: 13px 12px 12px;
+      border: 1px solid var(--line);
+      border-top: 3px solid var(--step-color, var(--line));
+      background: var(--surface);
+    }
+    .step:first-child .step-card { margin-left: 0; border-radius: 7px 0 0 7px; }
+    .step:last-child .step-card { margin-right: 0; border-radius: 0 7px 7px 0; }
+    .step-n { display: grid; place-items: center; width: 25px; height: 25px; border-radius: 50%; background: var(--step-bg, var(--fill)); color: var(--step-color, var(--text)); font: 800 11px var(--mono); }
+    .step h3 { margin: 10px 0 4px; color: var(--ink); font-size: 13px; }
+    .step p { margin: 0; color: var(--muted); font-size: 11.5px; }
+    .step code { display: block; margin-top: 8px; color: var(--step-color, var(--text)); font: 700 10.5px var(--mono); word-break: break-word; }
+    .step.system { --step-color: var(--primary); --step-bg: var(--primary-50); }
+    .step.issue { --step-color: var(--warning); --step-bg: var(--warning-50); }
+    .step.label { --step-color: #7b61a8; --step-bg: #f4f0fb; }
+    .step.receive { --step-color: var(--success); --step-bg: var(--success-50); }
+
+    .flow-foot {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      padding: 0 18px 18px;
+    }
+    .rule {
+      display: flex;
+      gap: 10px;
+      padding: 10px 12px;
+      border: 1px solid var(--line-light);
+      background: var(--fill-soft);
+      border-radius: 6px;
+      font-size: 12px;
+    }
+    .rule b { color: var(--ink); }
+    .rule .mark { flex: 0 0 auto; color: var(--primary); font-weight: 900; }
+    .rule.danger { border-color: var(--danger-200); background: var(--danger-50); }
+    .rule.danger .mark { color: var(--danger); }
+
+    .source-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .source-card { padding: 14px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); }
+    .source-card.primary { border-top: 3px solid var(--primary); }
+    .source-card.existing { border-top: 3px solid var(--success); }
+    .source-kicker { color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+    .source-card h3 { margin: 5px 0 4px; color: var(--ink); font-size: 14px; }
+    .source-card p { margin: 0; color: var(--muted); font-size: 12px; }
+    .source-card code { display: block; margin-top: 9px; color: #337ecc; font: 700 10.5px var(--mono); word-break: break-word; }
+    .source-card.existing code { color: var(--success); }
+    .source-note { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--primary-200); border-radius: 6px; background: var(--primary-50); color: #337ecc; font-size: 12px; }
+
+    .section { margin-top: 18px; }
+    .section-title { display: flex; align-items: end; justify-content: space-between; gap: 14px; margin-bottom: 10px; }
+    .section-title h2 { margin: 0; color: var(--ink); font-size: 18px; }
+    .section-title p { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
+    .badge { display: inline-flex; align-items: center; min-height: 23px; padding: 1px 9px; border-radius: 999px; border: 1px solid var(--primary-200); background: var(--primary-50); color: #337ecc; font-size: 11px; font-weight: 750; }
+
+    .mapping {
+      display: grid;
+      grid-template-columns: minmax(0, 1.45fr) minmax(260px, .55fr);
+      gap: 14px;
+    }
+    .panel { border: 1px solid var(--line); border-radius: 8px; background: var(--surface); overflow: hidden; }
+    .panel-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 11px 14px; border-bottom: 1px solid var(--line-light); background: var(--fill-soft); }
+    .panel-head strong { color: var(--ink); }
+    .panel-head small { color: var(--muted); }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; min-width: 720px; border-collapse: collapse; }
+    th { padding: 9px 12px; border-bottom: 1px solid var(--line); background: var(--fill); color: var(--muted); font-size: 10.5px; letter-spacing: .04em; text-align: left; }
+    td { padding: 11px 12px; border-bottom: 1px solid var(--line-light); vertical-align: top; }
+    tbody tr:last-child td { border-bottom: 0; }
+    td strong { color: var(--ink); }
+    .labno { color: #337ecc; font: 800 12px var(--mono); }
+    .state { display: inline-flex; min-height: 22px; align-items: center; padding: 1px 7px; border-radius: 4px; background: var(--warning-50); border: 1px solid var(--warning-200); color: #b88230; font-size: 11px; font-weight: 700; }
+
+    .label-sheet { display: grid; place-items: start center; padding: 14px; background: var(--fill); height: 100%; }
+    .label-preview {
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(92px, .9fr) minmax(0, 1.65fr);
+      gap: 9px;
+      width: 100%;
+      aspect-ratio: 247 / 67;
+      min-height: 0;
+      padding: 6px 7px;
+      border: 1px solid #b8b8b8;
+      background: #fff;
+      color: #151515;
+      overflow: hidden;
+    }
+    .label-summary { display: flex; min-width: 0; flex-direction: column; justify-content: space-between; }
+    .label-dept { font-size: 6px; font-weight: 900; line-height: 1; }
+    .label-patient { margin-top: 3px; min-width: 0; }
+    .label-patient strong { display: block; overflow: hidden; font-size: 8px; line-height: 1.08; text-overflow: ellipsis; white-space: nowrap; }
+    .label-patient span { display: block; margin-top: 1px; font: 900 7px/1 var(--mono); }
+    .label-order { margin-top: 3px; min-width: 0; }
+    .label-order span { display: block; color: #666; font-size: 5.5px; font-weight: 800; letter-spacing: .05em; }
+    .label-order b { display: block; overflow: hidden; font: 700 5.8px/1 var(--mono); text-overflow: ellipsis; white-space: nowrap; }
+    .label-meta { display: flex; justify-content: space-between; gap: 4px; font: 700 5.5px/1 var(--mono); }
+    .label-status { margin-top: 2px; font: 800 5.5px/1 var(--mono); }
+    .label-list { display: flex; min-width: 0; flex-direction: column; }
+    .label-count { display: flex; justify-content: space-between; gap: 6px; padding: 0 0 2px; font-size: 6px; font-weight: 900; line-height: 1; }
+    .label-items { display: grid; min-height: 0; flex: 1; grid-auto-rows: 1fr; }
+    .label-item { display: grid; grid-template-columns: 13px minmax(0, 1fr) auto; gap: 4px; align-items: center; min-height: 0; font: 5.8px/1 var(--mono); }
+    .label-index { color: #666; }
+    .label-item b { color: #111; font-size: 6.4px; }
+    .label-note { margin-top: 10px; color: var(--muted); font-size: 11px; }
+
+    .contract-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .code-panel { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #20242a; color: #e8edf2; }
+    .code-head { display: flex; justify-content: space-between; gap: 10px; padding: 9px 12px; border-bottom: 1px solid #343a42; color: #aeb8c2; font-size: 11px; }
+    pre { margin: 0; padding: 14px; overflow: auto; font: 11.5px/1.65 var(--mono); white-space: pre; }
+    .key { color: #8ecbff; }
+    .str { color: #b8e994; }
+    .bool { color: #ffd28a; }
+
+    .guardrails { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .guard { min-height: 150px; padding: 14px; border: 1px solid var(--line); border-top: 3px solid var(--guard-color); background: var(--surface); border-radius: 7px; }
+    .guard h3 { margin: 7px 0 5px; color: var(--ink); font-size: 13px; }
+    .guard p { margin: 0; color: var(--muted); font-size: 12px; }
+    .guard code { display: inline-block; margin-top: 9px; color: var(--guard-color); font: 700 10.5px var(--mono); }
+    .guard.ok { --guard-color: var(--success); }
+    .guard.stop { --guard-color: var(--danger); }
+    .guard.keep { --guard-color: var(--primary); }
+    .guard-icon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 6px; background: color-mix(in srgb, var(--guard-color) 10%, white); color: var(--guard-color); font-weight: 900; }
+
+    .compare { width: 100%; min-width: 760px; }
+    .compare th:first-child, .compare td:first-child { width: 28%; }
+    .compare .im { background: var(--primary-50); }
+    .compare .other { background: var(--fill-soft); }
+
+    .footer { display: flex; justify-content: space-between; gap: 20px; margin-top: 22px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; }
+
+    @media (max-width: 980px) {
+      .decision-strip { grid-template-columns: 1fr 1fr; }
+      .decision:nth-child(even) { border-right: 0; }
+      .decision:not(:nth-last-child(-n+2)) { border-bottom: 1px solid var(--line-light); }
+      .mapping, .contract-grid { grid-template-columns: 1fr; }
+      .guardrails, .source-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 680px) {
+      .page { width: min(100% - 20px, 1460px); padding-top: 10px; }
+      .hero { grid-template-columns: 1fr; padding-top: 20px; }
+      .hero-actions { justify-content: flex-start; }
+      .decision-strip { grid-template-columns: 1fr; }
+      .decision { border-right: 0; border-bottom: 1px solid var(--line-light); }
+      .decision:last-child { border-bottom: 0; }
+      .workspace-head, .section-title, .footer { align-items: flex-start; flex-direction: column; }
+      .switcher { width: 100%; }
+      .switcher button { flex: 1; }
+      .flow-foot { grid-template-columns: 1fr; }
+    }
+    @media print {
+      body { background: #fff; }
+      .page { width: 100%; padding: 0; }
+      .hero-actions, .switcher { display: none; }
+      .workspace, .panel, .code-panel, .guard { box-shadow: none; break-inside: avoid; }
+      .flow-wrap { overflow: visible; }
+      .flow { min-width: 0; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+      .step-card { margin: 0; border-radius: 5px !important; }
+      .step::after { display: none; }
+      .section { break-inside: avoid; }
+    }
+    @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="notice" role="note">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v5"></path><path d="M12 17h.01"></path></svg>
+      <div><strong>แนวคิดยืนยันแล้ว — รอทีมคอนเฟิร์มก่อน Implement</strong> หน้า HTML นี้ใช้สรุป Flow และขอบเขตการพัฒนา ไม่มีข้อมูลผู้ป่วยจริง ยังไม่ Deploy และไม่ใช่หน้าจอ Production</div>
+    </div>
+
+    <header class="hero">
+      <div>
+        <div class="eyebrow">LAB workflow decision</div>
+        <h1>ออก LAB NO ตอน Order<br>เฉพาะงานภูมิคุ้มกัน</h1>
+        <p>ข้อยกเว้นด้านเวลาออกเลข: <strong>1 CPOE Item : 1 LAB NO</strong> หลังบันทึกและส่ง Order สำเร็จเมื่อ Item เป็น <span class="mono">ready</span> ใช้ได้ทั้ง Order จาก CPOE และ Order ที่ห้อง LAB สร้างเอง แล้วรวมทุกคู่ของ Order ลงในสติ๊กเกอร์เดียว สูงสุด 5 คู่</p>
+      </div>
+      <div class="hero-actions">
+        <button class="button" type="button" onclick="window.print()">พิมพ์สรุป</button>
+      </div>
+    </header>
+
+    <section class="decision-strip" aria-label="ข้อสรุปหลัก">
+      <div class="decision"><span>ขอบเขต</span><strong>IM / MI-OUT เท่านั้น</strong><small>Server เป็นผู้ตรวจ Section จริง</small></div>
+      <div class="decision"><span>ต้นทาง Order</span><strong>CPOE / LAB Worklist</strong><small>ใช้ Issuance API เส้นเดียวกัน</small></div>
+      <div class="decision"><span>ความสัมพันธ์</span><strong>1 Item = 1 LAB NO</strong><small>แม้ Specimen ชนิดเดียวกัน</small></div>
+      <div class="decision"><span>แหล่งข้อมูลหลัก</span><strong>Work Item.lab_no</strong><small>CPOE ไม่สร้าง Counter เอง</small></div>
+      <div class="decision"><span>ตอนรับ Specimen</span><strong>ใช้เลขเดิมเท่านั้น</strong><small>ไม่ Generate และไม่ Fallback</small></div>
+    </section>
+
+    <section class="workspace" aria-labelledby="flow-title">
+      <div class="workspace-head">
+        <div><h2 id="flow-title">Flow ตั้งแต่ Order ถึง LIS</h2><p id="flow-subtitle">ภูมิคุ้มกัน — ออกเลขก่อนรับ Specimen</p></div>
+        <div class="switcher" role="tablist" aria-label="เปรียบเทียบ Flow">
+          <button id="tab-im" role="tab" aria-selected="true" type="button" data-mode="immunology">ภูมิคุ้มกัน</button>
+          <button id="tab-other" role="tab" aria-selected="false" type="button" data-mode="other">LAB อื่น</button>
+        </div>
+      </div>
+
+      <div class="flow-wrap">
+        <div class="flow" id="flow-immunology">
+          <div class="step system"><div class="step-card"><span class="step-n">01</span><h3>Create Order</h3><p>แพทย์สั่งจาก CPOE หรือห้อง LAB สร้างจาก LAB Worklist</p><code>order_id + item_id</code></div></div>
+          <div class="step system"><div class="step-card"><span class="step-n">02</span><h3>Save / Send / Ready</h3><p>เรียก Trusted Trigger หลังส่งสำเร็จและ Item พร้อมรับบริการ</p><code>current_status = ready</code></div></div>
+          <div class="step issue"><div class="step-card"><span class="step-n">03</span><h3>Issue per Item</h3><p>Resolve Section แล้วออกเลขแยกทีละ CPOE Item</p><code>item_id → lab_no</code></div></div>
+          <div class="step label"><div class="step-card"><span class="step-n">04</span><h3>Print Sticker</h3><p>พิมพ์ชื่อ/HN และทุก Item/LAB NO ของ Order ในใบเดียว สูงสุด 5 คู่</p><code>patient + items[0..4]</code></div></div>
+          <div class="step receive"><div class="step-card"><span class="step-n">05</span><h3>Receive Specimen</h3><p>Require LAB NO เดิม เปลี่ยนสถานะเป็น received</p><code>no generation</code></div></div>
+          <div class="step receive"><div class="step-card"><span class="step-n">06</span><h3>Outbound → LIS</h3><p>หนึ่ง Item ต่อหนึ่ง Outbound ใช้เลขจากสติ๊กเกอร์</p><code>labno = existing</code></div></div>
+        </div>
+
+        <div class="flow" id="flow-other" hidden>
+          <div class="step system"><div class="step-card"><span class="step-n">01</span><h3>CPOE Commit</h3><p>บันทึก Order และ Item โดยยังไม่มี LAB NO</p><code>current_status</code></div></div>
+          <div class="step system"><div class="step-card"><span class="step-n">02</span><h3>Waiting Queue</h3><p>รอ Finance และการนำ Specimen มาส่ง</p><code>sent → ready</code></div></div>
+          <div class="step receive"><div class="step-card"><span class="step-n">03</span><h3>Receive Selection</h3><p>รวม Item ตาม Order + Section + Specimen</p><code>item_ids[]</code></div></div>
+          <div class="step issue"><div class="step-card"><span class="step-n">04</span><h3>Generate LAB NO</h3><p>ออกเลขหนึ่งเลขให้กลุ่ม Specimen เดียวกัน</p><code>shared lab_no</code></div></div>
+          <div class="step receive"><div class="step-card"><span class="step-n">05</span><h3>Mark Received</h3><p>บันทึกเวลารับและผู้รับ Specimen</p><code>waiting_receive → received</code></div></div>
+          <div class="step receive"><div class="step-card"><span class="step-n">06</span><h3>Outbound → LIS</h3><p>หนึ่ง Outbound สามารถมีหลายรายการตรวจ</p><code>items[]</code></div></div>
+        </div>
+      </div>
+
+      <div class="flow-foot" id="im-rules">
+        <div class="rule"><span class="mark">✓</span><div><b>1 สติ๊กเกอร์ต่อ 1 Order</b><br>รวมทุกคู่ Item/LAB NO สูงสุด 5 คู่ โดยยังไม่ถือว่ารับ Specimen หรือส่ง LIS แล้ว</div></div>
+        <div class="rule danger"><span class="mark">!</span><div><b>Fail closed เมื่อเลขหาย</b><br>ตอน Receive ห้ามสร้างชดเชย ต้องแจ้งปัญหาจากขั้น Order</div></div>
+      </div>
+      <div class="flow-foot" id="other-rules" hidden>
+        <div class="rule"><span class="mark">✓</span><div><b>Flow เดิมไม่เปลี่ยน</b><br>LAB อื่นยัง Generate เมื่อกดรับ Specimen</div></div>
+        <div class="rule"><span class="mark">✓</span><div><b>Specimen เดียวกันใช้เลขร่วมกัน</b><br>ลดจำนวน Outbound โดยรวมหลาย Item ในชุดเดียว</div></div>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="source-title">
+      <div class="section-title"><div><h2 id="source-title">ต้นทาง Order ที่ใช้ Issuance API</h2><p>ไม่สร้าง Generator หรือ Counter แยกตามหน้าที่สั่ง — ต่างกันเฉพาะค่า Audit</p></div><span class="badge">1 API · 2 ต้นทาง</span></div>
+      <div class="source-grid">
+        <article class="source-card primary">
+          <div class="source-kicker">ต้นทางที่ 1</div>
+          <h3>แพทย์สั่งจาก CPOE</h3>
+          <p>หลัง Save/Send สำเร็จและ Item เป็น ready ให้เรียก Issuance API ด้วย Order เดียวกัน</p>
+          <code>trigger_source: "cpoe"</code>
+        </article>
+        <article class="source-card primary">
+          <div class="source-kicker">ต้นทางที่ 2</div>
+          <h3>ห้อง LAB สร้างรายการเอง</h3>
+          <p>หน้าสร้างรายการของ LAB ยังบันทึกผ่าน CPOE Order App แล้วเรียก API เดียวกันเมื่อ Item เป็น ready</p>
+          <code>trigger_source: "lab-worklist"</code>
+        </article>
+        <article class="source-card existing">
+          <div class="source-kicker">ขอบเขตเดิม</div>
+          <h3>รายการของ LAB อื่น</h3>
+          <p>ไม่เรียก Issuance API และยังออก LAB NO เมื่อกดรับ Specimen ตาม Flow เดิม</p>
+          <code>generate_on_receive: true</code>
+        </article>
+      </div>
+      <div class="source-note"><strong>กติกา Server:</strong> <span class="mono">trigger_source</span> ใช้บันทึก Audit เท่านั้น ไม่ใช้ตัดสินสิทธิหรือ Section; Server ต้อง Resolve Section จาก Item/Master และอนุญาตเฉพาะ IM/MI-OUT ก่อนเขียน Work Item หรือขยับ Counter</div>
+    </section>
+
+    <section class="section" aria-labelledby="mapping-title">
+      <div class="section-title"><div><h2 id="mapping-title">ตัวอย่าง 1:1 และสติ๊กเกอร์รวมทั้ง Order</h2><p>แสดงชื่อผู้ป่วย, HN และ LAB NO ของแต่ละ Item ในสติ๊กเกอร์เดียว</p></div><span class="badge">1 Sticker · 3/5 คู่</span></div>
+      <div class="mapping">
+        <div class="panel">
+          <div class="panel-head"><strong>Order ตัวอย่าง</strong><small class="mono">ORDER-DEMO-001 · Section IM · Serum</small></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>CPOE Item ID</th><th>รายการตรวจ</th><th>Specimen</th><th>LAB NO</th><th>สถานะ</th></tr></thead>
+              <tbody>
+                <tr><td class="mono">ITEM-DEMO-A</td><td><strong>Immunology Test A</strong></td><td>Serum</td><td class="labno">306909280001</td><td><span class="state">waiting_receive</span></td></tr>
+                <tr><td class="mono">ITEM-DEMO-B</td><td><strong>Immunology Test B</strong></td><td>Serum</td><td class="labno">306909280002</td><td><span class="state">waiting_receive</span></td></tr>
+                <tr><td class="mono">ITEM-DEMO-C</td><td><strong>Immunology Test C</strong></td><td>Serum</td><td class="labno">306909280003</td><td><span class="state">waiting_receive</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><strong>ตัวอย่างสติ๊กเกอร์รวม</strong><small>ขนาดเดียวกับ HN · 247 × 67 pt</small></div>
+          <div class="label-sheet">
+            <div class="label-preview" aria-label="ตัวอย่างฉลาก LAB หนึ่งใบที่รวมสาม Item และสาม LAB NO">
+              <div class="label-summary">
+                <div>
+                  <div class="label-dept">IMMUNOLOGY · IM</div>
+                  <div class="label-patient"><strong>ด.ช.ผู้ป่วย ตัวอย่าง</strong><span>HN DEMO0001</span></div>
+                  <div class="label-order"><span>ORDER</span><b>ORDER-DEMO-001</b></div>
+                </div>
+                <div>
+                  <div class="label-meta"><span>SERUM</span><span>3/5</span></div>
+                  <div class="label-status">WAITING RECEIVE</div>
+                </div>
+              </div>
+              <div class="label-list">
+                <div class="label-count"><span>ITEM</span><span>LAB NO</span></div>
+                <div class="label-items" role="list" aria-label="รายการ Item และ LAB NO บนสติ๊กเกอร์">
+                  <div class="label-item" role="listitem"><span class="label-index">01</span><span>ITEM-DEMO-A</span><b>306909280001</b></div>
+                  <div class="label-item" role="listitem"><span class="label-index">02</span><span>ITEM-DEMO-B</span><b>306909280002</b></div>
+                  <div class="label-item" role="listitem"><span class="label-index">03</span><span>ITEM-DEMO-C</span><b>306909280003</b></div>
+                </div>
+              </div>
+            </div>
+            <div class="label-note"><strong>Custom landscape 247 × 67 pt</strong> เท่ากับสติ๊กเกอร์ HN ที่ใช้อยู่ · ชื่อผู้ป่วยและ HN อ่านจาก Patient ของ Order · รองรับสูงสุด 5 คู่ Item/LAB NO ต่อใบ</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="api-title">
+      <div class="section-title"><div><h2 id="api-title">API contract ที่เสนอ</h2><p>CPOE และ LAB Worklist ส่ง Order identity เข้า Issuance API เดียวกัน; Logic และ Counter อยู่ฝั่ง LAB</p></div><span class="badge">Process ID: TBD</span></div>
+      <div class="contract-grid">
+        <div class="code-panel">
+          <div class="code-head"><span>Request — หลัง Save/Send สำเร็จและ Item ready</span><span>POST /v1/process/{PID}</span></div>
+          <pre>{
+  <span class="key">"action"</span>: <span class="str">"issue_immunology_lab_no"</span>,
+  <span class="key">"order_id"</span>: <span class="str">"CPOE_ORDER_ID"</span>,
+  <span class="key">"request_id"</span>: <span class="str">"immunology-labno:CPOE_ORDER_ID"</span>,
+  <span class="key">"trigger_source"</span>: <span class="str">"cpoe | lab-worklist"</span>
+}</pre>
+        </div>
+        <div class="code-panel">
+          <div class="code-head"><span>Response — รวม items ทั้ง Order เพื่อพิมพ์ใบเดียว</span><span>สูงสุด 5 คู่</span></div>
+          <pre>{
+  <span class="key">"success"</span>: <span class="bool">true</span>,
+  <span class="key">"data"</span>: {
+    <span class="key">"state"</span>: <span class="str">"ready"</span>,
+    <span class="key">"patient"</span>: {
+      <span class="key">"hn"</span>: <span class="str">"HN_PLACEHOLDER"</span>,
+      <span class="key">"display_name"</span>: <span class="str">"PATIENT_DISPLAY_NAME"</span>
+    },
+    <span class="key">"items"</span>: [
+      { <span class="key">"item_id"</span>: <span class="str">"ITEM_ID_1"</span>,
+        <span class="key">"lab_no"</span>: <span class="str">"306909280001"</span> },
+      { <span class="key">"item_id"</span>: <span class="str">"ITEM_ID_2"</span>,
+        <span class="key">"lab_no"</span>: <span class="str">"306909280002"</span> },
+      { <span class="key">"item_id"</span>: <span class="str">"ITEM_ID_3"</span>,
+        <span class="key">"lab_no"</span>: <span class="str">"306909280003"</span> }
+    ]
+  }
+}</pre>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="guard-title">
+      <div class="section-title"><div><h2 id="guard-title">Guardrails ที่ห้ามขาด</h2><p>ป้องกันเลขซ้ำ, Flow ข้ามขั้น และการกระทบ LAB อื่น</p></div></div>
+      <div class="guardrails">
+        <article class="guard ok"><span class="guard-icon">1:1</span><h3>Idempotent ต่อ Item</h3><p>เรียกซ้ำ Item เดิมต้องคืน LAB NO เดิม และไม่เพิ่ม Counter</p><code>already_assigned: true</code></article>
+        <article class="guard stop"><span class="guard-icon">!</span><h3>Receive ห้าม Generate</h3><p>ถ้า IM/MI-OUT ไม่มี LAB NO ให้หยุดก่อนเขียน receipt หรือสร้าง Outbound</p><code>immunology_lab_no_missing</code></article>
+        <article class="guard keep"><span class="guard-icon">≠</span><h3>LAB อื่นไม่เปลี่ยน</h3><p>API ปฏิเสธ Section อื่นก่อนเขียนข้อมูล และ Flow เดิมยัง Generate ตอน Receive</p><code>SECTION_NOT_IMMUNOLOGY</code></article>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="compare-title">
+      <div class="section-title"><div><h2 id="compare-title">สรุปความต่าง</h2><p>สิ่งที่เปลี่ยนเฉพาะภูมิคุ้มกัน และสิ่งที่ต้องคงเดิม</p></div></div>
+      <div class="panel table-wrap">
+        <table class="compare">
+          <thead><tr><th>หัวข้อ</th><th class="im">IM / MI-OUT</th><th class="other">LAB อื่น</th></tr></thead>
+          <tbody>
+            <tr><td><strong>ต้นทาง Order</strong></td><td class="im">CPOE หรือ LAB Worklist ใช้ API เดียวกัน</td><td class="other">รับ Order ตาม Flow เดิม</td></tr>
+            <tr><td><strong>เวลาออก LAB NO</strong></td><td class="im">หลัง Save/Send สำเร็จและ Item เป็น ready</td><td class="other">ตอนกดรับ Specimen</td></tr>
+            <tr><td><strong>การรวมรายการ</strong></td><td class="im">1 CPOE Item ต่อ 1 LAB NO</td><td class="other">รวมตาม Order + Section + Specimen</td></tr>
+            <tr><td><strong>สติ๊กเกอร์</strong></td><td class="im">1 ใบต่อ Order รวมสูงสุด 5 คู่ Item/LAB NO</td><td class="other">คง Flow การพิมพ์เดิม</td></tr>
+            <tr><td><strong>Receive เรียก Generator</strong></td><td class="im"><strong>ไม่เรียก</strong> และไม่ Fallback</td><td class="other">เรียกตาม Flow เดิม</td></tr>
+            <tr><td><strong>Outbound ไป LIS</strong></td><td class="im">แยกหนึ่ง Item ต่อหนึ่ง LAB NO</td><td class="other">หนึ่งชุดมีหลาย Item ได้</td></tr>
+            <tr><td><strong>เลขยกเลิก</strong></td><td class="im">เก็บ Audit และห้ามนำกลับมาใช้</td><td class="other">เก็บ Audit และห้ามนำกลับมาใช้</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <span>Immunology LAB NO flow · Design artifact · 28 ก.ย. 2569</span>
+      <span>ไม่มีข้อมูลผู้ป่วยจริง · ยังไม่ใช่หลักฐาน Production readiness</span>
+    </footer>
+  </main>
+
+  <script>
+    const modes = {
+      immunology: {
+        flow: document.getElementById('flow-immunology'),
+        rules: document.getElementById('im-rules'),
+        title: 'ภูมิคุ้มกัน — ออกเลขก่อนรับ Specimen'
+      },
+      other: {
+        flow: document.getElementById('flow-other'),
+        rules: document.getElementById('other-rules'),
+        title: 'LAB อื่น — ออกเลขตอนรับ Specimen ตาม Flow เดิม'
+      }
+    };
+    const tabs = Array.from(document.querySelectorAll('[data-mode]'));
+    const subtitle = document.getElementById('flow-subtitle');
+
+    function setMode(mode) {
+      Object.entries(modes).forEach(([key, value]) => {
+        const active = key === mode;
+        value.flow.hidden = !active;
+        value.rules.hidden = !active;
+      });
+      tabs.forEach(tab => tab.setAttribute('aria-selected', String(tab.dataset.mode === mode)));
+      subtitle.textContent = modes[mode].title;
+    }
+
+    tabs.forEach(tab => tab.addEventListener('click', () => setMode(tab.dataset.mode)));
+  </script>
+</body>
+</html>
