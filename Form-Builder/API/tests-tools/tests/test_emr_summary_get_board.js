@@ -17,6 +17,7 @@ const boardPayload = {
   success: true,
   current_vn: 'VN-TEST',
   lab_orders: [{ order_id: 'ORDER-1', status: 'ready', items: [] }],
+  summary_lab: [{ data_id: 'LAB-1', name: 'CBC', value: '13.0', flag: 'N' }],
   xray_results: [{ key: 'XR-1' }],
   lab_trends: [{ name: 'Creatinine', series: [{ value: 1 }, { value: 2 }] }],
 }
@@ -54,18 +55,21 @@ const run = async (sourceName, wrapper) => {
       reply: { status: 200, message: 'OK', data: boardPayload },
     })
     assert.deepStrictEqual(wrapped.lab_orders, boardPayload.lab_orders, sourceName + ' must unwrap reply.data.lab_orders')
+    assert.deepStrictEqual(wrapped.lab, boardPayload.summary_lab, sourceName + ' must source legacy lab[] from the redacted board payload')
     assert.deepStrictEqual(wrapped.xray_results, boardPayload.xray_results, sourceName + ' must unwrap reply.data.xray_results')
     assert.deepStrictEqual(wrapped.lab_trends, boardPayload.lab_trends, sourceName + ' must unwrap reply.data.lab_trends')
     assert.strictEqual(wrapped.current_vn, boardPayload.current_vn, sourceName + ' must unwrap reply.data.current_vn')
 
     const direct = await run(sourceName, boardPayload)
     assert.deepStrictEqual(direct.lab_orders, boardPayload.lab_orders, sourceName + ' must keep direct-payload compatibility')
+    assert.deepStrictEqual(direct.lab, boardPayload.summary_lab, sourceName + ' must keep direct summary_lab compatibility')
 
     const failed = await run(sourceName, {
       success: true,
       reply: { status: 200, data: { success: false, message: 'board unavailable' } },
     })
     assert.deepStrictEqual(failed.lab_orders, [], sourceName + ' must fail open when the child Process fails')
+    assert.deepStrictEqual(failed.lab, [], sourceName + ' must fail closed for legacy lab[] when the child Process fails')
   }
 
   console.log('emr-summary-get board unwrap tests passed')

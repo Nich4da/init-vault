@@ -118,6 +118,14 @@
 
                   <!-- มีผลแล้ว — โชว์เฉพาะค่าที่ผิดปกติ/วิกฤติ ค่าปกติพับไว้ (CBC ใบเดียว 15-20 บรรทัด) -->
                   <template v-else>
+                    <div v-for="(r, ri) in o.locked_rows" :key="'locked' + ri" style="display:flex;align-items:center;gap:8px;margin:6px 0;padding:9px 10px;border:1px solid var(--el-color-warning-light-5);border-radius:7px;background:var(--el-color-warning-light-9)">
+                      <span style="flex:1;min-width:0">
+                        <strong style="display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</strong>
+                        <small style="display:block;margin-top:2px;color:var(--el-text-color-secondary)">{{ r.code ? r.code + ' · ' : '' }}Sensitive — ต้องยืนยันตัวตนก่อนดูผล</small>
+                      </span>
+                      <el-button v-if="r.reauth_required" size="small" type="warning" @click.stop="tsRequestSensitive(o, r)">ยืนยันตัวตนเพื่อดูผล</el-button>
+                      <el-tag v-else size="small" type="info" effect="plain">ยังเปิดดูไม่ได้</el-tag>
+                    </div>
                     <div v-for="(r, ri) in o.abnormals" :key="'a' + ri" style="padding:5px 0;border-bottom:1px dashed var(--el-border-color-lighter)">
                       <div style="display:flex;align-items:flex-start;gap:6px">
                         <span style="flex:1;min-width:0;font-size:12px">
@@ -313,6 +321,21 @@
             </div>
 
             <template #footer><el-button @click="tsCloseLabDialog()">ปิด</el-button></template>
+          </el-dialog>
+
+          <el-dialog v-model="tsReauth.visible" title="ยืนยันตัวตนเพื่อดูผล Sensitive" width="460px" :close-on-click-modal="false" destroy-on-close @closed="tsCloseReauth()">
+            <div style="display:grid;gap:12px">
+              <el-alert type="warning" :closable="false" show-icon title="ระบบจะตรวจสิทธิ์ที่ server และบันทึก Access Log ทุกครั้ง" />
+              <div v-if="tsReauth.item" style="padding:8px 10px;border-radius:6px;background:var(--el-fill-color-light);font-size:12px"><strong>{{ tsReauth.item.name }}</strong><span v-if="tsReauth.item.code"> · {{ tsReauth.item.code }}</span></div>
+              <el-alert v-if="tsReauth.error" type="error" :closable="false" show-icon :title="tsReauth.error" />
+              <el-form label-position="top" @submit.prevent>
+                <el-form-item label="Username"><el-input v-model="tsReauth.username" disabled autocomplete="username" /></el-form-item>
+                <el-form-item label="Password"><el-input v-model="tsReauth.password" type="password" show-password autocomplete="current-password" @keyup.enter="tsSubmitSensitive()" /></el-form-item>
+                <el-form-item label="เหตุผลในการเปิดดู"><el-input v-model="tsReauth.purpose" type="textarea" :rows="2" maxlength="200" show-word-limit /></el-form-item>
+              </el-form>
+              <small style="color:var(--el-text-color-secondary)">ผลที่เปิดจะถูกล้างออกจากหน้าจอเมื่อปิดหน้าต่างผลตรวจ และยังไม่รวม PDF/ไฟล์แนบ</small>
+            </div>
+            <template #footer><el-button :disabled="tsReauth.loading" @click="tsCloseReauth()">ยกเลิก</el-button><el-button type="primary" :loading="tsReauth.loading" @click="tsSubmitSensitive()">ยืนยันและเปิดดู</el-button></template>
           </el-dialog>
 
       </el-tab-pane>

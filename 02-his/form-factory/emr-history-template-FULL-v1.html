@@ -414,6 +414,21 @@
 
               <!-- มีผลแล้ว — โชว์เฉพาะค่าที่ผิดปกติ/วิกฤติ ค่าปกติพับไว้ (CBC ใบเดียว 15-20 บรรทัด) -->
               <template v-else>
+                <div v-for="(r, ri) in o.hidden_rows" :key="'hidden' + ri" style="display:flex;align-items:center;gap:8px;margin:6px 0;padding:9px 10px;border:1px solid var(--el-color-danger-light-5);border-radius:7px;background:var(--el-color-danger-light-9)">
+                  <span style="flex:1;min-width:0">
+                    <strong style="display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</strong>
+                    <small v-if="r.code" style="display:block;margin-top:2px;color:var(--el-text-color-secondary)">{{ r.code }}</small>
+                  </span>
+                  <strong style="color:var(--el-color-danger);font-size:11px">ปกปิดผล</strong>
+                </div>
+                <div v-for="(r, ri) in o.locked_rows" :key="'locked' + ri" style="display:flex;align-items:center;gap:8px;margin:6px 0;padding:9px 10px;border:1px solid var(--el-color-warning-light-5);border-radius:7px;background:var(--el-color-warning-light-9)">
+                  <span style="flex:1;min-width:0">
+                    <strong style="display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</strong>
+                    <small style="display:block;margin-top:2px;color:var(--el-text-color-secondary)">{{ r.code ? r.code + ' · ' : '' }}Sensitive — ต้องยืนยันตัวตนก่อนดูผล</small>
+                  </span>
+                  <el-button v-if="r.reauth_required" size="small" type="warning" @click.stop="ehLabRequestSensitive(o, r)">ยืนยันตัวตนเพื่อดูผล</el-button>
+                  <el-tag v-else size="small" type="info" effect="plain">ยังเปิดดูไม่ได้</el-tag>
+                </div>
                 <div v-for="(r, ri) in o.abnormals" :key="'a' + ri" style="padding:5px 0;border-bottom:1px dashed var(--el-border-color-lighter)">
                   <div style="display:flex;align-items:flex-start;gap:6px">
                     <span style="flex:1;min-width:0;font-size:12px">
@@ -469,7 +484,9 @@
                      🔴 ผูกกับ Result Report (`xparentx`) ไม่ใช่ใบสั่ง · ใบที่มีผลหลายชุดไม่พิมพ์ให้อัตโนมัติ
                      🔴 ปุ่มที่กดแล้วไม่เกิดอะไร แย่กว่าไม่มีปุ่ม ⇒ ไม่พร้อมก็บอกเหตุแทน -->
                 <div style="display:flex;gap:6px;margin-top:8px" @click.stop>
-                  <sd-report v-if="o.report_ready" :report-list="o.report_list" :params="o.report_params" size="small" />
+                  <sd-report v-if="o.report_ready && !o.has_sensitive" :key="ehLabReportInstanceKey(o, 'card')" :report-list="o.report_list" :params="o.report_params" size="small" />
+                  <el-button v-else-if="o.report_ready" size="small" @click.stop="ehLabRequestSensitivePdf(o, 'card')">PDF</el-button>
+                  <span v-if="o.report_ready && o.has_sensitive && ehLabPdfGrantReady(o, 'card')" :id="ehLabPdfHostId(o, 'card')" style="display:none"><sd-report :key="ehLabPdfReportInstanceKey(o, 'card')" :report-list="o.report_list" :params="ehLabPdfParams(o, 'card')" size="small" /></span>
                   <el-button v-if="ehLabOrderTarget(o)" size="small" :type="o.report_ready ? 'default' : 'primary'" style="flex:1" @click.stop="ehLabOpenOrder(o)">ดูผลทั้งใบ</el-button>
                 </div>
                 <div v-if="o.report_hint" style="margin-top:4px;font-size:10px;line-height:1.45;color:var(--el-text-color-placeholder)">{{ o.report_hint }}</div>
@@ -575,17 +592,32 @@
             <span v-if="ehLabDialog.order.reported_at || ehLabDialog.order.resulted_at" style="display:inline-flex;gap:4px"><b style="color:var(--el-text-color-secondary);font-size:10px">ออกผลเมื่อ:</b><strong class="lab-mono">{{ ehLabCompactDateTime(ehLabDialog.order.reported_at || ehLabDialog.order.resulted_at) }}</strong></span>
           </div>
         </div>
-        <sd-report v-if="ehLabDialog.order.report_ready" class="lab-result-report-action" :report-list="ehLabDialog.order.report_list" :params="ehLabDialog.order.report_params" size="small" />
-        <el-button v-else class="lab-result-report-action" type="danger" size="small" disabled :title="ehLabDialog.order.report_hint || 'ยังไม่มีรายงานผล'">รายงานผล</el-button>
+        <span style="display:flex;width:94px;min-width:94px;max-width:94px;flex:0 0 94px;align-items:flex-start;justify-content:flex-end">
+          <sd-report v-if="ehLabDialog.order.report_ready && !ehLabDialog.order.has_sensitive" :key="ehLabReportInstanceKey(ehLabDialog.order, 'dialog')" class="lab-result-report-action" :report-list="ehLabDialog.order.report_list" :params="ehLabDialog.order.report_params" size="small" />
+          <el-button v-else-if="ehLabDialog.order.report_ready" class="lab-result-report-action" type="danger" size="small" @click.stop="ehLabRequestSensitivePdf(ehLabDialog.order, 'dialog')">PDF</el-button>
+          <span v-if="ehLabDialog.order.report_ready && ehLabDialog.order.has_sensitive && ehLabPdfGrantReady(ehLabDialog.order, 'dialog')" :id="ehLabPdfHostId(ehLabDialog.order, 'dialog')" style="display:none"><sd-report :key="ehLabPdfReportInstanceKey(ehLabDialog.order, 'dialog')" :report-list="ehLabDialog.order.report_list" :params="ehLabPdfParams(ehLabDialog.order, 'dialog')" size="small" /></span>
+          <el-button v-if="!ehLabDialog.order.report_ready" class="lab-result-report-action" type="danger" size="small" disabled :title="ehLabDialog.order.report_hint || 'ยังไม่มีรายงานผล'">PDF</el-button>
+        </span>
       </div>
     </template>
 
     <div v-if="ehLabDialog.order" class="lab-manual-form lab-result-viewer" style="min-height:300px;color:var(--el-text-color-regular)">
       <div class="lab-result-profile-toolbar" style="display:flex;align-items:center;gap:10px;margin:2px 0 9px">
-        <div style="display:flex;min-width:0;align-items:baseline;gap:10px"><strong style="font-size:15px">รายการผลตรวจ</strong><small style="color:var(--el-text-color-secondary);font-size:11px">{{ ehLabResultTestCount() }} รายการสั่งตรวจ · {{ ehLabResultRowsCount() }} ผลย่อย</small></div>
+        <div style="display:flex;min-width:0;align-items:baseline;gap:10px"><strong style="font-size:15px">รายการผลตรวจ</strong><small style="color:var(--el-text-color-secondary);font-size:11px">{{ ehLabResultTestCount() }} รายการสั่งตรวจ · {{ ehLabResultRowsCount() }} ผลย่อย<span v-if="ehLabLockedResultCount()"> · ปิดบัง {{ ehLabLockedResultCount() }}</span></small></div>
         <div v-if="ehLabResultProfileCount()" class="lab-result-section-actions" style="display:flex;align-items:center;gap:2px;margin-left:auto">
           <el-button text type="primary" size="small" @click="ehLabExpandAllResultGroups()">กาง Profile ทั้งหมด</el-button>
           <el-button text type="primary" size="small" @click="ehLabCollapseAllResultGroups()">พับทั้งหมด</el-button>
+        </div>
+      </div>
+
+      <div v-if="ehLabLockedResultCount()" class="lab-sensitive-locked-list" style="display:grid;gap:8px;margin-bottom:12px">
+        <div v-for="(r, ri) in ehLabDialog.order.locked_rows" :key="'dialog-locked-' + (r.visibility && r.visibility.item_id || ri)" style="display:flex;align-items:center;gap:12px;padding:11px 12px;border:1px solid var(--el-color-warning-light-5);border-radius:8px;background:var(--el-color-warning-light-9)">
+          <span style="flex:1;min-width:0">
+            <strong style="display:block;color:var(--el-text-color-primary);font-size:13px;overflow-wrap:anywhere">{{ r.name || 'ผลตรวจ Sensitive' }}</strong>
+            <small style="display:block;margin-top:2px;color:var(--el-text-color-secondary);font-size:10px">{{ r.code ? r.code + ' · ' : '' }}Sensitive — ปิดบังค่าผลจนกว่าจะยืนยันตัวตน</small>
+          </span>
+          <el-button v-if="r.reauth_required" size="small" type="warning" @click="ehLabRequestSensitive(ehLabDialog.order, r)">ยืนยันตัวตนเพื่อดูผล</el-button>
+          <el-tag v-else size="small" type="info" effect="plain">ยังเปิดดูไม่ได้</el-tag>
         </div>
       </div>
 
@@ -608,12 +640,12 @@
               <div class="lab-result-index lab-mono" style="min-width:0;padding:10px 6px;color:var(--el-text-color-secondary);white-space:nowrap">{{ ehLabResultRowNumber(group, groupIndex, rowIndex) }}</div>
               <div style="min-width:0;padding:10px"><i v-if="ehLabHasResultValue(r)" class="lab-result-signal" :class="ehLabResultSignalClass(r)" :style="ehLabResultSignalStyle(r)" :title="ehLabResultSignalText(r)"></i></div>
               <div class="lab-result-test-name" style="min-width:0;padding:10px;color:var(--el-text-color-primary);font-size:13px;font-weight:700"><strong style="display:block;overflow-wrap:anywhere">{{ r.name || group.test_name || '-' }}</strong><small style="display:block;margin-top:2px;color:var(--el-text-color-secondary);font-size:10px;font-weight:400">{{ r.code || group.test_code || '-' }}<template v-if="ehLabResultSourceText(r.source)"> · ผลจาก {{ ehLabResultSourceText(r.source) }}</template></small></div>
-              <div class="lab-result-previous lab-mono" style="min-width:0;padding:10px;color:var(--el-text-color-secondary)">{{ r.previous && r.previous.value || '-' }}</div>
-              <div style="min-width:0;padding:10px"><strong class="lab-result-measured" :class="ehLabResultMeasuredClass(r)" :style="ehLabResultMeasuredStyle(r)">{{ r.value || 'รอผล' }}</strong></div>
-              <div style="min-width:0;padding:10px">{{ r.unit || '-' }}</div>
-              <div style="min-width:0;padding:10px"><span class="lab-result-interpretation" :class="ehLabResultInterpretationClass(r)" :style="ehLabResultInterpretationStyle(r)">{{ ehLabFlagLabel(r.flag) }}</span></div>
-              <div class="lab-mono" style="min-width:0;padding:10px">{{ r.ref || '-' }}</div>
-              <div v-if="r.comment" class="lab-result-comment" role="note" style="grid-column:3/-1;display:grid;gap:3px;align-self:stretch;padding:0 10px 10px"><span style="color:var(--el-text-color-secondary);font-size:10px;font-weight:700">หมายเหตุผลตรวจ</span><p style="margin:0;padding:8px 10px;border-left:3px solid var(--el-color-primary);border-radius:4px;background:var(--el-color-primary-light-9);font-size:12px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere">{{ r.comment }}</p></div>
+              <div class="lab-result-previous lab-mono" style="min-width:0;padding:10px;color:var(--el-text-color-secondary)">{{ r.redacted ? '-' : (r.previous && r.previous.value || '-') }}</div>
+              <div style="min-width:0;padding:10px"><strong class="lab-result-measured" :class="ehLabResultMeasuredClass(r)" :style="ehLabResultMeasuredStyle(r)">{{ r.redacted ? 'ปกปิดผล' : (r.value || 'รอผล') }}</strong></div>
+              <div style="min-width:0;padding:10px">{{ r.redacted ? '-' : (r.unit || '-') }}</div>
+              <div style="min-width:0;padding:10px"><span v-if="!r.redacted" class="lab-result-interpretation" :class="ehLabResultInterpretationClass(r)" :style="ehLabResultInterpretationStyle(r)">{{ ehLabFlagLabel(r) }}</span><span v-else>-</span></div>
+              <div class="lab-mono" style="min-width:0;padding:10px">{{ r.redacted ? '-' : (r.ref || '-') }}</div>
+              <div v-if="r.comment && !r.redacted" class="lab-result-comment" role="note" style="grid-column:3/-1;display:grid;gap:3px;align-self:stretch;padding:0 10px 10px"><span style="color:var(--el-text-color-secondary);font-size:10px;font-weight:700">หมายเหตุผลตรวจ</span><p style="margin:0;padding:8px 10px;border-left:3px solid var(--el-color-primary);border-radius:4px;background:var(--el-color-primary-light-9);font-size:12px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere">{{ r.comment }}</p></div>
             </div>
           </template>
         </template>
@@ -626,5 +658,21 @@
     </div>
 
     <template #footer><el-button @click="ehLabCloseLabDialog()">ปิด</el-button></template>
+  </el-dialog>
+
+  <el-dialog v-model="ehLabReauth.visible" :title="ehLabReauth.mode==='pdf' ? 'ยืนยันตัวตนอีกครั้งเพื่อเปิด PDF' : 'ยืนยันตัวตนเพื่อดูผล Sensitive'" width="460px" :close-on-click-modal="false" destroy-on-close @closed="ehLabCloseReauth()">
+    <div style="display:grid;gap:12px">
+      <el-alert type="warning" :closable="false" show-icon title="ระบบจะตรวจสิทธิ์ที่ server และบันทึก Access Log ทุกครั้ง" />
+      <div v-if="ehLabReauth.item" style="padding:8px 10px;border-radius:6px;background:var(--el-fill-color-light);font-size:12px"><strong>{{ ehLabReauth.item.name }}</strong><span v-if="ehLabReauth.item.code"> · {{ ehLabReauth.item.code }}</span></div>
+      <el-alert v-if="ehLabReauth.error" type="error" :closable="false" show-icon :title="ehLabReauth.error" />
+      <el-form label-position="top" @submit.prevent>
+        <el-form-item label="Username แพทย์"><el-input v-model="ehLabReauth.username" autocomplete="username" /></el-form-item>
+        <el-form-item label="Password"><el-input v-model="ehLabReauth.password" type="password" show-password autocomplete="current-password" @keyup.enter="ehLabSubmitSensitive()" /></el-form-item>
+        <el-form-item label="เหตุผลในการเปิดดู"><el-input v-model="ehLabReauth.purpose" type="textarea" :rows="2" maxlength="200" show-word-limit /></el-form-item>
+      </el-form>
+      <small v-if="ehLabReauth.mode==='pdf'" style="color:var(--el-text-color-secondary)">PDF ที่มีผล Sensitive ต้องยืนยันใหม่ทุกครั้ง และไม่ใช้สิทธิ์ 5 นาทีจากการดูผลบนหน้าจอ</small>
+      <small v-else style="color:var(--el-text-color-secondary)">ยืนยันครั้งเดียว ใช้ได้ 5 นาทีเฉพาะผู้ใช้ ใบสั่ง และห้อง Lab เดิม</small>
+    </div>
+    <template #footer><el-button :disabled="ehLabReauth.loading" @click="ehLabCloseReauth()">ยกเลิก</el-button><el-button type="primary" :loading="ehLabReauth.loading" @click="ehLabSubmitSensitive()">{{ ehLabReauth.mode==='pdf' ? 'ยืนยันและเปิด PDF' : 'ยืนยันและเปิดดู' }}</el-button></template>
   </el-dialog>
 </div>

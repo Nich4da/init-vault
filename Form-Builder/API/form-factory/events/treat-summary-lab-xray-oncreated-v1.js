@@ -59,6 +59,7 @@
 const LAB_RESULT_PDF_REPORT_ID = '6aa8f5a8b92813319a86ea11';
 const MICRO_RESULT_PDF_REPORT_ID = '6ab1c2d3e4f5061728394a5b';
 const MICRO_SECTIONS = ['MB'];
+const TS_LAB_BOARD_PROC = '6ab3be31cec3020e8562a2c9'; // action=open_sensitive ใช้ process เดียวกับ board
 
 /* ══ ป้ายสถานะใบ — ชุดเดียวกับการ์ด "ใบสั่งตรวจ" (item_card) ═════════════════
    🔴 ค่าที่ไม่รู้จักต้องโชว์ค่าดิบ ห้ามแปลงเป็น "ร่าง" — ใบที่สถานะเพี้ยนต้องมองเห็นได้ */
@@ -93,6 +94,7 @@ s.tsOgOpen = {}; // key ของก้อน/บล็อกที่กาง�
 s.tsLgUi = { mode: 'order' }; // 🔴 ต้องเป็น object — scope proxy ไม่มี set trap ให้ตัวแปรเดี่ยว
 s.tsLabDialog = { visible: false, order: null }; // popup อ่านอย่างเดียว — ห้ามเปิด Result Item CRUD จากหน้า EMR
 s.tsResultGroupOpen = {}; // สถานะกาง/พับ Profile ใน popup ผลทั้งใบ
+s.tsReauth = { visible: false, loading: false, error: '', username: '', password: '', purpose: 'ดูแลรักษาผู้ป่วย', order: null, item: null };
 
 /* ══ helper เล็ก ๆ ════════════════════════════════════════════════════════ */
 // "2026-09-22 10:52:00" → "10:52" (รับ "10:52" ที่ส่งมาตรง ๆ ด้วย)
@@ -124,7 +126,11 @@ const tsFlagOf = (it) => {
 const tsIsAbn = (r) => r.flag === 'C' || r.flag === 'H' || r.flag === 'L' || r.flag === 'A';
 
 const tsRow = (it) => {
+	const visibility = (it && it.visibility) || { state: 'visible' };
 	const r = {
+		visibility: visibility,
+		locked: String(visibility.state || 'visible') !== 'visible',
+		reauth_required: String(visibility.state || '') === 'reauth_required',
 		text: !!(it && it.text), // ผลเป็นรายงานความเรียง ไม่ใช่ค่าเดี่ยว
 		name: String((it && (it.name || it.obs_name || it.test_name)) || '-'),
 		code: String((it && (it.code || it.obs_code)) || ''),
@@ -199,7 +205,9 @@ const tsMkOrder = (raw) => {
 	const cancelled = status === 'cancelled' || status === 'rejected';
 	const pending = TS_PENDING.indexOf(status) >= 0;
 	const scope = String(raw.scope || 'visit');
-	const rows = (Array.isArray(raw.items) ? raw.items : []).map(tsRow);
+	const allRows = (Array.isArray(raw.items) ? raw.items : []).map(tsRow);
+	const lockedRows = allRows.filter((row) => row.locked);
+	const rows = allRows.filter((row) => !row.locked);
 	const resultGroups = [];
 	const resultGroupByKey = {};
 	rows.forEach((row, rowIndex) => {
@@ -219,6 +227,9 @@ const tsMkOrder = (raw) => {
 
 	const o = {
 		key: String(raw.order_id || raw.order_no || Math.random()),
+		source_order_id: String(raw.source_order_id || ''),
+		_raw: raw,
+		_sensitive_disclosed: !!raw.__sensitive_disclosed,
 		scope: scope,
 		section: String(raw.section || 'ผลตรวจ'),
 		order_no: String(raw.order_no || raw.order_id || ''),
@@ -236,6 +247,8 @@ const tsMkOrder = (raw) => {
 		verified_by: String(raw.verified_by_source_name || ''),
 		attachments: Array.isArray(raw.attachments) ? raw.attachments : [],
 		rows: rows,
+		locked_rows: lockedRows,
+		has_locked: lockedRows.length > 0,
 		result_groups: resultGroups,
 		criticals: rows.filter((r) => r.flag === 'C'),
 		// 🔴 ผลที่เป็น "รายงานความเรียง" (MB/MLab) แยกถังของตัวเอง — ต้องเห็นเสมอ
@@ -256,8 +269,8 @@ const tsMkOrder = (raw) => {
 	o.chip_text = scope === 'today' && !pending && !cancelled ? 'ผลออกวันนี้' : st.label;
 	o.chip_type = scope === 'today' && !pending && !cancelled ? 'warning' : st.type;
 	// มีรายงานความเรียงแต่ไม่มีธงผิดปกติ ⇒ ห้ามขึ้นว่า "ปกติทั้งหมด" (เราไม่รู้ว่าปกติ)
-	o.abn_text = o.abnormals.length ? 'ผิดปกติ ' + o.abnormals.length : o.texts.length ? 'มีรายงานผล' : rows.length ? 'ปกติทั้งหมด' : '';
-	o.abn_type = o.abnormals.length ? (o.criticals.length ? 'danger' : 'warning') : o.texts.length ? 'info' : 'success';
+	o.abn_text = o.abnormals.length ? 'ผิดปกติ ' + o.abnormals.length : o.texts.length ? 'มีรายงานผล' : o.has_locked ? 'มีผล Sensitive' : rows.length ? 'ปกติทั้งหมด' : '';
+	o.abn_type = o.abnormals.length ? (o.criticals.length ? 'danger' : 'warning') : o.texts.length ? 'info' : o.has_locked ? 'warning' : 'success';
 	o.steps = pending ? tsSteps(raw) : [];
 
 	// ── ปุ่มรายงานผล PDF ──────────────────────────────────────────────
@@ -415,9 +428,13 @@ s.tsXrClamp = (key) =>
 
 // เปิดผลทั้งใบใน popup อ่านอย่างเดียวแบบเดียวกับ LAB Worklist
 // 🔴 ห้าม fallback ไปเปิด Result Item ตัวแรก — นั่นคือหน้ากรอก/แก้ไขผลของห้อง LAB ไม่ใช่หน้าดูผลของ EMR
-s.tsOrderTarget = (o) => !!(o && Array.isArray(o.rows) && o.rows.length);
+s.tsOrderTarget = (o) => !!(o && ((Array.isArray(o.rows) && o.rows.length) || (Array.isArray(o.locked_rows) && o.locked_rows.some((row) => row.reauth_required))));
 s.tsOpenOrder = (o) => {
 	if (!s.tsOrderTarget(o)) return;
+	if ((!o.rows || !o.rows.length) && o.locked_rows && o.locked_rows.length) {
+		s.tsRequestSensitive(o, o.locked_rows.find((row) => row.reauth_required));
+		return;
+	}
 	const opened = {};
 	(Array.isArray(o.result_groups) ? o.result_groups : []).forEach((group, index) => {
 		if (Array.isArray(group.results) && group.results.length > 1) opened[s.tsResultGroupKey(group, index)] = true;
@@ -426,8 +443,77 @@ s.tsOpenOrder = (o) => {
 	s.tsLabDialog = { visible: true, order: o };
 };
 s.tsCloseLabDialog = () => {
+	const disclosed = !!(s.tsLabDialog.order && s.tsLabDialog.order._sensitive_disclosed);
 	s.tsLabDialog = { visible: false, order: null };
 	s.tsResultGroupOpen = {};
+	if (disclosed) s.tsReload();
+};
+
+const tsSessionUsername = () => {
+	const form = field.getFormRef && field.getFormRef();
+	const user = (form && form.userState && form.userState.user) || (field.globalUserState && field.globalUserState.user) || {};
+	return String(user.username || (user.account && user.account.username) || '').trim();
+};
+const tsRequestId = () => 'emr-sensitive-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+s.tsRequestSensitive = (order, item) => {
+	if (!order || !item || !item.reauth_required) return;
+	s.tsReauth = { visible: true, loading: false, error: '', username: tsSessionUsername(), password: '', purpose: 'ดูแลรักษาผู้ป่วย', order, item };
+};
+s.tsCloseReauth = () => {
+	s.tsReauth = { visible: false, loading: false, error: '', username: '', password: '', purpose: 'ดูแลรักษาผู้ป่วย', order: null, item: null };
+};
+const tsReplaceOrder = (oldOrder, nextOrder) => {
+	['tsLgVisit', 'tsLgToday'].forEach((key) => {
+		s[key] = (Array.isArray(s[key]) ? s[key] : []).map((order) => (order === oldOrder || order.key === oldOrder.key ? nextOrder : order));
+	});
+};
+s.tsSubmitSensitive = () => {
+	const auth = s.tsReauth;
+	const form = field.getFormRef && field.getFormRef();
+	if (!auth.order || !auth.item || !form || !form.userState || typeof form.userState.runProcess !== 'function') return;
+	if (!auth.username || !auth.password || !String(auth.purpose || '').trim()) {
+		s.tsReauth = Object.assign({}, auth, { error: 'กรุณากรอก username, password และเหตุผลให้ครบ' });
+		return;
+	}
+	const password = auth.password;
+	s.tsReauth = Object.assign({}, auth, { loading: true, error: '', password: '' });
+	const visibility = auth.item.visibility || {};
+	form.userState.runProcess(
+		TS_LAB_BOARD_PROC,
+		{
+			action: 'open_sensitive',
+			visit_id: visibility.visit_id || s.tsCurVisit,
+			source_order_id: visibility.source_order_id || auth.order.source_order_id,
+			item_id: visibility.item_id || auth.item.group_id,
+			username: auth.username,
+			password,
+			purpose: String(auth.purpose || '').trim(),
+			request_id: tsRequestId(),
+			screen: 'treat_summary',
+		},
+		(res) => {
+			const data = (res && res.data) || {};
+			if (!data.success) {
+				s.tsReauth = Object.assign({}, s.tsReauth, { loading: false, error: data.message || 'ยืนยันตัวตนไม่สำเร็จ' });
+				return;
+			}
+			const raw = Object.assign({}, auth.order._raw || {});
+			const itemId = String(visibility.item_id || auth.item.group_id || '');
+			raw.items = (Array.isArray(raw.items) ? raw.items : []).filter((row) => String((row.visibility && row.visibility.item_id) || row.group_id || '') !== itemId).concat(Array.isArray(data.items) ? data.items : []);
+			raw.reported_at = data.reported_at || raw.reported_at;
+			raw.reported_by_source_name = data.reported_by_source_name || raw.reported_by_source_name;
+			raw.verified_at = data.verified_at || raw.verified_at;
+			raw.verified_by_source_name = data.verified_by_source_name || raw.verified_by_source_name;
+			raw.__sensitive_disclosed = true;
+			const nextOrder = tsMkOrder(raw);
+			tsReplaceOrder(auth.order, nextOrder);
+			s.tsCloseReauth();
+			s.tsOpenOrder(nextOrder);
+		},
+		(err) => {
+			s.tsReauth = Object.assign({}, s.tsReauth, { loading: false, error: 'เปิดผล Sensitive ไม่สำเร็จ: ' + ((err && err.message) || err) });
+		},
+	);
 };
 s.tsResultGroups = () => {
 	const order = s.tsLabDialog.order;
@@ -536,5 +622,6 @@ s.tsLoad = (personId, hn, curVisitId) => {
 	s.tsResultGroupOpen = {};
 	s.tsVnLabel = '';
 	s.tsLabDialog = { visible: false, order: null };
+	s.tsReauth = { visible: false, loading: false, error: '', username: '', password: '', purpose: 'ดูแลรักษาผู้ป่วย', order: null, item: null };
 	return tsLoadBase(personId, hn, curVisitId);
 };

@@ -192,7 +192,7 @@ s.ehLoad = (visitId, historyId) => {
 		(err) => {
 			s.ehLoading = false;
 			s.ehErr = 'อ่านประวัติการรักษาไม่สำเร็จ: ' + ((err && err.message) || err);
-		},
+		}
 	);
 };
 
@@ -237,6 +237,9 @@ s.ehLabHn = '';
 s.ehLabOgOpen = {};
 s.ehLabDialog = { visible: false, order: null };
 s.ehLabResultGroupOpen = {};
+s.ehLabReauth = { visible: false, loading: false, error: '', username: '', password: '', purpose: 'ดูแลรักษาผู้ป่วย', mode: 'view', placement: '', order: null, item: null };
+s.ehLabPdfGrant = { orderKey: '', placement: '', token: '', expiresAt: 0 };
+s.ehLabSensitiveExpiryTimer = null;
 
 /* ══ helper เล็ก ๆ ════════════════════════════════════════════════════════ */
 // "2026-09-22 10:52:00" → "10:52" (รับ "10:52" ที่ส่งมาตรง ๆ ด้วย)
@@ -268,13 +271,24 @@ const ehLabFlagOf = (it) => {
 const ehLabIsAbn = (r) => r.flag === 'C' || r.flag === 'H' || r.flag === 'L' || r.flag === 'A';
 
 const ehLabRow = (it) => {
+	const visibility = (it && it.visibility) || { state: 'visible' };
+	const visibilityState = String(visibility.state || 'visible');
+	const manuallyHidden = visibilityState === 'hidden' || visibility.manual_hidden === true;
 	const r = {
+		visibility: visibility,
+		// Manual LAB hide stays in its original row/Profile position but contains
+		// no clinical value. Sensitive/unresolved rows remain in the locked list.
+		redacted: manuallyHidden,
+		locked: visibilityState !== 'visible' && !manuallyHidden,
+		reauth_required: visibilityState === 'reauth_required',
 		text: !!(it && it.text), // ผลเป็นรายงานความเรียง ไม่ใช่ค่าเดี่ยว
 		name: String((it && (it.name || it.obs_name || it.test_name)) || '-'),
 		code: String((it && (it.code || it.obs_code)) || ''),
 		value: it && it.value != null && it.value !== '' ? String(it.value) : '—',
 		unit: String((it && (it.unit || it.unit_symbol_snapshot)) || ''),
 		ref: String((it && (it.ref || it.reference_range_snapshot)) || ''),
+		// เก็บค่าที่ LAB ส่งมาจริงไว้แสดงผล (เช่น N / NEG) แยกจาก flag ที่ normalize เพื่อใช้สี/critical logic
+		interpretation: String((it && (it.interpretation || it.interpretation_code || it.flag)) || '').trim(),
 		comment: String((it && it.result_comment) || ''),
 		result_item_id: String((it && it.result_item_id) || ''),
 		group_id: String((it && it.group_id) || ''),
@@ -343,7 +357,9 @@ const ehLabMkOrder = (raw) => {
 	const cancelled = status === 'cancelled' || status === 'rejected';
 	const pending = EH_LAB_PENDING.indexOf(status) >= 0;
 	const scope = String(raw.scope || 'visit');
-	const rows = (Array.isArray(raw.items) ? raw.items : []).map(ehLabRow);
+	const allRows = (Array.isArray(raw.items) ? raw.items : []).map(ehLabRow);
+	const lockedRows = allRows.filter((row) => row.locked);
+	const rows = allRows.filter((row) => !row.locked);
 	const resultGroups = [];
 	const resultGroupByKey = {};
 	rows.forEach((row, rowIndex) => {
@@ -364,6 +380,8 @@ const ehLabMkOrder = (raw) => {
 	const o = {
 		key: String(raw.order_id || raw.order_no || Math.random()),
 		source_order_id: String(raw.source_order_id || ''),
+		_raw: raw,
+		_sensitive_disclosed: !!raw.__sensitive_disclosed,
 		scope: scope,
 		section: String(raw.section || 'ผลตรวจ'),
 		order_no: String(raw.order_no || raw.order_id || ''),
@@ -381,13 +399,16 @@ const ehLabMkOrder = (raw) => {
 		verified_by: String(raw.verified_by_source_name || ''),
 		attachments: Array.isArray(raw.attachments) ? raw.attachments : [],
 		rows: rows,
+		locked_rows: lockedRows,
+		has_locked: lockedRows.length > 0,
 		result_groups: resultGroups,
 		criticals: rows.filter((r) => r.flag === 'C'),
 		// 🔴 ผลที่เป็น "รายงานความเรียง" (MB/MLab) แยกถังของตัวเอง — ต้องเห็นเสมอ
 		//    LIS ไม่ได้ตีธงผิดปกติให้ ไม่ได้แปลว่าปกติ ⇒ ห้ามพับไปอยู่ใต้ "ค่าปกติ"
-		abnormals: rows.filter((r) => ehLabIsAbn(r) && !r.text),
-		texts: rows.filter((r) => r.text && !ehLabIsAbn(r)),
-		normals: rows.filter((r) => !ehLabIsAbn(r) && !r.text),
+		hidden_rows: rows.filter((r) => r.redacted),
+		abnormals: rows.filter((r) => !r.redacted && ehLabIsAbn(r) && !r.text),
+		texts: rows.filter((r) => !r.redacted && r.text && !ehLabIsAbn(r)),
+		normals: rows.filter((r) => !r.redacted && !ehLabIsAbn(r) && !r.text),
 	};
 
 	// เวลา 2 จุดเสมอ: สั่ง → ผล · ใบที่ยังไม่ออกผลมีแค่เวลาสั่ง (ห้ามเติมเวลาปลอม)
@@ -401,8 +422,8 @@ const ehLabMkOrder = (raw) => {
 	o.chip_text = scope === 'today' && !pending && !cancelled ? 'ผลออกวันนี้' : st.label;
 	o.chip_type = scope === 'today' && !pending && !cancelled ? 'warning' : st.type;
 	// มีรายงานความเรียงแต่ไม่มีธงผิดปกติ ⇒ ห้ามขึ้นว่า "ปกติทั้งหมด" (เราไม่รู้ว่าปกติ)
-	o.abn_text = o.abnormals.length ? 'ผิดปกติ ' + o.abnormals.length : o.texts.length ? 'มีรายงานผล' : rows.length ? 'ปกติทั้งหมด' : '';
-	o.abn_type = o.abnormals.length ? (o.criticals.length ? 'danger' : 'warning') : o.texts.length ? 'info' : 'success';
+	o.abn_text = o.hidden_rows.length ? 'ปกปิดผล ' + o.hidden_rows.length : o.abnormals.length ? 'ผิดปกติ ' + o.abnormals.length : o.texts.length ? 'มีรายงานผล' : o.has_locked ? 'มีผล Sensitive' : rows.length ? 'ปกติทั้งหมด' : '';
+	o.abn_type = o.hidden_rows.length ? 'danger' : o.abnormals.length ? (o.criticals.length ? 'danger' : 'warning') : o.texts.length ? 'info' : o.has_locked ? 'warning' : 'success';
 	o.steps = pending ? ehLabSteps(raw) : [];
 
 	// ── ปุ่มรายงานผล PDF ──────────────────────────────────────────────
@@ -414,8 +435,11 @@ const ehLabMkOrder = (raw) => {
 	const microParams = {};
 	o.report_ready = o.micro ? !!EH_LAB_MICRO_RESULT_PDF_REPORT_ID : !!EH_LAB_RESULT_PDF_REPORT_ID && reportIds.length === 1;
 	o.report_list = o.report_ready
-		? [{ reportId: o.micro ? EH_LAB_MICRO_RESULT_PDF_REPORT_ID : EH_LAB_RESULT_PDF_REPORT_ID, label: 'รายงานผล', type: 'pdf' }]
+		? [{ reportId: o.micro ? EH_LAB_MICRO_RESULT_PDF_REPORT_ID : EH_LAB_RESULT_PDF_REPORT_ID, label: 'PDF', type: 'pdf' }]
 		: [];
+	o.has_sensitive = [].concat(raw.__sensitive_base_items || [], raw.items || []).some((row) => !!(row && row.visibility && row.visibility.sensitive));
+	// Screen grant and PDF grant are deliberately separate. A doctor must re-auth
+	// for every Sensitive PDF click; the five-minute screen grant is never passed here.
 	o.report_params = o.report_ready ? (o.micro ? microParams : { xparentx: reportIds[0] }) : {};
 	// บอกเหตุที่ปุ่มไม่มา / เตือนว่ายังเป็นตัวอย่าง ดีกว่าปล่อยให้เข้าใจผิด
 	o.report_hint = o.micro
@@ -433,6 +457,66 @@ const ehLabMkOrder = (raw) => {
 		? 'var(--el-color-warning)'
 		: 'var(--el-color-success)';
 	return o;
+};
+
+// SdReport keeps its own parameter form state. The visible normal-result report
+// never receives a Sensitive grant. Protected PDF rendering uses the separate
+// PDF-specific key/params below after a fresh doctor re-auth.
+s.ehLabReportInstanceKey = (order, placement) => {
+	const o = order || {};
+	const params = o.report_params || {};
+	return [
+		'eh-lab-report',
+		String(placement || 'card'),
+		String(o.source_order_id || o.key || ''),
+		String(o.section_code || ''),
+		String(params.xparentx || ''),
+		'redacted',
+	].join('|');
+};
+s.ehLabPdfOrderKey = (order) => [String(order && (order.source_order_id || order.key) || ''), String(order && order.section_code || '')].join('|');
+s.ehLabPdfHostId = (order, placement) => ('eh-lab-pdf-' + String(placement || 'card') + '-' + s.ehLabPdfOrderKey(order)).replace(/[^A-Za-z0-9_-]/g, '_');
+s.ehLabPdfGrantReady = (order, placement) => {
+	const grant = s.ehLabPdfGrant || {};
+	return !!grant.token && grant.orderKey === s.ehLabPdfOrderKey(order) && grant.placement === String(placement || 'card') && Number(grant.expiresAt || 0) > Date.now();
+};
+s.ehLabPdfParams = (order, placement) => {
+	const base = Object.assign({}, (order && order.report_params) || {});
+	return s.ehLabPdfGrantReady(order, placement) ? Object.assign(base, { grant_token: s.ehLabPdfGrant.token }) : base;
+};
+s.ehLabPdfReportInstanceKey = (order, placement) => [s.ehLabReportInstanceKey(order, placement), s.ehLabPdfGrantReady(order, placement) ? s.ehLabPdfGrant.token : 'locked'].join('|');
+const ehLabSensitiveAnchor = (order) => {
+	const locked = Array.isArray(order && order.locked_rows) ? order.locked_rows.find((row) => row && row.visibility && row.visibility.sensitive) : null;
+	if (locked) return locked;
+	const raw = (order && order._raw) || {};
+	return [].concat(raw.__sensitive_base_items || [], raw.items || []).find((row) => row && row.visibility && row.visibility.sensitive) || null;
+};
+s.ehLabRequestSensitivePdf = (order, placement) => {
+	const item = ehLabSensitiveAnchor(order);
+	if (!order || !order.report_ready || !order.has_sensitive || !item) return;
+	s.ehLabPdfGrant = { orderKey: '', placement: '', token: '', expiresAt: 0 };
+	s.ehLabReauth = { visible: true, loading: false, error: '', username: ehLabSessionUsername(), password: '', purpose: 'ดูแลรักษาผู้ป่วยและเปิดรายงานผล PDF', mode: 'pdf', placement: String(placement || 'card'), order, item };
+};
+const ehLabClickAuthorizedPdf = (order, placement, attempt) => {
+	const doc = typeof globalThis !== 'undefined' ? globalThis.document : null;
+	const host = doc && doc.getElementById(s.ehLabPdfHostId(order, placement));
+	const button = host && host.querySelector ? host.querySelector('button:not([disabled])') : null;
+	if (button && typeof button.click === 'function') {
+		button.click();
+		return;
+	}
+	// Vue mounts/remounts SdReport after the grant changes. Wait for that render
+	// instead of asking the doctor to click PDF and authenticate a second time.
+	if (Number(attempt || 0) < 20) {
+		setTimeout(() => ehLabClickAuthorizedPdf(order, placement, Number(attempt || 0) + 1), 50);
+		return;
+	}
+	if (field.notify) field.notify('ยืนยันตัวตนแล้ว แต่ระบบเปิด PDF ไม่สำเร็จ', 'error', 4500);
+};
+const ehLabOpenAuthorizedPdf = (order, placement, data) => {
+	s.ehLabPdfGrant = { orderKey: s.ehLabPdfOrderKey(order), placement: String(placement || 'card'), token: String(data.sensitive_grant_token || ''), expiresAt: Number(data.sensitive_grant_expires_at_epoch || 0) };
+	s.ehLabCloseReauth();
+	setTimeout(() => ehLabClickAuthorizedPdf(order, placement, 0), 0);
 };
 
 /* ══ interactions ═════════════════════════════════════════════════════════ */
@@ -454,19 +538,186 @@ s.ehLabTxtClamp = (key) => {
 
 // เปิดผลทั้งใบใน popup อ่านอย่างเดียวแบบเดียวกับ LAB Worklist
 // 🔴 ห้าม fallback ไปเปิด Result Item ตัวแรก — นั่นคือหน้ากรอก/แก้ไขผลของห้อง LAB ไม่ใช่หน้าดูผลของ EMR
-s.ehLabOrderTarget = (o) => !!(o && Array.isArray(o.rows) && o.rows.length);
+s.ehLabOrderTarget = (o) => !!(o && ((Array.isArray(o.rows) && o.rows.length) || (Array.isArray(o.locked_rows) && o.locked_rows.some((row) => row.reauth_required))));
 s.ehLabOpenOrder = (o) => {
-	if (!s.ehLabOrderTarget(o)) return;
+	let order = o;
+	if (!s.ehLabOrderTarget(order)) return;
+	const locked = Array.isArray(order.locked_rows) ? order.locked_rows.find((row) => row.reauth_required) : null;
+	if (locked && ehLabSensitiveGrantValid(order)) {
+		ehLabReuseSensitive(order, locked);
+		return;
+	}
+	if (locked && order._raw && order._raw.__sensitive_grant_token) {
+		const expiredOrder = ehLabRedactSensitiveOrder(order, false);
+		ehLabReplaceOrder(order, expiredOrder);
+		order = expiredOrder;
+	}
 	const opened = {};
-	(Array.isArray(o.result_groups) ? o.result_groups : []).forEach((group, index) => {
+	(Array.isArray(order.result_groups) ? order.result_groups : []).forEach((group, index) => {
 		if (Array.isArray(group.results) && group.results.length > 1) opened[s.ehLabResultGroupKey(group, index)] = true;
 	});
 	s.ehLabResultGroupOpen = opened;
-	s.ehLabDialog = { visible: true, order: o };
+	s.ehLabDialog = { visible: true, order };
 };
 s.ehLabCloseLabDialog = () => {
+	const order = s.ehLabDialog.order;
+	ehLabClearSensitiveExpiryTimer();
+	if (order && order._sensitive_disclosed) {
+		const redactedOrder = ehLabRedactSensitiveOrder(order, ehLabSensitiveGrantValid(order));
+		ehLabReplaceOrder(order, redactedOrder);
+	}
 	s.ehLabDialog = { visible: false, order: null };
 	s.ehLabResultGroupOpen = {};
+};
+
+const ehLabSessionUsername = () => {
+	const form = field.getFormRef && field.getFormRef();
+	const user = (form && form.userState && form.userState.user) || (field.globalUserState && field.globalUserState.user) || {};
+	return String(user.username || (user.account && user.account.username) || '').trim();
+};
+const ehLabRequestId = () => 'emr-sensitive-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+s.ehLabRequestSensitive = (order, item) => {
+	if (!order || !item || !item.reauth_required) return;
+	if (ehLabSensitiveGrantValid(order)) {
+		ehLabReuseSensitive(order, item);
+		return;
+	}
+	s.ehLabReauth = { visible: true, loading: false, error: '', username: ehLabSessionUsername(), password: '', purpose: 'ดูแลรักษาผู้ป่วย', mode: 'view', placement: '', order, item };
+};
+s.ehLabCloseReauth = () => {
+	s.ehLabReauth = { visible: false, loading: false, error: '', username: '', password: '', purpose: 'ดูแลรักษาผู้ป่วย', mode: 'view', placement: '', order: null, item: null };
+};
+const ehLabReplaceOrder = (oldOrder, nextOrder) => {
+	s.ehLabOrders = (Array.isArray(s.ehLabOrders) ? s.ehLabOrders : []).map((order) => (order === oldOrder || order.key === oldOrder.key ? nextOrder : order));
+};
+const ehLabSensitiveGrantValid = (order) => {
+	const raw = (order && order._raw) || {};
+	return !!raw.__sensitive_grant_token && Number(raw.__sensitive_grant_expires_at_epoch || 0) > Date.now();
+};
+const ehLabClearSensitiveExpiryTimer = () => {
+	if (s.ehLabSensitiveExpiryTimer) clearTimeout(s.ehLabSensitiveExpiryTimer);
+	s.ehLabSensitiveExpiryTimer = null;
+};
+const ehLabRedactSensitiveOrder = (order, keepGrant) => {
+	const raw = Object.assign({}, (order && order._raw) || {});
+	if (Array.isArray(raw.__sensitive_base_items)) raw.items = raw.__sensitive_base_items.slice();
+	raw.__sensitive_disclosed = false;
+	if (!keepGrant) {
+		delete raw.__sensitive_grant_token;
+		delete raw.__sensitive_grant_expires_at_epoch;
+	}
+	return ehLabMkOrder(raw);
+};
+const ehLabScheduleSensitiveExpiry = (order) => {
+	ehLabClearSensitiveExpiryTimer();
+	const expiresAt = Number(order && order._raw && order._raw.__sensitive_grant_expires_at_epoch || 0);
+	const delay = expiresAt - Date.now();
+	if (!(delay > 0)) return;
+	s.ehLabSensitiveExpiryTimer = setTimeout(() => {
+		const active = s.ehLabDialog.order && s.ehLabDialog.order.key === order.key ? s.ehLabDialog.order : order;
+		const redactedOrder = ehLabRedactSensitiveOrder(active, false);
+		ehLabReplaceOrder(active, redactedOrder);
+		if (s.ehLabDialog.order && s.ehLabDialog.order.key === active.key) s.ehLabDialog = { visible: true, order: redactedOrder };
+		s.ehLabSensitiveExpiryTimer = null;
+	}, delay);
+	if (s.ehLabSensitiveExpiryTimer && typeof s.ehLabSensitiveExpiryTimer.unref === 'function') s.ehLabSensitiveExpiryTimer.unref();
+};
+const ehLabApplySensitiveDisclosure = (order, item, data) => {
+	const visibility = item.visibility || {};
+	const raw = Object.assign({}, order._raw || {});
+	if (!Array.isArray(raw.__sensitive_base_items)) raw.__sensitive_base_items = (Array.isArray(raw.items) ? raw.items : []).slice();
+	const disclosedIds = {};
+	(Array.isArray(data.item_ids) ? data.item_ids : [visibility.item_id || item.group_id]).forEach((id) => { disclosedIds[String(id || '')] = true; });
+	raw.items = raw.__sensitive_base_items.filter((row) => !disclosedIds[String((row.visibility && row.visibility.item_id) || row.group_id || '')]).concat(Array.isArray(data.items) ? data.items : []);
+	raw.result_report_ids = Array.from(new Set([].concat(raw.result_report_ids || [], data.result_report_ids || []).map(String).filter(Boolean)));
+	raw.__sensitive_grant_token = data.sensitive_grant_token || '';
+	raw.__sensitive_grant_expires_at_epoch = Number(data.sensitive_grant_expires_at_epoch || 0);
+	raw.reported_at = data.reported_at || raw.reported_at;
+	raw.reported_by_source_name = data.reported_by_source_name || raw.reported_by_source_name;
+	raw.verified_at = data.verified_at || raw.verified_at;
+	raw.verified_by_source_name = data.verified_by_source_name || raw.verified_by_source_name;
+	raw.__sensitive_disclosed = true;
+	const nextOrder = ehLabMkOrder(raw);
+	ehLabReplaceOrder(order, nextOrder);
+	ehLabScheduleSensitiveExpiry(nextOrder);
+	s.ehLabCloseReauth();
+	s.ehLabOpenOrder(nextOrder);
+};
+const ehLabReuseSensitive = (order, item) => {
+	const form = field.getFormRef && field.getFormRef();
+	const raw = (order && order._raw) || {};
+	const visibility = (item && item.visibility) || {};
+	const visitId = visibility.visit_id || String((s.ehVisit && (s.ehVisit.visit_id || s.ehVisit.data_id)) || '');
+	if (!form || !form.userState || typeof form.userState.runProcess !== 'function' || !ehLabSensitiveGrantValid(order)) {
+		s.ehLabRequestSensitive(order, item);
+		return;
+	}
+	form.userState.runProcess(
+		EH_LAB_BOARD_PROC,
+		{
+			action: 'reuse_sensitive',
+			visit_id: visitId,
+			source_order_id: visibility.source_order_id || order.source_order_id,
+			item_id: visibility.item_id || item.group_id,
+			section_code: order.section_code || '',
+			sensitive_grant_token: raw.__sensitive_grant_token,
+			request_id: ehLabRequestId(),
+			screen: 'emr_history',
+		},
+		(res) => {
+			const data = (res && res.data) || {};
+			if (!data.success) {
+				const redactedOrder = ehLabRedactSensitiveOrder(order, false);
+				ehLabReplaceOrder(order, redactedOrder);
+				s.ehLabReauth = { visible: true, loading: false, error: data.message || 'สิทธิ์เปิดดู 5 นาทีหมดอายุแล้ว กรุณายืนยันใหม่', username: ehLabSessionUsername(), password: '', purpose: 'ดูแลรักษาผู้ป่วย', mode: 'view', placement: '', order: redactedOrder, item };
+				return;
+			}
+			ehLabApplySensitiveDisclosure(order, item, data);
+		},
+		(err) => {
+			s.ehLabReauth = { visible: true, loading: false, error: 'เปิดผล Sensitive ไม่สำเร็จ: ' + ((err && err.message) || err), username: ehLabSessionUsername(), password: '', purpose: 'ดูแลรักษาผู้ป่วย', mode: 'view', placement: '', order, item };
+		}
+	);
+};
+s.ehLabSubmitSensitive = () => {
+	const auth = s.ehLabReauth;
+	const form = field.getFormRef && field.getFormRef();
+	if (!auth.order || !auth.item || !form || !form.userState || typeof form.userState.runProcess !== 'function') return;
+	if (!auth.username || !auth.password || !String(auth.purpose || '').trim()) {
+		s.ehLabReauth = Object.assign({}, auth, { error: 'กรุณากรอก username, password และเหตุผลให้ครบ' });
+		return;
+	}
+	const password = auth.password;
+	s.ehLabReauth = Object.assign({}, auth, { loading: true, error: '', password: '' });
+	const visibility = auth.item.visibility || {};
+	const visitId = visibility.visit_id || String((s.ehVisit && (s.ehVisit.visit_id || s.ehVisit.data_id)) || '');
+	form.userState.runProcess(
+		EH_LAB_BOARD_PROC,
+		{
+			action: 'open_sensitive',
+			visit_id: visitId,
+			source_order_id: visibility.source_order_id || auth.order.source_order_id,
+			item_id: visibility.item_id || auth.item.group_id,
+			section_code: auth.order.section_code || '',
+			username: auth.username,
+			password,
+			purpose: String(auth.purpose || '').trim(),
+			request_id: ehLabRequestId(),
+			screen: auth.mode === 'pdf' ? 'emr_history_pdf' : 'emr_history',
+		},
+		(res) => {
+			const data = (res && res.data) || {};
+			if (!data.success) {
+				s.ehLabReauth = Object.assign({}, s.ehLabReauth, { loading: false, error: data.message || 'ยืนยันตัวตนไม่สำเร็จ' });
+				return;
+			}
+			if (auth.mode === 'pdf') ehLabOpenAuthorizedPdf(auth.order, auth.placement, data);
+			else ehLabApplySensitiveDisclosure(auth.order, auth.item, data);
+		},
+		(err) => {
+			s.ehLabReauth = Object.assign({}, s.ehLabReauth, { loading: false, error: 'เปิดผล Sensitive ไม่สำเร็จ: ' + ((err && err.message) || err) });
+		}
+	);
 };
 s.ehLabResultGroups = () => {
 	const order = s.ehLabDialog.order;
@@ -490,10 +741,15 @@ s.ehLabCollapseAllResultGroups = () => {
 	s.ehLabResultGroupOpen = {};
 };
 s.ehLabResultProfileCount = () => s.ehLabResultGroups().filter(s.ehLabResultGroupIsProfile).length;
-s.ehLabResultTestCount = () => s.ehLabResultGroups().length;
-s.ehLabResultRowsCount = () => {
+s.ehLabLockedResultCount = () => {
 	const order = s.ehLabDialog.order;
-	return order && Array.isArray(order.rows) ? order.rows.length : 0;
+	return order && Array.isArray(order.locked_rows) ? order.locked_rows.length : 0;
+};
+// ชื่อรายการ Sensitive เป็น metadata ที่แสดงได้ แม้ค่าผลยังล็อกอยู่
+// จึงต้องนับรวมเป็น "รายการสั่งตรวจ" แต่ไม่รวมในจำนวนผลย่อยที่เปิดเผยแล้ว
+s.ehLabResultTestCount = () => s.ehLabResultGroups().length + s.ehLabLockedResultCount();
+s.ehLabResultRowsCount = () => {
+	return s.ehLabResultGroups().reduce((count, group) => count + (Array.isArray(group && group.results) ? group.results.length : 0), 0);
 };
 s.ehLabResultCriticalCount = () => {
 	const order = s.ehLabDialog.order;
@@ -505,7 +761,7 @@ s.ehLabResultAbnormalCount = () => {
 };
 s.ehLabResultRowNumber = (group, groupIndex, rowIndex) =>
 	s.ehLabResultGroupIsProfile(group) ? groupIndex + 1 + '.' + (rowIndex + 1) : String(groupIndex + 1);
-s.ehLabHasResultValue = (row) => !!(row && row.value != null && row.value !== '' && row.value !== '—');
+s.ehLabHasResultValue = (row) => !!(row && !row.redacted && row.value != null && row.value !== '' && row.value !== '—');
 s.ehLabResultSignalClass = (row) => (row && row.flag === 'C' ? 'is-critical' : row && ehLabIsAbn(row) ? 'is-abnormal' : 'is-normal');
 s.ehLabResultSignalText = (row) => (row && row.flag === 'C' ? 'ค่าวิกฤติ' : row && ehLabIsAbn(row) ? 'ค่าผิดปกติ' : 'ค่าปกติ');
 s.ehLabResultMeasuredClass = (row) => s.ehLabResultSignalClass(row);
@@ -516,7 +772,7 @@ s.ehLabResultSignalStyle = (row) => {
 	const ring = type === 'is-critical' ? 'rgba(245,108,108,.12)' : type === 'is-abnormal' ? 'rgba(230,162,60,.11)' : 'rgba(103,194,58,.10)';
 	return { display: 'block', width: '10px', height: '10px', margin: 'auto', border: '1px solid ' + color, borderRadius: '50%', background: color, boxShadow: '0 0 0 3px ' + ring };
 };
-s.ehLabResultMeasuredStyle = (row) => ({ color: row && row.flag === 'C' ? '#c45656' : row && ehLabIsAbn(row) ? '#b88230' : 'var(--el-text-color-primary)', fontSize: '15px', fontWeight: 800, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' });
+s.ehLabResultMeasuredStyle = (row) => ({ color: row && row.redacted ? 'var(--el-color-danger)' : row && row.flag === 'C' ? '#c45656' : row && ehLabIsAbn(row) ? '#b88230' : 'var(--el-text-color-primary)', fontSize: row && row.redacted ? '13px' : '15px', fontWeight: 800, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' });
 s.ehLabResultInterpretationStyle = (row) => {
 	const type = s.ehLabResultSignalClass(row);
 	const palette = type === 'is-critical' ? ['#fab6b6', '#fef0f0', '#c45656'] : type === 'is-abnormal' ? ['#f3d19e', '#fdf6ec', '#b88230'] : ['#b3e19d', '#f0f9eb', '#529b2e'];
@@ -545,7 +801,12 @@ s.ehLabCompactDateTime = (value) => {
 	return date + (time ? ' ' + time : '');
 };
 s.ehLabFlagType = (flag) => (flag === 'C' ? 'danger' : flag === 'H' || flag === 'L' || flag === 'A' ? 'warning' : 'success');
-s.ehLabFlagLabel = (flag) => (flag === 'C' ? 'C' : flag === 'H' ? 'H' : flag === 'L' ? 'L' : flag === 'A' ? 'A' : '-');
+s.ehLabFlagLabel = (rowOrFlag) => {
+	const interpretation = rowOrFlag && typeof rowOrFlag === 'object' ? String(rowOrFlag.interpretation || '').trim() : '';
+	if (interpretation) return interpretation;
+	const flag = rowOrFlag && typeof rowOrFlag === 'object' ? rowOrFlag.flag : rowOrFlag;
+	return flag === 'C' ? 'C' : flag === 'H' ? 'H' : flag === 'L' ? 'L' : flag === 'A' ? 'A' : '-';
+};
 s.ehLabFileName = (file) => String((file && (file.name || (file.response && file.response.fileName))) || 'ไฟล์แนบผลตรวจ');
 s.ehLabFileUrl = (file) => String((file && (file.url || (file.response && file.response.filePath))) || '');
 s.ehLabFileSize = (file) => {
@@ -555,6 +816,7 @@ s.ehLabFileSize = (file) => {
 };
 
 s.ehLabReset = () => {
+	ehLabClearSensitiveExpiryTimer();
 	s.ehLabLoading = false;
 	s.ehLabError = '';
 	s.ehLabOrders = [];
@@ -562,6 +824,8 @@ s.ehLabReset = () => {
 	s.ehLabOgOpen = {};
 	s.ehLabDialog = { visible: false, order: null };
 	s.ehLabResultGroupOpen = {};
+	s.ehLabReauth = { visible: false, loading: false, error: '', username: '', password: '', purpose: 'ดูแลรักษาผู้ป่วย', mode: 'view', placement: '', order: null, item: null };
+	s.ehLabPdfGrant = { orderKey: '', placement: '', token: '', expiresAt: 0 };
 };
 
 s.ehLabCardsForGroup = (group) => {
@@ -612,7 +876,7 @@ s.ehLabLoad = (visit) => {
 		(err) => {
 			s.ehLabLoading = false;
 			s.ehLabError = 'อ่านผล Lab ไม่สำเร็จ: ' + ((err && err.message) || err);
-		},
+		}
 	);
 };
 

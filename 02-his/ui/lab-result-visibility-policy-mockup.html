@@ -47,6 +47,16 @@
   .scenario .n{display:grid;width:28px;height:28px;place-items:center;border-radius:6px;background:var(--surface-3);font:700 12px var(--mono)}
   .scenario strong{display:block;font-size:12px}
   .scenario small{display:block;margin-top:2px;color:var(--muted);font-size:10.5px;line-height:1.4}
+  .mechanism-map{display:grid;grid-template-columns:minmax(0,1fr) 42px minmax(0,1fr);gap:10px;align-items:stretch;margin-bottom:14px}
+  .mechanism-card{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;padding:13px 14px;border:1px solid var(--line);border-radius:9px;background:var(--surface);box-shadow:var(--shadow)}
+  .mechanism-card.sensitive-card{border-color:var(--violet-line)}.mechanism-card.hold-card{border-color:var(--warning-line)}
+  .mechanism-icon{display:grid;width:42px;height:42px;place-items:center;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);font-size:18px;font-weight:800}
+  .sensitive-card .mechanism-icon{border-color:var(--violet-line);background:var(--violet-bg);color:var(--violet)}.hold-card .mechanism-icon{border-color:var(--warning-line);background:var(--warning-bg);color:var(--warning)}
+  .mechanism-kicker{display:flex;align-items:center;gap:7px;flex-wrap:wrap;color:var(--muted);font:9px var(--mono);text-transform:uppercase;letter-spacing:.05em}
+  .mechanism-card h2{margin:3px 0 2px;font-size:13.5px}.mechanism-card p{margin:0;color:var(--muted);font-size:10.5px}.mechanism-card code{padding:1px 4px;border-radius:4px;background:var(--surface-3);font:10px var(--mono)}
+  .mechanism-state{display:flex;align-items:center;gap:8px;margin-top:9px;padding-top:8px;border-top:1px solid var(--line-soft);color:var(--regular);font-size:10px}
+  .switch-demo{position:relative;width:34px;height:19px;border-radius:999px;background:var(--line);transition:background .15s}.switch-demo::after{content:"";position:absolute;left:3px;top:3px;width:13px;height:13px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:transform .15s}.switch-demo.on{background:var(--violet)}.switch-demo.on::after{transform:translateX(15px)}
+  .not-equal{display:grid;place-items:center;color:var(--muted);font:800 21px var(--mono)}
   .simulator{display:flex;align-items:center;gap:12px;margin:-2px 0 14px;padding:9px 11px;border:1px dashed var(--primary-line);border-radius:8px;background:var(--primary-bg)}
   .simulator .sim-copy{flex:1;min-width:0}.simulator strong{display:block;font-size:11.5px}.simulator small{display:block;color:var(--muted);font-size:10px}
   .stage{display:grid;grid-template-columns:minmax(0,1fr) 70px minmax(0,1fr);gap:12px;align-items:stretch}
@@ -165,6 +175,7 @@
   .dialog-head strong{display:block;font-size:14px}.dialog-head small{color:var(--muted);font-size:10px}
   .dialog-body{padding:14px 15px}
   .dialog-scope{padding:9px 10px;border:1px solid var(--violet-line);border-radius:6px;background:var(--violet-bg);color:var(--regular);font-size:10.5px}
+  .dialog-scope.warning{border-color:var(--warning-line);background:var(--warning-bg)}
   .field{display:grid;gap:4px;margin-top:11px}.field label{font-size:10.5px;font-weight:700}.field input,.field textarea{width:100%;min-height:36px;padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
   .field input[readonly]{background:var(--surface-2);color:var(--muted)}
   .dialog-help{margin:10px 0 0;color:var(--muted);font-size:10px}
@@ -172,25 +183,37 @@
   .toast{position:fixed;right:18px;bottom:18px;z-index:40;max-width:420px;padding:10px 13px;border:1px solid var(--success-line);border-radius:7px;background:var(--success-bg);color:var(--success);box-shadow:var(--shadow);font-size:11px;font-weight:700;opacity:0;transform:translateY(10px);pointer-events:none;transition:.18s}
   .toast.show{opacity:1;transform:none}
   @media(max-width:1050px){.scenario-bar{grid-template-columns:repeat(2,minmax(0,1fr))}.stage{grid-template-columns:1fr}.bridge{min-height:62px}.bridge .line{transform:rotate(90deg)}.revision-layout{grid-template-columns:220px minmax(0,1fr)}.schema-wrap{grid-template-columns:repeat(2,minmax(0,1fr))}}
-  @media(max-width:640px){.shell{padding:12px 10px 40px}.top{align-items:flex-start}.top .right{display:none}.scenario-bar{grid-template-columns:1fr}.simulator{align-items:stretch;flex-direction:column}.policy-section{grid-template-columns:1fr}.patient{grid-template-columns:auto 1fr}.patient .labno{grid-column:2;text-align:left}.badges{max-width:none}.item-top{display:grid;grid-template-columns:auto minmax(0,1fr)}.item-top .badges{grid-column:1/-1;justify-content:flex-start}.result-scroll{overflow-x:auto}.lab-actions{align-items:stretch;flex-direction:column}.hint{margin:0;text-align:left}.revision-layout{grid-template-columns:1fr}.revision-rail{border-right:0;border-bottom:1px solid var(--line-soft)}.revision-meta{grid-template-columns:repeat(2,minmax(0,1fr))}.schema-wrap{grid-template-columns:1fr}.flow-strip{grid-template-columns:1fr}.flow-arrow{transform:rotate(90deg)}.matrix-wrap{overflow-x:auto}.matrix{min-width:690px}}
+  @media(max-width:640px){.shell{padding:12px 10px 40px}.top{align-items:flex-start}.top .right{display:none}.scenario-bar{grid-template-columns:1fr}.mechanism-map{grid-template-columns:1fr}.not-equal{min-height:22px}.mechanism-card{grid-template-columns:auto minmax(0,1fr)}.simulator{align-items:stretch;flex-direction:column}.policy-section{grid-template-columns:1fr}.patient{grid-template-columns:auto 1fr}.patient .labno{grid-column:2;text-align:left}.badges{max-width:none}.item-top{display:grid;grid-template-columns:auto minmax(0,1fr)}.item-top .badges{grid-column:1/-1;justify-content:flex-start}.result-scroll{overflow-x:auto}.lab-actions{align-items:stretch;flex-direction:column}.hint{margin:0;text-align:left}.revision-layout{grid-template-columns:1fr}.revision-rail{border-right:0;border-bottom:1px solid var(--line-soft)}.revision-meta{grid-template-columns:repeat(2,minmax(0,1fr))}.schema-wrap{grid-template-columns:1fr}.flow-strip{grid-template-columns:1fr}.flow-arrow{transform:rotate(90deg)}.matrix-wrap{overflow-x:auto}.matrix{min-width:690px}}
   @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
 <body>
 <main class="shell">
-  <div class="notice"><span aria-hidden="true">◈</span><div><strong>Prototype เพื่อยืนยัน policy — ยังไม่ใช่หน้าจอ production</strong><br>ข้อมูลเป็นตัวอย่างสมมติ ปุ่มยืนยันตัวตนจำลองเฉพาะ interaction และไม่ส่ง username/password ไปที่ระบบใด</div></div>
+  <div class="notice"><span aria-hidden="true">◈</span><div><strong>Prototype เพื่อยืนยัน policy — ยังไม่ใช่หน้าจอ production</strong><br>ข้อมูลเป็นตัวอย่างสมมติ ปุ่มยืนยันตัวตนมีเฉพาะฝั่ง EMR และไม่ส่ง username/password ไปที่ระบบใด</div></div>
 
   <header class="top">
-    <div><h1>การมองเห็นผล LAB ระหว่าง LAB → EMR</h1><p>แยก “พักเผยแพร่ผลที่กำลังตรวจซ้ำ” ออกจาก “ผล Sensitive ที่ต้องยืนยันตัวตน”</p></div>
-    <div class="right">Policy draft · 25 ก.ย. 2569<br><span class="mono">result visibility / access control</span></div>
+    <div><h1>การมองเห็นผล LAB ระหว่าง LAB → EMR</h1><p>ทุกห้อง LAB เห็นชื่อรายการและ “ปกปิดผล” เท่านั้น; การยืนยันแพทย์มีเฉพาะ EMR</p></div>
+    <div class="right">Policy draft · 28 ก.ย. 2569<br><span class="mono">doctor-only sensitive access</span></div>
   </header>
 
   <nav class="scenario-bar" aria-label="เลือกกรณีทดสอบ">
     <button class="scenario" data-scenario="normal" aria-pressed="true"><span class="n">01</span><span><strong>ผลทั่วไป</strong><small>LAB และ EMR เห็นผลล่าสุดตามปกติ</small></span></button>
-    <button class="scenario" data-scenario="hold" aria-pressed="false"><span class="n">02</span><span><strong>LAB กำลังตรวจซ้ำ</strong><small>พักเผยแพร่เฉพาะ revision ปัจจุบัน</small></span></button>
-    <button class="scenario" data-scenario="sensitive" aria-pressed="false"><span class="n">03</span><span><strong>ผล Sensitive</strong><small>LAB เห็น · EMR ต้องยืนยันตัวตน</small></span></button>
-    <button class="scenario" data-scenario="both" aria-pressed="false"><span class="n">04</span><span><strong>Sensitive + ตรวจซ้ำ</strong><small>พักเผยแพร่มีลำดับสูงกว่าการ re-auth</small></span></button>
+    <button class="scenario" data-scenario="hold" aria-pressed="false"><span class="n">02</span><span><strong>LAB แก้ไข/ตรวจซ้ำ</strong><small>ฟังก์ชันพักเฉพาะ revision ปัจจุบัน</small></span></button>
+    <button class="scenario" data-scenario="sensitive" aria-pressed="false"><span class="n">03</span><span><strong>CPOE Item: Sensitive</strong><small><span class="mono">is_hide_result=true</span> · LAB ปิดถาวร / EMR re-auth</small></span></button>
+    <button class="scenario" data-scenario="both" aria-pressed="false"><span class="n">04</span><span><strong>Sensitive + แก้ไขผล</strong><small>LAB ยังปกปิด; EMR รอเผยแพร่ก่อน re-auth</small></span></button>
   </nav>
+
+  <section class="mechanism-map" aria-label="สองกลไกการปกปิดผลที่แยกจากกัน">
+    <article class="mechanism-card sensitive-card">
+      <span class="mechanism-icon" aria-hidden="true">S</span>
+      <div><div class="mechanism-kicker"><span>MASTER DATA · CPOE ITEM</span><span class="badge sensitive">ถาวรตามรายการ</span></div><h2>ผล Sensitive · <code>is_hide_result</code></h2><p>ผู้ดูแล CPOE Item ตั้งค่าไว้ล่วงหน้า ทุกห้อง LAB รวม Immunology เห็นชื่อและรหัสรายการตามปกติ แต่ช่องผลแสดง “ปกปิดผล” เท่านั้น ไม่มีปุ่มหรือช่องยืนยันแพทย์ ส่วน EMR ใช้บัญชี <code>DOCTOR</code> เพื่อเปิดดู และยืนยันใหม่ทุกครั้งเมื่อกด PDF ที่มี Sensitive</p><div class="mechanism-state"><span class="switch-demo" id="masterSwitch" aria-hidden="true"></span><b id="masterSwitchText">FALSE · ผลทั่วไป</b><span>Label ฝั่ง LAB: “ปกปิดผล”</span></div></div>
+    </article>
+    <div class="not-equal" aria-label="ไม่ใช่กลไกเดียวกัน">≠</div>
+    <article class="mechanism-card hold-card">
+      <span class="mechanism-icon" aria-hidden="true">↻</span>
+      <div><div class="mechanism-kicker"><span>RUNTIME FUNCTION · LAB WORKBENCH</span><span class="badge hold">ชั่วคราวต่อ revision</span></div><h2>พักเผยแพร่ระหว่างแก้ไข/ตรวจซ้ำ</h2><p>เจ้าหน้าที่ LAB เรียกฟังก์ชันกับผลที่ออกแล้ว เก็บ <code>held_revision_id</code> + เหตุผล/ผู้ทำ/เวลา โดยไม่แก้ค่า <code>is_hide_result</code></p><div class="mechanism-state"><span class="badge" id="runtimeHoldState">ไม่พักเผยแพร่</span><b>revision <span data-revision>3</span></b><span>callback revision ใหม่ปลด hold เดิมอัตโนมัติ</span></div></div>
+    </article>
+  </section>
 
   <aside class="simulator" aria-label="ตัวควบคุม Prototype">
     <div class="sim-copy"><strong>ตัวควบคุม Prototype — ไม่ใช่ปุ่มในระบบงานจริง</strong><small>ใช้แทนเหตุการณ์ที่ LIS ส่ง callback ผลรายการเดิมเข้ามาใหม่ทั้งก้อนด้วย LAB No. และรหัสเดิม ระบบรับเข้าอัตโนมัติ</small></div>
@@ -199,7 +222,7 @@
 
   <section class="stage" aria-label="เปรียบเทียบหน้าห้อง LAB และ EMR">
     <article class="panel" aria-labelledby="labTitle">
-      <header class="panel-head"><span class="mark">L</span><div><h2 id="labTitle">LAB Workbench</h2><p>เจ้าหน้าที่ห้องปฏิบัติการ · เห็นค่าจริงเสมอ</p></div><div class="context">BC<br>today mode</div></header>
+      <header class="panel-head"><span class="mark">L</span><div><h2 id="labTitle">LAB Workbench / สืบค้นผลแลป</h2><p>ทุกห้อง LAB · ไม่มีข้อยกเว้นตามห้องเจ้าของผล</p></div><div class="context">ALL LAB<br>same policy</div></header>
       <div class="patient"><span class="avatar">กช</span><div><strong>ผู้ป่วยตัวอย่าง ก.</strong><small>HN SAMPLE-001 · OPD กุมารเวช</small></div><div class="labno"><b class="mono">LAB-TEST-029</b><br><small>ออกผล 13:41</small></div></div>
       <div class="content">
         <div class="item">
@@ -208,7 +231,7 @@
         </div>
         <div class="meta-strip" id="labMeta"></div>
         <div class="lab-actions">
-          <button class="btn warning" id="holdBtn">พักเผยแพร่ผลนี้</button>
+          <button class="btn warning" id="holdBtn">เริ่มแก้ไข/ตรวจซ้ำและพักเผยแพร่</button>
           <span class="hint" id="labHint"></span>
         </div>
         <div class="audit"><h3>Audit ที่ห้อง LAB เห็น</h3><div class="audit-list" id="auditList"></div></div>
@@ -218,7 +241,7 @@
     <div class="bridge" aria-hidden="true"><span class="policy">API ตัดสิน</span><span class="line"></span><span>ส่ง state<br>ไม่ส่งค่าที่ถูกล็อก</span></div>
 
     <article class="panel" aria-labelledby="emrTitle">
-      <header class="panel-head"><span class="mark">E</span><div><h2 id="emrTitle">EMR · ผลห้องปฏิบัติการ</h2><p>แพทย์/ผู้ใช้งาน EMR · อ่านตาม access policy</p></div><div class="context">current visit<br>read only</div></header>
+      <header class="panel-head"><span class="mark">E</span><div><h2 id="emrTitle">EMR · ผลห้องปฏิบัติการ</h2><p>ชื่อรายการยังแสดง แต่ค่าผล Sensitive เปิดได้เฉพาะแพทย์</p></div><div class="context">current visit<br>read only</div></header>
       <div class="patient"><span class="avatar">กช</span><div><strong>ผู้ป่วยตัวอย่าง ก.</strong><small>HN SAMPLE-001 · Visit SAMPLE-VN</small></div><div class="labno"><b class="mono">LAB-TEST-029</b><br><small>ผลล่าสุด revision <span data-revision>3</span></small></div></div>
       <div class="content">
         <div class="emr-card">
@@ -252,33 +275,45 @@
 
   <section class="policy-section">
     <article class="card"><h2>ตารางตัดสินใจที่เสนอ</h2><div class="matrix-wrap"><table class="matrix">
-      <thead><tr><th>LAB hold ตรงกับ revision ปัจจุบัน</th><th>Sensitive จาก CPOE master</th><th>LAB เห็นค่า</th><th>EMR เห็นค่า</th><th>การทำงานของเจ้าหน้าที่</th></tr></thead>
+      <thead><tr><th>ฟังก์ชัน LAB hold ตรง revision ปัจจุบัน</th><th>CPOE Item <span class="mono">is_hide_result</span></th><th>ทุกห้อง LAB เห็นค่า</th><th>EMR เห็นค่า</th><th>การทำงานของเจ้าหน้าที่</th></tr></thead>
       <tbody>
         <tr><td>ไม่</td><td>ไม่</td><td class="yes">เห็น</td><td class="yes">เห็นทันที</td><td>ไม่มีงานเพิ่ม</td></tr>
-        <tr><td>ใช่</td><td>ไม่</td><td class="yes">เห็น</td><td class="no">ไม่เห็น · แจ้งกำลังตรวจสอบ</td><td>กด “พักเผยแพร่” 1 ครั้ง; callback revision ใหม่เปิดเอง</td></tr>
-        <tr><td>ไม่</td><td>ใช่</td><td class="yes">เห็น</td><td class="auth">ยืนยันตัวตนก่อนดู</td><td>LAB ไม่ต้องทำอะไรเพิ่ม</td></tr>
-        <tr><td>ใช่</td><td>ใช่</td><td class="yes">เห็น</td><td class="no">ไม่เห็น แม้ re-auth แล้ว</td><td>รอผลใหม่/ยกเลิกพัก; จากนั้น EMR จึง re-auth</td></tr>
+        <tr><td>ใช่</td><td>ไม่</td><td class="yes">เห็น</td><td class="no">ไม่เห็น · แจ้งกำลังตรวจสอบ</td><td>ใช้ฟังก์ชันแก้ไข/ตรวจซ้ำ; callback revision ใหม่เปิดเอง</td></tr>
+        <tr><td>ไม่</td><td>ใช่</td><td class="no">ชื่อ/รหัสเห็น · ช่องผลเป็น “ปกปิดผล” เสมอ</td><td class="auth">ชื่อรายการเห็น · แพทย์ยืนยันก่อนดู</td><td>LAB ไม่มีปุ่ม re-auth และไม่มี same-room bypass</td></tr>
+        <tr><td>ใช่</td><td>ใช่</td><td class="no">ชื่อ/รหัสเห็น · ช่องผลเป็น “ปกปิดผล” เสมอ</td><td class="no">ชื่อรายการเห็น · รอเผยแพร่ก่อน แล้วแพทย์จึง re-auth</td><td>LAB ไม่เปิดค่าแม้มี grant จาก EMR</td></tr>
       </tbody>
     </table></div></article>
     <article class="card"><h2>Contract เชื่อม LAB กับ EMR/CPOE</h2><div class="contract"><ol>
-      <li><b>Snapshot policy ตอนสั่งตรวจ</b><small>อ่าน flag เดิม <code>pick_master.is_hide_result</code> แล้ว normalize เป็น <code>sensitive=true</code>; ห้ามให้ LAB เปลี่ยน policy นี้</small></li>
+      <li><b>Switch ใน CPOE Master ใช้เฉพาะ Sensitive</b><small>อ่าน <code>pick_master.is_hide_result</code> แล้ว normalize เป็น <code>sensitive=true</code>; LAB แสดงชื่อ/รหัสและข้อความ “ปกปิดผล” โดยคง Variable Name เดิมเพื่อความเข้ากันได้</small></li>
       <li><b>เก็บประวัติเป็นผลทั้งก้อน</b><small>ทุก accepted callback สร้าง immutable row ใน <code>zdata_lab_result_revision_log</code> แล้วจึงอัปเดต current Result Items ใน transaction เดียวกัน</small></li>
-      <li><b>พักเผยแพร่ต้องผูก revision</b><small>เก็บ <code>held_revision_id</code> + เหตุผล/ผู้ทำ/เวลาแยกจาก immutable log; effective hold เมื่อเท่ากับ <code>active_revision_id</code> เท่านั้น</small></li>
-      <li><b>EMR รับ state ก่อนรับค่า</b><small>API คืน <code>withheld</code>, <code>reauth_required</code> หรือ <code>visible</code>; กรณีล็อกห้ามส่ง raw value มาแค่ซ่อนด้วย CSS</small></li>
-      <li><b>Re-auth ผ่าน API กลาง</b><small>server ตรวจรหัสผ่านและออก grant อายุสั้น ผูก user + patient + order + revision พร้อม audit การเปิดดู</small></li>
+      <li><b>การแก้ไข/ตรวจซ้ำเป็นฟังก์ชัน LAB</b><small>เก็บ <code>held_revision_id</code> + เหตุผล/ผู้ทำ/เวลาแยกจาก CPOE Master และ immutable result log; effective hold เมื่อเท่ากับ <code>active_revision_id</code> เท่านั้น</small></li>
+      <li><b>ทุกช่องทาง fail closed</b><small>LAB Worklist, สืบค้นผลแลป, full result sheet และ PDF ฝั่ง LAB ยังคงแสดงค่าของรายการทั่วไป แต่แถว Sensitive ส่งเฉพาะชื่อ/รหัสและสถานะ “ปกปิดผล”; ห้ามส่งค่า/unit/interpretation/ref/comment/attachment มาแค่ซ่อนด้วย CSS และ grant เก่าต้องไม่เปิดค่า</small></li>
+      <li><b>Re-auth มีเฉพาะ EMR และแยกตามการใช้งาน</b><small>สิทธิ์ดูผลบนหน้าจอมีอายุ 5 นาที ผูก viewer + Order + Section. หาก PDF มี Sensitive ต้องยืนยันบัญชี <code>DOCTOR</code> ใหม่ทุกครั้งที่กด และห้าม reuse screen grant; PDF ผลทั่วไปเปิดได้ตามปกติ. หน้าห้อง LAB ไม่มีฟอร์ม credential และไม่รับ grant</small></li>
     </ol></div></article>
   </section>
 </main>
 
+<div class="dialog-backdrop" id="holdDialog" role="presentation">
+  <section class="dialog" role="dialog" aria-modal="true" aria-labelledby="holdTitle">
+    <header class="dialog-head"><span class="lock-icon" style="background:var(--warning-bg);color:var(--warning)">↻</span><div><strong id="holdTitle">เริ่มแก้ไข/ตรวจซ้ำและพักเผยแพร่</strong><small>ฟังก์ชันของ LAB Workbench · ไม่เปลี่ยนค่า Sensitive ใน CPOE Master</small></div></header>
+    <div class="dialog-body">
+      <div class="dialog-scope warning"><b>ขอบเขตการพักเผยแพร่</b><br>LAB-TEST-029 · เฉพาะ revision <span data-revision>3</span><br>ผลทั่วไปยังเป็นไปตามสิทธิ์ LAB; ถ้าเป็น Sensitive หน้าห้อง LAB จะคงแสดง “ปกปิดผล” ส่วน EMR ยังไม่เปิด re-auth ระหว่าง hold</div>
+      <div class="field"><label for="holdReason">เหตุผล <span aria-hidden="true">*</span></label><textarea id="holdReason" rows="3">ตรวจสอบ/แก้ไขผลก่อนเผยแพร่</textarea></div>
+      <p class="dialog-help">เมื่อ LIS ส่ง callback ผลรายการเดิมเข้ามาใหม่ทั้งก้อน ระบบจะสร้าง revision ใหม่และยกเลิกผลของ hold เดิมอัตโนมัติ ไม่มีปุ่มส่งผลหรือตรวจซ้ำจาก HIS</p>
+    </div>
+    <footer class="dialog-actions"><button class="btn" id="cancelHold">ยกเลิก</button><button class="btn warning" id="confirmHold">ยืนยันพักเผยแพร่ revision นี้</button></footer>
+  </section>
+</div>
+
 <div class="dialog-backdrop" id="authDialog" role="presentation">
   <section class="dialog" role="dialog" aria-modal="true" aria-labelledby="authTitle">
-    <header class="dialog-head"><span class="lock-icon">▣</span><div><strong id="authTitle">ยืนยันตัวตนเพื่อดูผล Sensitive</strong><small>ยืนยันบัญชีผู้ใช้งานปัจจุบันอีกครั้ง</small></div></header>
+    <header class="dialog-head"><span class="lock-icon">▣</span><div><strong id="authTitle">ยืนยันแพทย์เพื่อดูผล Sensitive</strong><small>รับเฉพาะบัญชีที่มีบทบาทปัจจุบันเป็น DOCTOR</small></div></header>
     <div class="dialog-body">
-      <div class="dialog-scope"><b>ขอบเขตการอนุญาต</b><br>ผู้ป่วยตัวอย่าง ก. · Electrolyte panel · revision <span data-revision>3</span><br>อนุญาตเฉพาะหน้าจอนี้เป็นเวลา 5 นาที</div>
-      <div class="field"><label for="username">Username</label><input id="username" value="current.user" readonly autocomplete="username"></div>
+      <div class="dialog-scope" id="authScope"><b>ขอบเขตการอนุญาต</b><br>ผู้ป่วยตัวอย่าง ก. · Electrolyte panel · revision <span data-revision>3</span><br>อนุญาต 5 นาที เฉพาะ viewer + Order + Section เดิม</div>
+      <div class="field"><label for="username">Username แพทย์</label><input id="username" value="doctor.demo" autocomplete="username"></div>
       <div class="field"><label for="password">Password</label><input id="password" type="password" placeholder="กรอกรหัสผ่านอีกครั้ง" autocomplete="current-password"></div>
       <div class="field"><label for="purpose">เหตุผลการเปิดดู</label><textarea id="purpose" rows="2">ใช้ประกอบการรักษาผู้ป่วยใน visit ปัจจุบัน</textarea></div>
-      <p class="dialog-help">Prototype นี้ตรวจเพียงว่ากรอกช่องครบ ในระบบจริงต้องส่งผ่าน API ยืนยันตัวตนกลางเท่านั้น และห้ามบันทึกรหัสผ่านลง audit/log</p>
+      <p class="dialog-help">Prototype นี้ตรวจเพียงว่ากรอกช่องครบ ในระบบจริง server ต้องตรวจ role DOCTOR ทุกครั้งและห้ามบันทึกรหัสผ่านหรือค่าผลลง Access Log</p>
     </div>
     <footer class="dialog-actions"><button class="btn" id="cancelAuth">ยกเลิก</button><button class="btn violet" id="confirmAuth">ยืนยันและดูผล</button></footer>
   </section>
@@ -299,7 +334,7 @@
     ]}
   ];
   let revisions=[];
-  const state={scenario:'normal',revision:3,holdRevision:null,sensitive:false,authorizedRevision:null,selectedRevision:3};
+  const state={scenario:'normal',revision:3,holdRevision:null,holdReason:'',sensitive:false,authorizedRevision:null,selectedRevision:3,authMode:'view'};
   const $=id=>document.getElementById(id);
   const all=(q)=>Array.from(document.querySelectorAll(q));
   const cloneBase=()=>JSON.parse(JSON.stringify(baseRevisions));
@@ -307,16 +342,17 @@
   let toastTimer=null;
   const toast=(message)=>{const el=$('toast');el.textContent=message;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),2600)};
   const effectiveHold=()=>state.holdRevision===state.revision;
-  const isAuthorized=()=>state.sensitive&&state.authorizedRevision===state.revision&&!effectiveHold();
+  const isEmrAuthorized=()=>state.sensitive&&state.authorizedRevision===state.revision&&!effectiveHold();
   const setScenario=(name)=>{
     revisions=cloneBase();state.scenario=name;state.revision=3;state.selectedRevision=3;state.authorizedRevision=null;
     state.sensitive=name==='sensitive'||name==='both';
-    state.holdRevision=name==='hold'||name==='both'?3:null;
+    state.holdRevision=name==='hold'||name==='both'?3:null;state.holdReason=state.holdRevision?'ตรวจสอบ/แก้ไขผลก่อนเผยแพร่':'';
     all('.scenario').forEach(btn=>btn.setAttribute('aria-pressed',String(btn.dataset.scenario===name)));
     render();
   };
   const auditRow=(time,text,current=false)=>`<div class="audit-row${current?' current':''}"><span class="mono">${time}</span><span class="dot"></span><span>${text}</span></div>`;
   const resultRows=(items)=>'<div class="result-grid head"><div>รายการตรวจ</div><div>ค่าที่ตรวจได้</div><div>หน่วย</div><div>Ref. Range</div></div>'+items.map(item=>`<div class="result-grid"><div><strong>${item.name}</strong><br><small class="mono" style="color:var(--muted)">${item.code}</small></div><div><span class="value${item.flag?' abnormal':''}">${item.value}</span></div><div>${item.unit}</div><div class="mono">${item.ref}</div></div>`).join('');
+  const resultRowsLocked=(items)=>'<div class="result-grid head"><div>รายการตรวจ</div><div>ค่าที่ตรวจได้</div><div>หน่วย</div><div>Ref. Range</div></div>'+items.map(item=>`<div class="result-grid"><div><strong>${item.name}</strong><br><small class="mono" style="color:var(--muted)">${item.code}</small></div><div><span class="badge sensitive">ปกปิดผล</span></div><div>—</div><div>—</div></div>`).join('');
   const changedCount=(row)=>{
     const previous=revisions.find(item=>item.id===row.id-1);
     if(!previous)return row.items.length;
@@ -340,50 +376,66 @@
   const render=()=>{
     const bundle=active();
     all('[data-revision]').forEach(el=>el.textContent=state.revision);
-    const held=effectiveHold(),auth=isAuthorized();
+    const held=effectiveHold(),emrAuth=isEmrAuthorized();
+    $('masterSwitch').classList.toggle('on',state.sensitive);
+    $('masterSwitchText').textContent=state.sensitive?'TRUE · LAB ปกปิดถาวร / EMR DOCTOR re-auth':'FALSE · ผลทั่วไป';
+    $('runtimeHoldState').className='badge '+(held?'hold':'');
+    $('runtimeHoldState').textContent=held?`กำลังพัก revision ${state.holdRevision}`:'ไม่พักเผยแพร่';
     const badges=[];
     badges.push(`<span class="badge ok">ออกผลแล้ว · revision ${state.revision}</span>`);
-    if(state.sensitive)badges.push('<span class="badge sensitive">Sensitive · EMR re-auth</span>');
+    if(state.sensitive)badges.push('<span class="badge sensitive">Sensitive · ปกปิดผลทุกห้อง LAB</span>');
     if(held)badges.push(`<span class="badge hold">พักเผยแพร่ revision ${state.holdRevision}</span>`);
     $('labBadges').innerHTML=badges.join('');
-    $('labResults').innerHTML=resultRows(bundle.items);
-    $('labMeta').innerHTML=`<span><b>LAB เห็นค่า:</b> เสมอ</span><span><b>active revision:</b> ${state.revision}</span><span><b>policy:</b> ${state.sensitive?'sensitive':'standard'}</span><span><b>effective hold:</b> ${held?'yes · revision '+state.holdRevision:'no'}</span>`;
-    $('holdBtn').textContent=held?'ยกเลิกพักเผยแพร่':'พักเผยแพร่ผลนี้';
+    $('labResults').innerHTML=state.sensitive?resultRowsLocked(bundle.items):resultRows(bundle.items);
+    $('labMeta').innerHTML=`<span><b>LAB เห็นค่า:</b> ${state.sensitive?'ไม่เห็นทุกห้อง · ไม่มี re-auth':'ตามปกติ'}</span><span><b>active revision:</b> ${state.revision}</span><span><b>policy:</b> ${state.sensitive?'permanent LAB redaction':'standard'}</span><span><b>effective hold:</b> ${held?'yes · revision '+state.holdRevision:'no'}</span>`;
+    $('holdBtn').textContent=held?'ยกเลิกพักเผยแพร่ revision นี้':'เริ่มแก้ไข/ตรวจซ้ำและพักเผยแพร่';
     $('holdBtn').className='btn '+(held?'':'warning');
-    $('labHint').textContent=held?'ไม่มีปุ่มส่ง/ตรวจซ้ำ · รอ LIS callback ทั้งก้อน แล้ว revision ใหม่เปิดเผยเอง':'งานจริงไม่มีปุ่มส่งซ้ำ · ระบบรับ callback จาก LIS อัตโนมัติ';
+    $('labHint').textContent=held?'ไม่มีปุ่มส่ง/ตรวจซ้ำ · รอ LIS callback ทั้งก้อน แล้ว revision ใหม่เปิดเผยเอง':(state.sensitive?'ชื่อ/รหัสรายการแสดงปกติ · ช่องผลเป็น “ปกปิดผล” และไม่มีการยืนยันตัวตนทุกห้อง LAB':'งานจริงไม่มีปุ่มส่งซ้ำ · ระบบรับ callback จาก LIS อัตโนมัติ');
     $('auditList').innerHTML=
       auditRow(bundle.receivedAt,`รับ callback revision ${state.revision} ทั้งก้อนจาก LIS · ${bundle.items.length} observations`,!held)+
-      (state.sensitive?auditRow('เมื่อสั่ง','CPOE snapshot: <b>Sensitive</b> · policy คงเดิม'):'')+
-      (state.holdRevision?auditRow('13:50',`LAB พักเผยแพร่ revision ${state.holdRevision} · เหตุผล: รอตรวจซ้ำ`,held):'')+
+      (state.sensitive?auditRow('เมื่อสั่ง','CPOE snapshot: <b>Sensitive</b> · ไม่มี same-room bypass'):'')+
+      (state.sensitive?auditRow('ล่าสุด','LAB API ตอบ <b>sensitive_redacted</b> · ส่งชื่อ/รหัสโดยไม่ส่งค่าผล',true):'')+
+      (state.holdRevision?auditRow('13:50',`ฟังก์ชัน LAB พักเผยแพร่ revision ${state.holdRevision} · เหตุผล: ${state.holdReason||'ตรวจสอบผล'}`,held):'')+
       (!held&&state.holdRevision?auditRow('ล่าสุด',`revision ${state.revision} ใหม่กว่า held revision ${state.holdRevision} · เปิดเผยอัตโนมัติ`,true):'');
     if(held){
       $('emrStatus').className='status badge hold';$('emrStatus').textContent='กำลังตรวจสอบ';
       $('emrBody').innerHTML='<div class="locked holding"><span class="lock-icon">↻</span><strong>ห้องปฏิบัติการกำลังตรวจสอบผลชุดนี้</strong><p>revision ปัจจุบันยังไม่เผยแพร่ เมื่อ LIS ส่งผลเดิมเข้ามาใหม่ทั้งก้อน ระบบจะแสดง revision ล่าสุดให้อัตโนมัติ</p></div>';
       $('securityNote').textContent=state.sensitive?'รายการนี้เป็น Sensitive ด้วย แต่ยังไม่เปิดขั้นยืนยันตัวตนจนกว่า LAB จะเผยแพร่ผลล่าสุด':'EMR ได้รับเพียงสถานะ withheld และ metadata ที่จำเป็น โดยไม่ได้รับค่าผลตรวจดิบ';
       $('emrAudit').innerHTML=auditRow('ล่าสุด','API ตอบ <b>withheld</b> · ไม่ส่ง raw result',true);
-    }else if(state.sensitive&&!auth){
+    }else if(state.sensitive&&!emrAuth){
       $('emrStatus').className='status badge sensitive';$('emrStatus').textContent='Sensitive';
-      $('emrBody').innerHTML='<div class="locked sensitive"><span class="lock-icon">▣</span><strong>ผลรายการนี้ต้องยืนยันตัวตนก่อนเปิดดู</strong><p>ยืนยันบัญชีผู้ใช้งานปัจจุบันอีกครั้ง ระบบจะบันทึกผู้เปิดดู เหตุผล และวันเวลา</p><button class="btn violet" id="openAuth">ยืนยันตัวตนเพื่อดูผล</button></div>';
-      $('openAuth').addEventListener('click',openAuth);
-      $('securityNote').textContent='ห้อง LAB เห็นผลได้ตามปกติ; EMR API ยังไม่ส่งค่าจริงจนกว่าจะได้รับ access grant ที่ถูกต้อง';
+      $('emrBody').innerHTML='<div class="locked sensitive"><span class="lock-icon">▣</span><strong>ผลรายการนี้เปิดได้เฉพาะแพทย์</strong><p>ชื่อรายการตรวจยังแสดงตามปกติ แต่ค่าผลถูกปกปิดจนกว่าบัญชีแพทย์จะยืนยัน ระบบจะบันทึกผู้เปิดดู เหตุผล และวันเวลา</p><button class="btn violet" id="openAuth">ยืนยันบัญชีแพทย์เพื่อดูผล</button> <button class="btn" id="openPdfAuth">เปิด PDF</button></div>';
+      $('openAuth').addEventListener('click',()=>openAuth('view'));
+      $('openPdfAuth').addEventListener('click',()=>openAuth('pdf'));
+      $('securityNote').textContent='screen grant ใช้ดูบนหน้าจอได้ 5 นาที แต่ PDF ที่มี Sensitive ต้องยืนยันแพทย์ใหม่ทุกครั้ง; สิทธิ์นี้ไม่ทำให้หน้าห้อง LAB เปิดผล';
       $('emrAudit').innerHTML=auditRow('ล่าสุด','API ตอบ <b>reauth_required</b> · ยังไม่ส่ง raw result',true);
     }else{
       $('emrStatus').className='status badge '+(state.sensitive?'sensitive':'ok');$('emrStatus').textContent=state.sensitive?'ยืนยันแล้ว · 05:00':'เผยแพร่แล้ว';
-      $('emrBody').innerHTML='<div class="visible-result">'+bundle.items.map(item=>`<div class="row"><div><strong>${item.name}</strong><br><small class="mono" style="color:var(--muted)">${item.code} · revision ${state.revision}</small></div><span class="measured">${item.value}</span><span class="unit">${item.unit}</span></div>`).join('')+'<div class="ref">ผลทั้งชุดจาก LIS · active revision '+state.revision+'</div></div>';
-      $('securityNote').textContent=state.sensitive?'สิทธิ์ดูผลผูกกับผู้ใช้ ผู้ป่วย order และ revision; ปิด popup/เปลี่ยนผู้ป่วย/หมดเวลาแล้วต้องล็อกใหม่':'ผลทั่วไปแสดงจาก active revision โดยไม่เพิ่มขั้นตอนให้ผู้ใช้งาน';
+      $('emrBody').innerHTML='<div class="visible-result">'+bundle.items.map(item=>`<div class="row"><div><strong>${item.name}</strong><br><small class="mono" style="color:var(--muted)">${item.code} · revision ${state.revision}</small></div><span class="measured">${item.value}</span><span class="unit">${item.unit}</span></div>`).join('')+'<div class="ref">ผลทั้งชุดจาก LIS · active revision '+state.revision+'</div></div><div class="lab-actions"><button class="btn" id="openPdf">เปิด PDF</button><span class="hint">'+(state.sensitive?'Sensitive · ยืนยันแพทย์ใหม่ทุกครั้ง':'ผลทั่วไป · เปิดได้ตามปกติ')+'</span></div>';
+      $('openPdf').addEventListener('click',()=>state.sensitive?openAuth('pdf'):toast('เปิด PDF ผลทั่วไปได้ตามปกติ · ไม่ต้องยืนยันเพิ่ม'));
+      $('securityNote').textContent=state.sensitive?'สิทธิ์ดูผลบนหน้าจอผูกกับผู้ใช้ ผู้ป่วย order และ revision; การกด PDF ไม่ใช้สิทธิ์ 5 นาทีนี้และต้องยืนยันใหม่ทุกครั้ง':'ผลทั่วไปแสดงจาก active revision และเปิด PDF ได้โดยไม่เพิ่มขั้นตอนให้ผู้ใช้งาน';
       $('emrAudit').innerHTML=state.sensitive
         ?auditRow('เมื่อสักครู่','re-auth สำเร็จ · ออก grant เฉพาะ revision นี้',true)+auditRow('ล่าสุด','API ตอบ <b>visible</b> พร้อมผลที่อนุญาต')
         :auditRow('ล่าสุด','API ตอบ <b>visible</b> · แสดงผลตามปกติ',true);
     }
     renderRevisionLog();
   };
-  const openAuth=()=>{$('password').value='';$('authDialog').classList.add('open');setTimeout(()=>$('password').focus(),0)};
+  const openHold=()=>{$('holdReason').value=state.holdReason||'ตรวจสอบ/แก้ไขผลก่อนเผยแพร่';$('holdDialog').classList.add('open');setTimeout(()=>$('holdReason').focus(),0)};
+  const closeHold=()=>$('holdDialog').classList.remove('open');
+  const openAuth=(mode='view')=>{
+    state.authMode=mode;$('password').value='';
+    $('authTitle').textContent=mode==='pdf'?'ยืนยันแพทย์อีกครั้งเพื่อเปิด PDF':'ยืนยันแพทย์เพื่อดูผล Sensitive';
+    $('authScope').innerHTML=mode==='pdf'
+      ?`<b>ขอบเขต PDF</b><br>ผู้ป่วยตัวอย่าง ก. · Electrolyte panel · revision ${state.revision}<br>สิทธิ์ดูบนหน้าจอ 5 นาทีใช้แทนไม่ได้ · ต้องยืนยันใหม่ทุกครั้งที่กด PDF`
+      :`<b>ขอบเขตการอนุญาต</b><br>ผู้ป่วยตัวอย่าง ก. · Electrolyte panel · revision ${state.revision}<br>อนุญาต 5 นาที เฉพาะ viewer + Order + Section เดิม`;
+    $('confirmAuth').textContent=mode==='pdf'?'ยืนยันและเปิด PDF':'ยืนยันและดูผล';
+    $('authDialog').classList.add('open');setTimeout(()=>$('password').focus(),0)
+  };
   const closeAuth=()=>$('authDialog').classList.remove('open');
   all('.scenario').forEach(btn=>btn.addEventListener('click',()=>setScenario(btn.dataset.scenario)));
   $('holdBtn').addEventListener('click',()=>{
-    if(effectiveHold()){state.holdRevision=null;toast('ยกเลิกพักเผยแพร่แล้ว · EMR ประเมิน policy ใหม่ทันที')}
-    else{state.holdRevision=state.revision;state.authorizedRevision=null;toast(`พักเผยแพร่ revision ${state.revision} แล้ว`)}
-    render();
+    if(effectiveHold()){state.holdRevision=null;state.holdReason='';toast('ยกเลิกพักเผยแพร่แล้ว · EMR ประเมิน policy ใหม่ทันที');render()}
+    else openHold();
   });
   $('inboundBtn').addEventListener('click',()=>{
     const next=state.revision+1;const previous=active();
@@ -393,13 +445,23 @@
     state.revision=next;state.selectedRevision=next;state.authorizedRevision=null;
     toast(`รับ LIS callback revision ${next} ทั้งก้อน · held revision เดิมไม่ตามมาล็อก`);render();
   });
+  $('cancelHold').addEventListener('click',closeHold);
+  $('holdDialog').addEventListener('click',e=>{if(e.target===$('holdDialog'))closeHold()});
+  $('confirmHold').addEventListener('click',()=>{
+    const reason=$('holdReason').value.trim();
+    if(!reason){toast('กรุณาระบุเหตุผลการแก้ไข/ตรวจซ้ำ');return}
+    state.holdRevision=state.revision;state.holdReason=reason;state.authorizedRevision=null;closeHold();toast(`พักเผยแพร่ revision ${state.revision} แล้ว · ไม่เปลี่ยนค่า is_hide_result`);render();
+  });
   $('cancelAuth').addEventListener('click',closeAuth);
   $('authDialog').addEventListener('click',e=>{if(e.target===$('authDialog'))closeAuth()});
   $('confirmAuth').addEventListener('click',()=>{
     if(!$('password').value||!$('purpose').value.trim()){toast('กรุณากรอกรหัสผ่านและเหตุผลการเปิดดู');return}
-    state.authorizedRevision=state.revision;closeAuth();toast('จำลองยืนยันตัวตนสำเร็จ · เปิดดูผลได้ 5 นาที');render();
+    if(state.authMode==='pdf'){
+      closeAuth();toast('จำลองยืนยันใหม่สำเร็จ · เปิด PDF ครั้งนี้โดยไม่เปลี่ยน screen grant');return
+    }
+    state.authorizedRevision=state.revision;closeAuth();toast('จำลองยืนยันตัวตนสำเร็จ · เปิดดูผลบนหน้าจอได้ 5 นาที');render();
   });
-  document.addEventListener('keydown',e=>{if(e.key==='Escape')closeAuth()});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeHold();closeAuth()}});
   setScenario('normal');
 })();
 </script>

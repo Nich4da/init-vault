@@ -16,6 +16,8 @@ assert(template.includes('v-for="o in ehLabCardsForGroup(g)"'), 'result card mus
 assert(template.includes('ผล Lab เป็นการ์ดคนละความหมายกับการ์ดสั่งตรวจ'), 'separate sibling marker is missing');
 assert(template.includes('v-model="ehLabDialog.visible"'), 'LAB Worklist-style result dialog is missing');
 assert(template.includes('Approve name:'), 'approver byline is missing');
+assert(template.includes("r.redacted ? 'ปกปิดผล'"), 'manual-hidden result must render as redacted text in the shared result table');
+assert(template.includes('o.hidden_rows'), 'manual-hidden result must be visible as a redacted row on the EMR card');
 assert(!template.includes('append-to-body'), 'result dialog must stay in the component tree');
 
 const groupLoopAt = template.indexOf('<template v-for="(g, gi) in ehGroups"');
@@ -46,6 +48,7 @@ const matchingRaw = {
 		{ group_id: 'PROFILE-1', group_name: 'Hemoglobin typing', name: 'Hb A', code: '220103EB', value: '80.0', unit: '%', ref: '95-98', flag: 'L', result_status: 'final' },
 		{ group_id: 'PROFILE-1', group_name: 'Hemoglobin typing', name: 'Hb A2/E', code: '220104EB', value: '3.5', unit: '%', ref: '0-3.5', result_status: 'final' },
 		{ group_id: 'PROFILE-1', group_name: 'Hemoglobin typing', name: 'Remarks (Hb Typing)', code: '220105EB', value: 'Comment', result_comment: 'Suspected thalassemia', result_status: 'final' },
+		{ group_id: 'panel:C25-CD', group_name: 'Electrolyte จาก Clotted blood (สปสช.)', name: 'Potassium (K) จาก Clotted blood', code: '102502CD', result_status: 'final', visibility: { state: 'hidden', reason: 'manual_result_hidden', manual_hidden: true } },
 	],
 };
 
@@ -85,12 +88,17 @@ assert.strictEqual(cards.length, 1, 'only the result with the exact source_order
 assert.strictEqual(cards[0].source_order_id, 'ORDER-1');
 assert.strictEqual(cards[0].reported_by, 'ทนพญ.ปรัศนีย์ บุญภิญโญ ท.น.15190');
 assert.strictEqual(cards[0].verified_by, 'ทนพญ.ปรัศนีย์ บุญภิญโญ ท.น.15190');
-assert.strictEqual(cards[0].result_groups.length, 1);
+assert.strictEqual(cards[0].result_groups.length, 2);
 assert.strictEqual(cards[0].result_groups[0].results.length, 5);
+assert.strictEqual(cards[0].hidden_rows.length, 1);
+assert.strictEqual(cards[0].hidden_rows[0].redacted, true);
+assert.strictEqual(cards[0].locked_rows.length, 0, 'manual hide is not a doctor re-auth flow');
 
 state.ehLabOpenOrder(cards[0]);
 assert.strictEqual(state.ehLabDialog.visible, true);
 assert.strictEqual(state.ehLabResultRowNumber(cards[0].result_groups[0], 0, 4), '1.5');
 assert.strictEqual(state.ehLabDialog.order.result_groups[0].results[4].comment, 'Suspected thalassemia');
+assert.strictEqual(state.ehLabDialog.order.result_groups[1].results[0].redacted, true);
+assert.strictEqual(state.ehLabResultRowsCount(), 6, 'redacted placeholder remains part of the LAB-style result sheet count');
 
 console.log('ok - EMR History LAB result is a separate exact-order sibling card with the shared full-result viewer');

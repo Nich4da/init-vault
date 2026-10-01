@@ -2,7 +2,7 @@
 type: design
 title: LAB Result Canonical Contract
 created: 2026-09-01
-updated: 2026-09-24
+updated: 2026-09-29
 status: working
 ---
 
@@ -20,8 +20,10 @@ LAB attachment metadata on the canonical Result Report; deployed runtime UAT is 
 |---|---|---|
 | Work Item | `6a95c750422c1ca959829e8a` | `zdata_lab_work_item`; one operational row per CPOE LAB Item |
 | Technical Receipt | `6a8b1c03f851000f28e501ef` | `zdata_lab_result_inbound`; one row per Order identity + Agent `result_uid`, reused for an unchanged failed retry |
+| Result Revision Log | `6abbabdcc54b3f93ce799576` | immutable whole-result snapshot; one accepted Agent callback per revision, following `lab-result-visibility-policy-mockup.html` |
 | Result Report | `6a8d4334f851000f28e5025b` | `zdata_lab_report_manual_entry`; technical header for one inbound stage or Manual workspace |
 | Result Item | `6a8bc91df851000f28e501fb` | `zdata_lab_result_item`; normalized latest clinical row per Work Item + observation |
+| Result Edit Log | `6ab78b7159662ac8f059105a` | `zdata_6ab78b7159662ac8f059105a`; append-only before/after audit for HIS/Manual pencil corrections |
 | Viewer | `6a8d5620f851000f28e50270` | `form_ui`; presentation only, no collection |
 
 Legacy Result Item Form `6a7aa641935ed08882467374` is read-only fallback for old
@@ -38,6 +40,9 @@ Manual data. No new writes may target it.
   the same composite identity is rejected. A new UID on the same Order is allowed only
   when report sequence/stage and item versions represent a valid next result message.
   If the failed attempt already created its Report, the retry resumes that Report.
+- Revision identity uses the accepted callback `result_uid` together with Order/LAB NO.
+  One callback creates one immutable whole-result snapshot and links the previous
+  revision; duplicate retries must not create another revision.
 - `Work Item.selected_items_json[].test_code` is compared with inbound `items[].obs_code`
   only under the current Agent contract; this mapping remains a production contract gap.
 - One ordered Work Item may own multiple normalized Result Items. The receiver and Worklist
@@ -52,15 +57,21 @@ Manual data. No new writes may target it.
 
 - `lab_no_generate_api`: creates the Work Item identity and LAB NO.
 - `lab_cpoe_receive_api`: records receipt, backfills callback identity, and creates Outbound Order.
-- `hl7_result_upsert`: writes Agent Receipt → Report → Items, advances Work/CPOE Item,
+- `hl7_result_upsert`: writes Agent Receipt → stage Report header → immutable Result Revision Log → current Items,
+  advances Work/CPOE Item,
   reconciles the matching Outbound from a verified callback, and completes the Parent CPOE
   Order only after every active child Item is completed.
 - `lab_cpoe_worklist_api`: reads the Worklist, writes Manual LAB Report → Item after receipt,
-  corrects existing canonical Agent/LIS Result Items, and saves current attachment metadata.
+  appends a Result Edit Log through its Form before updating the latest canonical Result Item
+  through its Form, and saves current attachment metadata.
 - `prepare_manual_lab_results_api`: legacy reference only; do not deploy for this flow.
 
 ## Status rules
 
+- Agent/LIS must send `items[].is_critical` as a Boolean for every machine-result
+  observation. `true` means Critical and `false` means not Critical; HIS displays and
+  stores this decision without recalculating it from value/range or rule text.
+  `critical_low_rule` and `critical_high_rule` are audit snapshots only.
 - Uploading a file never completes a result or changes LAB/CPOE status.
 - Agent partial result advances Work Item to `resulted`; final/corrected advances it to `completed`.
 - A verified partial/final callback advances its matching Outbound to `in_progress`/`resulted`,
@@ -71,18 +82,27 @@ Manual data. No new writes may target it.
   must not close a multi-item Parent while siblings are pending.
 - Manual entry in any authorized LAB Section advances only its Work Item to `resulted`.
 - Agent partial/final/corrected messages preserve immutable Receipts and stage
-  Report headers, but update the same normalized Result Item rather than appending
-  a new clinical row for every `result_version`.
+  Report headers. Every accepted callback also preserves the complete result set in
+  Result Revision Log before updating the same normalized current Result Items.
 - Result Item keeps the latest value only. An Agent corrected resend sets
   `change_kind=corrected` and replaces that observation's current value, but it
   does not write `last_edited_by`/`last_edited_at` and does not preserve the prior
   Agent value in `previous_value` or `edit_history_json`.
+- A HIS/Manual pencil correction is a separate current+history flow. The reason is optional.
+  The API saves one immutable LAB Result Edit Log Form record per corrected Result Item,
+  then updates only the latest LAB Result Item Form record. It uses the normal Form save
+  pipeline and does not require `mongoTxn`; if the Log Form save fails, the latest clinical
+  value is not changed. `request_id + Result Item` is the idempotency identity for a retry.
+- The correction log stores changed-field names, before/after value, unit,
+  interpretation and reference range, source IDs, patient/order context, actor and time.
+  It is distinct from Sensitive Result Access Log and from Agent Technical Receipt.
 - Optional Agent `items[].comment` carries the observation-level HL7 NTE text into
   Result Item `result_comment`. Multiple NTE entries arrive joined by `\n`; the
   current normalized row is cleared when the latest observation omits `comment`.
-- `corrected_at` and `corrected_by` are not Agent contract fields. Only the HIS
-  manual-pencil flow writes `last_edited_by` and `last_edited_at` from the logged-in
-  HIS user; a later Agent resend preserves that existing manual audit.
+- `corrected_at` and `corrected_by` are not Agent contract fields. The HIS
+  manual-pencil flow writes the full correction event to Result Edit Log and keeps
+  `last_edited_by`/`last_edited_at` on the current Result Item as a latest-editor summary;
+  a later Agent resend preserves that existing manual audit.
 - `ผลก่อนหน้า` is not correction history. It is the latest final/corrected result
   for the same HN + observation from a different, earlier Order/Visit. The UI
   displays it immediately before `ผลปัจจุบัน`.
@@ -95,8 +115,9 @@ Manual data. No new writes may target it.
 - The Worklist pencil works at both Item and Order scope after receipt. Order scope keeps rows tied
   to their source CPOE Item and saves only changed Items; it can create Manual rows or correct
   multiple existing canonical Result Items in one confirmation.
-  It updates only value/unit/interpretation/reference range and latest editor/time; it does not
-  recalculate or clear the Agent/LIS source, result status, or explicit critical decision.
+  It updates only value/unit/interpretation/reference range and latest editor/time after the
+  append-only log succeeds; it does not recalculate or clear the Agent/LIS source, result status,
+  or explicit critical decision.
 
 ## Deployment order
 
@@ -107,14 +128,24 @@ Manual data. No new writes may target it.
 4. Give Agent the v2 schema without HIS manual-editor fields, then deploy
    `hl7_result_upsert` and test Gateway metadata separation, unmatched, partial,
    final, corrected-without-corrector, duplicate, and stale-version callbacks.
-5. Re-import the canonical Result Report, deploy `lab_cpoe_worklist_api`, then replace/publish the
-   Worklist Form. Verify pencil corrections and attachment persistence in Builder/runtime before
-   treating the local attachment layer as deployed.
+5. `lab-result-revision-log-v1.json` is imported as Form ID `6abbabdcc54b3f93ce799576`.
+   Deploy the wired Agent receiver and Worklist API, then replace/publish the Worklist
+   Form containing the whole-sheet read-only timeline. It defaults to the latest revision.
+6. Existing Form `LAB Result Edit Log` ID `6ab78b7159662ac8f059105a` is already imported;
+   retain its collection `zdata_6ab78b7159662ac8f059105a` and restrict direct
+   create/update/delete permissions to the server process (LAB/admin may read for audit).
+7. Deploy `lab_cpoe_worklist_api`, then replace/publish the
+   Worklist Form. Verify optional correction reason, fail-closed Edit Log writing, whole-sheet
+   Agent revision history, and attachment persistence in Builder/runtime before treating the
+   local candidate as deployed. Result Revision Log does not replace Result Edit Log.
 
 ## Remaining blockers
 
 - The first fresh Agent callback verified one LAB NO./one Work Item persistence and identity mapping.
-  Multi-item final, critical alert workflow and deployed reconciliation remain pending.
+  Multi-item final, Boolean `is_critical` alert UAT and deployed reconciliation remain pending;
+  the Critical field contract itself is confirmed.
 - The new result-dialog pencil/upload UI has passed static/offline checks only; Builder/Preview,
   deployed file gateway/MIME enforcement, reopen persistence and permissions remain unverified.
+- Result Revision Log is imported and wired locally; deployed Agent callback plus Worklist
+  runtime UAT is still required before the revision timeline is considered production-ready.
 - Outbound `test_code` versus inbound `obs_code` equivalence needs final confirmation from the integration contract owner.

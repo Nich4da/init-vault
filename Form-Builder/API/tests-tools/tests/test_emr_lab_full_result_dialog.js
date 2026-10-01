@@ -16,6 +16,8 @@ const TEMPLATES = [
 const VISIT_ID = '222222222222222222222222'
 const ORDER_ID = '333333333333333333333333'
 const ITEM_ID = '444444444444444444444444'
+const MASTER_ID = '999999999999999999999999'
+const PREVIOUS_ITEM_ID = '888888888888888888888888'
 const CURRENT_RESULT_ID = '555555555555555555555555'
 const PREVIOUS_RESULT_ID = '666666666666666666666666'
 const REPORT_ID = '777777777777777777777777'
@@ -43,7 +45,7 @@ const previousResult = {
   _id: PREVIOUS_RESULT_ID,
   hn: '6900023',
   visit_id: '6800999',
-  order_no: '888888888888888888888888',
+  order_no: PREVIOUS_ITEM_ID,
   obs_code: '220102EB',
   obs_name: 'Hb F',
   result_value: '1.0',
@@ -69,9 +71,13 @@ const dataFor = request => {
   const { collection, query = {} } = request.nosql
   if (collection === 'zdata_visit') return [{ _id: VISIT_ID, vn: '6900317', visit_date: '2026-09-24 08:00:00', pid: { hn: '6900023' } }]
   if (collection === 'zdata_cpoe_order_item') {
-    if (query._id) return [{ _id: ITEM_ID, item_name: 'Hemoglobin typing' }]
-    return [{ _id: ITEM_ID, order_id: { value: ORDER_ID }, service_type: { value: 'lab' }, item_name: 'Hemoglobin typing', current_status: { value: 'completed' } }]
+    if (query._id) return [
+      { _id: ITEM_ID, item_data_id: MASTER_ID, item_code: 'HB-TYPE', item_name: 'Hemoglobin typing' },
+      { _id: PREVIOUS_ITEM_ID, item_data_id: MASTER_ID, item_code: 'HB-TYPE', item_name: 'Hemoglobin typing' },
+    ]
+    return [{ _id: ITEM_ID, order_id: { value: ORDER_ID }, service_type: { value: 'lab' }, item_data_id: MASTER_ID, item_code: 'HB-TYPE', item_name: 'Hemoglobin typing', current_status: { value: 'completed' } }]
   }
+  if (collection === 'zdata_master_item_order') return [{ _id: MASTER_ID, item_code: 'HB-TYPE', item_name: 'Hemoglobin typing', is_hide_result: false, xrstatx: 1 }]
   if (collection === 'zdata_cpoe_order') return [{ _id: ORDER_ID, order_number: 'R2609240004', created_at: '2026-09-24 15:05:00' }]
   if (collection === 'zdata_lab_work_item') return [{ _id: ITEM_ID, source_order_id: ORDER_ID, source_order_number: 'R2609240004', visit_id: '6900317', lab_no: '226909240001', section_code: 'HM', section_name: 'Hematology', work_status: 'completed', received_at: '2026-09-24 15:10:00' }]
   if (collection === 'zdata_lab_result_item') {
@@ -99,10 +105,12 @@ const app = {
   const order = payload.lab_orders[0]
   assert.strictEqual(order.items.length, 1)
   assert.strictEqual(order.items[0].result_comment, 'Comment from LIS')
+  assert.strictEqual(order.items[0].flag, 'H', 'board API must preserve the LAB interpretation code for the EMR renderer')
   assert.strictEqual(order.items[0].group_id, ITEM_ID)
   assert.strictEqual(order.items[0].group_name, 'Hemoglobin typing')
   assert.strictEqual(order.patient_hn, '6900023')
   assert.strictEqual(order.items[0].previous.value, '1.0')
+  assert.strictEqual(order.items[0].visibility.state, 'visible')
   assert.strictEqual(order.reported_by_source_name, report.reported_by_source_name)
   assert.strictEqual(order.verified_by_source_name, report.verified_by_source_name)
   assert.deepStrictEqual(order.attachments, report.result_attachments)
@@ -111,7 +119,7 @@ const app = {
   for (const file of EVENTS) {
     const source = fs.readFileSync(file, 'utf8')
     assert.match(source, /s\.tsLabDialog = \{ visible: false, order: null \}/)
-    assert.match(source, /s\.tsLabDialog = \{ visible: true, order: o \}/)
+    assert.match(source, /s\.tsLabDialog = \{ visible: true, order(?:: (?:o|order))? \}/)
     assert.match(source, /result_groups: resultGroups/)
     assert.match(source, /s\.tsResultGroupIsProfile/)
     assert.match(source, /s\.tsResultSourceText/)

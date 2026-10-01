@@ -207,6 +207,14 @@
 
                   <!-- มีผลแล้ว — โชว์เฉพาะค่าที่ผิดปกติ/วิกฤติ ค่าปกติพับไว้ (CBC ใบเดียว 15-20 บรรทัด) -->
                   <template v-else>
+                    <div v-for="(r, ri) in o.locked_rows" :key="'locked' + ri" style="display:flex;align-items:center;gap:8px;margin:6px 0;padding:9px 10px;border:1px solid var(--el-color-warning-light-5);border-radius:7px;background:var(--el-color-warning-light-9)">
+                      <span style="flex:1;min-width:0">
+                        <strong style="display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</strong>
+                        <small style="display:block;margin-top:2px;color:var(--el-text-color-secondary)">{{ r.code ? r.code + ' · ' : '' }}Sensitive — ต้องยืนยันตัวตนก่อนดูผล</small>
+                      </span>
+                      <el-button v-if="r.reauth_required" size="small" type="warning" @click.stop="tsRequestSensitive(o, r)">ยืนยันตัวตนเพื่อดูผล</el-button>
+                      <el-tag v-else size="small" type="info" effect="plain">ยังเปิดดูไม่ได้</el-tag>
+                    </div>
                     <div v-for="(r, ri) in o.abnormals" :key="'a' + ri" style="padding:5px 0;border-bottom:1px dashed var(--el-border-color-lighter)">
                       <div style="display:flex;align-items:flex-start;gap:6px">
                         <span style="flex:1;min-width:0;font-size:12px">
@@ -262,7 +270,9 @@
                          🔴 ผูกกับ Result Report (`xparentx`) ไม่ใช่ใบสั่ง · ใบที่มีผลหลายชุดไม่พิมพ์ให้อัตโนมัติ
                          🔴 ปุ่มที่กดแล้วไม่เกิดอะไร แย่กว่าไม่มีปุ่ม ⇒ ไม่พร้อมก็บอกเหตุแทน -->
                     <div style="display:flex;gap:6px;margin-top:8px" @click.stop>
-                      <sd-report v-if="o.report_ready" :report-list="o.report_list" :params="o.report_params" size="small" />
+                      <sd-report v-if="o.report_ready && !o.has_sensitive" :key="tsReportInstanceKey(o, 'card')" :report-list="o.report_list" :params="o.report_params" size="small" />
+                      <el-button v-else-if="o.report_ready" size="small" @click.stop="tsRequestSensitivePdf(o, 'card')">PDF</el-button>
+                      <span v-if="o.report_ready && o.has_sensitive && tsPdfGrantReady(o, 'card')" :id="tsPdfHostId(o, 'card')" style="display:none"><sd-report :key="tsPdfReportInstanceKey(o, 'card')" :report-list="o.report_list" :params="tsPdfParams(o, 'card')" size="small" /></span>
                       <el-button v-if="tsOrderTarget(o)" size="small" :type="o.report_ready ? 'default' : 'primary'" style="flex:1" @click.stop="tsOpenOrder(o)">ดูผลทั้งใบ</el-button>
                     </div>
                     <div v-if="o.report_hint" style="margin-top:4px;font-size:10px;line-height:1.45;color:var(--el-text-color-placeholder)">{{ o.report_hint }}</div>
@@ -351,17 +361,32 @@
                     <span v-if="tsLabDialog.order.reported_at || tsLabDialog.order.resulted_at" style="display:inline-flex;gap:4px"><b style="color:var(--el-text-color-secondary);font-size:10px">ออกผลเมื่อ:</b><strong class="lab-mono">{{ tsCompactDateTime(tsLabDialog.order.reported_at || tsLabDialog.order.resulted_at) }}</strong></span>
                   </div>
                 </div>
-                <sd-report v-if="tsLabDialog.order.report_ready" class="lab-result-report-action" :report-list="tsLabDialog.order.report_list" :params="tsLabDialog.order.report_params" size="small" />
-                <el-button v-else class="lab-result-report-action" type="danger" size="small" disabled :title="tsLabDialog.order.report_hint || 'ยังไม่มีรายงานผล'">รายงานผล</el-button>
+                <span style="display:flex;width:94px;min-width:94px;max-width:94px;flex:0 0 94px;align-items:flex-start;justify-content:flex-end">
+                  <sd-report v-if="tsLabDialog.order.report_ready && !tsLabDialog.order.has_sensitive" :key="tsReportInstanceKey(tsLabDialog.order, 'dialog')" class="lab-result-report-action" :report-list="tsLabDialog.order.report_list" :params="tsLabDialog.order.report_params" size="small" />
+                  <el-button v-else-if="tsLabDialog.order.report_ready" class="lab-result-report-action" type="danger" size="small" @click.stop="tsRequestSensitivePdf(tsLabDialog.order, 'dialog')">PDF</el-button>
+                  <span v-if="tsLabDialog.order.report_ready && tsLabDialog.order.has_sensitive && tsPdfGrantReady(tsLabDialog.order, 'dialog')" :id="tsPdfHostId(tsLabDialog.order, 'dialog')" style="display:none"><sd-report :key="tsPdfReportInstanceKey(tsLabDialog.order, 'dialog')" :report-list="tsLabDialog.order.report_list" :params="tsPdfParams(tsLabDialog.order, 'dialog')" size="small" /></span>
+                  <el-button v-if="!tsLabDialog.order.report_ready" class="lab-result-report-action" type="danger" size="small" disabled :title="tsLabDialog.order.report_hint || 'ยังไม่มีรายงานผล'">PDF</el-button>
+                </span>
               </div>
             </template>
 
             <div v-if="tsLabDialog.order" class="lab-manual-form lab-result-viewer" style="min-height:300px;color:var(--el-text-color-regular)">
               <div class="lab-result-profile-toolbar" style="display:flex;align-items:center;gap:10px;margin:2px 0 9px">
-                <div style="display:flex;min-width:0;align-items:baseline;gap:10px"><strong style="font-size:15px">รายการผลตรวจ</strong><small style="color:var(--el-text-color-secondary);font-size:11px">{{ tsResultTestCount() }} รายการสั่งตรวจ · {{ tsResultRowsCount() }} ผลย่อย</small></div>
+                <div style="display:flex;min-width:0;align-items:baseline;gap:10px"><strong style="font-size:15px">รายการผลตรวจ</strong><small style="color:var(--el-text-color-secondary);font-size:11px">{{ tsResultTestCount() }} รายการสั่งตรวจ · {{ tsResultRowsCount() }} ผลย่อย<span v-if="tsLockedResultCount()"> · ปิดบัง {{ tsLockedResultCount() }}</span></small></div>
                 <div v-if="tsResultProfileCount()" class="lab-result-section-actions" style="display:flex;align-items:center;gap:2px;margin-left:auto">
                   <el-button text type="primary" size="small" @click="tsExpandAllResultGroups()">กาง Profile ทั้งหมด</el-button>
                   <el-button text type="primary" size="small" @click="tsCollapseAllResultGroups()">พับทั้งหมด</el-button>
+                </div>
+              </div>
+
+              <div v-if="tsLockedResultCount()" class="lab-sensitive-locked-list" style="display:grid;gap:8px;margin-bottom:12px">
+                <div v-for="(r, ri) in tsLabDialog.order.locked_rows" :key="'dialog-locked-' + (r.visibility && r.visibility.item_id || ri)" style="display:flex;align-items:center;gap:12px;padding:11px 12px;border:1px solid var(--el-color-warning-light-5);border-radius:8px;background:var(--el-color-warning-light-9)">
+                  <span style="flex:1;min-width:0">
+                    <strong style="display:block;color:var(--el-text-color-primary);font-size:13px;overflow-wrap:anywhere">{{ r.name || 'ผลตรวจ Sensitive' }}</strong>
+                    <small style="display:block;margin-top:2px;color:var(--el-text-color-secondary);font-size:10px">{{ r.code ? r.code + ' · ' : '' }}Sensitive — ปิดบังค่าผลจนกว่าจะยืนยันตัวตน</small>
+                  </span>
+                  <el-button v-if="r.reauth_required" size="small" type="warning" @click="tsRequestSensitive(tsLabDialog.order, r)">ยืนยันตัวตนเพื่อดูผล</el-button>
+                  <el-tag v-else size="small" type="info" effect="plain">ยังเปิดดูไม่ได้</el-tag>
                 </div>
               </div>
 
@@ -387,7 +412,7 @@
                       <div class="lab-result-previous lab-mono" style="min-width:0;padding:10px;color:var(--el-text-color-secondary)">{{ r.previous && r.previous.value || '-' }}</div>
                       <div style="min-width:0;padding:10px"><strong class="lab-result-measured" :class="tsResultMeasuredClass(r)" :style="tsResultMeasuredStyle(r)">{{ r.value || 'รอผล' }}</strong></div>
                       <div style="min-width:0;padding:10px">{{ r.unit || '-' }}</div>
-                      <div style="min-width:0;padding:10px"><span class="lab-result-interpretation" :class="tsResultInterpretationClass(r)" :style="tsResultInterpretationStyle(r)">{{ tsLabFlagLabel(r.flag) }}</span></div>
+                      <div style="min-width:0;padding:10px"><span class="lab-result-interpretation" :class="tsResultInterpretationClass(r)" :style="tsResultInterpretationStyle(r)">{{ tsLabFlagLabel(r) }}</span></div>
                       <div class="lab-mono" style="min-width:0;padding:10px">{{ r.ref || '-' }}</div>
                       <div v-if="r.comment" class="lab-result-comment" role="note" style="grid-column:3/-1;display:grid;gap:3px;align-self:stretch;padding:0 10px 10px"><span style="color:var(--el-text-color-secondary);font-size:10px;font-weight:700">หมายเหตุผลตรวจ</span><p style="margin:0;padding:8px 10px;border-left:3px solid var(--el-color-primary);border-radius:4px;background:var(--el-color-primary-light-9);font-size:12px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere">{{ r.comment }}</p></div>
                     </div>
@@ -402,6 +427,22 @@
             </div>
 
             <template #footer><el-button @click="tsCloseLabDialog()">ปิด</el-button></template>
+          </el-dialog>
+
+          <el-dialog v-model="tsReauth.visible" :title="tsReauth.mode==='pdf' ? 'ยืนยันตัวตนอีกครั้งเพื่อเปิด PDF' : 'ยืนยันตัวตนเพื่อดูผล Sensitive'" width="460px" :close-on-click-modal="false" destroy-on-close @closed="tsCloseReauth()">
+            <div style="display:grid;gap:12px">
+              <el-alert type="warning" :closable="false" show-icon title="ระบบจะตรวจสิทธิ์ที่ server และบันทึก Access Log ทุกครั้ง" />
+              <div v-if="tsReauth.item" style="padding:8px 10px;border-radius:6px;background:var(--el-fill-color-light);font-size:12px"><strong>{{ tsReauth.item.name }}</strong><span v-if="tsReauth.item.code"> · {{ tsReauth.item.code }}</span></div>
+              <el-alert v-if="tsReauth.error" type="error" :closable="false" show-icon :title="tsReauth.error" />
+              <el-form label-position="top" @submit.prevent>
+                <el-form-item label="Username แพทย์"><el-input v-model="tsReauth.username" autocomplete="username" /></el-form-item>
+                <el-form-item label="Password"><el-input v-model="tsReauth.password" type="password" show-password autocomplete="current-password" @keyup.enter="tsSubmitSensitive()" /></el-form-item>
+                <el-form-item label="เหตุผลในการเปิดดู"><el-input v-model="tsReauth.purpose" type="textarea" :rows="2" maxlength="200" show-word-limit /></el-form-item>
+              </el-form>
+              <small v-if="tsReauth.mode==='pdf'" style="color:var(--el-text-color-secondary)">PDF ที่มีผล Sensitive ต้องยืนยันใหม่ทุกครั้ง และไม่ใช้สิทธิ์ 5 นาทีจากการดูผลบนหน้าจอ</small>
+              <small v-else style="color:var(--el-text-color-secondary)">ยืนยันครั้งเดียว ใช้ได้ 5 นาทีเฉพาะผู้ใช้ ใบสั่ง และห้อง Lab เดิม</small>
+            </div>
+            <template #footer><el-button :disabled="tsReauth.loading" @click="tsCloseReauth()">ยกเลิก</el-button><el-button type="primary" :loading="tsReauth.loading" @click="tsSubmitSensitive()">{{ tsReauth.mode==='pdf' ? 'ยืนยันและเปิด PDF' : 'ยืนยันและเปิดดู' }}</el-button></template>
           </el-dialog>
 
       </el-tab-pane>

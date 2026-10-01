@@ -1,0 +1,602 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EMR Sensitive Result — Remaining Work & UAT Checklist</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172b3a;
+      --muted: #647581;
+      --paper: #f4f1e9;
+      --surface: #fffdf8;
+      --line: #d8d5cc;
+      --navy: #173d50;
+      --teal: #117c74;
+      --teal-soft: #dceeea;
+      --amber: #c77912;
+      --amber-soft: #fff0d8;
+      --red: #b33c32;
+      --red-soft: #fae4df;
+      --green: #29774f;
+      --green-soft: #e3f1e8;
+      --shadow: 0 18px 44px rgba(23, 43, 58, .10);
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background:
+        linear-gradient(rgba(23, 61, 80, .035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(23, 61, 80, .035) 1px, transparent 1px),
+        var(--paper);
+      background-size: 28px 28px;
+      color: var(--ink);
+      font-family: "Noto Sans Thai", "Leelawadee UI", Tahoma, sans-serif;
+      line-height: 1.5;
+    }
+
+    button, input { font: inherit; }
+
+    .page {
+      width: min(1180px, calc(100% - 32px));
+      margin: 32px auto 64px;
+    }
+
+    .masthead {
+      position: relative;
+      overflow: hidden;
+      padding: 30px;
+      border-radius: 20px;
+      background: var(--navy);
+      color: #fff;
+      box-shadow: var(--shadow);
+    }
+
+    .masthead::after {
+      position: absolute;
+      right: -76px;
+      bottom: -110px;
+      width: 310px;
+      height: 310px;
+      border: 1px solid rgba(255,255,255,.16);
+      border-radius: 50%;
+      box-shadow: 0 0 0 36px rgba(255,255,255,.04), 0 0 0 72px rgba(255,255,255,.025);
+      content: "";
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: #9edcd4;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      max-width: 760px;
+      margin: 0;
+      font-family: Georgia, "Noto Serif Thai", serif;
+      font-size: clamp(30px, 5vw, 54px);
+      font-weight: 600;
+      line-height: 1.08;
+    }
+
+    .lede {
+      max-width: 780px;
+      margin: 16px 0 0;
+      color: #d9e7ec;
+      font-size: 15px;
+    }
+
+    .meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 22px;
+    }
+
+    .meta-chip {
+      padding: 6px 10px;
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 999px;
+      background: rgba(255,255,255,.08);
+      color: #eff9fa;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin: 16px 0;
+    }
+
+    .metric {
+      min-height: 118px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: 0 7px 18px rgba(23, 43, 58, .05);
+    }
+
+    .metric strong {
+      display: block;
+      margin-bottom: 2px;
+      font-family: Georgia, serif;
+      font-size: 34px;
+      line-height: 1;
+    }
+
+    .metric span { color: var(--muted); font-size: 12px; font-weight: 700; }
+    .metric.is-critical strong { color: var(--red); }
+    .metric.is-report strong { color: var(--amber); }
+    .metric.is-uat strong { color: var(--teal); }
+    .metric.is-done strong { color: var(--green); }
+
+    .control-bar {
+      position: sticky;
+      top: 10px;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 16px 0;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 253, 248, .94);
+      box-shadow: 0 8px 20px rgba(23, 43, 58, .08);
+      backdrop-filter: blur(10px);
+    }
+
+    .progress-wrap { flex: 1; min-width: 170px; }
+    .progress-label { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 5px; font-size: 12px; font-weight: 800; }
+    .progress-track { overflow: hidden; height: 8px; border-radius: 999px; background: #dde3e3; }
+    .progress-bar { width: 0; height: 100%; border-radius: inherit; background: var(--teal); transition: width .28s ease; }
+
+    .filters { display: flex; gap: 4px; }
+    .btn {
+      min-height: 36px;
+      padding: 7px 11px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .btn:hover { border-color: var(--teal); color: var(--teal); }
+    .btn:focus-visible, .check input:focus-visible + .box { outline: 3px solid rgba(17,124,116,.24); outline-offset: 2px; }
+    .btn.active { border-color: var(--teal); background: var(--teal); color: #fff; }
+
+    .notice {
+      margin: 16px 0;
+      padding: 14px 16px;
+      border-left: 4px solid var(--red);
+      border-radius: 0 10px 10px 0;
+      background: var(--red-soft);
+      color: #6f2823;
+      font-size: 13px;
+    }
+
+    .section {
+      margin-top: 18px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: 0 8px 22px rgba(23, 43, 58, .05);
+    }
+
+    .section-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .section-kicker { margin: 0 0 3px; color: var(--teal); font-size: 11px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+    h2 { margin: 0; font-family: Georgia, "Noto Serif Thai", serif; font-size: 24px; font-weight: 600; }
+    .section-note { max-width: 620px; margin: 5px 0 0; color: var(--muted); font-size: 12px; }
+    .section-count { flex: none; padding: 5px 9px; border-radius: 999px; background: #edf1f2; color: var(--muted); font-size: 11px; font-weight: 900; }
+
+    .tasks { padding: 6px 20px 12px; }
+    .task { display: grid; grid-template-columns: 28px minmax(0,1fr) auto; gap: 12px; padding: 15px 0; border-bottom: 1px dashed var(--line); }
+    .task:last-child { border-bottom: 0; }
+    .task[hidden] { display: none; }
+    .task.done .task-title { color: var(--muted); text-decoration: line-through; }
+    .task.done .task-detail { opacity: .68; }
+
+    .check { position: relative; display: block; width: 24px; height: 24px; cursor: pointer; }
+    .check input { position: absolute; opacity: 0; }
+    .box { display: grid; width: 24px; height: 24px; place-items: center; border: 2px solid #9ba9ae; border-radius: 6px; background: #fff; transition: .18s ease; }
+    .check input:checked + .box { border-color: var(--green); background: var(--green); transform: scale(.96); }
+    .check input:checked + .box::after { color: #fff; content: "✓"; font-size: 16px; font-weight: 900; }
+
+    .task-title { margin: 0; font-size: 14px; font-weight: 900; }
+    .task-detail { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+    .acceptance { margin: 8px 0 0; padding-left: 17px; color: #3c515e; font-size: 12px; }
+    .acceptance li + li { margin-top: 3px; }
+
+    code {
+      padding: 1px 5px;
+      border: 1px solid #dfe4e3;
+      border-radius: 4px;
+      background: #f1f4f3;
+      color: #244955;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: .92em;
+      overflow-wrap: anywhere;
+    }
+
+    .badges { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; max-width: 190px; }
+    .badge { padding: 4px 7px; border-radius: 999px; font-size: 10px; font-weight: 900; white-space: nowrap; }
+    .owner-us { background: var(--teal-soft); color: #075b55; }
+    .owner-report { background: var(--amber-soft); color: #85500d; }
+    .owner-uat { background: #e7edf6; color: #35577c; }
+    .sev-blocker { background: var(--red-soft); color: var(--red); }
+    .sev-minor { background: #edf0f1; color: #5e6e75; }
+
+    .verified-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap: 9px;
+      padding: 16px 20px 20px;
+    }
+
+    .verified-item { padding: 12px 14px; border: 1px solid #c8dfd1; border-radius: 9px; background: var(--green-soft); color: #255f41; font-size: 12px; font-weight: 750; }
+    .verified-item::before { margin-right: 7px; content: "✓"; font-weight: 900; }
+
+    .foot {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      margin-top: 18px;
+      padding: 14px 4px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    @media (max-width: 800px) {
+      .summary-grid { grid-template-columns: repeat(2, 1fr); }
+      .control-bar { position: static; align-items: stretch; flex-direction: column; }
+      .filters { overflow-x: auto; }
+      .task { grid-template-columns: 28px minmax(0,1fr); }
+      .badges { grid-column: 2; justify-content: flex-start; max-width: none; }
+      .verified-list { grid-template-columns: 1fr; }
+      .foot { flex-direction: column; }
+    }
+
+    @media print {
+      body { background: #fff; }
+      .page { width: 100%; margin: 0; }
+      .masthead { box-shadow: none; print-color-adjust: exact; }
+      .control-bar { position: static; box-shadow: none; }
+      .filters, .print-hide { display: none !important; }
+      .section, .metric { break-inside: avoid; box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="masthead">
+      <p class="eyebrow">Release readiness · 27 Sep 2026</p>
+      <h1>EMR Sensitive Result<br>Remaining Work &amp; UAT</h1>
+      <p class="lede">รายการที่ยังเหลือก่อนพร้อม production แยกเจ้าของงานชัดเจน พร้อมเกณฑ์ผ่านของแต่ละข้อ สถานะที่ติ๊กจะเก็บเฉพาะใน browser เครื่องนี้</p>
+      <div class="meta-row">
+        <span class="meta-chip">Database: his</span>
+        <span class="meta-chip">Sensitive: IM2 · I0058 · I0059</span>
+        <span class="meta-chip">BB543: ยังไม่รวม</span>
+        <span class="meta-chip">สถานะ: UAT candidate</span>
+      </div>
+    </header>
+
+    <section class="summary-grid" aria-label="สรุปสถานะ">
+      <article class="metric is-critical"><strong id="blockerCount">0</strong><span>Production blockers คงเหลือ</span></article>
+      <article class="metric is-report"><strong id="reportCount">0</strong><span>งานทีม Report คงเหลือ</span></article>
+      <article class="metric is-uat"><strong id="uatCount">0</strong><span>Scenario ที่ต้อง UAT</span></article>
+      <article class="metric is-done"><strong id="doneCount">0</strong><span>Checklist ที่ปิดแล้ว</span></article>
+    </section>
+
+    <div class="control-bar">
+      <div class="progress-wrap">
+        <div class="progress-label"><span>ความพร้อมก่อนขึ้น production</span><span id="progressText">0 / 0</span></div>
+        <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
+      </div>
+      <nav class="filters" aria-label="กรองรายการ">
+        <button class="btn active" type="button" data-filter="open">คงเหลือ</button>
+        <button class="btn" type="button" data-filter="all">ทั้งหมด</button>
+        <button class="btn" type="button" data-filter="done">เสร็จแล้ว</button>
+      </nav>
+      <button class="btn print-hide" type="button" id="printBtn">พิมพ์ / PDF</button>
+      <button class="btn print-hide" type="button" id="resetBtn">ล้างสถานะ</button>
+    </div>
+
+    <aside class="notice"><strong>Release gate:</strong> ห้ามขึ้น production จนกว่า blocker 3 กลุ่มจะผ่านครบ—PDF หลัง re-auth, Report SQL redaction และ Microbiology binding ต้องไม่แสดงผลผิดคนหรือผิด Order</aside>
+
+    <section class="section" data-section="ours">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">Owner · ทีมเรา</p>
+          <h2>Application fixes</h2>
+          <p class="section-note">แก้ฝั่ง Template / onCreated / process ที่เราควบคุม แล้ว replace เฉพาะ artifact ที่เกี่ยวข้อง</p>
+        </div>
+        <span class="section-count"></span>
+      </div>
+      <div class="tasks">
+        <article class="task" data-id="emr-history-pdf-grant" data-owner="ours" data-severity="blocker" data-default-done="true">
+          <label class="check"><input type="checkbox"><span class="box"></span></label>
+          <div>
+            <p class="task-title">Replace และ UAT: EMR History PDF grant fix</p>
+            <p class="task-detail">Local fix พร้อมแล้ว: แยก PDF grant ออกจากสิทธิ์ดูบนหน้าจอ และ remount <code>sd-report</code> หลังยืนยันแพทย์สำหรับ PDF โดยเฉพาะ ตอนนี้รอ replace และยืนยัน runtime</p>
+            <ul class="acceptance"><li>PDF ที่มี Sensitive ต้องยืนยันบัญชีแพทย์ใหม่ทุกครั้งที่กด</li><li>สิทธิ์ดูบนหน้าจออายุ 5 นาทีห้ามเปิด PDF ให้เอง</li><li>PDF ผลทั่วไปเปิดได้ตามปกติโดยไม่ถามรหัส</li></ul>
+          </div>
+          <div class="badges"><span class="badge owner-us">ทีมเรา</span><span class="badge sev-blocker">BLOCKER</span></div>
+        </article>
+
+        <article class="task" data-id="treat-summary-pdf-grant" data-owner="ours" data-severity="blocker" data-default-done="true">
+          <label class="check"><input type="checkbox"><span class="box"></span></label>
+          <div>
+            <p class="task-title">แก้และ regression Treat Summary ด้วย pattern เดียวกัน</p>
+            <p class="task-detail">Local update 28/09/2569: สิทธิ์ดูผลบนหน้าจอยังคง TTL 5 นาที; การเปิด PDF ที่มี Sensitive ขอ grant ใหม่ด้วยบริบท <code>treat_summary_pdf</code> และไม่ reuse screen grant</p>
+            <ul class="acceptance"><li>card/ดูผลทั้งใบใช้ screen grant ซ้ำได้ภายใน 5 นาที</li><li>กด PDF ที่มี Sensitive สองครั้ง ต้องยืนยันใหม่สองครั้ง</li><li>ชื่อและรหัส test แสดงก่อนยืนยัน แต่ค่า/หน่วย/แปลผล/ช่วงอ้างอิงยังถูกปิด</li></ul>
+          </div>
+          <div class="badges"><span class="badge owner-us">ทีมเรา</span><span class="badge sev-blocker">BLOCKER</span></div>
+        </article>
+
+        <article class="task" data-id="emr-interpretation" data-owner="ours" data-severity="minor" data-default-done="true" data-verified-done="true">
+          <label class="check"><input type="checkbox"><span class="box"></span></label>
+          <div>
+            <p class="task-title">แก้ EMR full sheet ให้แสดง interpretation จริง</p>
+            <p class="task-detail">PASS runtime 27/09/2569: EMR History HN 6900023 / Order R2609250001 แสดง RPR = N และ Anti-HIV = NEG ตรงกับ LAB lookup; regression ของ EMR History และ Treat Summary ผ่าน โดยค่าต้นทางว่างยังคงแสดง “-”</p>
+            <ul class="acceptance"><li>ผลปกติและ Negative แสดงตรงกับ source โดยไม่เปลี่ยน clinical meaning</li></ul>
+          </div>
+          <div class="badges"><span class="badge owner-us">ทีมเรา</span><span class="badge sev-minor">MINOR</span></div>
+        </article>
+
+        <article class="task" data-id="loading-flicker" data-owner="ours" data-severity="minor">
+          <label class="check"><input type="checkbox"><span class="box"></span></label>
+          <div>
+            <p class="task-title">เก็บ loading state ตอน re-auth ไม่ให้กระพริบเป็น “0 tests”</p>
+            <p class="task-detail">ข้อมูลกลับมาครบและไม่สูญหาย แต่ช่วง refresh ทำให้ผู้ใช้เข้าใจว่าใบผลว่าง</p>
+            <ul class="acceptance"><li>แสดง loading/skeleton โดยคงจำนวน test เดิมจน response ใหม่สำเร็จ</li></ul>
+          </div>
+          <div class="badges"><span class="badge owner-us">ทีมเรา</span><span class="badge sev-minor">UX</span></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" data-section="report">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">Owner · ทีม Report</p>
+          <h2>Report &amp; SQL dependencies</h2>
+          <p class="section-note">เป็น dependency ก่อน production ไม่ควร replace SQL provider ของทีมอื่นจากฝั่งเรา</p>
+        </div>
+        <span class="section-count"></span>
+      </div>
+      <div class="tasks">
+        <article class="task" data-id="report-sensitive-gate" data-owner="report" data-severity="blocker">
+          <label class="check"><input type="checkbox"><span class="box"></span></label>
+          <div>
+            <p class="task-title">Deploy Sensitive row gate ในรายงาน Lab result</p>
+            <p class="task-detail">ใช้แนวทางจาก <code>lab-result-slip-sensitive-redacted-PROPOSAL-v2.json</code> กับ provider จริง โดยทีมเจ้าของ Report</p>
+            <ul class="acceptance"><li>ไม่มี grant: PDF เปิดได้และ blank เฉพาะแถว Sensitive</li><li>grant ถูก viewer+Order+Section และยังไม่หมดอายุ: แสดงค่าได้</li><li>grant ผิด scope/หมดอายุ: fail closed</li></ul>
+          </div>
+          <div class="badges"><span class="badge owner-report">ทีม Report</span><span class="badge sev-blocker">BLOCKER</span></div>
+        </article>
+
+        <article class="task" data-id="micro-binding" data-owner="report" data-severity="blocker">
+          <label class="check"><input type="checkbox"><span class="box"></span></label>
+          <div>
+            <p class="task-title">แก้ Lab result - microbiology (static) ให้ bind Order ที่เลือก</p>
+            <p class="task-detail">runtime พบ preview สามารถแสดงคนไข้/Order อื่น แม้ popup ผลบนจอถูกต้อง</p>
+            <ul class="acceptance"><li>patient, VN, LAB No., Order และผลต้องตรง popup ต้นทางทั้งหมด</li><li>ทดสอบมากกว่า 1 MB Order เพื่อกัน static/default record</li></ul>
+          </div>
+          <div class="badges"><span class="badge owner-report">ทีม Report</span><span class="badge sev-blocker">BLOCKER</span></div>
+        </article>
+
+        <article class="task" data-id="report-parameter-ux" data-owner="report" data-severity="minor">
+          <label class="check"><input type="checkbox"><span class="box"></span></label>
+          <div>
+            <p class="task-title">ซ่อน Report Parameters ที่เป็น technical parameter</p>
+            <p class="task-detail">ผู้ใช้ไม่ควรต้องเห็นหรือกด Submit ให้ <code>xparentx</code> และ Sensitive grant</p>
+            <ul class="acceptance"><li>กด “รายงานผล” แล้วเข้าหน้า preview/PDF โดยตรง</li><li>ห้ามให้ผู้ใช้พิมพ์แก้ grant token เอง</li></ul>
+          </div>
+          <div class="badges"><span class="badge owner-report">ทีม Report</span><span class="badge sev-minor">UX</span></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" data-section="uat">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">Owner · UAT ร่วม</p>
+          <h2>Runtime scenarios ที่ยังต้องยืนยัน</h2>
+          <p class="section-note">Static/mock ผ่านแล้ว แต่รายการเหล่านี้ยังไม่มีหลักฐาน runtime ครบ หรือไม่ควรทดสอบด้วยการเดาข้อมูล production</p>
+        </div>
+        <span class="section-count"></span>
+      </div>
+      <div class="tasks">
+        <article class="task" data-id="uat-sensitive-masters" data-owner="uat" data-severity="blocker">
+          <label class="check"><input type="checkbox"><span class="box"></span></label>
+          <div><p class="task-title">ทดสอบ master Sensitive ครบ 3 รายการ</p><p class="task-detail"><code>IM2</code>, <code>I0058</code>, <code>I0059</code> ต้องถูกปิดเหมือนกัน และ <code>BB543</code> ต้องยังแสดงตามปกติ</p></div>
+          <div class="badges"><span class="badge owner-uat">UAT</span><span class="badge sev-blocker">REQUIRED</span></div>
+        </article>
+
+        <article class="task" data-id="uat-no-room-bypass" data-owner="uat" data-severity="blocker">
+          <label class="check"><input type="checkbox"><span class="box"></span></label>
+          <div><p class="task-title">ทดสอบ LAB permanent redaction ทุกห้อง</p><p class="task-detail">ผู้ใช้ทุกห้อง LAB รวม <code>IM</code>/<code>MI-OUT</code> ต้องเห็นชื่อและรหัส test พร้อมข้อความสีแดง “ปกปิดผล” เท่านั้น โดยไม่มีปุ่ม/หน้าต่าง/ช่อง Username หรือ Password; ค่า/หน่วย/แปลผล/ช่วงอ้างอิง/comment/ไฟล์ต้องไม่ถูกส่ง และ grant เก่าต้องไม่เปิดค่า</p></div>
+          <div class="badges"><span class="badge owner-uat">UAT</span><span class="badge sev-blocker">REQUIRED</span></div>
+        </article>
+
+        <article class="task" data-id="uat-denial" data-owner="uat" data-severity="blocker">
+          <label class="check"><input type="checkbox"><span class="box"></span></label>
+          <div><p class="task-title">ทดสอบ EMR denial และ fail-closed</p><p class="task-detail">เฉพาะ EMR: non-doctor, บัญชีไม่พบ/blocked, password ผิด, Access Log insert ล้ม และ grant ผิด scope ต้องไม่เปิดเผยค่า; บัญชีแพทย์ผู้ยืนยันอาจเป็นคนละบัญชีกับ viewer ได้</p></div>
+          <div class="badges"><span class="badge owner-uat">UAT</span><span class="badge sev-blocker">SECURITY</span></div>
+        </article>
+
+        <article class="task" data-id="uat-expiry" data-owner="uat" data-severity="blocker">
+          <label class="check"><input type="checkbox"><span class="box"></span></label>
+          <div><p class="task-title">ทดสอบ EMR screen grant อายุ 5 นาทีและ PDF re-auth ทุกครั้ง</p><p class="task-detail">ปิด popup ต้องล้างค่าจาก UI แต่เปิด Order+Section เดิมซ้ำภายใน 5 นาทีได้โดยไม่ถาม password; PDF ที่มี Sensitive ต้องถามใหม่ทุก click แม้ screen grant ยังไม่หมดอายุ และ token จาก Order/Section/ผู้ใช้อื่นใช้ข้ามกันไม่ได้</p></div>
+          <div class="badges"><span class="badge owner-uat">UAT</span><span class="badge sev-blocker">SECURITY</span></div>
+        </article>
+
+        <article class="task" data-id="uat-manual-final" data-owner="uat" data-severity="blocker">
+          <label class="check"><input type="checkbox"><span class="box"></span></label>
+          <div><p class="task-title">ทดสอบ Manual result end-to-end ด้วย Order ที่อนุญาต</p><p class="task-detail">บันทึกผลครั้งแรกต้องเป็น “ออกผลบางส่วน”; เมื่อครบทุก active Manual item จึงกด “ยืนยันออกผลครบ” และเปลี่ยนเป็น completed</p></div>
+          <div class="badges"><span class="badge owner-uat">UAT</span><span class="badge sev-blocker">DATA WRITE</span></div>
+        </article>
+
+        <article class="task" data-id="uat-correction-log" data-owner="uat" data-severity="blocker">
+          <label class="check"><input type="checkbox"><span class="box"></span></label>
+          <div><p class="task-title">ทดสอบแก้ผล Manual + immutable correction log</p><p class="task-detail"><code>zdata_6ab78b7159662ac8f059105a</code> ยังไม่มี record จริง ต้องใช้เคสอนุญาตแล้วตรวจ before/after, เหตุผล ≥ 3 ตัวอักษร, actor/time และ transaction fail-closed</p></div>
+          <div class="badges"><span class="badge owner-uat">UAT</span><span class="badge sev-blocker">DATA WRITE</span></div>
+        </article>
+
+        <article class="task" data-id="uat-access-log" data-owner="uat" data-severity="blocker">
+          <label class="check"><input type="checkbox"><span class="box"></span></label>
+          <div><p class="task-title">ตรวจ Access Log matrix ของจุดเปิดเผยใน EMR</p><p class="task-detail">EMR History, Treat Summary, full sheet และ PDF ที่เปิดค่าต้อง trace ได้ โดย event PDF แยกเป็น <code>emr_history_pdf</code>/<code>treat_summary_pdf</code> และไม่เก็บ password หรือค่าผล Sensitive; LAB lookup/PDF ที่คง redacted ไม่ใช่ disclosure event</p></div>
+          <div class="badges"><span class="badge owner-uat">UAT</span><span class="badge sev-blocker">AUDIT</span></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" data-section="deploy">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">Release order</p>
+          <h2>ลำดับ replace และ smoke test</h2>
+          <p class="section-note">ทำตามลำดับเพื่อลดช่วงที่ UI เปิดปุ่มแล้ว Report/Server ยังไม่รองรับ</p>
+        </div>
+        <span class="section-count"></span>
+      </div>
+      <div class="tasks">
+        <article class="task" data-id="deploy-report-first" data-owner="report" data-severity="blocker">
+          <label class="check"><input type="checkbox"><span class="box"></span></label>
+          <div><p class="task-title">1 · ทีม Report deploy provider และ Microbiology binding</p><p class="task-detail">สำรองของเดิมตามกระบวนการทีม Report และ smoke test PDF ทั้งมี/ไม่มี grant</p></div>
+          <div class="badges"><span class="badge owner-report">ทีม Report</span></div>
+        </article>
+        <article class="task" data-id="deploy-server" data-owner="ours" data-severity="blocker">
+          <label class="check"><input type="checkbox"><span class="box"></span></label>
+          <div><p class="task-title">2 · Replace server processes</p><p class="task-detail"><code>emr-lab-board-get.js</code> และ <code>lab_cpoe_worklist_api.js</code> เวอร์ชันที่ผ่าน regression</p></div>
+          <div class="badges"><span class="badge owner-us">ทีมเรา</span></div>
+        </article>
+        <article class="task" data-id="deploy-ui" data-owner="ours" data-severity="blocker">
+          <label class="check"><input type="checkbox"><span class="box"></span></label>
+          <div><p class="task-title">3 · Replace UI artifacts</p><p class="task-detail">Treat Summary Template/onCreated, EMR History Template/onCreated และ LAB Worklist Form เวอร์ชัน permanent redaction ที่ไม่มี re-auth</p></div>
+          <div class="badges"><span class="badge owner-us">ทีมเรา</span></div>
+        </article>
+        <article class="task" data-id="deploy-log-form" data-owner="ours" data-severity="blocker">
+          <label class="check"><input type="checkbox"><span class="box"></span></label>
+          <div><p class="task-title">4 · Deploy correction-log form และตรวจสิทธิ์ collection</p><p class="task-detail"><code>lab-result-edit-log-v1.json</code> ต้องให้ระบบเขียนได้ตาม process แต่ผู้ใช้ทั่วไปห้ามแก้/ลบ log</p></div>
+          <div class="badges"><span class="badge owner-us">ทีมเรา</span></div>
+        </article>
+        <article class="task" data-id="deploy-smoke" data-owner="uat" data-severity="blocker">
+          <label class="check"><input type="checkbox"><span class="box"></span></label>
+          <div><p class="task-title">5 · Smoke test แล้วลงนาม UAT</p><p class="task-detail">ทดสอบ mixed Sensitive/normal, LAB ทุกห้องแบบ permanent redaction, EMR doctor grant, PDF แยกบริบท, manual partial/final, correction log และ Microbiology ก่อนประกาศพร้อมใช้</p></div>
+          <div class="badges"><span class="badge owner-uat">UAT</span></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div><p class="section-kicker">Evidence retained</p><h2>สิ่งที่ตรวจผ่านแล้ว</h2></div>
+        <span class="section-count">อ้างอิง ไม่ต้องติ๊ก</span>
+      </div>
+      <div class="verified-list">
+        <div class="verified-item">ทุกห้อง LAB รวม Immunology ปิด Sensitive ถาวรโดยไม่มี re-auth</div>
+        <div class="verified-item">ชื่อและรหัส test ยังมองเห็น และช่องผลแสดง “ปกปิดผล” สีแดง</div>
+        <div class="verified-item">LAB full sheet/PDF แสดงค่ารายการทั่วไป และคง redacted เฉพาะ Sensitive แม้มี grant เก่า</div>
+        <div class="verified-item">EMR History และ Treat Summary แยก PDF grant จาก screen grant; PDF Sensitive ยืนยันใหม่ทุก click</div>
+        <div class="verified-item">Server ตรวจ DOCTOR และบันทึก grant/log แบบ fail-closed</div>
+        <div class="verified-item">Normal multi-result, profile และ attachment แสดงได้</div>
+        <div class="verified-item">Core API/UI/static regression tests ผ่าน</div>
+        <div class="verified-item">Treat Summary current-VN Lab scope เป็น behavior ที่ตั้งใจ</div>
+        <div class="verified-item">Treat Summary scope/reuse เคยผ่าน runtime ที่ TTL 5 นาที; candidate ล่าสุดรอ replace และ runtime UAT ซ้ำ</div>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <span>ไม่มีข้อมูลผู้ป่วยหรือ credential ในไฟล์นี้</span>
+      <span>Checklist state key: <code>emr-sensitive-uat-checklist-v1</code></span>
+    </footer>
+  </main>
+
+  <script>
+    (() => {
+      const storageKey = 'emr-sensitive-uat-checklist-v1';
+      const tasks = [...document.querySelectorAll('.task[data-id]')];
+      const filters = [...document.querySelectorAll('[data-filter]')];
+      let activeFilter = 'open';
+
+      const readState = () => {
+        try { return JSON.parse(localStorage.getItem(storageKey) || '{}'); }
+        catch (_) { return {}; }
+      };
+
+      const saveState = () => {
+        const state = {};
+        tasks.forEach(task => { state[task.dataset.id] = task.querySelector('input').checked; });
+        localStorage.setItem(storageKey, JSON.stringify(state));
+      };
+
+      const render = () => {
+        const done = tasks.filter(task => task.querySelector('input').checked).length;
+        const openTasks = tasks.filter(task => !task.querySelector('input').checked);
+        tasks.forEach(task => {
+          const checked = task.querySelector('input').checked;
+          task.classList.toggle('done', checked);
+          task.hidden = activeFilter === 'open' ? checked : activeFilter === 'done' ? !checked : false;
+        });
+        document.getElementById('doneCount').textContent = done;
+        document.getElementById('blockerCount').textContent = openTasks.filter(task => task.dataset.severity === 'blocker').length;
+        document.getElementById('reportCount').textContent = openTasks.filter(task => task.dataset.owner === 'report').length;
+        document.getElementById('uatCount').textContent = openTasks.filter(task => task.dataset.owner === 'uat').length;
+        document.getElementById('progressText').textContent = `${done} / ${tasks.length}`;
+        document.getElementById('progressBar').style.width = `${tasks.length ? (done / tasks.length) * 100 : 0}%`;
+        document.querySelectorAll('.section[data-section]').forEach(section => {
+          const sectionTasks = [...section.querySelectorAll('.task[data-id]')];
+          const sectionOpen = sectionTasks.filter(task => !task.querySelector('input').checked).length;
+          section.querySelector('.section-count').textContent = `${sectionOpen} คงเหลือ / ${sectionTasks.length}`;
+        });
+      };
+
+      const state = readState();
+      tasks.forEach(task => {
+        const input = task.querySelector('input');
+        const hasStoredState = Object.prototype.hasOwnProperty.call(state, task.dataset.id);
+        input.checked = task.dataset.verifiedDone === 'true' || (hasStoredState ? !!state[task.dataset.id] : task.dataset.defaultDone === 'true');
+        input.addEventListener('change', () => { saveState(); render(); });
+      });
+
+      filters.forEach(button => button.addEventListener('click', () => {
+        activeFilter = button.dataset.filter;
+        filters.forEach(item => item.classList.toggle('active', item === button));
+        render();
+      }));
+
+      document.getElementById('printBtn').addEventListener('click', () => window.print());
+      document.getElementById('resetBtn').addEventListener('click', () => {
+        if (!window.confirm('ล้างสถานะที่ติ๊กทั้งหมดใน browser นี้?')) return;
+        localStorage.removeItem(storageKey);
+        tasks.forEach(task => { task.querySelector('input').checked = false; });
+        render();
+      });
+
+      render();
+    })();
+  </script>
+</body>
+</html>

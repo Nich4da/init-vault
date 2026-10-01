@@ -64,10 +64,10 @@ const unwrapProcess = (result) => {
 
 // ใบสั่งตรวจของวิสิทนี้ + ผลที่ออกวันนี้ — คนละ process กันโดยตั้งใจ (emr-lab-board-get)
 // 🔴 ครอบ try ไว้: board ล้มก็แค่ไม่มีก้อนผล ห้ามลาก cc/hpi/PE/dx/ยา ของตัวนี้พังไปด้วย
-let board = { current_vn: '', lab_orders: [], xray_results: [], lab_trends: [] };
+let board = { current_vn: '', lab_orders: [], summary_lab: [], xray_results: [], lab_trends: [] };
 try {
 	const bo = unwrapProcess(await app.runProcess(BOARD_PROC, { person_id: personId, hn: hn, visit_id: curVisitId }, userInfo));
-	if (bo && bo.success) board = { current_vn: bo.current_vn || '', lab_orders: bo.lab_orders || [], xray_results: bo.xray_results || [], lab_trends: bo.lab_trends || [] };
+	if (bo && bo.success) board = { current_vn: bo.current_vn || '', lab_orders: bo.lab_orders || [], summary_lab: bo.summary_lab || [], xray_results: bo.xray_results || [], lab_trends: bo.lab_trends || [] };
 } catch (boardErr) {
 	app.log.warn('[emr-summary] lab board ล้ม: ' + ((boardErr && boardErr.message) || boardErr));
 }
@@ -85,7 +85,7 @@ const visitRows = await findAll(
 const prev = visitRows.find((v) => !curVisitId || String(v._id) !== curVisitId) || null;
 
 if (!prev) {
-	return { success: true, built: 0, has_history: false, hn: hn || null, visit: null, cc: '', hpi: '', pe: null, dx: [], meds: [], other: [], plan: null, lab: [], xray: [], ...board };
+	return { success: true, built: 0, has_history: false, hn: hn || null, visit: null, cc: '', hpi: '', pe: null, dx: [], meds: [], other: [], plan: null, lab: Array.isArray(board.summary_lab) ? board.summary_lab : [], xray: [], ...board };
 }
 
 const prevId = String(prev._id);
@@ -273,35 +273,11 @@ const visitInfo = {
 
 // ---------------------------------------------------------------- 3) Lab / X-ray (ผลล่าสุดของคนไข้ ไม่จำกัด visit)
 
-let lab = [];
+// LAB summary ต้องมาจาก board ที่ผ่าน current-master policy แล้วเท่านั้น
+// board ล้ม = คืนว่างแบบ fail-closed; ห้าม query Result Item ตรงเพราะจะ bypass Sensitive policy
+let lab = Array.isArray(board.summary_lab) ? board.summary_lab : [];
 let xray = [];
 if (hn) {
-	const labRows = await findAll(
-		LAB_TABLE,
-		{ hn: String(hn), xrstatx: 1 },
-		{ sort: { _id: -1 }, limit: MAX_LAB, projection: { test_name: 1, panel_name: 1, result_value: 1, unit_symbol_snapshot: 1, units: 1, reference_range_snapshot: 1, ref_range: 1, interpretation_code: 1, is_critical: 1, result_status: 1, visit_id: 1, filler_order_no: 1, created_at: 1, entered_at: 1 } },
-	);
-	// เก็บค่าล่าสุดต่อรายการตรวจ — ผลชุดเก่าของ test เดียวกันไม่ต้องโชว์ซ้ำในการ์ดสรุป
-	const seen = {};
-	for (const r of labRows) {
-		const name = r.test_name || r.panel_name || '';
-		if (!name || seen[name]) continue;
-		seen[name] = true;
-		lab.push({
-			data_id: String(r._id),
-			name,
-			panel: r.panel_name || '',
-			value: r.result_value != null ? String(r.result_value) : '',
-			unit: r.unit_symbol_snapshot || r.units || '',
-			ref: r.reference_range_snapshot || r.ref_range || '',
-			flag: r.interpretation_code || '',
-			critical: !!r.is_critical,
-			status: codeOf(r.result_status) || '',
-			when: r.entered_at || r.created_at || '',
-			visit_id: r.visit_id || '',
-		});
-	}
-
 	const xrayRows = await findAll(
 		XRAY_TABLE,
 		{ Hn: String(hn), xrstatx: 1 },

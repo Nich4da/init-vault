@@ -225,6 +225,7 @@ s.tsOpenVisit = () => {
 const LAB_RESULT_PDF_REPORT_ID = '6aa8f5a8b92813319a86ea11';
 const MICRO_RESULT_PDF_REPORT_ID = '6ab1c2d3e4f5061728394a5b';
 const MICRO_SECTIONS = ['MB'];
+const TS_LAB_BOARD_PROC = '6ab3be31cec3020e8562a2c9'; // action=open_sensitive ใช้ process เดียวกับ board
 
 /* ══ ป้ายสถานะใบ — ชุดเดียวกับการ์ด "ใบสั่งตรวจ" (item_card) ═════════════════
    🔴 ค่าที่ไม่รู้จักต้องโชว์ค่าดิบ ห้ามแปลงเป็น "ร่าง" — ใบที่สถานะเพี้ยนต้องมองเห็นได้ */
@@ -259,6 +260,10 @@ s.tsOgOpen = {}; // key ของก้อน/บล็อกที่กาง�
 s.tsLgUi = { mode: 'order' }; // 🔴 ต้องเป็น object — scope proxy ไม่มี set trap ให้ตัวแปรเดี่ยว
 s.tsLabDialog = { visible: false, order: null }; // popup อ่านอย่างเดียว — ห้ามเปิด Result Item CRUD จากหน้า EMR
 s.tsResultGroupOpen = {}; // สถานะกาง/พับ Profile ใน popup ผลทั้งใบ
+s.tsReauth = { visible: false, loading: false, error: '', username: '', password: '', purpose: 'ดูแลรักษาผู้ป่วย', mode: 'view', placement: '', order: null, item: null };
+s.tsPdfGrant = { orderKey: '', placement: '', token: '', expiresAt: 0 };
+s.tsSensitiveExpiryTimer = null;
+s.tsSensitiveGrants = {}; // grant อายุ 5 นาที แยกตาม user + visit + Order + Section (ไม่เก็บค่าผล)
 
 /* ══ helper เล็ก ๆ ════════════════════════════════════════════════════════ */
 // "2026-09-22 10:52:00" → "10:52" (รับ "10:52" ที่ส่งมาตรง ๆ ด้วย)
@@ -289,14 +294,97 @@ const tsFlagOf = (it) => {
 };
 const tsIsAbn = (r) => r.flag === 'C' || r.flag === 'H' || r.flag === 'L' || r.flag === 'A';
 
+const tsSessionUsername = () => {
+	const form = field.getFormRef && field.getFormRef();
+	const user = (form && form.userState && form.userState.user) || (field.globalUserState && field.globalUserState.user) || {};
+	return String(user.username || (user.account && user.account.username) || '').trim();
+};
+const tsGrantCache = () => {
+	const form = field.getFormRef && field.getFormRef();
+	const userState = form && form.userState;
+	if (!userState) return s.tsSensitiveGrants;
+	const cacheKey = '__emrTreatSummarySensitiveGrants';
+	if (!userState[cacheKey] || typeof userState[cacheKey] !== 'object' || Array.isArray(userState[cacheKey])) userState[cacheKey] = {};
+	return userState[cacheKey];
+};
+const tsEpoch = (value) => {
+	if (value && typeof value === 'object' && value.$numberLong != null) return Number(value.$numberLong || 0);
+	return Number(value || 0);
+};
+const tsGrantScope = (source) => {
+	const order = source || {};
+	const raw = order._raw || order;
+	const items = Array.isArray(raw.__sensitive_base_items) ? raw.__sensitive_base_items : Array.isArray(raw.items) ? raw.items : [];
+	const sensitive = items.find((row) => row && row.visibility && row.visibility.sensitive) || items.find((row) => row && row.visibility) || {};
+	const visibility = sensitive.visibility || {};
+	const username = tsSessionUsername();
+	const visitId = String(visibility.visit_id || raw.visit_id || s.tsCurVisit || '');
+	const sourceOrderId = String(visibility.source_order_id || raw.source_order_id || order.source_order_id || '');
+	const sectionCode = String(raw.section_code || order.section_code || '').toUpperCase();
+	return username && sourceOrderId ? [username, visitId, sourceOrderId, sectionCode].join('|') : '';
+};
+const tsGrantFromRaw = (source) => {
+	const raw = (source && source._raw) || source || {};
+	const scope = tsGrantScope(source);
+	const ownerScope = String(raw.__sensitive_grant_scope || '');
+	if (ownerScope && ownerScope !== scope) return null;
+	const token = String(raw.__sensitive_grant_token || '');
+	const expiresAt = tsEpoch(raw.__sensitive_grant_expires_at_epoch);
+	return token && expiresAt > Date.now() ? { token, expiresAt } : null;
+};
+const tsRememberSensitiveGrant = (source) => {
+	const key = tsGrantScope(source);
+	const grant = tsGrantFromRaw(source);
+	if (key && grant) tsGrantCache()[key] = grant;
+	return grant;
+};
+const tsForgetSensitiveGrant = (source) => {
+	const key = tsGrantScope(source);
+	if (key) delete tsGrantCache()[key];
+};
+const tsSensitiveGrant = (source) => {
+	const direct = tsRememberSensitiveGrant(source);
+	if (direct) return direct;
+	const key = tsGrantScope(source);
+	const cache = tsGrantCache();
+	const stored = key ? cache[key] : null;
+	if (!stored) return null;
+	if (!stored.token || tsEpoch(stored.expiresAt) <= Date.now()) {
+		delete cache[key];
+		return null;
+	}
+	return { token: String(stored.token), expiresAt: tsEpoch(stored.expiresAt) };
+};
+const tsAttachSensitiveGrant = (raw) => {
+	const grant = tsSensitiveGrant(raw);
+	if (!grant && !raw.__sensitive_grant_token && !raw.__sensitive_grant_expires_at_epoch) return raw;
+	const next = Object.assign({}, raw);
+	if (grant) {
+		next.__sensitive_grant_token = grant.token;
+		next.__sensitive_grant_expires_at_epoch = grant.expiresAt;
+		next.__sensitive_grant_scope = tsGrantScope(raw);
+	} else {
+		delete next.__sensitive_grant_token;
+		delete next.__sensitive_grant_expires_at_epoch;
+		delete next.__sensitive_grant_scope;
+	}
+	return next;
+};
+
 const tsRow = (it) => {
+	const visibility = (it && it.visibility) || { state: 'visible' };
 	const r = {
+		visibility: visibility,
+		locked: String(visibility.state || 'visible') !== 'visible',
+		reauth_required: String(visibility.state || '') === 'reauth_required',
 		text: !!(it && it.text), // ผลเป็นรายงานความเรียง ไม่ใช่ค่าเดี่ยว
 		name: String((it && (it.name || it.obs_name || it.test_name)) || '-'),
 		code: String((it && (it.code || it.obs_code)) || ''),
 		value: it && it.value != null && it.value !== '' ? String(it.value) : '—',
 		unit: String((it && (it.unit || it.unit_symbol_snapshot)) || ''),
 		ref: String((it && (it.ref || it.reference_range_snapshot)) || ''),
+		// เก็บค่าที่ LAB ส่งมาจริงไว้แสดงผล (เช่น N / NEG) แยกจาก flag ที่ normalize เพื่อใช้สี/critical logic
+		interpretation: String((it && (it.interpretation || it.interpretation_code || it.flag)) || '').trim(),
 		comment: String((it && it.result_comment) || ''),
 		result_item_id: String((it && it.result_item_id) || ''),
 		group_id: String((it && it.group_id) || ''),
@@ -360,12 +448,15 @@ s.tsStepDot = (st) => {
 /* ══ ประกอบก้อนผล 1 ใบสั่ง ════════════════════════════════════════════════ */
 const tsMkOrder = (raw) => {
 	if (!raw) return null;
+	raw = tsAttachSensitiveGrant(raw);
 	const status = String(raw.status || '');
 	const st = TS_LAB_STATUS[status] || { label: status || '—', type: 'danger' };
 	const cancelled = status === 'cancelled' || status === 'rejected';
 	const pending = TS_PENDING.indexOf(status) >= 0;
 	const scope = String(raw.scope || 'visit');
-	const rows = (Array.isArray(raw.items) ? raw.items : []).map(tsRow);
+	const allRows = (Array.isArray(raw.items) ? raw.items : []).map(tsRow);
+	const lockedRows = allRows.filter((row) => row.locked);
+	const rows = allRows.filter((row) => !row.locked);
 	const resultGroups = [];
 	const resultGroupByKey = {};
 	rows.forEach((row, rowIndex) => {
@@ -385,6 +476,9 @@ const tsMkOrder = (raw) => {
 
 	const o = {
 		key: String(raw.order_id || raw.order_no || Math.random()),
+		source_order_id: String(raw.source_order_id || ''),
+		_raw: raw,
+		_sensitive_disclosed: !!raw.__sensitive_disclosed,
 		scope: scope,
 		section: String(raw.section || 'ผลตรวจ'),
 		order_no: String(raw.order_no || raw.order_id || ''),
@@ -402,6 +496,8 @@ const tsMkOrder = (raw) => {
 		verified_by: String(raw.verified_by_source_name || ''),
 		attachments: Array.isArray(raw.attachments) ? raw.attachments : [],
 		rows: rows,
+		locked_rows: lockedRows,
+		has_locked: lockedRows.length > 0,
 		result_groups: resultGroups,
 		criticals: rows.filter((r) => r.flag === 'C'),
 		// 🔴 ผลที่เป็น "รายงานความเรียง" (MB/MLab) แยกถังของตัวเอง — ต้องเห็นเสมอ
@@ -422,8 +518,8 @@ const tsMkOrder = (raw) => {
 	o.chip_text = scope === 'today' && !pending && !cancelled ? 'ผลออกวันนี้' : st.label;
 	o.chip_type = scope === 'today' && !pending && !cancelled ? 'warning' : st.type;
 	// มีรายงานความเรียงแต่ไม่มีธงผิดปกติ ⇒ ห้ามขึ้นว่า "ปกติทั้งหมด" (เราไม่รู้ว่าปกติ)
-	o.abn_text = o.abnormals.length ? 'ผิดปกติ ' + o.abnormals.length : o.texts.length ? 'มีรายงานผล' : rows.length ? 'ปกติทั้งหมด' : '';
-	o.abn_type = o.abnormals.length ? (o.criticals.length ? 'danger' : 'warning') : o.texts.length ? 'info' : 'success';
+	o.abn_text = o.abnormals.length ? 'ผิดปกติ ' + o.abnormals.length : o.texts.length ? 'มีรายงานผล' : o.has_locked ? 'มีผล Sensitive' : rows.length ? 'ปกติทั้งหมด' : '';
+	o.abn_type = o.abnormals.length ? (o.criticals.length ? 'danger' : 'warning') : o.texts.length ? 'info' : o.has_locked ? 'warning' : 'success';
 	o.steps = pending ? tsSteps(raw) : [];
 
 	// ── ปุ่มรายงานผล PDF ──────────────────────────────────────────────
@@ -435,8 +531,11 @@ const tsMkOrder = (raw) => {
 	const microParams = {};
 	o.report_ready = o.micro ? !!MICRO_RESULT_PDF_REPORT_ID : !!LAB_RESULT_PDF_REPORT_ID && reportIds.length === 1;
 	o.report_list = o.report_ready
-		? [{ reportId: o.micro ? MICRO_RESULT_PDF_REPORT_ID : LAB_RESULT_PDF_REPORT_ID, label: 'รายงานผล', type: 'pdf' }]
+		? [{ reportId: o.micro ? MICRO_RESULT_PDF_REPORT_ID : LAB_RESULT_PDF_REPORT_ID, label: 'PDF', type: 'pdf' }]
 		: [];
+	o.has_sensitive = [].concat(raw.__sensitive_base_items || [], raw.items || []).some((row) => !!(row && row.visibility && row.visibility.sensitive));
+	// Screen grant and PDF grant are deliberately separate. A doctor must re-auth
+	// for every Sensitive PDF click; the five-minute screen grant is never passed here.
 	o.report_params = o.report_ready ? (o.micro ? microParams : { xparentx: reportIds[0] }) : {};
 	// บอกเหตุที่ปุ่มไม่มา / เตือนว่ายังเป็นตัวอย่าง ดีกว่าปล่อยให้เข้าใจผิด
 	o.report_hint = o.micro
@@ -454,6 +553,65 @@ const tsMkOrder = (raw) => {
 		? 'var(--el-color-warning)'
 		: 'var(--el-color-success)';
 	return o;
+};
+
+// SdReport เก็บ parameter ภายใน component จึงต้อง remount เมื่อ Order/grant เปลี่ยน
+// เพื่อไม่ให้ PDF ใช้ token เก่าหรือ token ของใบอื่น.
+s.tsReportInstanceKey = (order, placement) => {
+	const o = order || {};
+	const params = o.report_params || {};
+	return [
+		'ts-lab-report',
+		String(placement || 'card'),
+		String(o.source_order_id || o.key || ''),
+		String(o.section_code || ''),
+		String(params.xparentx || ''),
+		'redacted',
+	].join('|');
+};
+s.tsPdfOrderKey = (order) => [String(order && (order.source_order_id || order.key) || ''), String(order && order.section_code || '')].join('|');
+s.tsPdfHostId = (order, placement) => ('ts-lab-pdf-' + String(placement || 'card') + '-' + s.tsPdfOrderKey(order)).replace(/[^A-Za-z0-9_-]/g, '_');
+s.tsPdfGrantReady = (order, placement) => {
+	const grant = s.tsPdfGrant || {};
+	return !!grant.token && grant.orderKey === s.tsPdfOrderKey(order) && grant.placement === String(placement || 'card') && Number(grant.expiresAt || 0) > Date.now();
+};
+s.tsPdfParams = (order, placement) => {
+	const base = Object.assign({}, (order && order.report_params) || {});
+	return s.tsPdfGrantReady(order, placement) ? Object.assign(base, { grant_token: s.tsPdfGrant.token }) : base;
+};
+s.tsPdfReportInstanceKey = (order, placement) => [s.tsReportInstanceKey(order, placement), s.tsPdfGrantReady(order, placement) ? s.tsPdfGrant.token : 'locked'].join('|');
+const tsSensitiveAnchor = (order) => {
+	const locked = Array.isArray(order && order.locked_rows) ? order.locked_rows.find((row) => row && row.visibility && row.visibility.sensitive) : null;
+	if (locked) return locked;
+	const raw = (order && order._raw) || {};
+	return [].concat(raw.__sensitive_base_items || [], raw.items || []).find((row) => row && row.visibility && row.visibility.sensitive) || null;
+};
+s.tsRequestSensitivePdf = (order, placement) => {
+	const item = tsSensitiveAnchor(order);
+	if (!order || !order.report_ready || !order.has_sensitive || !item) return;
+	s.tsPdfGrant = { orderKey: '', placement: '', token: '', expiresAt: 0 };
+	s.tsReauth = { visible: true, loading: false, error: '', username: tsSessionUsername(), password: '', purpose: 'ดูแลรักษาผู้ป่วยและเปิดรายงานผล PDF', mode: 'pdf', placement: String(placement || 'card'), order, item };
+};
+const tsClickAuthorizedPdf = (order, placement, attempt) => {
+	const doc = typeof globalThis !== 'undefined' ? globalThis.document : null;
+	const host = doc && doc.getElementById(s.tsPdfHostId(order, placement));
+	const button = host && host.querySelector ? host.querySelector('button:not([disabled])') : null;
+	if (button && typeof button.click === 'function') {
+		button.click();
+		return;
+	}
+	// Vue mounts/remounts SdReport after the grant changes. Wait for that render
+	// instead of asking the doctor to click PDF and authenticate a second time.
+	if (Number(attempt || 0) < 20) {
+		setTimeout(() => tsClickAuthorizedPdf(order, placement, Number(attempt || 0) + 1), 50);
+		return;
+	}
+	if (field.notify) field.notify('ยืนยันตัวตนแล้ว แต่ระบบเปิด PDF ไม่สำเร็จ', 'error', 4500);
+};
+const tsOpenAuthorizedPdf = (order, placement, data) => {
+	s.tsPdfGrant = { orderKey: s.tsPdfOrderKey(order), placement: String(placement || 'card'), token: String(data.sensitive_grant_token || ''), expiresAt: Number(data.sensitive_grant_expires_at_epoch || 0) };
+	s.tsCloseReauth();
+	setTimeout(() => tsClickAuthorizedPdf(order, placement, 0), 0);
 };
 
 /* ══ แนวโน้มรายค่า (โหมด "ตามค่าตรวจ") ═══════════════════════════════════
@@ -581,19 +739,193 @@ s.tsXrClamp = (key) =>
 
 // เปิดผลทั้งใบใน popup อ่านอย่างเดียวแบบเดียวกับ LAB Worklist
 // 🔴 ห้าม fallback ไปเปิด Result Item ตัวแรก — นั่นคือหน้ากรอก/แก้ไขผลของห้อง LAB ไม่ใช่หน้าดูผลของ EMR
-s.tsOrderTarget = (o) => !!(o && Array.isArray(o.rows) && o.rows.length);
+s.tsOrderTarget = (o) => !!(o && ((Array.isArray(o.rows) && o.rows.length) || (Array.isArray(o.locked_rows) && o.locked_rows.some((row) => row.reauth_required))));
 s.tsOpenOrder = (o) => {
-	if (!s.tsOrderTarget(o)) return;
+	let order = o;
+	if (!s.tsOrderTarget(order)) return;
+	const locked = Array.isArray(order.locked_rows) ? order.locked_rows.find((row) => row.reauth_required) : null;
+	if (locked && tsSensitiveGrantValid(order)) {
+		tsReuseSensitive(order, locked);
+		return;
+	}
+	if (locked && order._raw && order._raw.__sensitive_grant_token) {
+		const expiredOrder = tsRedactSensitiveOrder(order, false);
+		tsReplaceOrder(order, expiredOrder);
+		order = expiredOrder;
+	}
 	const opened = {};
-	(Array.isArray(o.result_groups) ? o.result_groups : []).forEach((group, index) => {
+	(Array.isArray(order.result_groups) ? order.result_groups : []).forEach((group, index) => {
 		if (Array.isArray(group.results) && group.results.length > 1) opened[s.tsResultGroupKey(group, index)] = true;
 	});
 	s.tsResultGroupOpen = opened;
-	s.tsLabDialog = { visible: true, order: o };
+	s.tsLabDialog = { visible: true, order };
 };
 s.tsCloseLabDialog = () => {
+	const order = s.tsLabDialog.order;
+	tsClearSensitiveExpiryTimer();
+	if (order && order._sensitive_disclosed) {
+		const redactedOrder = tsRedactSensitiveOrder(order, tsSensitiveGrantValid(order));
+		tsReplaceOrder(order, redactedOrder);
+		if (tsSensitiveGrantValid(redactedOrder)) tsScheduleSensitiveExpiry(redactedOrder);
+	}
 	s.tsLabDialog = { visible: false, order: null };
 	s.tsResultGroupOpen = {};
+};
+
+const tsRequestId = () => 'emr-sensitive-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+s.tsRequestSensitive = (order, item) => {
+	if (!order || !item || !item.reauth_required) return;
+	if (tsSensitiveGrantValid(order)) {
+		tsReuseSensitive(order, item);
+		return;
+	}
+	s.tsReauth = { visible: true, loading: false, error: '', username: tsSessionUsername(), password: '', purpose: 'ดูแลรักษาผู้ป่วย', mode: 'view', placement: '', order, item };
+};
+s.tsCloseReauth = () => {
+	s.tsReauth = { visible: false, loading: false, error: '', username: '', password: '', purpose: 'ดูแลรักษาผู้ป่วย', mode: 'view', placement: '', order: null, item: null };
+};
+const tsReplaceOrder = (oldOrder, nextOrder) => {
+	['tsLgVisit', 'tsLgToday'].forEach((key) => {
+		s[key] = (Array.isArray(s[key]) ? s[key] : []).map((order) => (order === oldOrder || order.key === oldOrder.key ? nextOrder : order));
+	});
+};
+const tsSensitiveGrantValid = (order) => {
+	return !!tsSensitiveGrant(order);
+};
+const tsClearSensitiveExpiryTimer = () => {
+	if (s.tsSensitiveExpiryTimer) clearTimeout(s.tsSensitiveExpiryTimer);
+	s.tsSensitiveExpiryTimer = null;
+};
+const tsRedactSensitiveOrder = (order, keepGrant) => {
+	const grant = keepGrant ? tsSensitiveGrant(order) : null;
+	const raw = Object.assign({}, (order && order._raw) || {});
+	if (Array.isArray(raw.__sensitive_base_items)) raw.items = raw.__sensitive_base_items.slice();
+	raw.__sensitive_disclosed = false;
+	if (grant) {
+		raw.__sensitive_grant_token = grant.token;
+		raw.__sensitive_grant_expires_at_epoch = grant.expiresAt;
+		raw.__sensitive_grant_scope = tsGrantScope(order);
+	} else {
+		delete raw.__sensitive_grant_token;
+		delete raw.__sensitive_grant_expires_at_epoch;
+		delete raw.__sensitive_grant_scope;
+		tsForgetSensitiveGrant(order);
+	}
+	return tsMkOrder(raw);
+};
+const tsScheduleSensitiveExpiry = (order) => {
+	tsClearSensitiveExpiryTimer();
+	const grant = tsSensitiveGrant(order);
+	const expiresAt = grant ? grant.expiresAt : 0;
+	const delay = expiresAt - Date.now();
+	if (!(delay > 0)) return;
+	s.tsSensitiveExpiryTimer = setTimeout(() => {
+		const active = s.tsLabDialog.order && s.tsLabDialog.order.key === order.key ? s.tsLabDialog.order : order;
+		tsForgetSensitiveGrant(active);
+		const redactedOrder = tsRedactSensitiveOrder(active, false);
+		tsReplaceOrder(active, redactedOrder);
+		if (s.tsLabDialog.order && s.tsLabDialog.order.key === active.key) s.tsLabDialog = { visible: true, order: redactedOrder };
+		s.tsSensitiveExpiryTimer = null;
+	}, delay);
+	if (s.tsSensitiveExpiryTimer && typeof s.tsSensitiveExpiryTimer.unref === 'function') s.tsSensitiveExpiryTimer.unref();
+};
+const tsApplySensitiveDisclosure = (order, item, data) => {
+	const visibility = item.visibility || {};
+	const raw = Object.assign({}, order._raw || {});
+	if (!Array.isArray(raw.__sensitive_base_items)) raw.__sensitive_base_items = (Array.isArray(raw.items) ? raw.items : []).slice();
+	const disclosedIds = {};
+	(Array.isArray(data.item_ids) ? data.item_ids : [visibility.item_id || item.group_id]).forEach((id) => { disclosedIds[String(id || '')] = true; });
+	raw.items = raw.__sensitive_base_items.filter((row) => !disclosedIds[String((row.visibility && row.visibility.item_id) || row.group_id || '')]).concat(Array.isArray(data.items) ? data.items : []);
+	raw.result_report_ids = Array.from(new Set([].concat(raw.result_report_ids || [], data.result_report_ids || []).map(String).filter(Boolean)));
+	raw.__sensitive_grant_token = data.sensitive_grant_token || '';
+	raw.__sensitive_grant_expires_at_epoch = tsEpoch(data.sensitive_grant_expires_at_epoch);
+	raw.__sensitive_grant_scope = tsGrantScope(raw);
+	raw.reported_at = data.reported_at || raw.reported_at;
+	raw.reported_by_source_name = data.reported_by_source_name || raw.reported_by_source_name;
+	raw.verified_at = data.verified_at || raw.verified_at;
+	raw.verified_by_source_name = data.verified_by_source_name || raw.verified_by_source_name;
+	raw.__sensitive_disclosed = true;
+	tsRememberSensitiveGrant(raw);
+	const nextOrder = tsMkOrder(raw);
+	tsReplaceOrder(order, nextOrder);
+	tsScheduleSensitiveExpiry(nextOrder);
+	s.tsCloseReauth();
+	s.tsOpenOrder(nextOrder);
+};
+const tsReuseSensitive = (order, item) => {
+	const form = field.getFormRef && field.getFormRef();
+	const visibility = (item && item.visibility) || {};
+	const grant = tsSensitiveGrant(order);
+	if (!form || !form.userState || typeof form.userState.runProcess !== 'function' || !grant) {
+		s.tsRequestSensitive(order, item);
+		return;
+	}
+	form.userState.runProcess(
+		TS_LAB_BOARD_PROC,
+		{
+			action: 'reuse_sensitive',
+			visit_id: visibility.visit_id || s.tsCurVisit,
+			source_order_id: visibility.source_order_id || order.source_order_id,
+			item_id: visibility.item_id || item.group_id,
+			section_code: order.section_code || '',
+			sensitive_grant_token: grant.token,
+			request_id: tsRequestId(),
+			screen: 'treat_summary',
+		},
+		(res) => {
+			const data = (res && res.data) || {};
+			if (!data.success) {
+				tsForgetSensitiveGrant(order);
+				const redactedOrder = tsRedactSensitiveOrder(order, false);
+				tsReplaceOrder(order, redactedOrder);
+				s.tsReauth = { visible: true, loading: false, error: data.message || 'สิทธิ์เปิดดู 5 นาทีหมดอายุแล้ว กรุณายืนยันใหม่', username: tsSessionUsername(), password: '', purpose: 'ดูแลรักษาผู้ป่วย', mode: 'view', placement: '', order: redactedOrder, item };
+				return;
+			}
+			tsApplySensitiveDisclosure(order, item, data);
+		},
+		(err) => {
+			s.tsReauth = { visible: true, loading: false, error: 'เปิดผล Sensitive ไม่สำเร็จ: ' + ((err && err.message) || err), username: tsSessionUsername(), password: '', purpose: 'ดูแลรักษาผู้ป่วย', mode: 'view', placement: '', order, item };
+		}
+	);
+};
+s.tsSubmitSensitive = () => {
+	const auth = s.tsReauth;
+	const form = field.getFormRef && field.getFormRef();
+	if (!auth.order || !auth.item || !form || !form.userState || typeof form.userState.runProcess !== 'function') return;
+	if (!auth.username || !auth.password || !String(auth.purpose || '').trim()) {
+		s.tsReauth = Object.assign({}, auth, { error: 'กรุณากรอก username, password และเหตุผลให้ครบ' });
+		return;
+	}
+	const password = auth.password;
+	s.tsReauth = Object.assign({}, auth, { loading: true, error: '', password: '' });
+	const visibility = auth.item.visibility || {};
+	form.userState.runProcess(
+		TS_LAB_BOARD_PROC,
+		{
+			action: 'open_sensitive',
+			visit_id: visibility.visit_id || s.tsCurVisit,
+			source_order_id: visibility.source_order_id || auth.order.source_order_id,
+			item_id: visibility.item_id || auth.item.group_id,
+			section_code: auth.order.section_code || '',
+			username: auth.username,
+			password,
+			purpose: String(auth.purpose || '').trim(),
+			request_id: tsRequestId(),
+				screen: auth.mode === 'pdf' ? 'treat_summary_pdf' : 'treat_summary',
+		},
+		(res) => {
+			const data = (res && res.data) || {};
+			if (!data.success) {
+				s.tsReauth = Object.assign({}, s.tsReauth, { loading: false, error: data.message || 'ยืนยันตัวตนไม่สำเร็จ' });
+				return;
+			}
+			if (auth.mode === 'pdf') tsOpenAuthorizedPdf(auth.order, auth.placement, data);
+			else tsApplySensitiveDisclosure(auth.order, auth.item, data);
+		},
+		(err) => {
+			s.tsReauth = Object.assign({}, s.tsReauth, { loading: false, error: 'เปิดผล Sensitive ไม่สำเร็จ: ' + ((err && err.message) || err) });
+		}
+	);
 };
 s.tsResultGroups = () => {
 	const order = s.tsLabDialog.order;
@@ -617,7 +949,13 @@ s.tsCollapseAllResultGroups = () => {
 	s.tsResultGroupOpen = {};
 };
 s.tsResultProfileCount = () => s.tsResultGroups().filter(s.tsResultGroupIsProfile).length;
-s.tsResultTestCount = () => s.tsResultGroups().length;
+s.tsLockedResultCount = () => {
+	const order = s.tsLabDialog.order;
+	return order && Array.isArray(order.locked_rows) ? order.locked_rows.length : 0;
+};
+// ชื่อรายการ Sensitive เป็น metadata ที่แสดงได้ แม้ค่าผลยังล็อกอยู่
+// จึงต้องนับรวมเป็น "รายการสั่งตรวจ" แต่ไม่รวมในจำนวนผลย่อยที่เปิดเผยแล้ว
+s.tsResultTestCount = () => s.tsResultGroups().length + s.tsLockedResultCount();
 s.tsResultRowsCount = () => {
 	const order = s.tsLabDialog.order;
 	return order && Array.isArray(order.rows) ? order.rows.length : 0;
@@ -672,7 +1010,12 @@ s.tsCompactDateTime = (value) => {
 	return date + (time ? ' ' + time : '');
 };
 s.tsLabFlagType = (flag) => (flag === 'C' ? 'danger' : flag === 'H' || flag === 'L' || flag === 'A' ? 'warning' : 'success');
-s.tsLabFlagLabel = (flag) => (flag === 'C' ? 'C' : flag === 'H' ? 'H' : flag === 'L' ? 'L' : flag === 'A' ? 'A' : '-');
+s.tsLabFlagLabel = (rowOrFlag) => {
+	const interpretation = rowOrFlag && typeof rowOrFlag === 'object' ? String(rowOrFlag.interpretation || '').trim() : '';
+	if (interpretation) return interpretation;
+	const flag = rowOrFlag && typeof rowOrFlag === 'object' ? rowOrFlag.flag : rowOrFlag;
+	return flag === 'C' ? 'C' : flag === 'H' ? 'H' : flag === 'L' ? 'L' : flag === 'A' ? 'A' : '-';
+};
 s.tsLabFileName = (file) => String((file && (file.name || (file.response && file.response.fileName))) || 'ไฟล์แนบผลตรวจ');
 s.tsLabFileUrl = (file) => String((file && (file.url || (file.response && file.response.filePath))) || '');
 s.tsLabFileSize = (file) => {
@@ -689,6 +1032,7 @@ s.tsOpenXr = (x) => {
    (ถ้า process error ข้อมูลกลุ่มของคนไข้คนก่อนต้องไม่ค้างอยู่บนจอ) */
 const tsLoadBase = s.tsLoad;
 s.tsLoad = (personId, hn, curVisitId) => {
+	tsClearSensitiveExpiryTimer();
 	s.tsLgOn = false;
 	s.tsXgOn = false;
 	s.tsLgVisit = [];
@@ -702,5 +1046,7 @@ s.tsLoad = (personId, hn, curVisitId) => {
 	s.tsResultGroupOpen = {};
 	s.tsVnLabel = '';
 	s.tsLabDialog = { visible: false, order: null };
+	s.tsReauth = { visible: false, loading: false, error: '', username: '', password: '', purpose: 'ดูแลรักษาผู้ป่วย', mode: 'view', placement: '', order: null, item: null };
+	s.tsPdfGrant = { orderKey: '', placement: '', token: '', expiresAt: 0 };
 	return tsLoadBase(personId, hn, curVisitId);
 };

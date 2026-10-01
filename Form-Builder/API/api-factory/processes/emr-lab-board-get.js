@@ -6,6 +6,8 @@
  * คนละเรื่อง คนละแหล่งข้อมูล ⇒ แยก process ให้พังแยกกันและแก้แยกกันได้
  *
  * params : { visit_id, hn?, person_id? }     visit_id = visit `_id` ของวิสิทที่เปิดอยู่
+ *          { action:'open_sensitive', visit_id, source_order_id, item_id,
+ *            username, password, purpose, request_id }
  * return : { success, current_vn, lab_orders[], xray_results[], lab_trends[] }
  *          ไม่มี visit_id ⇒ คืนค่าว่างทั้งหมด (การ์ดจะตกไปแสดงลิสต์แบบเดิมเอง)
  *
@@ -42,6 +44,13 @@ const findAll = async (collection, query, opt) => {
 };
 const labelOf = (v) => (v && typeof v === 'object' ? v.label || v.value : v) || '';
 const codeOf = (v) => (v && typeof v === 'object' ? v.value : v) || '';
+const refText = (v) => {
+	if (v == null || v === '') return '';
+	if (typeof v !== 'object') return String(v);
+	if (v.value != null && v.value !== '') return String(v.value);
+	if (v.xtbxlv2_xfx_id != null && v.xtbxlv2_xfx_id !== '') return String(v.xtbxlv2_xfx_id);
+	return String(v); // Mongo ObjectId
+};
 
 const curVisitId = params.visit_id ? String(params.visit_id) : null;
 let hn = params.hn ? String(params.hn) : null;
@@ -49,7 +58,11 @@ let hn = params.hn ? String(params.hn) : null;
 const WORK_ITEM_TABLE = 'zdata_lab_work_item';
 const CPOE_ITEM_TABLE = 'zdata_cpoe_order_item';
 const CPOE_ORDER_TABLE = 'zdata_cpoe_order';
+const ITEM_MASTER_TABLE = 'zdata_master_item_order';
 const RESULT_REPORT_TABLE = 'zdata_lab_report_manual_entry';
+const CORE_USER_TABLE = 'core_user';
+const SENSITIVE_ACCESS_LOG_TABLE = 'zdata_emr_sensitive_access_log';
+const SENSITIVE_ACCESS_GRANT_TABLE = 'zdata_emr_sensitive_access_grant';
 const XRAY_ORDER_TABLE = 'zdata_xray_order';
 const XRAY_RESULT_FORM = '6a860980f851000f28e44ab0';
 
@@ -57,6 +70,48 @@ const MAX_CPOE_ITEM = 200;
 const MAX_RESULT_ROW = 300;
 const MAX_XRAY_ROW = 60;
 const TREND_POINTS = 5; // จุดสูงสุดต่อ 1 ค่าตรวจในมุมมอง "ตามค่าตรวจ"
+// 2026-09-25 confirmed policy: only a DOCTOR credential may authorize
+// disclosure outside Immunology. The signed-in viewer and authorizing doctor
+// may be different people (for example a LAB user asking a doctor to confirm).
+const SENSITIVE_OPEN_ROLES = ['DOCTOR'];
+const SENSITIVE_GRANT_TTL_MS = 5 * 60 * 1000;
+
+// Keep this allowlist equivalent to LAB Worklist/HL7 Result Upsert.  A received
+// batch can store every OBX row under the first Work Item, so EMR must resolve
+// each result code back to the CPOE Item that clinically owns it before applying
+// item-level visibility or building the LAB-style Profile groups.
+const RESULT_COMPONENT_CODES_BY_GROUP = {
+	'1001CD': ['100101CD', '10010201CD', '100102CD', '10010401CD', '10010402CD', '100104CD', '100105CD', '100106CD', '100107CD'],
+	'1004CD': ['100804CD', '100805CD', '100806CD', '100807CD'],
+	'100701BL': ['100702IC', '102390', '102501IC', '102502IC', '102503IC', '102504IC', '103601BL', '103602BL', '103603BL', '103604BL', '103605BL', '103606BL', '103607BL', '103609BL', '103610BL', '103611BL', '103612BL', '103613BL', '103614BL', '103615BL', '103616BL', '103618BL', '103620BL', '103621BL', '103622BL', '103627BL'],
+	'100802CD': ['100802CD', '101120CD'],
+	'10090123UR': ['100901UR', '100902UR', '100903UR'],
+	'1015UH': ['1015UH'],
+	'1025CD': ['101201', '102501CD', '102502CD', '102503CD', '102504CD'],
+	'10C86SETCD': ['1085CD', '1086CD'],
+	'2001EB': ['200101EB', '200102EB', '200103EB', '200105EB', '200106EB', '200107EB', '200108EB', '200109EB', '200111EB', '200112EB', '200113EB', '200114EB', '200115EB', '200116EB', '200117EB', '200119EB', '200120EB', '200121EB', '200122EB', '200138EB', '200151EB', '200153EB', '200154EB', '200260', '200270', '200280', '200290', '200300'],
+	'2006BF': ['200600BF', '200601BF', '200603BF', '200613BF', '200614BF', '200615BF', '200616BF'],
+	'2101EB': ['210101EB', '210102EB', '210103EB', '210105EB', '210106EB', '210107EB', '210108EB', '210109EB', '210111EB', '210112EB', '210113EB', '210114EB', '210115EB', '210116EB', '210117EB', '210119EB', '210120EB', '210121EB', '210122EB', '210138EB', '210151EB', '210153EB', '210154EB', '210270', '210280', '210290', '210300', '210310'],
+	'2106UR': ['210601UR', '210602UR', '210603UR', '210604UR', '210605UR', '210606UR', '210607UR', '210608UR', '210609UR', '210610UR', '210611UR', '210612UR', '210614UR', '210615UR', '210617UR', '210618UR', '210619UR', '210620UR', '210621UR', '210622UR'],
+	'2110ST': ['211001ST', '211002ST', '211003ST', '211004ST', '211006ST', '211007ST', '211008ST', '211009ST'],
+	'2113ST': ['211301ST', '211302ST', '211303UR', '211304ST', '211305ST', '211306', '2113ST'],
+	'2201EB': ['220101EB', '220102EB', '220103EB', '220104EB', '220105EB'],
+	'2208SO': ['220801SO', '220802SO'],
+	'2235SO': ['220901SO', '2209SO'],
+	'2296NP': ['229601NP', '229602NP', '229603NP'],
+	'3003BL': ['300301BL', '300302BL'],
+	'3013ST': ['301301ST', '301302ST'],
+	'3018BF': ['301802FL'],
+	'3018CS': ['301801CS', '301802CS', '301803CS', '301804CS', '301805CS', '301806CS'],
+	'3029ST': ['302901ST', '302902ST', '3029ST', '30IM29ST'],
+	'3030CD': ['302210', '303001CD', '303002CD', '303003CD', '303004CD', '303005CD', '303006CD', '303007CD', '303008CD', '303009CD', '303010CD', '303011CD'],
+	'3057BL': ['305701BL', '305702BL', '305703BL', '305704BL'],
+	'3064BL': ['306401BL', '306402BL'],
+	'3079BL': ['302000', '307901BL', '307902BL', '307903BL', '307904BL', '307905BL', '307906BL', '307907BL', '307908BL', '307909BL', '307910BL', '307911BL', '307912BL'],
+	'3096NP': ['309601NP', '309602NP', '309603NP'],
+	'30IM136CD': ['301550', '301560', '30IM136CD'],
+	'30IM26NS': ['301451'],
+};
 
 // ลำดับความคืบหน้าของใบ — ใบทั้งใบคืบได้เท่ารายการที่ช้าที่สุดในใบ
 // 🔴 `ready` มีจริงในระบบ (13 CPOE Item ตอนตรวจ 2026-09-23) และเป็นใบที่ยังไม่มี Work Item
@@ -74,6 +129,21 @@ const nextDayOf = (d) => {
 };
 const uniq = (a) => Array.from(new Set(a.filter((x) => x)));
 const isNumeric = (v) => v !== '' && v != null && isFinite(Number(v));
+const jsonArray = (value) => {
+	if (Array.isArray(value)) return value;
+	if (typeof value !== 'string') return [];
+	try {
+		const parsed = JSON.parse(value || '[]');
+		return Array.isArray(parsed) ? parsed : [];
+	} catch (error) {
+		return [];
+	}
+};
+const resultComponentCodesForOrderCode = (orderCode) => {
+	const code = String(orderCode || '').trim();
+	if (!code) return [];
+	return uniq([code].concat(RESULT_COMPONENT_CODES_BY_GROUP[code] || []));
+};
 
 // 🔴 `app.dbObjectId()` โยน error ถ้าค่าไม่ใช่ 24-hex — บล็อกนี้รันก่อนตรรกะเดิม
 //    ถ้าปล่อยให้ throw ทั้ง process จะตาย แล้ว cc/dx/ยา/PE ที่เคยทำงานได้จะหายไปด้วย
@@ -90,20 +160,145 @@ const idsIn = (list) => ({
 	}, []),
 });
 
+const RESULT_FIELDS = {
+	obs_name: 1, obs_code: 1, test_name: 1, test_code: 1, panel_name: 1, result_value: 1, unit_symbol_snapshot: 1, units: 1,
+	reference_range_snapshot: 1, ref_range: 1, interpretation_code: 1, is_critical: 1, result_status: 1,
+	result_sequence: 1, result_definition_id: 1, result_comment: 1, result_source: 1, result_version: 1, result_uid: 1, obx_status: 1,
+	order_no: 1, filler_order_no: 1, lab_section: 1, visit_id: 1, hn: 1, created_at: 1, entered_at: 1, xupdatx: 1,
+	result_report_id: 1, xparentx: 1, reported_at: 1, reported_by_source_id: 1, reported_by_source_name: 1,
+	verified_at: 1, verified_by_source_id: 1, verified_by_source_name: 1,
+};
+
+// Visibility มี 2 policy คนละความหมาย:
+// - Item Master `is_hide_result` = Sensitive ต้องยืนยันตัวตนตาม flow เดิม
+// - CPOE Item `is_hide_result` + audited visibility action = LAB พัก/ปกปิดผล
+//   ระหว่างตรวจสอบแก้ไข ซึ่ง EMR ต้องไม่เปิดเผยค่าและแพทย์ override ไม่ได้
+const loadResultPolicies = async (itemIds) => {
+	const ids = uniq(itemIds.map((id) => String(id || '')));
+	if (!ids.length) return {};
+	const items = await findAll(
+		CPOE_ITEM_TABLE,
+		{ _id: idsIn(ids), xrstatx: 1 },
+		{
+			limit: ids.length,
+			projection: {
+				item_data_id: 1, item_code: 1, item_name: 1, order_id: 1, service_type: 1,
+				is_hide_result: 1, result_visibility_action: 1, result_visibility_reason: 1,
+				result_visibility_by: 1, result_visibility_at: 1,
+			},
+		},
+	);
+	const itemById = {};
+	items.forEach((item) => {
+		itemById[String(item._id || '')] = item;
+	});
+
+	const masterIds = uniq(items.map((item) => refText(item.item_data_id)));
+	const fallbackCodes = uniq(items.filter((item) => !refText(item.item_data_id)).map((item) => refText(item.item_code)));
+	const mastersById = masterIds.length
+		? await findAll(
+				ITEM_MASTER_TABLE,
+				{ _id: idsIn(masterIds), xrstatx: 1 },
+				{ limit: masterIds.length, projection: { item_code: 1, item_name: 1, is_hide_result: 1, lab_parent: 1, lab_item: 1, xupdatx: 1, updated_at: 1 } },
+		  )
+		: [];
+	const mastersByCode = fallbackCodes.length
+		? await findAll(
+				ITEM_MASTER_TABLE,
+				{ item_code: { $in: fallbackCodes }, xrstatx: 1 },
+				{ limit: fallbackCodes.length, projection: { item_code: 1, item_name: 1, is_hide_result: 1, lab_parent: 1, lab_item: 1, xupdatx: 1, updated_at: 1 } },
+		  )
+		: [];
+	const masterIdMap = {};
+	const masterCodeMap = {};
+	mastersById.concat(mastersByCode).forEach((master) => {
+		masterIdMap[String(master._id || '')] = master;
+		const code = refText(master.item_code);
+		if (code && !masterCodeMap[code]) masterCodeMap[code] = master;
+	});
+	const parentCodes = uniq(mastersById.concat(mastersByCode).map((master) => refText(master && master.lab_parent)));
+	const parentMasters = parentCodes.length
+		? await findAll(
+				ITEM_MASTER_TABLE,
+				{ item_code: { $in: parentCodes }, xrstatx: 1 },
+				{ limit: parentCodes.length, projection: { item_code: 1, item_name: 1 } },
+		  )
+		: [];
+	const parentMasterByCode = {};
+	parentMasters.forEach((master) => {
+		const code = refText(master.item_code);
+		if (code && !parentMasterByCode[code]) parentMasterByCode[code] = master;
+	});
+
+	const policies = {};
+	ids.forEach((itemId) => {
+		const item = itemById[itemId] || null;
+		const masterId = item ? refText(item.item_data_id) : '';
+		const itemCode = item ? refText(item.item_code) : '';
+		const sourceOrderId = item ? refText(item.order_id) : '';
+		const sourceVisitId = item && item.order_id ? refText(item.order_id.xtbxlv2_xfx_id) : '';
+		const master = masterId ? masterIdMap[masterId] || null : masterCodeMap[itemCode] || null;
+		const visibilityAction = String((item && item.result_visibility_action) || '').trim().toLowerCase();
+		const manualHidden = !!(item && item.is_hide_result === true && visibilityAction === 'hide');
+		if (!item || !master) {
+			policies[itemId] = {
+				state: manualHidden ? 'hidden' : 'withheld',
+				reason: manualHidden ? 'manual_result_hidden' : 'policy_unresolved',
+				sensitive: false,
+				manual_hidden: manualHidden,
+				item_id: itemId,
+				item_code: itemCode,
+				item_name: (item && item.item_name) || '',
+				source_order_id: sourceOrderId,
+				visit_id: sourceVisitId,
+				master_id: masterId,
+				master_updated_at: '',
+			};
+			return;
+		}
+		const sensitive = master.is_hide_result === true;
+		const resultCode = refText(master.lab_item && (master.lab_item.his_lab_code || master.lab_item.value));
+		const parentCode = refText(master.lab_parent);
+		const parentMaster = parentCode ? parentMasterByCode[parentCode] || null : null;
+		policies[itemId] = {
+			state: manualHidden ? 'hidden' : sensitive ? 'reauth_required' : 'visible',
+			reason: manualHidden ? 'manual_result_hidden' : sensitive ? 'sensitive_master' : '',
+			sensitive,
+			manual_hidden: manualHidden,
+			item_id: itemId,
+			item_code: refText(master.item_code) || itemCode,
+			item_name: item.item_name || master.item_name || '',
+			result_code: resultCode,
+			result_codes: resultComponentCodesForOrderCode(resultCode),
+			group_id: parentCode ? 'panel:' + parentCode : itemId,
+			group_name: parentCode ? String((parentMaster && parentMaster.item_name) || labelOf(master.lab_parent) || item.item_name || master.item_name || '') : String(item.item_name || master.item_name || ''),
+			source_order_id: sourceOrderId,
+			visit_id: sourceVisitId,
+			master_id: String(master._id || ''),
+			master_updated_at: String(master.updated_at || master.xupdatx || ''),
+		};
+	});
+	return policies;
+};
+
 let currentVn = '';
 let currentDay = '';
+let currentVisit = null;
 let labOrders = [];
 let xrayResults = [];
 let labTrends = [];
+let summaryLab = [];
 
 
 if (curVisitId) {
-	const curRows = await findAll(VISIT_TABLE, { _id: idOne(curVisitId), xrstatx: 1 }, { limit: 1, projection: { vn: 1, visit_date: 1, 'pid.hn': 1 } });
+	const curRows = await findAll(VISIT_TABLE, { _id: idOne(curVisitId), xrstatx: 1 }, { limit: 1, projection: { vn: 1, visit_date: 1, 'pid.hn': 1, 'pid.value': 1 } });
 	const cur = curRows[0] || null;
 	if (cur) {
+		currentVisit = cur;
 		currentVn = String(cur.vn || '');
 		currentDay = dayOf(cur.visit_date);
-		if (!hn) hn = (cur.pid && cur.pid.hn) || null;
+		// patient scope ต้อง derive จาก visit ที่ server เท่านั้น — ไม่เชื่อ hn จาก client
+		hn = (cur.pid && cur.pid.hn) || null;
 	}
 }
 
@@ -137,10 +332,39 @@ const previousData = (r) =>
 		  }
 		: null;
 
+const resultPolicy = (r) =>
+	(r && r.__policy) || {
+		state: 'withheld',
+		reason: 'policy_unresolved',
+		sensitive: false,
+		manual_hidden: false,
+		item_id: String((r && r.order_no) || ''),
+		item_code: '',
+		item_name: String((r && r.__item) || ''),
+		source_order_id: '',
+		visit_id: '',
+		master_id: '',
+		master_updated_at: '',
+	};
+const isResultVisible = (r) => resultPolicy(r).state === 'visible';
+const publicPolicy = (policy) => ({
+	state: policy.state,
+	reason: policy.reason || '',
+	sensitive: policy.sensitive === true,
+	manual_hidden: policy.manual_hidden === true,
+	item_id: policy.item_id || '',
+	item_code: policy.item_code || '',
+	source_order_id: policy.source_order_id || '',
+	visit_id: policy.visit_id || '',
+	master_id: policy.master_id || '',
+	master_updated_at: policy.master_updated_at || '',
+});
+
 const mapResultRow = (r) => {
 	const raw = r.result_value == null ? '' : String(r.result_value);
 	const obs = String(r.obs_name || '').trim();
 	const tst = String(r.test_name || '').trim();
+	const policy = resultPolicy(r);
 	return {
 		// ชื่อที่หมออ่านรู้เรื่อง — รหัสล้วนตกไปใช้ชื่อรายการที่สั่งจาก CPOE Item แทน
 		name: (!CODE_ONLY.test(obs) && obs) || (!CODE_ONLY.test(tst) && tst) || String(r.__item || '') || obs || tst || '',
@@ -154,10 +378,10 @@ const mapResultRow = (r) => {
 		result_item_id: String(r._id || ''),
 		result_report_id: String(r.result_report_id || r.xparentx || ''),
 		result_comment: String(r.result_comment || ''),
-		// ใช้จัดกลุ่ม Profile ใน popup EMR ให้เหมือน LAB Worklist
-		// `order_no` ของ Result Item ชี้กลับไปยัง CPOE Item และ `__item` คือชื่อรายการที่สั่ง
-		group_id: String(r.order_no || ''),
-		group_name: String(r.__item || ''),
+		// Result จาก batch เก่าอาจผูก `order_no` ไว้ที่ Work Item แรกทั้งชุด
+		// จึงใช้ owner/group ที่ resolve จาก selected_items + Item Master ก่อนเสมอ
+		group_id: String(policy.group_id || policy.item_id || r.__source_item_id || r.order_no || ''),
+		group_name: String(policy.group_name || r.__item || policy.item_name || ''),
 		result_source: String(r.result_source || ''),
 		result_status: String(r.result_status || ''),
 		reported_at: String(r.reported_at || r.entered_at || r.created_at || ''),
@@ -165,8 +389,295 @@ const mapResultRow = (r) => {
 		verified_at: String(r.verified_at || ''),
 		verified_by_source_name: personName(r, 'verified'),
 		previous: previousData(r.__previous),
+		visibility: publicPolicy(policy),
 	};
 };
+
+// ผลที่ยังเปิดไม่ได้ต้องเหลือเพียงหนึ่ง placeholder ต่อ CPOE Item
+// จงใจไม่คืน result row id/count, value, comment, unit/ref, flag/critical หรือ previous.
+// Result Report id คืนที่ระดับใบเพื่อให้เปิด PDF แบบ server-redacted ได้ แต่ไม่ผูกกับ placeholder รายการ.
+const mapProtectedResult = (r) => {
+	const policy = resultPolicy(r);
+	const name = String(r.__item || policy.item_name || 'ผลตรวจ');
+	return {
+		name,
+		code: policy.result_code || policy.item_code || '',
+		group_id: policy.group_id || policy.item_id || String(r.order_no || ''),
+		group_name: policy.group_name || name,
+		result_status: String(r.result_status || ''),
+		reported_at: String(r.reported_at || r.entered_at || r.created_at || ''),
+		visibility: publicPolicy(policy),
+	};
+};
+
+const actorRoles = uniq([].concat((userInfo && userInfo.roles) || []).map((role) => String(role || '')));
+const actorUsername = String((userInfo && userInfo.username) || '').trim();
+const roleCode = (role) => String((role && typeof role === 'object' ? role.code || role.value || role.name : role) || '').trim().toUpperCase();
+const hasSensitiveRole = (roles) => [].concat(roles || []).some((role) => SENSITIVE_OPEN_ROLES.indexOf(roleCode(role)) >= 0);
+const sensitiveGrantToken = () => [Date.now().toString(36)].concat(Array.from({ length: 4 }, () => Math.random().toString(36).slice(2, 12))).join('-');
+const auditSensitiveAccess = async (outcome, reasonCode, context) => {
+	const c = context || {};
+	const policy = c.policy || {};
+	const eventAt = app.curDate ? app.curDate('YYYY-MM-DD HH:mm:ss') : new Date().toISOString();
+	const logData = {
+		event_id: String(c.request_id || ''),
+		request_id: String(c.request_id || ''),
+		action: 'sensitive_result_open',
+		outcome: String(outcome || ''),
+		event_at: eventAt,
+		reason_code: String(reasonCode || ''),
+		user_id: String((userInfo && userInfo.account && userInfo.account.id) || c.user_id || ''),
+		username: actorUsername,
+		roles_snapshot: actorRoles,
+		authorized_by_user_id: String(c.authorized_by_user_id || ''),
+		authorized_by_username: String(c.authorized_by_username || ''),
+		authorized_by_roles_snapshot: [].concat(c.authorized_by_roles || []).map(roleCode).filter(Boolean),
+		site: (userInfo && userInfo.site) || null,
+		unit: (userInfo && userInfo.unit) || null,
+		patient_id: String((currentVisit && currentVisit.pid && currentVisit.pid.value) || ''),
+		visit_id: String(c.visit_id || curVisitId || ''),
+		source_order_id: String(c.source_order_id || policy.source_order_id || ''),
+		item_id: String(c.item_id || policy.item_id || ''),
+		item_code: String(policy.item_code || ''),
+		revision_id: String(c.revision_id || ''),
+		master_id: String(policy.master_id || ''),
+		master_updated_at: String(policy.master_updated_at || ''),
+		sensitive: policy.sensitive === true,
+		purpose: String(c.purpose || ''),
+		source: 'emr',
+		screen: String(c.screen || 'emr_lab_result'),
+		xrstatx: 1,
+	};
+	try {
+		const saved = await app.dbInsert(logData, SENSITIVE_ACCESS_LOG_TABLE, userInfo);
+		return !!(saved && saved.success);
+	} catch (e) {
+		return false;
+	}
+};
+
+const openSensitiveResult = async () => {
+	const action = String(params.action || 'open_sensitive');
+	const reuseGrant = action === 'reuse_sensitive';
+	const requestId = String(params.request_id || '').trim();
+	const itemId = String(params.item_id || '').trim();
+	const sourceOrderIdParam = String(params.source_order_id || '').trim();
+	const sectionCodeParam = String(params.section_code || '').trim().toUpperCase();
+	let submittedUsername = String(params.username || '').trim();
+	const password = String(params.password || '');
+	let purpose = String(params.purpose || '').trim();
+	const suppliedGrantToken = String(params.sensitive_grant_token || '').trim();
+	const screen = String(params.screen || 'emr_lab_result');
+	const auditContext = { request_id: requestId, visit_id: curVisitId || '', source_order_id: sourceOrderIdParam, item_id: itemId, purpose, screen };
+	const deny = async (code, outcome, reason, message, extra) => {
+		const ok = await auditSensitiveAccess(outcome, reason, Object.assign({}, auditContext, extra || {}));
+		return ok
+			? { success: false, code, message }
+			: { success: false, code: 'audit_failed', message: 'ไม่สามารถบันทึก Access Log ได้ จึงไม่เปิดเผยผลตรวจ' };
+	};
+
+	if (!requestId || !curVisitId || !sourceOrderIdParam || !itemId || (reuseGrant ? !suppliedGrantToken : !submittedUsername || !password || !purpose)) {
+		return deny('invalid_request', 'denied', 'missing_required_input', 'กรุณากรอกข้อมูลยืนยันตัวตนและเหตุผลให้ครบ');
+	}
+	if (!actorUsername) return deny('reauth_failed', 'forbidden', 'missing_session_user', 'ไม่สามารถยืนยันตัวตนได้');
+	if (!currentVisit || !currentVn || !hn) return deny('not_found', 'not_found', 'visit_not_found', 'ไม่พบวิสิทที่ใช้เปิดผล');
+
+	const scopedItems = await findAll(
+		CPOE_ITEM_TABLE,
+		{ _id: idOne(itemId), 'order_id.xtbxlv2_xfx_id': idOne(curVisitId), xrstatx: 1 },
+		{ limit: 1 },
+	);
+	const item = scopedItems[0] || null;
+	if (!item || String(codeOf(item.service_type) || '').toLowerCase() !== 'lab') {
+		return deny('scope_mismatch', 'scope_mismatch', 'item_visit_mismatch', 'รายการตรวจไม่อยู่ในขอบเขตวิสิทนี้');
+	}
+	const sourceOrderId = refText(item.order_id);
+	if (sourceOrderIdParam && sourceOrderIdParam !== sourceOrderId) {
+		return deny('scope_mismatch', 'scope_mismatch', 'order_item_mismatch', 'ใบสั่งตรวจไม่ตรงกับรายการที่ขอเปิด');
+	}
+	auditContext.source_order_id = sourceOrderId;
+
+	const policies = await loadResultPolicies([itemId]);
+	const policy = policies[itemId] || null;
+	if (!policy || policy.state === 'withheld') {
+		return deny('withheld', 'withheld', 'policy_unresolved', 'ยังไม่สามารถเปิดผลรายการนี้ได้', { policy });
+	}
+	if (policy.state !== 'reauth_required' || policy.sensitive !== true) {
+		return deny('policy_changed', 'policy_changed', 'not_sensitive_now', 'นโยบายรายการตรวจเปลี่ยนแล้ว กรุณาโหลดข้อมูลใหม่', { policy });
+	}
+
+	let savedGrant = null;
+	if (reuseGrant) {
+		const grants = await findAll(
+			SENSITIVE_ACCESS_GRANT_TABLE,
+			{
+				grant_token: suppliedGrantToken,
+				viewer_username: actorUsername,
+				source_order_id: sourceOrderId,
+				expires_at_epoch: { $gte: Date.now() },
+				xrstatx: 1,
+			},
+			{ limit: 1, projection: { viewer_user_id: 1, section_code: 1, authorized_by_user_id: 1, authorized_by_username: 1, purpose: 1, expires_at_epoch: 1 } },
+		);
+		savedGrant = grants[0] || null;
+		const actorUserId = String((userInfo && userInfo.account && userInfo.account.id) || '');
+		if (!savedGrant || (savedGrant.viewer_user_id && actorUserId && String(savedGrant.viewer_user_id) !== actorUserId)) {
+			return deny('grant_expired', 'denied', 'grant_invalid_or_expired', 'สิทธิ์เปิดดู 5 นาทีหมดอายุแล้ว กรุณายืนยันตัวตนใหม่', { policy });
+		}
+		submittedUsername = String(savedGrant.authorized_by_username || '').trim();
+		purpose = String(savedGrant.purpose || '').trim();
+		auditContext.purpose = purpose;
+	}
+
+	const users = await findAll(
+		CORE_USER_TABLE,
+		// core_user รุ่นเก่าบางบัญชีไม่มี xrstatx; $nin ยอมรับ field ที่ไม่มี
+		// แต่ยังตัด record ที่ถูกยกเลิก/ลบ (0/3) และ blocked_at ตรวจแยกด้านล่าง
+		{ username: submittedUsername, xrstatx: { $nin: [0, 3] } },
+		{ limit: 1, projection: { username: 1, password_hash: 1, blocked_at: 1, roles: 1 } },
+	);
+	const account = users[0] || null;
+	if (!account || account.blocked_at || !hasSensitiveRole(account.roles)) {
+		return deny('forbidden', 'forbidden', account && account.blocked_at ? 'account_blocked' : 'account_not_allowed', 'บัญชีนี้ไม่สามารถเปิดผล Sensitive ได้', { policy, user_id: account && account._id });
+	}
+	if (!reuseGrant) {
+		let passwordOk = false;
+		try {
+			passwordOk = !!(account.password_hash && (await this.compareHash(account.password_hash, password)));
+		} catch (e) {
+			passwordOk = false;
+		}
+		if (!passwordOk) return deny('reauth_failed', 'bad_credentials', 'bad_credentials', 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง', { policy, user_id: account._id, authorized_by_username: submittedUsername });
+	}
+
+	// One confirmation unlocks every Sensitive result in the same Order+Section.
+	// Resolve the sheet on the server; never trust a client-provided list of IDs.
+	const orderItems = await findAll(
+		CPOE_ITEM_TABLE,
+		{ 'order_id.value': idOne(sourceOrderId), 'order_id.xtbxlv2_xfx_id': idOne(curVisitId), xrstatx: 1 },
+		{ limit: MAX_CPOE_ITEM },
+	);
+	let sheetItemIds = orderItems
+		.filter((candidate) => String(codeOf(candidate.service_type) || '').toLowerCase() === 'lab')
+		.map((candidate) => String(candidate._id || ''));
+	// Resolve Section from server-owned Work Items. EMR History may receive a
+	// legacy board row without section_code; trusting that empty client value
+	// creates a grant that the Report SQL can never match. A supplied client
+	// Section is accepted only when it agrees with the authoritative row.
+	const sheetWorkRows = sheetItemIds.length
+		? await findAll(
+			WORK_ITEM_TABLE,
+			{ _id: idsIn(sheetItemIds), xrstatx: 1 },
+			{ limit: sheetItemIds.length, projection: { section_code: 1 } },
+		  )
+		: [];
+	const workByItemId = {};
+	sheetWorkRows.forEach((row) => { workByItemId[String(row._id || '')] = row; });
+	const authoritativeSectionCode = String((workByItemId[itemId] && workByItemId[itemId].section_code) || '').trim().toUpperCase();
+	if (sectionCodeParam && authoritativeSectionCode && sectionCodeParam !== authoritativeSectionCode) {
+		return deny('scope_mismatch', 'scope_mismatch', 'section_item_mismatch', 'ห้อง Lab ไม่ตรงกับรายการที่ขอเปิด', { policy, user_id: account._id });
+	}
+	let resolvedSectionCode = authoritativeSectionCode || sectionCodeParam;
+	if (resolvedSectionCode && sheetItemIds.length) {
+		const sectionIds = {};
+		sheetWorkRows.forEach((row) => {
+			if (String(row.section_code || '').trim().toUpperCase() === resolvedSectionCode) sectionIds[String(row._id || '')] = true;
+		});
+		sheetItemIds = sheetItemIds.filter((candidateId) => sectionIds[candidateId]);
+	}
+	if (sheetItemIds.indexOf(itemId) < 0) sheetItemIds.push(itemId);
+	const sheetPolicies = await loadResultPolicies(sheetItemIds);
+	const sensitiveItemIds = sheetItemIds.filter((candidateId) => {
+		const candidatePolicy = sheetPolicies[candidateId];
+		return candidatePolicy && candidatePolicy.state === 'reauth_required' && candidatePolicy.sensitive === true;
+	});
+	const resultRows = await findAll(
+		LAB_TABLE,
+		{ order_no: idsIn(sensitiveItemIds), visit_id: String(currentVn), hn: String(hn), xrstatx: 1 },
+		{ sort: { result_sequence: 1, entered_at: 1, _id: 1 }, limit: MAX_RESULT_ROW, projection: RESULT_FIELDS },
+	);
+	if (!resultRows.length) return deny('not_found', 'not_found', 'result_not_found', 'ไม่พบผลตรวจสำหรับรายการนี้', { policy, user_id: account._id });
+	const latest = resultRows.slice().sort((a, b) => resultTime(b).localeCompare(resultTime(a)))[0];
+	const resultSectionCode = String(latest.lab_section || '').trim().toUpperCase();
+	if (resolvedSectionCode && resultSectionCode && resolvedSectionCode !== resultSectionCode) {
+		return deny('scope_mismatch', 'scope_mismatch', 'section_result_mismatch', 'ห้อง Lab ของผลตรวจไม่ตรงกับรายการที่ขอเปิด', { policy, user_id: account._id });
+	}
+	resolvedSectionCode = resolvedSectionCode || resultSectionCode;
+	if (!resolvedSectionCode) {
+		return deny('scope_unresolved', 'scope_mismatch', 'section_unresolved', 'ไม่สามารถยืนยันขอบเขตห้อง Lab สำหรับเปิดผลได้', { policy, user_id: account._id });
+	}
+	if (reuseGrant && String(savedGrant.section_code || '').trim().toUpperCase() !== resolvedSectionCode) {
+		return deny('scope_mismatch', 'scope_mismatch', 'grant_section_mismatch', 'สิทธิ์เปิดดูไม่ตรงกับห้อง Lab ของรายการนี้', { policy, user_id: account._id });
+	}
+	const revisionId = String(latest.result_uid || latest.result_version || latest._id || '');
+	for (const disclosedItemId of sensitiveItemIds) {
+		const logged = await auditSensitiveAccess('success', reuseGrant ? 'grant_reuse' : 'reauth_success', Object.assign({}, auditContext, {
+			policy: sheetPolicies[disclosedItemId], item_id: disclosedItemId, revision_id: revisionId,
+			authorized_by_user_id: account._id, authorized_by_username: submittedUsername, authorized_by_roles: account.roles,
+		}));
+		if (!logged) return { success: false, code: 'audit_failed', message: 'ไม่สามารถบันทึก Access Log ได้ จึงไม่เปิดเผยผลตรวจ' };
+	}
+	let grantToken = suppliedGrantToken;
+	let grantExpiresAtEpoch = Number(savedGrant && savedGrant.expires_at_epoch) || 0;
+	if (!reuseGrant) {
+		grantToken = sensitiveGrantToken();
+		const issuedAtEpoch = Date.now();
+		grantExpiresAtEpoch = issuedAtEpoch + SENSITIVE_GRANT_TTL_MS;
+		let grantSaved = null;
+		try {
+			grantSaved = await app.dbInsert({
+				grant_token: grantToken,
+				viewer_username: actorUsername,
+				viewer_user_id: String((userInfo && userInfo.account && userInfo.account.id) || ''),
+				source_order_id: sourceOrderId,
+				section_code: resolvedSectionCode,
+				authorized_by_user_id: String(account._id || ''),
+				authorized_by_username: submittedUsername,
+				purpose,
+				issued_at_epoch: issuedAtEpoch,
+				expires_at_epoch: grantExpiresAtEpoch,
+				xrstatx: 1,
+			}, SENSITIVE_ACCESS_GRANT_TABLE, userInfo);
+		} catch (e) {
+			grantSaved = null;
+		}
+		if (!grantSaved || grantSaved.success === false) return { success: false, code: 'grant_failed', message: 'สร้างสิทธิ์เปิดดูชั่วคราวไม่สำเร็จ' };
+	}
+
+	const items = resultRows.map((row) => {
+		const rowItemId = String(row.order_no || '');
+		const rowPolicy = sheetPolicies[rowItemId] || policy;
+		const rowItem = orderItems.find((candidate) => String(candidate._id || '') === rowItemId);
+		const disclosedPolicy = Object.assign({}, rowPolicy, { state: 'visible' });
+		row.__item = (rowItem && rowItem.item_name) || rowPolicy.item_name || '';
+		row.__policy = disclosedPolicy;
+		const mapped = mapResultRow(row);
+		mapped.previous = null;
+		mapped.visibility = Object.assign({}, publicPolicy(disclosedPolicy), { disclosed: true });
+		return mapped;
+	});
+	const resultReportIds = uniq(items.map((mapped) => String(mapped.result_report_id || '')).filter(Boolean));
+	return {
+		success: true,
+		action,
+		item_id: itemId,
+		item_ids: sensitiveItemIds,
+		section_code: resolvedSectionCode,
+		revision_id: revisionId,
+		items,
+		reported_at: String(latest.reported_at || latest.entered_at || latest.created_at || ''),
+		reported_by_source_name: personName(latest, 'reported'),
+		verified_at: String(latest.verified_at || ''),
+		verified_by_source_name: personName(latest, 'verified'),
+		attachments: [],
+		result_report_ids: resultReportIds,
+		sensitive_grant_token: grantToken,
+		sensitive_grant_expires_at_epoch: grantExpiresAtEpoch,
+		access_event_id: requestId,
+	};
+};
+
+if (['open_sensitive', 'reuse_sensitive'].indexOf(String(params.action || '')) >= 0) return openSensitiveResult();
 
 // ความคืบหน้าของ 1 รายการ = ฝั่งที่ไปไกลกว่าระหว่าง CPOE Item กับ Work Item
 // 🔴 CPOE `current_status` เป็น projection ที่ LAB ยิงกลับมา ⇒ อาจตามหลังของจริง
@@ -199,10 +710,20 @@ const groupStatus = (stages, hasResult) => {
 };
 
 const buildGroup = (g) => {
-	const rows = g.rows.slice().sort((a, b) => String(a.result_sequence || '').localeCompare(String(b.result_sequence || '')));
+	const rows = g.rows.slice().sort((a, b) => {
+		const left = Number(a && a.result_sequence);
+		const right = Number(b && b.result_sequence);
+		if (Number.isFinite(left) && Number.isFinite(right) && left !== right) return left - right;
+		return String((a && a.result_sequence) || '').localeCompare(String((b && b.result_sequence) || ''));
+	});
+	const visibleRows = rows.filter(isResultVisible);
+	const protectedRows = rows.filter((r) => !isResultVisible(r));
+	const hasProtected = protectedRows.length > 0;
 	const resultedAt = g.rows.reduce((mx, r) => (String(r.created_at || '') > mx ? String(r.created_at) : mx), '');
-	const reports = Array.isArray(g.reports) ? g.reports : [];
-	const metaRows = rows.concat(reports).sort((a, b) => resultTime(b).localeCompare(resultTime(a)));
+	// Attachment ยังปิดทั้งใบเมื่อมี protected item; PDF ใช้ Result Report id
+	// แยกต่างหากและให้ Report SQL blank เฉพาะแถว Sensitive ที่ยังไม่มี grant.
+	const reports = hasProtected ? [] : Array.isArray(g.reports) ? g.reports : [];
+	const metaRows = (hasProtected ? visibleRows : rows.concat(reports)).sort((a, b) => resultTime(b).localeCompare(resultTime(a)));
 	const firstMeta = (field, prefix) => {
 		const found = metaRows.find((r) => (prefix ? personName(r, prefix) : String((r && r[field]) || '').trim()));
 		return found ? (prefix ? personName(found, prefix) : String(found[field] || '')) : '';
@@ -217,6 +738,18 @@ const buildGroup = (g) => {
 			attachments.push(file);
 		});
 	});
+	const displayItems = [];
+	const protectedSeen = {};
+	rows.forEach((row) => {
+		if (isResultVisible(row)) {
+			displayItems.push(mapResultRow(row));
+			return;
+		}
+		const itemId = resultPolicy(row).item_id || String(row.__source_item_id || row.order_no || '');
+		if (protectedSeen[itemId]) return;
+		protectedSeen[itemId] = true;
+		displayItems.push(mapProtectedResult(row));
+	});
 	return {
 		order_id: g.key,
 		source_order_id: g.source_order_id || '',
@@ -227,7 +760,7 @@ const buildGroup = (g) => {
 		section_code: g.section_code || '',
 		// Report ผล PDF ผูกกับ Result Report ไม่ใช่ใบสั่ง ⇒ ส่ง id ที่พบทั้งหมดให้จอเป็นคนตัดสิน
 		// (ชุดผลหลายชุดในใบเดียว = พิมพ์ชุดเดียวไม่ได้ ตามกติกาเดียวกับ LAB Worklist)
-		result_report_ids: uniq(g.rows.map((r) => String(r.result_report_id || ''))),
+		result_report_ids: uniq(rows.map((r) => String(r.result_report_id || r.xparentx || '')).filter(Boolean)),
 		lab_no: g.lab_no || '',
 		patient_hn: String(hn || ''),
 		status: groupStatus(g.stages, g.rows.length > 0),
@@ -243,20 +776,13 @@ const buildGroup = (g) => {
 		verified_at: firstMeta('verified_at'),
 		verified_by_source_name: firstMeta('', 'verified'),
 		attachments,
-		items: rows.map(mapResultRow),
+		items: displayItems,
 	};
 };
 
 if (currentVn) {
-	const RESULT_FIELDS = {
-		obs_name: 1, obs_code: 1, test_name: 1, test_code: 1, result_value: 1, unit_symbol_snapshot: 1, units: 1,
-		reference_range_snapshot: 1, ref_range: 1, interpretation_code: 1, is_critical: 1, result_status: 1,
-		result_sequence: 1, result_definition_id: 1, result_comment: 1, result_source: 1, result_version: 1, obx_status: 1,
-		order_no: 1, filler_order_no: 1, lab_section: 1, visit_id: 1, created_at: 1, entered_at: 1, xupdatx: 1,
-		result_report_id: 1, xparentx: 1, reported_at: 1, reported_by_source_id: 1, reported_by_source_name: 1,
-		verified_at: 1, verified_by_source_id: 1, verified_by_source_name: 1,
-	};
 	const groups = {}; // key -> ก้อน
+	const snapshotTestCodeByItemId = {};
 	const touch = (key, seed) => {
 		if (!groups[key]) groups[key] = Object.assign({ key, rows: [], reports: [], item_ids: [], stages: [], names: [], scope: 'visit' }, seed);
 		return groups[key];
@@ -284,11 +810,20 @@ if (currentVn) {
 		const workRows = await findAll(
 			WORK_ITEM_TABLE,
 			{ visit_id: String(currentVn), xrstatx: 1 },
-			{ limit: MAX_CPOE_ITEM, projection: { lab_no: 1, section_code: 1, section_name: 1, work_status: 1, received_at: 1, ordered_at: 1, source_order_id: 1, source_order_number: 1, cancel_reason: 1, reject_reason_detail: 1 } },
+			{ limit: MAX_CPOE_ITEM, projection: { lab_no: 1, section_code: 1, section_name: 1, work_status: 1, received_at: 1, ordered_at: 1, source_order_id: 1, source_order_number: 1, source_specimen_record_id: 1, receipt_batch_id: 1, selected_items: 1, selected_items_json: 1, cancel_reason: 1, reject_reason_detail: 1 } },
 		);
 		const workByItem = {};
 		workRows.forEach((w) => {
 			workByItem[String(w._id)] = w;
+			jsonArray(w.selected_items || w.selected_items_json).forEach((snapshot) => {
+				const sourceItemId = String((snapshot && (snapshot.source_item_id || snapshot.source_cpoe_item_id || snapshot.item_id)) || '');
+				if (!sourceItemId) return;
+				// Aggregate receipt batches have one Work Item for several CPOE Items.
+				// Point every selected child back to that authoritative batch row.
+				if (!workByItem[sourceItemId]) workByItem[sourceItemId] = w;
+				const testCode = String((snapshot && (snapshot.test_code || snapshot.his_code_id || snapshot.obs_code || snapshot.item_code || snapshot.code)) || '').trim();
+				if (testCode) snapshotTestCodeByItemId[sourceItemId] = testCode;
+			});
 		});
 
 		const resultRows = await findAll(LAB_TABLE, { visit_id: String(currentVn), xrstatx: 1 }, { sort: { _id: 1 }, limit: MAX_RESULT_ROW, projection: RESULT_FIELDS });
@@ -393,6 +928,74 @@ if (currentVn) {
 	let resultHistory = [];
 	if (hn) {
 		resultHistory = await findAll(LAB_TABLE, { hn: String(hn), xrstatx: 1 }, { sort: { entered_at: -1, _id: -1 }, limit: 1000, projection: RESULT_FIELDS });
+	}
+
+	// ผูกทุก Result Item กลับ CPOE Item -> Item Master ปัจจุบันก่อนประกอบ previous/trend/response
+	// เพื่อให้ผลเก่าที่สั่งก่อนมี snapshot ถูกคุ้มครองทันทีเมื่อ master ถูกตั้ง Sensitive
+	const policyItemIds = uniq(
+		Object.keys(groups)
+			.reduce((acc, key) => acc.concat(groups[key].item_ids || []), [])
+			.concat(resultHistory.map((r) => String(r.order_no || ''))),
+	);
+	const policyByItemId = await loadResultPolicies(policyItemIds);
+	const rowResultCode = (row) => String((row && (row.result_definition_id || row.obs_code || row.test_code)) || '').trim();
+	const resolveResultOwnerId = (row, itemIds) => {
+		const candidates = uniq([].concat(itemIds || []).map((id) => String(id || '')));
+		const resultCode = rowResultCode(row);
+		const exact = candidates.find((itemId) => {
+			const policy = policyByItemId[itemId] || {};
+			return resultCode && (String(snapshotTestCodeByItemId[itemId] || '') === resultCode || String(policy.result_code || '') === resultCode);
+		});
+		if (exact) return exact;
+		const component = candidates.find((itemId) => {
+			const policy = policyByItemId[itemId] || {};
+			const codes = uniq([].concat(policy.result_codes || [], resultComponentCodesForOrderCode(snapshotTestCodeByItemId[itemId])));
+			return resultCode && codes.indexOf(resultCode) >= 0;
+		});
+		if (component) return component;
+		const storedItemId = String((row && row.order_no) || '');
+		return candidates.indexOf(storedItemId) >= 0 ? storedItemId : storedItemId;
+	};
+	const currentOwnerByResultId = {};
+	Object.keys(groups).forEach((key) => {
+		const group = groups[key];
+		group.rows.forEach((r) => {
+			const ownerItemId = resolveResultOwnerId(r, group.item_ids);
+			const policy = policyByItemId[ownerItemId] || policyByItemId[String(r.order_no || '')];
+			r.__source_item_id = ownerItemId;
+			r.__policy = policy;
+			if (policy && policy.item_name) r.__item = policy.item_name;
+			if (r._id) currentOwnerByResultId[String(r._id)] = ownerItemId;
+		});
+	});
+	resultHistory.forEach((r) => {
+		const ownerItemId = currentOwnerByResultId[String(r._id || '')] || String(r.order_no || '');
+		r.__source_item_id = ownerItemId;
+		r.__policy = policyByItemId[ownerItemId] || policyByItemId[String(r.order_no || '')];
+		if (r.__policy && r.__policy.item_name) r.__item = r.__policy.item_name;
+	});
+	const summarySeen = {};
+	resultHistory.forEach((r) => {
+		if (!isResultVisible(r)) return;
+		const name = String(r.test_name || r.obs_name || r.panel_name || '').trim();
+		if (!name || summarySeen[name]) return;
+		summarySeen[name] = true;
+		summaryLab.push({
+			data_id: String(r._id || ''),
+			name,
+			panel: String(r.panel_name || ''),
+			value: r.result_value != null ? String(r.result_value) : '',
+			unit: String(r.unit_symbol_snapshot || r.units || ''),
+			ref: String(r.reference_range_snapshot || r.ref_range || ''),
+			flag: String(r.interpretation_code || ''),
+			critical: !!r.is_critical,
+			status: String(codeOf(r.result_status) || ''),
+			when: String(r.entered_at || r.created_at || ''),
+			visit_id: String(r.visit_id || ''),
+		});
+	});
+
+	if (hn) {
 		const currentIds = {};
 		const currentOrderNos = {};
 		Object.keys(groups).forEach((key) => {
@@ -402,6 +1005,7 @@ if (currentVn) {
 			});
 		});
 		const finalHistory = resultHistory.filter((r) => {
+			if (!isResultVisible(r)) return false;
 			if (currentIds[String(r._id || '')] || currentOrderNos[String(r.order_no || '')]) return false;
 			const st = String(r.result_status || '').toLowerCase();
 			const obx = String(r.obx_status || '').toUpperCase();
@@ -409,6 +1013,7 @@ if (currentVn) {
 		});
 		Object.keys(groups).forEach((key) => {
 			groups[key].rows.forEach((r) => {
+				if (!isResultVisible(r)) return;
 				const keys = resultKeys(r);
 				r.__previous =
 					finalHistory.find((old) => resultKeys(old).some((key) => keys.indexOf(key) >= 0) && resultTime(old) < resultTime(r)) || null;
@@ -417,10 +1022,11 @@ if (currentVn) {
 	}
 
 	const allGroups = Object.keys(groups).map((key) => groups[key]);
-	const reportIds = uniq(allGroups.reduce((acc, g) => acc.concat(g.rows.map((r) => String(r.result_report_id || r.xparentx || ''))), []));
-	const itemIds = uniq(allGroups.reduce((acc, g) => acc.concat(g.item_ids || []), []));
+	const reportGroups = allGroups.filter((g) => !g.rows.some((r) => !isResultVisible(r)));
+	const reportIds = uniq(reportGroups.reduce((acc, g) => acc.concat(g.rows.map((r) => String(r.result_report_id || r.xparentx || ''))), []));
+	const itemIds = uniq(reportGroups.reduce((acc, g) => acc.concat(g.item_ids || []), []));
 	const reportKeys = uniq(
-		allGroups.reduce((acc, g) => {
+		reportGroups.reduce((acc, g) => {
 			const keys = (g.item_ids || []).map((id) => 'attachment|' + id);
 			if (g.source_order_id && g.section_code) keys.push('attachment-order|' + g.source_order_id + '|' + g.section_code);
 			return acc.concat(keys);
@@ -444,7 +1050,7 @@ if (currentVn) {
 				},
 			},
 		);
-		allGroups.forEach((g) => {
+		reportGroups.forEach((g) => {
 			const wantedIds = {};
 			g.rows.forEach((r) => {
 				wantedIds[String(r.result_report_id || r.xparentx || '')] = true;
@@ -482,12 +1088,21 @@ if (currentVn) {
 
 	/* ── ③ แนวโน้มของค่าที่อยู่ในสองกลุ่มข้างบน ─────────────────────────── */
 	if (hn) {
-		const names = uniq(labOrders.reduce((acc, o) => acc.concat(o.items.map((i) => i.name)), []));
+		const names = uniq(
+			labOrders.reduce(
+				(acc, o) => acc.concat(o.items.filter((i) => i.visibility && i.visibility.state === 'visible').map((i) => i.name)),
+				[],
+			),
+		);
 		if (names.length) {
+			const allowedNames = {};
+			names.forEach((name) => {
+				allowedNames[String(name)] = true;
+			});
 			const byName = {};
 			resultHistory.forEach((r) => {
 				const n = r.obs_name || r.test_name || '';
-				if (!n || !isNumeric(r.result_value)) return;
+				if (!isResultVisible(r) || !allowedNames[String(n)] || !isNumeric(r.result_value)) return;
 				if (!byName[n]) byName[n] = { name: n, unit: r.unit_symbol_snapshot || r.units || '', ref: r.reference_range_snapshot || r.ref_range || '', flag: r.interpretation_code || '', series: [] };
 				byName[n].series.push({ when: String(r.created_at || ''), value: Number(r.result_value) });
 			});
@@ -563,6 +1178,7 @@ return {
 	success: true,
 	current_vn: currentVn,
 	lab_orders: labOrders,
+	summary_lab: summaryLab,
 	xray_results: xrayResults,
 	lab_trends: labTrends,
 };
