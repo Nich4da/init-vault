@@ -2,7 +2,7 @@
 type: synthesis
 title: Wiki Index
 created: 2026-07-16
-updated: 2026-08-30
+updated: 2026-09-28
 tags: [meta, index]
 ---
 
@@ -133,12 +133,14 @@ _User-approved artifact specifications outside the maintained knowledge-base lay
 - [LAB design decision record](../design/Lab_design-contract.md) — evidence, keep/change/do-not-copy boundaries, risks and quality gate. `2026-08-30`
 - [LAB implementation handoff](../design/Lab_implementation-handoff.md) — concise instructions for the first SDForm build. `2026-08-30`
 - [LAB CPOE integration checklist](../design/lab-cpoe-integration-checklist.md) — confirmed Order/Item decisions, panel evidence, worklist API contract, CPOE fixes, and staged path to the first real-data LAB SDForm. `2026-08-30`
+- [Immunology LAB NO flow](../02-his/ui/immunology-lab-no-flow.html) — interactive HTML decision artifact: order-time 1:1 LAB NO per IM/MI-OUT Item, one minimal HN-size 247 × 67 pt sticker per Order with patient name, HN, and up to 5 Item/LAB NO pairs, fail-closed Receive, API contract, and non-regression boundary for other LAB Sections. `2026-09-28`
 - [LAB SDForm working area](../Form-Builder/SDForm/Lab/README.md) — user-approved destination, JSON guardrails, and local CPOE Item status-sync state. `2026-09-02`
 - [X-ray design and functional specification](../design/Xray_design.md) — binding X-ray visual/workflow spec, modality dropdown contract, two-number rule (Order No. vs Accession No.), open decisions X2–X17. `2026-08-31`
 - [X-ray SDForm working area](../Form-Builder/SDForm/X-ray/design.md) — build spec plus the first artifact `xray-cpoe-worklist-v1.json`, its generator and behaviour test. `2026-08-31`
 - [LAB Order Request PDF import](../02-his/handoff/lab-order-request-report-v1-import.md) — staged SQL Factory / Report Factory / Worklist import for `LAB Order Request v1`. `2026-09-02`
 - [X-ray Order Request PDF import](../02-his/handoff/xray-order-request-report-v1-import.md) — same pattern for X-ray with the specimen block removed and no `section_code` scope. `2026-09-02`
 - [LAB/X-ray integration auto-diagnostic tool](../02-his/api-factory/docs/INTEGRATION_AUTODIAG_TOOL.md) — safe-by-default CLI for LAB/X-ray Order/Result smoke, schema, auth, transport, ACK, correlation, evidence checks, and redacted Markdown/JSON reports. `2026-09-23`
+- [EMR Sensitive Result — Re-auth & Access Log](../02-his/handoff/emr-sensitive-result-reauth-access-log.md) — local/UAT replace package: server redaction, re-auth, fail-closed Access Log, Summary bypass closure และ locked UI สำหรับ Treat Summary/EMR History; ยังไม่ deploy. `2026-09-25`
 
 ---
 

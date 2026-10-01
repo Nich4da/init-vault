@@ -4206,3 +4206,506 @@ Append-only, chronological. Newest at the bottom. Each entry header is
 - ตรวจ tree ที่ staged ด้วย `git checkout-index` ก่อน commit: 33 เทสผ่าน / 10 แดง ซึ่งเป็น 10 ตัวเดิมที่แดงอยู่ก่อนแล้วใน worktree; SDForm validator ผ่านทุกฟอร์มที่เราเขียนเอง (ไม่ใช้กับ module/SQL export ที่ดึงจากระบบจริง).
 - กันไว้ไม่ commit เพราะ `origin` เป็น repo public และไฟล์เตือนเองว่า "ห้าม push ขึ้นที่สาธารณะ": 4 ไฟล์ที่มี print-agent token + 6 เทสที่อ่านไฟล์เหล่านั้น (ไม่งั้น tree ที่ push จะมีเทสพัง) + ส่วน finance gate ใน `update_lab_cpoe_worklist_ui.js` ที่ design ยังรออนุมัติ. ทุกไฟล์ยังอยู่ในเครื่องครบ.
 - `tmp/` (3 MB scratch) ถอดออกจาก commit และใส่ `.gitignore` แทน.
+
+## [2026-09-25] audit | TOR X-ray: ระบบนัดล่วงหน้าเดินจริง — ขยับ 9 ข้อ เหลือยังไม่มี 37
+- ตรวจ Mongo read-only: `zdata_xr_booking` มีใบนัดจริง **7 ใบ** ล่าสุด `XR-260928-0001` (นัด 28 ก.ย.) และมีรายการวันนี้ 11:39–11:43 · ทุกใบ `source: "liff"` ผูก `line_user_id` สร้างโดย `guest visit` ⇒ จองเองผ่าน LINE ได้ · ใบจริงมี `confirmed_at/by`, `moved_from`/`moved_at`/`moved_by`, `status: cancelled` + `status_reason`/`status_by`, `card_sent_at`, `remind_1d_at`, `remind_7d_at`, `items[].price` + `price_total`, `age_text`/`age_band`, `guardian_phone`, `prepare_note` · `zdata_appt_items` ที่ `service_type: xray` = promoted 4 / planned 10
+- **ขยับ 9 ข้อ:** §3.4.3.4 ตอบรับ/แก้ไข/ยกเลิก → **ครบ** · §3.4.3.1 รายชื่อผู้นัด, §3.4.3.4 ใบสรุป indication/ตารางนัด/จัดเรียงกรอง/จองออนไลน์+แจ้งเตือน/เลื่อนนัด/ค่ารักษา และ §3.4.3.5 ดำเนินการนัดหมาย → **บางส่วน** · ผลรวมจาก 14/13/46 เป็น **ครบ 15 / บางส่วน 21 / ยังไม่มี 37** จาก 73 ข้อ (20%/29%/51% · ถ่วงน้ำหนัก ≈ 35%) · ข้อกำหนดยังเป็น 73 ข้อ ไม่มีเพิ่ม/ลด
+- **ไม่ขยับเพราะไม่มีหลักฐาน:** §3.4.3.4 เชื่อมไปประวัติการรักษาในวันนัด · ผู้ป่วยใหม่ลงทะเบียนออนไลน์ (ใบจริงทุกใบมี HN แล้ว) · บันทึกพยาบาล/Consult · §3.4.3.2 กดดูใบสรุป indication (`has_request: false` ทุกใบ)
+- 🔴 ที่ยังกั้นหมวดนี้: (1) ใบจองไม่แปลงเป็นใบสั่งในวันนัด — `zdata_xr_booking` ไม่มี `visit_id`/`order_id` · `appt-items-promote` `6a96956c422c1ca959829f1b` รองรับ `xray` แล้วแต่ยังไม่ต่อกับใบจอง X-ray (มติ 23 ก.ย. ทาง A · standby) · `arrived_at` ยังว่างทุกใบ · (2) จอกั้นสิทธิ์ `['RIS','XRAY','ADMIN']` แต่ `RIS` 0 บัญชี และไม่มี role `XRAY`
+- ข้อที่ต้องยืนยันด้วยตา (มุมมองปฏิทิน · ตัวกรองบนจอ) ยังไม่แตะ เพราะ `form_model` ของจอ `XR Staff Booking` `6ab207459a834d51703fc158` ถูกเข้ารหัส
+- อัปเดต `Form-Builder/SDForm/X-ray/spec.md` (เพิ่มบันทึกรอบ 21 ก.ย. ที่ 14/13/46 ซึ่งเคยตกไป และรอบ 25 ก.ย.) และ artifact `842038a1-fb08-4aae-8f15-347ff32f9d2e` ในลิงก์เดิม · ตรวจหลังแก้ด้วยสคริปต์: tally ทุกหมวดตรงกับจำนวน chip และรวม 73 ข้อ · ไม่แตะโค้ดหรือข้อมูล HIS
+
+## [2026-09-25] audit | TOR X-ray รอบสอง: ยกเลิกถึง RIS · สารทึบ · ค่าใช้จ่าย · หมวดใหม่ "ไม่ทำตามนโยบาย"
+- **ยกเลิกถึง RIS แล้วจริง** — ผู้ใช้ทักว่าลองแล้วและฟิลด์ชื่อคล้าย cancel · ตรวจแล้วคือ `IsDeleted` (`xray_order.json` default `False`) ซึ่ง `xray_cpoe_worklist_api.js:1087` ส่ง `payload.IsDeleted = true` · `zdata_xray_order_cancellation` มีสองใบที่ RIS ตอบรับ: `SM20260918DX001` (18 ก.ย. 14:23) และ `SM20260918DX003` (15:19) ทั้งคู่ `ris_cancel.status: confirmed` · `ris_ack: AA` · `forward_http_status: 200` · `zdata_xray_order` มี 7 ใบ `IsDeleted: true`
+- 🔴 หลักฐานเดิมที่บอกว่า "ยังไปไม่ถึง" ล้าสมัย: `SM20260918MR003`/`SM20260918CT002` ที่ 401 เกิด 13:31–13:38 คือ **ก่อน** ทีมแก้ `xray_api_order` 14:05 และทั้งคู่ `cancel_status: reopened` ไปแล้ว ⇒ ถอด bullet นี้ออกจากบล็อก "ที่ยังค้างบนเส้นทาง RIS"
+- **หมวดสถานะที่ 4 "ไม่ทำตามนโยบาย"** (chip/tile/tally/แถบสัดส่วนสีเทา) — §3.4.3.1 แก้ไขรายการตรวจและราคา ย้ายจาก "ยังไม่มี" มาหมวดนี้ ตามที่ผู้ใช้ยืนยันว่าห้องรังสีแก้รายการเองไม่ได้โดยเจตนา (ต้องสั่งใหม่ หรือให้แพทย์ผู้สั่งยกเลิก) และ setting การเงินไม่เปิดให้เพราะจะทำให้ข้อมูลวุ่นวาย · ส่วน "เห็นราคา" ทำได้แล้ว
+- **ปิดเพิ่ม 3 ข้อ:** §3.4.3.2 สารทึบรังสี → ครบ (ปุ่มเป็นคอลัมน์ที่ 12 ของ Worklist ตั้งแต่ 23 ก.ย. · `zdata_xray_contrast_media` มีบันทึกจริง 1 แถว 24 ก.ย. ผูก accession/order/item/visit ครบ · ฟอร์มมี `contrast_types`/`contrast_volume_ml`/`contrast_brand`) · §3.4.3.5 ดูสรุปค่าใช้จ่าย และ §3.4.3.4 ดูสรุปค่ารักษา → ครบ (`CPOE_app.json` มี `ราคา` 32 จุด/`สิทธิ` 23 จุด · Worklist คืน `finance{total_amount,paid_amount,coverage}` · ใบนัดมี `price_total`)
+- **ขยับเป็นบางส่วน 2 ข้อ:** §3.4.3.2 กดดูใบสรุปประวัติ/indication และบันทึกเพิ่มได้ — อยู่ในระบบนัดจริง (`has_request`, `request_files[]`, `source_ref`, `prepare_note`, `prepTpl/prepTplEdit`, ต่อ `core_files_manage`) แต่ใบจริงทั้ง 7 ใบยัง `has_request:false` จึงยังไม่ปิด
+- ผลรวมจาก 15/21/37 เป็น **ครบ 18 / บางส่วน 21 / ยังไม่มี 33 / ไม่ทำตามนโยบาย 1** จาก 73 ข้อ (25%/29%/45%/1% · ถ่วงน้ำหนัก ≈ 39%)
+- อัปเดต artifact `842038a1-fb08-4aae-8f15-347ff32f9d2e` ในลิงก์เดิม และ `Form-Builder/SDForm/X-ray/spec.md` · ตรวจหลังแก้ด้วยสคริปต์: tally ทุกหมวด = chip จริง, tile = ผลรวม, รวม 73 ข้อ · ไม่แตะโค้ดหรือข้อมูล HIS
+- 🔶 รอผู้ใช้เคาะ: §3.4.3.8 "จัดการราคาของแต่ละรายการตรวจ (Override price)" ควรเข้าหมวด "ไม่ทำตามนโยบาย" ด้วยไหม เพราะเป็น setting การเงินเหมือนกัน
+
+## [2026-09-25] audit | EMR Sensitive Result — Re-auth & Access Log
+- ตรวจระบบเดิมและ Mongo `his` แบบ read-only; ไม่แก้/เขียน/deploy production. ยืนยัน `zdata_master_item_order.is_hide_result=true` ที่ `IM2`, `I0058`, `I0059`; `BB543` ยังไม่ true. CPOE Item เก่าของ `IM2` ไม่มี snapshot flag จึงต้อง join current master.
+- พบช่องเปิดหลัก: `emr-lab-board-get` ส่ง value/comment/previous/trend/report/attachment ก่อน re-auth; EMR card render ค่าก่อนกด popup; `emr-summary-get.lab[]` query Result Item ตรงเป็น bypass อีกทาง. Process ทั้งสาม EMR เป็น public/no assigned roles และ board ยังเชื่อ `hn` จาก client.
+- พบ flow คนละความหมาย: `lab_cpoe_worklist_api.set_result_visibility` เขียน top-level CPOE Item `is_hide_result`; ห้ามใช้เป็น Sensitive และต้องแยกเป็น revision-scoped hold ภายหลัง.
+- จัดทำข้อเสนอ `02-his/handoff/emr-sensitive-result-reauth-access-log.md`: server-side redaction/reauth, append-only access log, fail-closed audit, UI points, PDF/attachment gate, deployment order และ acceptance tests. ไม่มี implementation change.
+
+## [2026-09-25] implement | EMR Sensitive Result Step 1 — server redaction ใน LAB board
+- แก้ local `emr-lab-board-get.js` ให้ resolve Result → CPOE Item → current `zdata_master_item_order`; ใช้ `item_data_id` ก่อน, fallback exact `item_code` เมื่อไม่มี id และไม่ใช้ CPOE Item `is_hide_result` ของ correction flow.
+- Sensitive คืน placeholder `reauth_required` หนึ่งรายการต่อ CPOE Item; policy หาไม่ได้เป็น `withheld`. ไม่ serialize value/comment/unit/ref/flag/critical/result ids/previous/trend; mixed order ยังเห็นค่าทั่วไป แต่ report/PDF/attachment surface ถูกปิดทั้งกลุ่ม.
+- เพิ่ม `test_emr_lab_sensitive_result_redaction.js` และปรับ fixture ผลก่อนหน้าให้มี CPOE/master provenance. EMR tests 4 ชุด + `git diff --check` ผ่าน.
+- ยังไม่ deploy และยังไม่ปลอดภัยครบ: `emr-summary-get.lab[]` direct bypass, server re-auth, Access Log และ locked UI เป็น Step ถัดไป.
+
+## [2026-09-25] ui | TOR X-ray artifact: กดไทล์สรุปเพื่อกรองรายข้อได้
+- ผู้ใช้ขอให้ไทล์สรุป 4 ช่อง (ครบ/บางส่วน/ยังไม่มี/ไม่ทำตามนโยบาย) กดกรองได้ · เปลี่ยน `div.tile` เป็น `button.tile` พร้อม `data-f` + `aria-pressed` ใช้คีย์บอร์ดและ screen reader ได้
+- กดไทล์เดิมซ้ำ = ปิดตัวกรอง · `Esc` ปิดได้ · มีแถบบอกว่ากรองอะไรอยู่ กี่ข้อจาก 73 กี่หมวด พร้อมปุ่ม "แสดงทั้งหมด" · หมวดที่ไม่มีข้อตรงเงื่อนไขถูกซ่อน และ `none-note` ระดับหมวดซ่อนตอนกรอง · เลื่อนไปหัวข้อ "ผลตรวจรายข้อ" ให้อัตโนมัติ
+- อ่านสถานะจากคลาสของ chip ครั้งเดียวเก็บใน `data-status` ⇒ ไม่แตะตัวเลข tally/tile/เนื้อหาข้อใดเลย · ไม่มี JS ก็ยังเห็นครบ 73 ข้อตามเดิม (progressive enhancement)
+- ตรวจหลังแก้: `node --check` ผ่าน · regex ดึงสถานะได้ครบทั้ง 4 แบบจาก className จริง · tally ทุกหมวด = chip จริง, ไทล์ = ผลรวม, รวม 73 ข้อ เท่าเดิม
+
+## [2026-09-25] feat | X-ray Worklist: dropdown "เรียงตาม" ข้างตัวกรองเครื่อง
+- ผู้ใช้สั่งปิดข้อ TOR §3.4.3.1 ที่ค้างเพราะ "จัดเรียงเองไม่ได้ (เรียงตามเวลาสั่งใหม่→เก่าตายตัว)" · วางไว้ "ข้างๆ filter เลือกเครื่อง modality" และกำกับว่า "ห้ามกระทบ flow อื่นที่สำเร็จแล้ว"
+- API `xray_cpoe_worklist_api.js`: เพิ่ม `sort` (รับชื่อสำรอง `sort_by`) แบบ whitelist — `latest` (ค่าเริ่มต้น) = `{status_at:-1, requested_at:-1, order_number:-1}` คีย์เดิมเป๊ะ · `oldest` = กลับทิศคีย์ชุดเดียวกัน · ค่าอื่นตกกลับ `latest` แบบ fail-closed · response เพิ่มคีย์ `sort` และ `sort_options` แบบ additive
+- จอ (generator → `xray-cpoe-worklist-v1.json`): `div.xr-sort-field` + `el-select` วางถัดจาก `xr-modality-field` ทันทีและก่อนปุ่ม Search · `s.sortKey='latest'` · `s.setSort` รีเซ็ตหน้า 1 แล้ว `loadOrders()` เท่านั้น (chip ไม่ขึ้นกับลำดับ) · ใส่ `sort` ก่อน early return ทุกอันเพื่อให้โหมดสแกน/เปิดจากคิวเรียงตามที่เลือกด้วย · ค่าเริ่มต้น **ไม่ส่งคีย์ `sort` เลย** ⇒ คำขอเดิมเหมือนเดิมทุกไบต์
+- 🔴 จับ regression ได้ระหว่างทาง: generate รอบแรกไม่ได้ตั้ง env ทำให้ `RIS_VIEWER_ENABLED` พลิก `true → false` (ปุ่ม "ดูภาพ" จะถูกปิดเงียบ ๆ) · generate ใหม่ด้วย `XRAY_RIS_VIEWER_ENABLED=1` ตามที่หัวไฟล์ generator เตือนไว้เอง — ต้องใช้ env นี้ทุกครั้งที่ regenerate
+- พิสูจน์ว่าไม่กระทบของเดิม: diff JSON แบบ path-by-path เทียบไฟล์ก่อนหน้า — เพิ่ม/หาย path = 0 · เปลี่ยนแค่ `options.content` (+8), `options.onCreated` (+19), `formConfig.cssCode` (+4/-1 ที่เป็นจุดแทรก) ไม่มีบรรทัดเดิมถูกลบ
+- เทส: เพิ่ม regression ใน `test_xray_cpoe_worklist_api.js` (ไม่ส่ง sort = คีย์เดิมเป๊ะ · `oldest` ใช้คีย์ชุดเดียวกันกลับทิศ · ค่าพิการ 8 แบบตกกลับค่าเดิม · chip/total ไม่เปลี่ยนตามลำดับ) และ `test_xray_cpoe_worklist_form.js` (ตำแหน่งต้องอยู่ถัดจากตัวกรองเครื่องและก่อน Search · กดซ้ำไม่ยิงซ้ำ · รีเซ็ตหน้า 1 · ตัวกรองเครื่องไม่ถูกแตะ · โหมดสแกน/คิวได้ sort ด้วย)
+- ชุดเต็ม **40 ผ่าน / 10 แดง** (10 ตัวเดิม) · SDForm validator exit 0 คำเตือนเท่าเดิม
+- ยังไม่ deploy: ต้อง import Form JSON + replace Process แล้วยืนยันบนจอจริง · ข้อ TOR ยังเป็น "บางส่วน" เพราะยังเหลือ "Code ตรงกรมบัญชีกลาง" ที่ยังไม่ยืนยัน · อัปเดตหลักฐานใน artifact `842038a1…` และ `spec.md §4.1.1` แล้ว
+
+## [2026-09-25] implement | EMR Sensitive Result — re-auth + Access Log + locked UI พร้อม replace UAT
+- ต่อ Step 1 จนครบ flow local: board derive patient/HN จาก visit ที่ server, `action: open_sensitive` ตรวจ session username, role, blocked account, current master และ password จาก `core_user`; insert `zdata_emr_sensitive_access_log` สำเร็จก่อนจึงคืนผล และ fail closed เมื่อ log ล้ม.
+- ปิด `emr-summary-get.lab[]` direct bypass โดยใช้ `summary_lab` จาก board ที่ผ่าน policy. Treat Summary/EMR History มี locked card + readonly username/password/purpose dialog; ล้าง password หลัง submit และ reload เพื่อล้าง disclosed value เมื่อปิด viewer.
+- UAT role รอบแรก: `DOCTOR` และ admin roles; NURSE/MR ยังปฏิเสธ. Sensitive PDF/attachment ยังซ่อนจนมีกลไก gate/log แยก; LAB Workbench และ correction flow ไม่เปลี่ยน.
+- เพิ่ม re-auth/UI/summary regression tests; source compile 6 ไฟล์, EMR tests 6 ชุด และ `git diff --check` ผ่าน. รายการ replace/ทดสอบอยู่ที่ `02-his/handoff/emr-sensitive-result-reauth-access-log.md`; ยังไม่ deploy และ Builder/Preview UAT ยังรอ.
+
+## [2026-09-25] uat | EMR Sensitive Result หลัง replace — pending path ผ่าน, รอผลจริง
+- ตรวจหน้าจอจริงจาก LAB Worklist: เปิด EMR History และกด reload LAB board ซ้ำได้โดยไม่เกิด `Unable to display this content`; pending order ยังแสดงตามปกติ.
+- เคสที่มี `IM2 Anti-HIV` ยังอยู่สถานะรอรับ/ready และไม่มี Result Item จึงยังไม่เกิด locked card/re-auth dialog; ยังยืนยัน password และ Access Log runtime ไม่ได้.
+- ขั้นต่อไปต้องให้ LAB รับและออกผลผ่าน flow ปกติบน UAT/test patient แล้ว reload EMR; ผลบวกหรือลบก็ใช้ทดสอบได้ เพราะ policy ผูกกับ item code. ไม่สร้าง/แก้ผลผู้ป่วยจริงเพียงเพื่อทดสอบ.
+
+## [2026-09-26] feat | ถอดปุ่ม "นัดล่วงหน้า" ออกจาก X-ray Worklist + สำรวจโมดูลนัด
+- ผู้ใช้เปลี่ยนแพลน: "เอาปุ่มนัดล่วงหน้าออกได้เลย ... ควรแยก module ดีกว่า เพราะในระบบนัดล่วงหน้ามีทุกอย่างครบแล้ว ... มีทั้งรายการนัด ตาราง schedule"
+- ถอดออก: markup ปุ่มใน `.xr-create-group` · `APPOINTMENT_FORM_ID` · `s.appointmentHint` · `s.openAppointment` · CSS `.xr-appointment-button` · ค่าคงที่/env `XRAY_APPOINTMENT_FORM_ID` ในตัว generator · ปุ่มหนังสือยินยอมเลื่อนจาก `grid-row:2` ขึ้น `grid-row:1` แทนช่องที่ว่างลง
+- diff JSON path-by-path: เพิ่ม/หาย path = 0 · `content` −2 · `onCreated` −35/+1 · `cssCode` −2/+1 · ของเดิมที่ยังอยู่ครบ: สร้างรายการใหม่ · หนังสือยินยอม · สารทึบ · dropdown เรียงตาม · `RIS_VIEWER_ENABLED=true` (regenerate ด้วย `XRAY_RIS_VIEWER_ENABLED=1` ตามกฎ)
+- เทส: แทน assertion เดิมที่ล็อกว่า "ปุ่มต้องมีและเชื่อมจอ XR Staff Booking" ด้วย assertion ตรงข้ามใน 3 ไฟล์ (`test_xray_cpoe_worklist_form.js`, `test_xray_queue_deeplink.js`, `test_xray_consent_document_library.js`) พร้อมคอมเมนต์ลงวันที่ว่าใครสั่ง · คงการตรวจปุ่มที่เหลือไว้ครบ · SDForm validator ผ่าน
+- ชุดเต็ม **42 ผ่าน / 11 แดง** — 10 ตัวเป็นชุดเดิม ส่วน `test_lab_cpoe_worklist_api.js` แดงเพิ่ม **ไม่ใช่จากงานนี้**: เป็นเรื่องเหตุผลการแก้ไขผล LAB (`กรุณาระบุเหตุผลการแก้ไขผลอย่างน้อย 3 ตัวอักษร`) ใน `lab_cpoe_worklist_api.js` ที่ session อื่นแก้อยู่วันนี้ 15:52 — ไม่แตะ
+- **สำรวจโมดูลนัด (read-only):** `sdform_manage` มีฟอร์มตระกูลนัด 23 ตัว · ฝั่ง X-ray มี `XR Staff Booking` `6ab207459a834d51703fc158` และ **`XR Nurse App` `6ab62fa9469a0989e63a59d1` (สร้าง 25 ก.ย. 15:24 แก้ 19:20)** · `form_model` ของทั้งสองจอ **เข้ารหัส** (`key/iv/data`) อ่านโค้ดจากฐานไม่ได้
+- โครงข้อมูลที่ยืนยันได้: `zdata_xr_round_rule` = กติกาตาราง (`weekdays`, `start_time/end_time`, `slot_minutes`, `period`, `capacity`, `quota_online`, `lead_days`, `ahead_days`, `active_from/to`) → `zdata_xr_slot` = ช่องเวลารายวัน (`booked_count`, `booked_online`, `closed`; US 8 ช่อง/5 วัน จองแล้ว 4, RF 1 ช่อง) → `zdata_xr_booking` = ใบจอง · `zdata_xr_item` = รายการตรวจที่เปิดให้นัด **75 รายการ** (`online`, `slots`, `prep_mode`/`prep_b1..b3`, `contrast`, `price_ref`)
+- บันทึกไว้ที่ `Form-Builder/SDForm/X-ray/spec.md §4.1.2` (การถอดปุ่ม) และ `§4.1.3` (ผังโมดูลนัด)
+
+## [2026-09-26] audit | TOR X-ray: ตารางนัดมีมุมมองปฏิทิน — ปิดเพิ่ม 1 ข้อ
+- ผู้ใช้ยืนยันบนหน้าจอว่าโมดูลนัดมีทั้ง **รายการนัด** และ **ตาราง schedule แบบปฏิทิน** ⇒ §3.4.3.4 "แสดงตารางนัดหมายล่วงหน้าทั้งหมด ทั้งแบบตารางและปฏิทิน" ขยับ **บางส่วน → ครบ**
+- ฝั่งข้อมูลที่รองรับ (ตรวจเองได้): `zdata_xr_round_rule` (weekdays/start_time/end_time/slot_minutes/period/capacity/quota_online/lead_days/ahead_days) → `zdata_xr_slot` (slot_date/time_slot/booked_count/booked_online/closed) · `xr-staff-queue` + `xr-staff-data` action `bookings|avail|next_free`
+- ผลรวมจาก 18/21/33/1 เป็น **ครบ 19 / บางส่วน 20 / ยังไม่มี 33 / ไม่ทำตามนโยบาย 1** จาก 73 ข้อ (26%/28%/45%/1% · ถ่วงน้ำหนัก ≈ 40%) · §3.4.3.4 เป็น 3/4/3
+- ไม่ขยับ §3.4.3.4 "จัดเรียง/กรองรายการนัด" เพราะผู้ใช้ยืนยันแค่เรื่องปฏิทิน — ข้อมูลครบทุกมิติในใบนัดแล้ว แต่ยังไม่ยืนยันว่าจอเปิดให้กรองครบ (โค้ดจอเข้ารหัส)
+- อัปเดต artifact `842038a1…` ในลิงก์เดิม (tally/tile/แถบ/ถ่วงน้ำหนัก ตรวจด้วยสคริปต์แล้วตรงกันทั้งหมด รวม 73 ข้อ) และ `Form-Builder/SDForm/X-ray/spec.md §4.1.3`
+
+## [2026-09-26] implement | LAB Result Edit Log — current + append-only correction audit
+- เพิ่ม SDForm candidate `Form-Builder/SDForm/Lab/lab-result-edit-log-v1.json` (generator `build_lab_result_edit_log_form.py`) สำหรับ collection `zdata_lab_result_edit_log`; เก็บ before/after, เหตุผล, changed fields, source IDs, ผู้แก้และเวลา โดยทุก field read-only ใน Form UI.
+- `lab_cpoe_worklist_api.js` แยก HIS/Manual pencil correction ออกจาก Agent/LIS: บังคับเหตุผลอย่างน้อย 3 ตัวอักษร, insert Log แล้ว update current `zdata_lab_result_item` ใน `mongoTxn` เดียวกัน, fail closed ถ้า transaction/log/update ไม่สำเร็จ, ใช้ `request_id + Result Item` ป้องกัน retry ซ้ำ และไม่แตะ Critical/source/status.
+- Worklist popup แสดงช่องเหตุผลเฉพาะเมื่อแก้ Result Item เดิมและแสดงประวัติแก้ไขแยกจากค่าก่อนหน้าข้าม Visit; Sensitive Access Log ยังคงเป็น flow แยก.
+- ตรวจผ่าน: SDForm validator 2 ไฟล์, Process compile, Result Edit Log/API/Form tests, cancel/retest regressions และ scoped `git diff --check`. ยังไม่ deploy; ต้อง import Form ชื่อ `lab_result_edit_log` ก่อน replace Process/Form แล้วทำ runtime fail-closed UAT.
+
+## [2026-09-26] fix | LAB lookup PDF — แยก clinical Result Report ออกจากไฟล์แนบ
+- ผู้ใช้พบหน้า “สืบค้นผล LAB” ของ HN `6900031`/BC มีผล 6 tests / 10 rows แต่ปุ่ม “รายงานผล” disabled ทั้งที่ห้องทั่วไปต้องดู PDF ได้ตามปกติ; ยืนยัน Mongo read-only ว่า Result Item ทั้ง 10 แถวผูก clinical Result Report เดียว `6aa906571c5232627d0c6d8f`.
+- สาเหตุ: API ใช้ `result_report_id` ซ้ำเป็น ID ของ attachment container; เมื่อ Order มีไฟล์แนบ `1/10` UI จึงเห็น clinical parent + attachment parent เป็นสองชุดและปิดปุ่มเพื่อกันพิมพ์ผลไม่ครบ.
+- แก้ `lab_cpoe_worklist_api.js` ให้ `result_report_id(s)` หมายถึง clinical parent เท่านั้น และเพิ่ม `attachment_report_id`; แก้ Worklist UI ให้ Result Item row IDs มีสิทธิ์เหนือ top-level fallback (รองรับ API รุ่นก่อนหน้า) แต่ locked Sensitive ที่ไม่มี row ยังใช้ redacted-PDF parent ได้.
+- regenerate `lab-cpoe-worklist-waiting-v1.json`; เพิ่ม regression ทั้ง API/Form สำหรับ normal cross-room result + attachment. Process compile, API/Form tests, SDForm validator, receive/cancel/retest และ Sensitive redaction ผ่านทั้งหมด. ยังไม่ deploy; replace Process + Form แล้วทดสอบ Order เดิม.
+
+## [2026-09-27] ui | ย้ายแท็บ "สืบค้นผลแลป" ของ X-ray ไปท้ายสุด
+- ผู้ใช้ทักว่า tab ใหญ่ของ X-ray เป็นของ **คิว** แต่สืบค้นผลแลปเป็นคนละหน้าที่ แล้วเคาะว่า "แค่ย้าย tab สืบค้นผลแลปไปอยู่สุดท้าย"
+- ลำดับใหม่: `Unit Queue` · `My Room` · `X-ray` · `Completed` · **`สืบค้นผลแลป`** · แท็บ `active: true` ยังเป็น `xray_tab_worklist`
+- 🔴 ไม่ทำ tab ซ้อนชั้น/แถบโหมดแบบ LAB เพราะ: LAB ไม่มี tab ใหญ่เลย (root = `grid > grid-col > vue-ui` ตัวเดียว · lookup เป็น `viewMode` ข้างในวิดเจ็ตเดียวกัน) · ฝั่ง X-ray `xray_lab_lookup` เป็นวิดเจ็ตแยกที่ชื่อ state/ฟังก์ชันชนกับ `xray_cpoe_worklist` เกือบทั้งชุด ⇒ ยุบรวมคือ refactor ใหญ่ · และ **สแกนฟอร์มในรีโป 129 ไฟล์ไม่พบ `tab` ซ้อนใน `tab-pane` เลย** ซึ่ง `SDFORM_JSON_RULES.md` ห้ามประกอบโครงเอง (เคย render ว่างมาแล้ว)
+- พิสูจน์: `formConfig` เหมือนเดิมทุกไบต์ · `scan-code-ui`/`local-agent-ui` เหมือนเดิมทุกไบต์ · `options` ของ tab root เหมือนเดิม · ชุด pane เท่ากันและเนื้อหาทุก pane เหมือนเดิมทุกไบต์ **เปลี่ยนเฉพาะลำดับใน `tabs[]`** · `RIS_VIEWER_ENABLED=true`/dropdown เรียงตาม/ปุ่มสารทึบยังอยู่ (regenerate ด้วย `XRAY_RIS_VIEWER_ENABLED=1`)
+- เทส: ย้าย assertion ลำดับ pane พร้อมคอมเมนต์ลงวันที่ว่าใครสั่ง · เพิ่ม assertion ว่า worklist ยังเป็นแท็บแรกที่เปิด และสืบค้นผลแลปต้องเป็น pane สุดท้าย · เปลี่ยนการอ้างวิดเจ็ตคิวจาก `tabs[index]` เป็นค้นด้วยชื่อ pane เพื่อไม่ผูกกับลำดับอีก
+- ชุดเต็ม **44 ผ่าน / 10 แดง** (ชุดเดิม · `test_lab_cpoe_worklist_api.js` ที่แดงเมื่อวานกลับมาผ่านแล้วหลัง session อื่นทำงานเสร็จ) · SDForm validator ผ่าน · บันทึกไว้ที่ `spec.md §4.1.4`
+
+## [2026-09-27] fix | X-ray lookup: ล็อกความกว้าง Date Range แบบ LAB + พบด่านสิทธิ์ที่ยังบล็อก
+- ผู้ใช้ทัก "ช่อง daterang ยาวมากไม่ใช่ pattern เดียวกับแลป" · ของเดิม `.xll-date{width:220px!important}` ล็อกแค่ width แต่ Element Plus ยังยืดในกล่อง flex ได้ · LAB ล็อกสองชั้น `.lab-toolbar .lab-date-control{width:220px!important;flex:0 0 220px}` ⇒ ยกมาใช้ตรง ๆ ทั้ง `.xll-date` และ `.xll-search` พร้อมขั้น responsive ชุดเดียวกับ LAB (≤900px ครึ่งแถว · ≤760px เต็มแถว `flex:auto`)
+- diff JSON: เพิ่ม/หาย path = 0 · เปลี่ยนเฉพาะ `formConfig.cssCode` (+3/−2) · ไม่แตะ markup/สคริปต์/ลำดับแท็บ · `RIS_VIEWER_ENABLED=true` และ dropdown เรียงตาม ยังอยู่ · เทส **44 ผ่าน / 10 แดงชุดเดิม** · validator ผ่าน
+- 🔴 **เรื่องที่ยังแก้ไม่ได้:** ผู้ใช้กดค้น HN `6900023` จาก org `กลุ่มงานรังสีวิทยา` แล้วขึ้น "บัญชีผู้ใช้ไม่ได้อยู่ในห้อง LAB ที่เปิดใช้งาน" · ต้นเหตุคือ `lab_cpoe_worklist_api.js:386` — `crossSectionRequested && !localSectionCodes.length` ⇒ โหมด cross-section ออกแบบให้คน LAB อ่านข้ามห้อง ไม่ได้เผื่อผู้ใช้ที่ไม่มีห้อง LAB เลย
+- ทางแก้ที่เล็กที่สุด: ให้ org รังสี (`XRAY_ORGANIZATION_CODES = ['m0900','m0901','CT']`) ผ่านด่านนี้เฉพาะโหมดอ่าน (`cross_section` + `lookup_mode`) ไม่แตะ write action · **ยังไม่ลงมือ** เพราะไฟล์นั้น workstream อื่นถืออยู่ (แก้ 2026-09-26 16:23 · อยู่ในชุด EMR Sensitive Result ที่ต้อง replace Process ตัวนี้ตอน release) — รอผู้ใช้เคาะว่าจะประสานหรือส่งต่อ
+- บันทึกที่ `spec.md §4.1.5`
+
+## [2026-09-27] security | Sensitive Result grant เหลือ 5 นาทีและเปิดซ้ำแบบ scoped reuse
+- ผู้ใช้ยืนยัน policy ใหม่: re-auth หนึ่งครั้งใช้ได้ 5 นาที เฉพาะ viewer + CPOE Order + LAB Section เดิม; ไม่เก็บ token ใน localStorage และปิด popup แล้วล้างค่าที่เปิดเผยออกจาก UI ทันที.
+- `emr-lab-board-get` เพิ่ม `reuse_sensitive`: ตรวจ grant หมดอายุ/scope, recheck บัญชีแพทย์ปัจจุบัน และเขียน Access Log ใหม่ทุกครั้งก่อนคืนค่า; ไม่ออก token ใหม่เมื่อ reuse. Treat Summary/EMR History ใช้ token ใน memory และ force remount `sd-report` เมื่อ token เปลี่ยน.
+- `lab_cpoe_worklist_api` ลด TTL ของ grant ทั้ง re-auth และ same-room PDF เป็น 5 นาที; Worklist Form อธิบาย scope/อายุใหม่. ก่อนยืนยัน PDF ยังเปิดได้โดย Sensitive row ว่างตาม Report SQL contract.
+- Regression ครอบคลุม success reuse, expiry, viewer/Section isolation, UI close/reopen, report remount และ LAB TTL; EMR/LAB tests ผ่าน, SDForm validator exit 0. ยังต้อง replace/UAT runtime ก่อน production.
+
+## [2026-09-27] ui | Mockup บันทึกการใช้สารทึบรังสี 2 แท็บ
+
+- สร้างไฟล์ใหม่ `02-his/ui/xray-contrast-media-record-mockup.html` (ไม่แก้ไฟล์เดิมสักไฟล์)
+- แท็บ 1 ประวัติการใช้สารทึบ — ค้น HN แล้วดูว่า order ไหน วันไหน มีบันทึก · อ่านอย่างเดียว
+  · แถว/ตารางยกจาก `02-his/ui/xray-workbench-mockup.html` ทั้งชุด (CSS คัดลอกตรง) ตัดเฉพาะของฝั่งเขียน
+- แท็บ 2 บันทึกการใช้สารทึบ — ค้น HN → กางใบ → เลือกรายการตรวจ → เปิดฟอร์มจำลองของ
+  `xray-contrast-media-record-v1` (9 หมวดตามฟอร์มจริง + การ์ดตัวระบุรายการที่ระบบเติมให้)
+- ยืนยันกติกาเดิม: ชิปว่าง = "ยังไม่ได้บันทึก" ห้ามอ่านว่า "ไม่ได้ฉีด" · ปุ่มสารทึบคอลัมน์ 12
+  ใน Worklist ยังเป็นของเดิมที่ใช้งานได้ หน้านี้เป็นทางเข้าเพิ่ม ไม่ใช่ของแทน
+- ข้อค้างที่บันทึกไว้ในหน้า: `xray_cpoe_worklist_api.js` ยังไม่ join `zdata_xray_contrast_media`
+  ⇒ แท็บ 1 ต้องมี read path ใหม่แบบ read-only · และยังต้องเคาะว่าจำเป็นต้องมีแท็บ 2 หรือไม่
+- ตรวจแล้ว: `node --check` ของสคริปต์ผ่าน · เรนเดอร์ด้วย Chrome headless ทั้งสองแท็บและทั้งสอง dialog
+
+## [2026-09-27] ui | Mockup สารทึบ เปลี่ยนมาใช้ pattern ของแท็บสืบค้นผลแลป
+
+- ผู้ใช้ทักว่า pattern การแสดงรายการไม่ตรงกับ LAB — ให้ยกของ `xray_lab_lookup` มาใช้ตรง ๆ
+- แทนที่โครงแถวแบบ X-ray Worklist (patient-block) ด้วยโครง `.xll-*` ทั้งชุด:
+  toolbar (HN · Date Range · Search) → mode strip 2 ปุ่ม + small → summary → xll-shell
+- CSS `.xll-*` คัดลอกตรงจาก `build_xray_cpoe_worklist_ui.js` ไม่แก้ค่า · ตัด dropdown เครื่อง
+  status chip และปฏิทิน popover ของเดิมออกเพราะ LAB ไม่มี
+- แมปคอลัมน์ไม่เพิ่มของใหม่: Specimen→สารทึบ · ห้องแลป→เครื่อง · LAB NO.→Accession No.
+  · เวลาออกผล→วันเวลาที่ใช้ · ดูผล→ดูบันทึก/+บันทึก
+- กติกาค้นเป็นแบบ LAB เป๊ะ: HN ตรงตัว หรือ Date Range ครบสองฝั่ง ไม่งั้นขึ้น "โปรดระบุ HN / เลือกวันที่"
+- dialog ดูบันทึก/ฟอร์มบันทึก และ mock data เดิมคงไว้ทั้งหมด · `node --check` ผ่าน · เรนเดอร์ headless ผ่านทั้งสองโหมด
+
+## [2026-09-27] ui | Mockup สารทึบ เหลือเฉพาะโหมดประวัติ
+
+- ผู้ใช้สั่ง "เอาแค่ tab ประวัติการใช้สารทึบพอ บันทึกเก็บไว้ก่อน"
+- ปิดโหมดบันทึกด้วยธง `RECORD_MODE_ENABLED = false` ที่ต้นสคริปต์ — **ไม่ลบโค้ด**
+  ปุ่มใน mode strip · `recordForm()` · dialog `#recordFormDialog` ยังอยู่ครบ เปิดกลับได้ด้วยค่าเดียว
+- mode strip เหลือปุ่มเดียว (ประวัติการใช้สารทึบ + จำนวน Order ที่มีบันทึก) และ small `อ่านอย่างเดียว · ทุกเครื่อง`
+- ปุ่มท้ายแถว item เหลือ `ดูบันทึก` (disabled เมื่อยังไม่ได้บันทึก) · การบันทึกจริงยังใช้ปุ่ม "สารทึบ"
+  คอลัมน์ที่ 12 ของ X-ray CPOE Worklist ตามเดิม ไม่มีอะไรถูกแทนที่
+- อัปเดตหมายเหตุ/คำถามในหน้าให้ตรงกับสถานะใหม่ · `node --check` ผ่าน · เรนเดอร์ headless ผ่าน
+
+## [2026-09-27] implement | SDForm หน้า "ประวัติการใช้สารทึบรังสี"
+
+- ผู้ใช้สั่ง "งั้นทำ json หน้าระบบนี้มาให้เลย" — ทำจาก mockup ที่เคาะแล้ว (โหมดประวัติล้วน)
+- ไฟล์ใหม่ทั้งหมด ไม่แก้ของเดิมสักไฟล์:
+  · `Form-Builder/SDForm/X-ray/xray-contrast-history-v1.json`
+  · `Form-Builder/seed/tests-tools/scripts/build_xray_contrast_history_ui.js` (generator)
+  · `Form-Builder/API/tests-tools/tests/test_xray_contrast_history_form.js` (เทส)
+- โครงไฟล์ก๊อปจาก `lab-cpoe-worklist-waiting-v1.json` (grid > grid-col > vue-ui) ตาม
+  SDFORM_JSON_RULES.md — vue-ui มี options ครบ 9 ช่องเท่าแม่แบบ · customClass ของ widget ปล่อยว่าง
+- UI/CSS `.xll-*` ยกจาก widget `xray_lab_lookup` ทั้งชุด · แมปคอลัมน์ Specimen→สารทึบ ·
+  ห้องแลป→เครื่อง · LAB NO.→Accession No. · เวลาออกผล→วันเวลาที่ใช้ · ดูผล→ดูบันทึก
+- อ่านอย่างเดียวจริง: เรียก Process worklist เดิม `6a957009422c1ca959829e45` เฉพาะ `action:'list'`
+  · generator มี assert กัน action เขียนหลุดเข้ามา · `onMounted` ว่าง (ไม่โหลดเองตอนเปิดหน้า)
+- ปุ่ม "ดูบันทึก" เปิดฟอร์ม `xray-contrast-media-record-v1` ตัวเดิม ส่ง initData ชุดเดียวกับปุ่มใน Worklist
+- 🔴 ข้อจำกัด: `xray_cpoe_worklist_api.js` ยังไม่ join `zdata_xray_contrast_media`
+  ⇒ ทุกแถวจะขึ้น "ยังไม่ได้บันทึก" จนกว่าฝั่ง API จะเพิ่ม · หน้าบอกเหตุผลนี้ให้ผู้ใช้เห็นเอง
+- ตรวจแล้ว: `check_sdform_json.py` exit 0 · เทสใหม่ผ่าน · เทสเดิม 3 ชุดผ่าน
+  (worklist form · contrast media form · worklist API) · ยังไม่ได้ import เข้า Builder
+
+## [2026-09-28] ui | Immunology LAB NO order-time flow
+
+- สร้าง `02-his/ui/immunology-lab-no-flow.html` เป็นเอกสารแนวคิดแบบเปิดดูได้ทันที; ไม่มีข้อมูลผู้ป่วยจริงและยังไม่ใช่ Production implementation.
+- ล็อกกติกา `IM`/`MI-OUT`: 1 CPOE Item ต่อ 1 LAB NO ตั้งแต่ Order commit, canonical อยู่ที่ `Work Item.lab_no`, ส่ง mapping กลับเพื่อพิมพ์สติ๊กเกอร์.
+- Receive ภูมิคุ้มกันต้องใช้เลขเดิมเท่านั้น, ห้ามเรียก Generator/Fallback, fail closed เมื่อเลขหาย และแยก Item ก่อนสร้าง Outbound; LAB อื่นคง Flow เดิม.
+- หน้า HTML มี Flow เปรียบเทียบแบบสลับได้, ตัวอย่าง 1:1, Sticker preview, API request/response, guardrails และตาราง non-regression.
+
+## [2026-09-28] ui | Immunology sticker รวม LAB NO ทั้ง Order
+
+- ปรับตัวอย่างเป็น 1 สติ๊กเกอร์ต่อ 1 Order โดยรวมทุกคู่ `Item ID + LAB NO` ไว้ในใบเดียว สูงสุด 5 คู่; แต่ละ Item ยังรักษาความสัมพันธ์ 1:1 กับ LAB NO เดิม.
+- ตัวอย่างสติ๊กเกอร์แสดง Order, Specimen, จำนวนคู่ `3 of 5`, รายการ LAB NO ทั้งหมด และสถานะ `waiting_receive`; Response example แสดง `items[]` หลายรายการสำหรับพิมพ์ใบเดียว.
+- ยังไม่กำหนดพฤติกรรมเมื่อ Order เกิน 5 คู่ และระบุเป็น open decision แทนการเดาว่าจะแบ่งสติ๊กเกอร์หรือ block; LAB อื่นและ Receive flow เดิมไม่เปลี่ยน.
+- ตรวจ render และ toggle ทั้งสอง Flow, JavaScript syntax และ `git diff --check` ผ่าน.
+
+## [2026-09-28] ui | Immunology sticker ใช้ขนาดเดียวกับ HN
+
+- ยืนยันจาก `hn-patient-sticker-v1-import.md` และ builder ว่าสติ๊กเกอร์ HN ใช้ custom landscape `247 × 67 pt`; ปรับกรอบตัวอย่าง LAB ให้ใช้อัตราส่วนนี้ตรง ๆ.
+- จัดฉลากเป็นสองคอลัมน์แบบกะทัดรัด: Order/Specimen/สถานะทางซ้าย และคู่ Item/LAB NO ทางขวา; กติกา 1 ใบต่อ Order สูงสุด 5 คู่ไม่เปลี่ยน.
+- ตรวจ render จริงแล้วตัวอย่าง 3 คู่ไม่ล้นกรอบ; JavaScript syntax และ `git diff --check` ผ่าน.
+
+## [2026-09-28] ui | เพิ่มชื่อ/HN และลดเส้นบน Immunology sticker
+
+- เพิ่มชื่อผู้ป่วยและ HN เป็นข้อมูลหลักฝั่งซ้ายของสติ๊กเกอร์; ใช้ข้อมูลตัวอย่างชัดเจน ไม่ใช่ข้อมูลผู้ป่วยจริง.
+- Response contract เพิ่ม `patient.hn` และ `patient.display_name` เพื่อให้แหล่งข้อมูลสำหรับพิมพ์ชัดเจน; mapping Item/LAB NO และ Flow เดิมไม่เปลี่ยน.
+- เอาเส้นแบ่งคอลัมน์, เส้นใต้หัวข้อ, เส้นคั่นรายการ และข้อความตกแต่ง “ตัวอย่าง” ออก; คงเพียงกรอบบางเพื่อแสดงขอบสติ๊กเกอร์ `247 × 67 pt`.
+- ตรวจ render จริงแล้วชื่อ/HN และ 3 คู่ Item/LAB NO อยู่ในกรอบ; JavaScript syntax และ `git diff --check` ผ่าน.
+
+## [2026-09-28] security | ลด Sensitive result grant เป็น 30 วินาที
+
+- ผู้ใช้ยืนยันแนวคิด Immunology order-time LAB NO แล้ว แต่ให้รอทีมคอนเฟิร์มก่อน Implement; HTML เพิ่มต้นทาง CPOE/LAB Worklist ที่ใช้ Issuance API เดียวกัน และ LAB อื่นคง Receive flow เดิม.
+- เปลี่ยน TTL จริงใน `emr-lab-board-get.js` และ `lab_cpoe_worklist_api.js` จาก 5 นาทีเป็น 30 วินาที; scope viewer+Order+Section, doctor re-auth, Access Log, fail-closed และการล้างค่าเมื่อหมดอายุคงเดิม.
+- อัปเดต EMR History, Treat Summary, LAB Worklist, X-ray LAB lookup, paste-ready templates, handoff/spec และ UAT checklist; Report SQL ของทีมอื่นไม่แก้เพราะอ่าน `expires_at_epoch` จาก grant อยู่แล้ว.
+- Regenerate LAB/X-ray SDForm แล้ว; core API/UI, LAB/X-ray, PDF grant gate และ SDForm validator ผ่าน. Runtime 30-second expiry UAT ยังรอ replace/deploy.
+
+## [2026-09-28] uat | เริ่มทดสอบ Sensitive TTL 30 วินาทีหลัง replace
+
+- ทดสอบใน EMR History ด้วยรายการทดสอบ: ก่อนยืนยันตัวตนค่า Sensitive ถูกปิดบังและมีเฉพาะชื่อ/รหัสรายการ — PASS.
+- Dialog ยืนยันสิทธิ์แสดงข้อความว่า grant ใช้ได้ 30 วินาทีและจำกัดผู้ใช้ + ใบสั่ง + ห้อง Lab เดิม — PASS.
+- หยุดที่ช่อง Username/Password แพทย์และส่งหน้าจอคืนให้ผู้ใช้กรอกเอง; ยังไม่ยืนยันการเปิดผล, reuse ภายใน 30 วินาที, auto-relock หลังหมดเวลา หรือ Treat Summary.
+
+## [2026-09-28] security | เปลี่ยน Sensitive result grant กลับเป็น 5 นาที
+
+- เปลี่ยน TTL กลับเป็น 5 นาทีใน `emr-lab-board-get.js` และ `lab_cpoe_worklist_api.js`; scope viewer+Order+Section, doctor re-auth, Access Log, fail-closed และการล้างค่าผลคงเดิม.
+- อัปเดตข้อความ/expiry handling ของ EMR History, Treat Summary, LAB Worklist, X-ray lookup, paste-ready templates, handoff/spec, UAT checklist และ regression assertions ให้ตรงกัน.
+- Regenerate LAB/X-ray SDForm แล้ว; API/UI regression 5 ชุด, async compile, UI/generator syntax, SDForm validator สองไฟล์ และ `git diff --check` ผ่าน. ต้อง replace artifact ที่เกี่ยวข้องและทำ runtime smoke test ซ้ำ.
+
+## [2026-09-28] ui | ต้นแบบ Sensitive แบบไม่มีข้อยกเว้นทุกห้อง LAB
+
+- ผู้ใช้ยืนยันว่า X-ray candidate ยังไม่เคย replace จึงไม่ต้องนำ X-ray ไป replace ในรอบ TTL.
+- อัปเดตเฉพาะ `02-his/ui/lab-result-visibility-policy-mockup.html` ก่อน implementation: ทุกห้อง LAB รวม Immunology แสดงชื่อ/รหัสรายการ แต่ปกปิดค่า หน่วย การแปลผล ช่วงอ้างอิง comment และไฟล์; ไม่มี same-room bypass.
+- เฉพาะบัญชี role `DOCTOR` ยืนยันเพื่อเปิดได้ 5 นาทีตาม viewer+Order+Section พร้อม Access Log; hold ปัจจุบันยังมีลำดับสูงกว่า re-auth.
+- Prototype interaction ผ่าน: Sensitive state แสดง “ปกปิดผล” ทุกแถว, เปิด dialog แพทย์ได้, inline JavaScript syntax และ `git diff --check` ผ่าน. ยังไม่แก้ API/Form/JSON จริงตามคำสั่ง “ก่อนทำจริง”.
+
+## [2026-09-28] security | ใช้ Sensitive doctor gate กับทุกห้อง LAB
+
+- ผู้ใช้อนุมัติ implementation: ทุกห้อง LAB รวม `IM`/`MI-OUT` ไม่มี same-room/owner-room bypass; ยังเห็นชื่อ/รหัส test แต่ค่า หน่วย แปลผล ช่วงอ้างอิง comment และไฟล์ถูกปิดจนบัญชี `DOCTOR` ยืนยัน.
+- ปรับ `lab_cpoe_worklist_api.js`, LAB Worklist generator/Form และ regression tests เท่านั้นใน runtime scope นี้; X-ray ไม่ถูก regenerate หรือเพิ่มในรายการ replace.
+- `prepare_result_pdf` ไม่ออก grant จากสิทธิ์เจ้าของห้อง และใช้ต่อได้เฉพาะ doctor grant ที่ server ตรวจ viewer+Order+Section+expiry แล้ว พร้อม Access Log; ไม่มี grant ให้ Report SQL ปิดเฉพาะ clinical cells ของ Sensitive row.
+- อัปเดต handoff/UAT checklist ให้ policy ตรงกัน. TTL คง 5 นาที; hold มีลำดับก่อน re-auth; receive/specimen, Agent/LIS, manual partial/final, cancel และ retest ไม่เปลี่ยน.
+- ผ่าน LAB API/Form, PDF grant, EMR, Report gate, receive/Agent dispatch, cancel/retest/reject, AsyncFunction/generator syntax, SDForm validator และ `git diff --check`. Runtime replace/UAT ยังรอผู้ใช้.
+
+## [2026-09-28] uat | Sensitive owner-room lock หลัง replace
+
+- Hard refresh LAB Worklist และสลับ session ไป `m1006` งานภูมิคุ้มกันวิทยา; หน้า “รายการวันนี้” โหลด 4 Order ตามปกติ และค้นตามวันที่พบรายการสั่ง 5 Order.
+- เปิด Order `R2609280002` แบบ read-only: แถว `IM2 Anti-HIV` ใน owner room แสดงชื่อ/รหัส แต่แสดง “ปกปิดผล · ต้องใช้บัญชีแพทย์ยืนยันก่อนดู”; ไม่พบค่าผล หน่วย แปลผล ช่วงอ้างอิง หรือไฟล์แนบที่เปิดเผย. รายการปกติ `IN3` ยังแสดงสถานะรอผล.
+- Dialog ระบุ “ทุกห้อง LAB รวม Immunology ต้องใช้บัญชีแพทย์” และ TTL 5 นาทีตาม viewer+Order+Section — PASS. ไม่กดยืนยันเพราะ browser autofill credential; จึงยังไม่ทดสอบ doctor success/denial, reuse/expiry, Access Log หรือ PDF disclosure.
+- สลับไป `m1001` งานชีวเคมีและ hard refresh: Worklist โหลด 1 Order — PASS. คืน session เป็น `m1006` และยืนยัน Worklist 4 Orderแล้ว. ไม่มีการรับ specimen, แก้ผล, ส่ง credential หรือเขียนข้อมูล clinical.
+
+## [2026-09-28] security | แก้ LAB Sensitive เป็น permanent redaction ไม่มี re-auth
+
+- ผู้ใช้แก้ policy ให้ทุกห้อง LAB รวม `IM`/`MI-OUT` ไม่มีการยืนยันตัวตน: แสดงชื่อ/รหัสรายการตามปกติ และแสดงข้อความสีแดง `ปกปิดผล` แทนค่าผลเท่านั้น; doctor re-auth อายุ 5 นาทีคงอยู่เฉพาะ EMR.
+- ตัด dialog/Username/Password/grant state ออกจาก LAB Worklist. API ปฏิเสธ `authorize_sensitive_result` ของ LAB ก่อนอ่าน credential และเพิกเฉย grant เก่าใน `get_manual_result`/`prepare_result_pdf`; PDF ฝั่ง LAB คง redacted.
+- Regenerate เฉพาะ LAB Worklist JSON; ไม่แตะ X-ray หรือ EMR implementation. อัปเดต policy mockup, handoff และ UAT checklist ให้แยก LAB permanent redaction ออกจาก EMR doctor gate.
+- ผ่าน LAB API/Form รวม old-grant regression, Receive/Specimen/LIS/Agent/Cancel/Retest/Reject, EMR Sensitive regressions, AsyncFunction/HTML syntax, SDForm validator และ `git diff --check`. ต้อง replace Worklist Process + LAB Form อีกครั้งก่อน runtime retest.
+
+## [2026-09-28] security | แยกการยืนยัน Sensitive PDF ของแพทย์ออกจาก screen grant
+
+- Treat Summary และ EMR History ยังคงใช้ screen grant อายุ 5 นาทีสำหรับดูผลบนหน้าจอ แต่ถ้าใบรายงานมี Sensitive ทุกการกด PDF ต้องกรอกบัญชี `DOCTOR` ใหม่; ไม่ reuse screen grant.
+- ใช้ `open_sensitive` เดิมโดยส่งบริบท audit เป็น `treat_summary_pdf` หรือ `emr_history_pdf`; หลังสำเร็จจึง mount/click `sd-report` ด้วย PDF-specific token. การกด PDF ครั้งถัดไปล้าง token นี้ก่อนเปิด dialog ใหม่.
+- PDF ผลทั่วไปของแพทย์ยังเปิดตรง. PDF ฝั่ง LAB ไม่มี re-auth, แสดงค่ารายการทั่วไปและปิดเฉพาะแถว Sensitive เป็นชื่อรายการ + `ปกปิดผล` ตามเดิม.
+- อัปเดต FULL Template/onCreated ของ Treat Summary และ EMR History, สำเนา `.txt` พร้อม paste, regression test, handoff, UAT checklist และ interactive policy mockup; X-ray ไม่เปลี่ยน.
+- ผ่าน JS/inline-script compile, EMR Sensitive UI/server/board/full-dialog/summary/history regressions, LAB API/Form, Report SQL gate, HTML/TXT equality และ `git diff --check`. รอ replace สองหน้า EMR และ runtime UAT.
+
+## [2026-09-28] ui | Mockup สารทึบ กลับไปใช้ pattern ของ X-ray Worklist + กรองเฉพาะใบที่มีบันทึก
+
+- ผู้ใช้สั่ง: เสิร์ช HN แล้ว "filter มาแค่รายการ order ที่มีการฉีดสารทึบ" · pattern เดียวกับหน้าแสดง
+  รายการ order X-ray ทุกอย่าง ยกเว้นไม่ต้องมีปุ่ม action (ส่งเข้าเครื่อง ยกเลิก ฯลฯ)
+- เปลี่ยนโครงรายการจาก `.xll-*` (แท็บสืบค้นผลแลป) กลับมาเป็นโครง Worklist ของ
+  `02-his/ui/xray-workbench-mockup.html`: toolbar · status chip 5 อัน · patient-row · detail panel
+- ตัวกรองใหม่: แสดงเฉพาะ order ที่มีบันทึกสารทึบ ≥ 1 รายการ · บรรทัดสรุปบอกจำนวนใบที่ถูกซ่อน
+  เพื่อไม่ให้เข้าใจผิดว่า "ไม่มีใบอื่น" หรือ "ไม่ได้ฉีด"
+- ไม่มีปุ่มสั่งงานเลย: ตัด ส่งเข้าเครื่อง · ยกเลิก · ปฏิเสธ · ตรวจใหม่ · สร้างรายการใหม่ · หนังสือยินยอม ·
+  checkbox เลือกรายการ · dropdown Radiographer/Radiologist · สติ๊กเกอร์ HN · ช่องปุ่มท้ายแถวใช้บอก
+  "สารทึบ n/N" และป้าย "อาการ" แทน
+- ตาราง item ใช้คอลัมน์ชุดเดียวกับแท็บ order ของ Worklist + คอลัมน์สารทึบ + ปุ่ม `ดูบันทึก`
+- dialog ดูบันทึก และโหมดบันทึกที่พักไว้ (`RECORD_MODE_ENABLED=false`) ยังอยู่ครบไม่ถูกแตะ
+- ตรวจ: `node --check` ผ่าน · เรนเดอร์ headless ผ่าน (ค้น HN · กางใบ · dialog) · แท็กสมดุล
+- 🔴 ค้างไว้: `xray-contrast-history-v1.json` ที่ทำเมื่อวานยังเป็น pattern แบบสืบค้นผลแลป
+  ต้อง regenerate ให้ตรงกับ mockup ใหม่ก่อน import — รอผู้ใช้เคาะหน้าตาก่อน
+
+## [2026-09-28] security | เพิ่มฟอร์มดู Sensitive Access Log แบบ read-only
+
+- ทำ `emr-sensitive-access-log-v1.json` สำหรับดู collection `zdata_emr_sensitive_access_log` โดยไม่แก้ flow ยืนยัน/เปิดผล และให้ `emr-lab-board-get` เป็นผู้เขียน Log เดิมเพียงจุดเดียว.
+- แสดง actor/บัญชีแพทย์ที่ยืนยัน, outcome/reason, source/screen/site/unit และรหัสอ้างอิง; ไม่ใส่ password/hash/grant token/ค่าผล/comment/URL ไฟล์แนบ.
+- ชุดส่งมอบ `02-his/handoff/emr-sensitive-access-log-form-v1.zip`; ตอน Import ต้องใช้ชื่อ Form `emr_sensitive_access_log`, เปิดเฉพาะ View/Search และปิด Add/Update/Delete.
+- Static SDForm validator, contract test, `git diff --check` และ ZIP integrity ผ่าน; Builder/Preview/runtime UAT ยังไม่ยืนยัน. งาน LAB PDF เดิมเปลี่ยนสถานะเป็นรอทีม Report ก่อน Import.
+
+## [2026-09-29] note | Import ฟอร์ม Sensitive Access Log
+
+- ผู้ใช้ยืนยันว่า Import Form `emr_sensitive_access_log` แล้ว ได้ ID `6abb380fc54b3f93ce796543`.
+- Source และ flow เดิมไม่เปลี่ยน; `emr-lab-board-get` ยังเป็นผู้เขียน Log และ Form มีไว้ดูแบบ read-only.
+- ยังรอทดสอบ Builder/runtime ว่ารายการ Log แสดงครบ และตรวจ permission ให้มีเฉพาะ View/Search โดยปิด Add/Update/Delete.
+
+## [2026-09-29] note | ทดสอบการแสดง Sensitive Access Log
+
+- Form `emr_sensitive_access_log` ID `6abb380fc54b3f93ce796543` ผูก Table `zdata_emr_sensitive_access_log` ถูกต้อง และ CRUD โหลดข้อมูลย้อนหลังได้ 71 รายการ.
+- คอลัมน์ actor/authorizer, outcome/reason, source/screen/site/unit และรหัสอ้างอิงแสดงจริง; ไม่กด action ที่เขียนข้อมูลและไม่มีการแก้ Log.
+- ยังไม่ผ่าน read-only/security UAT: บัญชี admin ที่ทดสอบยังเห็น Add/Edit/Delete และ Display/Search Fields ยังว่าง ทำให้ทุก field รวม technical IDs แสดงในตาราง.
+
+## [2026-09-29] ui | ล็อก specimen เฉพาะ Immunology
+
+- LAB Worklist แสดง specimen ของ Item Section `IM`/`MI-OUT` ในช่อง disabled รูปแบบเดิม ไม่รับ focus/click และไม่มี dropdown/ลูกศร; ห้องอื่นยังใช้ select เดิม.
+- `lab_cpoe_worklist_api.update_specimen` ปฏิเสธสอง Section นี้ก่อน specimen lookup/update เพื่อกัน direct call; Receive และ flow LAB อื่นไม่เปลี่ยน.
+- Regenerate LAB Worklist JSON แล้ว; Form/API, Cancel/Retest regressions และ SDForm validator ผ่าน.
+
+## [2026-09-29] ui | แสดงเงินสดที่ยังไม่ผ่านการเงินในทุกห้อง LAB
+
+- ป้ายเงินสดตำแหน่งเดิมยึด Finance gate ของ Item ไม่ใช้ยอดเงิน: `sent` เป็นแดง `ยังไม่ได้ชำระเงิน`; `ready` และสถานะหลังรับ/ออกผลเป็นเขียว `ชำระเงินแล้ว` เมื่อ Active Item ผ่านครบ.
+- สิทธิ์อื่นยังแสดงรหัสสิทธิ์เดิม และไม่แก้ Finance gate, Receive หรือ Process; เป็นการเปลี่ยน LAB Worklist Form เท่านั้น.
+
+## [2026-09-29] ui | เติมหน่วยอายุระดับ Order ทุกห้อง LAB
+
+- ตรวจ HIS แบบ read-only พบ `order.vid.pid.age` มีทั้งตัวเลข/ข้อความปีอย่างเดียวและ `25y 1m 14d`.
+- Order row ปกติและ CBC format เป็น `<ปี> ปี <เดือน> เดือน <วัน> วัน`; เดือน/วันที่ไม่มีเว้นค่าแต่คงหน่วย และไม่คำนวณจากวันเกิด.
+- ไม่เปลี่ยนข้อมูลผู้ป่วย, Result/PDF/API หรือ flow อื่น; เป็น LAB Worklist Form-only.
+
+## [2026-09-29] ui | ซ่อนปุ่มเลือกทั้งกลุ่มใน CPOE เฉพาะ Immunology
+
+- ฟอร์ม `Cpoe_test_order` ที่เปิดจาก LAB Worklist และมี `section_codes` เฉพาะ `IM`/`MI-OUT` ซ่อนปุ่ม `All` ระดับกลุ่ม; checkbox เลือกราย Item ยังทำงานเดิม.
+- LAB ห้องอื่นและหน้า CPOE ปกติยังเห็นปุ่ม `All`; ไม่เพิ่ม API/parameter และไม่แก้ save/order flow.
+- อัปเดต generator, candidate JSON และ regression tests; VN picker/HM-HH/LAB-scope tests กับ SDForm validator ผ่าน. ยังรอ Import/Builder runtime UAT.
+
+## [2026-09-29] ui | เพิ่มวันที่ไทยใน VN และทำช่องค้นหา CPOE LAB ให้เด่นขึ้น
+
+- ตัวเลือก VN ที่เปิดจาก LAB Worklist ทุกห้องเพิ่มวันที่จาก `visit_date`/`created_at` ของแถวนั้น รูปแบบ `29 กันยายน 2569`; ไม่ใช้วันที่เครื่อง และถ้าไม่มีวันที่จะไม่สร้างค่าแทน.
+- ขยายช่อง `ค้นทุก section` จาก 230 เป็น 320 px พร้อมกรอบ/พื้น accent และ focus ring เฉพาะ `lab_scope`; CPOE ปกติคง label VN และ style เดิม.
+- ไม่เปลี่ยน API, query, การเลือก Visit, การค้นหา หรือ save/send Order. Generator/VN picker/LAB-scope regressions, SDForm validator และ `git diff --check` ผ่าน; รอ Import/Builder runtime UAT.
+
+## [2026-09-29] fix | คืน trigger ของ modal ระบุสิ่งส่งตรวจใน CPOE LAB
+
+- Runtime ยืนยันว่า modal/template/state เดิมยังอยู่ แต่ Item ที่ master มี specimen `BL`/`SE` ไม่ได้ render trigger เพราะ `specBar` แสดงเฉพาะ specimen ว่าง/กำกวม.
+- เพิ่มปุ่ม `ระบุสิ่งส่งตรวจ` เฉพาะ LAB scope บน Item หลักที่มี specimen แล้ว; คลิกเปิด `openSpec`/modal เดิม และหลังบันทึกแสดง summary เดิม.
+- ไม่เปลี่ยน `needSpec`/`missSpec`, เงื่อนไขบล็อกส่งใบ, modal validation, payload, API หรือ save/send. Generator/VN picker/LAB-scope tests และ SDForm validator ผ่าน; รอ Import และ runtime click test.
+
+## [2026-09-29] ui | คืนตำแหน่งปุ่มระบุสิ่งส่งตรวจใน Cart
+
+- วางปุ่ม `ระบุสิ่งส่งตรวจ` ในแถวล่างของแต่ละ LAB Item ด้านขวา หลังข้อมูลหลอดและก่อนข้อความชำระเงิน พร้อมขอบ/ข้อความสีเขียวตามรูปแบบเดิม.
+- เปลี่ยนเฉพาะตำแหน่งและ style ของ trigger; modal, `needSpec`/`missSpec`, validation, payload, API และ save/send ไม่เปลี่ยน.
+- Regenerate candidate แล้ว; VN picker/LAB-scope regressions, SDForm validator และ `git diff --check` ผ่าน. รอ Import และ runtime visual/click UAT.
+
+## [2026-09-29] note | Runtime UAT ปุ่มระบุสิ่งส่งตรวจ
+
+- ตรวจหน้า CPOE LAB จริง: C51 แสดงปุ่มขอบเขียวในแถวล่างหลัง `หลอด CD` และก่อน `ชำระเอง` ตามตำแหน่งเดิม.
+- คลิกแล้ว modal `ระบุสิ่งส่งตรวจ` เปิดครบ พร้อม Source, การเก็บรักษา, วัน–เวลา, Collected by, ยกเลิก และบันทึก.
+- ไม่กรอกหรือบันทึกข้อมูลผู้ป่วย; เป็นการทดสอบเปิด UI เท่านั้น และเปิด modal ค้างไว้ให้ผู้ใช้ตรวจบนหน้าจอ.
+
+## [2026-09-29] fix | Source of specimen เป็น optional
+
+- ถอด `:disabled="!specForm.source"` และ guard ใน `saveSpec()` ตามผู้ใช้ยืนยันว่า Source ไม่ใช่ข้อมูลบังคับ.
+- Source ว่างบันทึกเป็น `source:''`; completion/missSpec ยึดการมี `lab_data` จากการกดบันทึก เพื่อไม่บล็อกส่ง Order หลังยืนยัน modal.
+- ไม่เปลี่ยน storage, collection time, collector, payload shape, API หรือ save/send flow. Regenerate candidate แล้ว; VN picker/LAB-scope regressions, SDForm validator และ `git diff --check` ผ่าน. รอ replace และ runtime retest.
+
+## [2026-09-29] perf | รีเฟรช LAB Worklist ทันทีหลังสร้าง Order
+
+- เพิ่ม callback optional `on_order_sent` ใน CPOE Order App หลัง `cpoe-order-send` สำเร็จ; LAB Worklist กลับหน้า 1 แล้วเรียก `loadOrders()` และ `refreshCounts()` ทันที. callback เดิมหลัง save draft และ flow หน้า EMR ไม่เปลี่ยน.
+- เพิ่มปุ่มไอคอนรีเฟรช 32×32 หลัง `สร้างรายการใหม่` เพื่อโหลดรายการและตัวนับของมุมมองปัจจุบัน โดยไม่ reload ทั้งหน้า.
+- ไม่เพิ่ม polling และไม่แก้ API, query, save/send logic, Receive หรือ Result flow. LAB/CPOE Form/API regressions, SDForm validator และ `git diff --check` ผ่าน; รอ replace CPOE Form แล้ว LAB Worklist Form และ runtime UAT.
+
+## [2026-09-29] test | จับเวลารีเฟรช LAB Worklist จริง
+
+- ทดสอบปุ่ม `รีเฟรชรายการ` บน LAB Worklist 3 รอบจากเริ่มคลิกจนปุ่มกลับมา enabled: 2.977, 2.952 และ 3.082 วินาที (เฉลี่ย 3.004 วินาที).
+- ทุกรอบเข้าสถานะ `กำลังโหลดรายการ…` และจบด้วย `แสดง 3 Order จากทั้งหมด 3`; ปุ่ม Search/รีเฟรชกลับมาใช้งานได้.
+- ไม่สร้าง Order หรือแก้ข้อมูลผู้ป่วย จึงยังไม่ทดสอบ callback หลังส่ง Order แบบ end-to-end.
+
+## [2026-09-29] perf | ให้รายการ LAB มาก่อนตัวนับสถานะ
+
+- วัดการสลับสถานะซึ่งเรียกเฉพาะ `loadOrders()` 4 รอบได้ 2.448–2.656 วินาที เฉลี่ย 2.564 วินาที เทียบปุ่ม refresh เดิมเฉลี่ย 3.004 วินาที; concurrent status counts เพิ่มเวลารายการที่ผู้ใช้รอราว 0.44 วินาที.
+- ปรับ `refreshWorklist()` ให้รอรายการหลักเสร็จก่อน แล้วค่อย `refreshCounts()` เบื้องหลัง; response รายการหลักอัปเดต count ของแท็บปัจจุบันทันที จึงไม่แสดงยอดเก่าระหว่างรอ.
+- Form-only ไม่เปลี่ยน API/query/status/save/send/receive/result flow. LAB/CPOE regressions, SDForm validator และ `git diff --check` ผ่าน; รอ replace LAB Worklist Form และจับเวลา runtime ใหม่.
+
+## [2026-09-29] test | Runtime Form ล่าสุดและความเสี่ยงข้อมูลหลักพัน
+
+- Reload ระบบจริงแล้วพบ 4/4 Orders. ปุ่ม refresh Form ล่าสุด 5 รอบใช้ 2.249, 2.883, 2.755, 3.589, 3.317 วินาที เฉลี่ย 2.959 วินาที; โหลดเฉพาะรายการ 4 รอบเฉลี่ย 2.571 วินาที.
+- ผลต่างจาก baseline 3.004 วินาทีเล็กเกินสรุปว่า Form-only เร็วขึ้น; server latency แกว่งและเป็นคอขวดหลัก.
+- UI/API จำกัด 30 Orders ต่อหน้า (max 100) จึงไม่ render หลักพันแถว แต่ pipeline ปัจจุบันทำ lookup/master/work-item/section/cancel/order, group และ sort ก่อน `$facet` ใส่ `$limit`; ข้อมูล production หลักพันยังต้อง load-test จริง.
+- ยังไม่แก้ Process. ทางถัดไปที่เหมาะสมคือ optional aggregate เดียวคืนทั้ง rows/total/status counts แทนยิง count หลายรอบ พร้อมตรวจ early match/index โดยคง response เดิมสำหรับ caller อื่น.
+
+## [2026-09-29] perf | รวม LAB rows และ status counts ใน aggregate เดียวแบบ opt-in
+
+- เพิ่ม `include_status_counts=true` เฉพาะ list วันนี้: rows/meta ยังกรองตามแท็บเดิม ส่วน facet เพิ่มยอด waiting/received/partial/complete/cancelled/all จาก Order+Section row status ชุดเดียวกัน; default request ไม่เปลี่ยน contract หรือ pipeline เดิม.
+- LAB Form ใช้ batched response กับ initial load, ปุ่ม refresh และ callback หลังส่ง Order; หาก deploy Form ก่อน Process หรือ Process เก่าไม่คืน `status_counts` จะ fallback ไป `refreshCounts()` เดิม จึงไม่ตัด flow เดิม.
+- ลด Worklist aggregate requests ต่อ refresh จาก 7 เป็น 1; CBC swap count ยังเป็น request แยกเฉพาะหน่วยที่มีสิทธิ์. ไม่เปลี่ยน pagination, status precedence, receive/reject/cancel/retest/result/sensitive หรือ write path.
+- Regenerate LAB candidate แล้ว; LAB API/Form, Cancel/Retest, CPOE VN picker regressions, SDForm validator และ `git diff --check` ผ่าน. ต้อง replace Process `6a9434c3422c1ca959829d5e` ก่อน Form และจับเวลา runtime/production-volume ต่อ.
+
+## [2026-09-29] test | Runtime timing หลังรวม LAB status counts
+
+- หน้า runtime หลัง replace แสดง 7 Orders จาก 7; badges เป็น waiting 7, received/partial/complete/cancelled 0 และ all 7 ตรงกับรายการ.
+- ปุ่ม refresh 5 รอบจาก click จนปุ่ม enabled อีกครั้ง: 1.982, 1.857, 1.951, 1.828 และ 1.845 วินาที; เฉลี่ย 1.893 วินาที เทียบก่อน optimize 2.959 วินาที เร็วขึ้นประมาณ 36%.
+- Reload ทั้งหน้า 3 รอบจน summary แสดงและปุ่ม enabled: 3.461, 2.727 และ 2.599 วินาที; เฉลี่ย 2.929 วินาที.
+- ผ่านระดับ UAT/ใช้งานทั่วไปสำหรับข้อมูลชุดปัจจุบัน แต่ยังต้อง load-test ด้วยข้อมูลรายวันหลักพันก่อนสรุป production capacity; การทดสอบเป็น read-only ไม่สร้างหรือแก้ข้อมูลผู้ป่วย.
+
+## [2026-09-29] diagnose | คอขวด LAB Worklist และทางขึ้น Order ทันที
+
+- MongoDB `explain(executionStats)` ของ pipeline วันนี้ยืนยันว่า aggregate ใช้ 1.805–1.866 วินาที จึงเป็นคอขวดหลักของ refresh 1.893 วินาที ไม่ใช่การ render หน้า.
+- มี LAB Order Item ที่เข้า root match 337 รายการ แต่ reverse `set_master` lookup (`item_code` เทียบ `sub_order.value`) ไม่มี index ใช้และสแกนประมาณ 1.20 ล้าน master documents; Work Item lookup ใช้เพียง `xrstatx_1` และตรวจ 59,150 documents. Date filter ถูกใช้หลัง lookups จึงลดงานช้าเกินไป.
+- ทดลอง pipeline เดิมโดยเพิ่ม exact `order_id.value` ของ Order เดียว: DB ใช้ 12 ms และอ่าน root เพียง 1 document. แนวทางถัดไปที่ไม่ต้องรอ full refresh คือให้ `on_order_sent` ส่ง `order_id`, เพิ่ม read-only action ดึง canonical row ของ Order เดียว, upsert เข้า UI แล้ว refresh รายการ/ตัวนับเบื้องหลัง. รอบนี้เป็น read-only diagnosis; ยังไม่แก้ Process/Form/index.
+
+## [2026-09-29] test | Runtime timing ล่าสุดหลังผู้ใช้ replace
+
+- หน้า LAB Worklist แสดง 9 Orders จากทั้งหมด 9. ปุ่มรีเฟรช 5 รอบใช้ 1.995, 1.925, 1.993, 1.877 และ 1.910 วินาที; เฉลี่ย 1.940 วินาที.
+- Reload ทั้งหน้า 3 รอบจน summary แสดงและปุ่ม refresh enabled ใช้ 2.909, 2.896 และ 2.869 วินาที; เฉลี่ย 2.891 วินาที. ทั้งสองกรณีต่ำกว่า 3 วินาที แต่ refresh ยังเท่าระดับ baseline หลัง batch เดิม ไม่ใช่หลักฐานว่า exact-order/upsert ถูก deploy แล้ว.
+- ทดสอบแบบ read-only ไม่สร้าง Order และไม่แก้ข้อมูลผู้ป่วย.
+
+## [2026-09-29] diagnose | Safe full-page Worklist optimization
+
+- แยก reload 3 รอบพบ browser/app shell คืน control ใน 204–500 ms แต่ Worklist พร้อมใช้รวม 2.828–3.825 วินาที จึงไม่ใช่การโหลดหน้า/CSS เป็นคอขวดหลัก.
+- รัน MongoDB `explain(executionStats)` แบบ read-only 3 รอบกับ pipeline ปัจจุบัน: 1.727–1.852 วินาที เฉลี่ย 1.773 วินาที; reverse `set_master` lookup ตรวจ master 1,217,192 documents.
+- จำลองย้าย lookup+unwind `set_master` ชุดเดิมจากก่อน Order/date lookup ไปหลัง `daily_scope_day` match แต่ก่อน sort/group; expression, unwind, projection และ response shape ไม่เปลี่ยน. Explain 3 รอบเหลือ 0.425–0.454 วินาที เฉลี่ย 0.439 วินาที และตรวจ master 63,830 documents (~75% ลด DB time).
+- เหตุผลที่ย้ายได้: `set_master` ถูกอ่านเฉพาะตอนสร้าง `items[].panel` ใน `$group`; ไม่ได้ใช้ตัดสิน section, status, cancellation, date หรือ order filter. รอบนี้ยังไม่แก้ Process/Form/index.
+
+## [2026-09-29] note | Apply safe Worklist master lookup ordering
+
+- แก้เฉพาะ Process `lab_cpoe_worklist_api` โดยย้าย `$lookup`+`$unwind` alias `set_master` ชุดเดิมไปหลัง `daily_scope_day` match และก่อน sort/group; ไม่เปลี่ยน lookup expression, unwind policy, response shape หรือ write flow.
+- เพิ่ม regression assertion ว่า lookup อยู่หลัง daily date filter แต่ก่อน `$group` ที่สร้าง `items[].panel`.
+- Worklist API, Cancel Order, Retest, Worklist Form, CPOE VN picker และ `git diff --check` ผ่าน. Candidate ยังไม่ได้ replace หรือจับเวลา runtime.
+
+## [2026-09-29] test | Runtime timing หลังย้าย set_master lookup
+
+- หลังผู้ใช้ replace Process หน้า LAB Worklist ยังแสดง 9/9 Orders; waiting/all = 9 และสถานะอื่น = 0 ตรงกับรายการเดิม.
+- ปุ่ม refresh 5 รอบใช้ 0.778, 0.656, 0.645, 0.613 และ 0.647 วินาที; เฉลี่ย 0.668 วินาที เทียบ baseline ล่าสุด 1.940 วินาที เร็วขึ้นประมาณ 66%.
+- Reload ทั้งหน้า 3 รอบจน summary แสดงและปุ่ม refresh enabled ใช้ 2.195, 1.591 และ 1.517 วินาที; เฉลี่ย 1.768 วินาที เทียบ baseline 2.891 วินาที เร็วขึ้นประมาณ 39%.
+- Browser/app shell คืน control ใน 0.323–0.702 วินาที, console error เป็นศูนย์ และการทดสอบเป็น read-only ไม่สร้างหรือแก้ข้อมูลผู้ป่วย.
+
+## [2026-09-29] note | Lock CPOE patient insurance selector
+
+- แก้ generator และ regenerate `cpoe-order-app-vn-picker-v1.json`: ช่อง “สิทธิ์ที่ใช้ทั้งใบ” คง native select/value/options เดิม แต่เพิ่ม disabled/aria-readonly/tabindex, ถอด change handler และซ่อน native arrow เฉพาะช่องนี้.
+- คง `insList()` จาก active Visit, default/reset `insIx`, `insCurrent()` และ payload `inscl/inscl_row` เดิม; ไม่เปลี่ยนราคา, Finance, save/send หรือ Process.
+- CPOE VN picker, LAB Worklist Form/API, Cancel, Retest, SDForm validator และ `git diff --check` ผ่าน. ยังรอ replace Form และ runtime visual test.
+
+## [2026-09-29] implement | Connect LAB Result Edit Log to deployed Form
+
+- ผูก `lab_cpoe_worklist_api` ทั้ง append-only correction write และ correction-history read กับ Form `LAB Result Edit Log` ID `6ab78b7159662ac8f059105a` collection `zdata_6ab78b7159662ac8f059105a`; เลิกใช้ชื่อ logical collection ที่ไม่เคยถูกสร้าง.
+- คง transaction เดิมที่ insert Log ก่อน update current Result Item, reason ≥ 3 ตัวอักษร, before/after, actor/time, source IDs และ request idempotency; Form เดิมไม่ต้อง import ซ้ำ.
+- เพิ่ม integration regression กัน Form/Process collection drift. Worklist API/Form, Result Edit Log Form, Cancel และ Retest tests ผ่าน; `git diff --check` ผ่าน. ยังไม่ deploy/ไม่เขียนข้อมูลจริง; ต้อง replace Process `6a9434c3422c1ca959829d5e` แล้ว UAT แก้ผลหนึ่งรายการและยืนยันทั้ง log/history.
+
+## [2026-09-29] test | Verify deployed LAB Result Edit Log wiring
+
+- ตรวจ HIS แบบ read-only: live Process `lab_cpoe_worklist` ID `6a9434c3422c1ca959829d5e` อัปเดต `2026-09-29 16:11:39`, มี Form ID `6ab78b7159662ac8f059105a` และไม่มี constant `zdata_lab_result_edit_log` เก่าแล้ว.
+- Form `LAB Result Edit Log` enabled และผูก `zdata_6ab78b7159662ac8f059105a` ถูกต้อง แต่ collection ยังมี 0 records จึงยังไม่มีหลักฐาน runtime ว่าแก้ผลแล้วเกิด log/history และ retry ไม่ซ้ำ.
+- สรุป LAB Worklist เหมาะกับ Pilot/UAT แต่ LAB ทั้งระบบยังไม่ผ่าน Production sign-off เพราะ Sensitive PDF/EMR runtime, audit permissions, Microbiology PDF binding และ real HIS→Agent→LIS final/corrected/idempotency ยังมีงานค้าง.
+
+## [2026-09-29] diagnose | Manual correction blocked by standalone MongoDB
+
+- Runtime Manual correction แสดง `Transaction numbers are only allowed on a replica set member or mongos`; ไม่เกี่ยวกับ Result visibility/ปุ่มปกปิดผล แต่เกิดเมื่อ `mongoTxn` พยายามบันทึก Result Edit Log + current Result Item แบบ atomic บน MongoDB standalone.
+- ตรวจ HIS แบบ read-only หลัง error: `zdata_6ab78b7159662ac8f059105a` ยัง 0 records ยืนยันว่า audit ไม่ได้ถูกเขียน; correction flow ตั้งใจ fail-closed เพื่อไม่ให้ผลถูกแก้โดยไม่มี log.
+- ทางแก้ที่แนะนำคือเปิด replica set/mongos ให้ environment. หากต้องคง standalone ต้องออกแบบ compensation/state machine แยกและอนุมัติก่อน; ห้าม fallback เป็นสอง write ธรรมดาเพราะอาจได้ผลใหม่แต่ไม่มี audit.
+
+## [2026-09-29] diagnose | Why X-ray result versions work on standalone MongoDB
+
+- ตรวจ live Process `xray-api-ris-result` ID `6a861de5f851000f28e44ab3` แบบ read-only: ไม่มี `mongoTxn`; insert ทุก RIS message ลง `zdata_zdata_xray_result_log` ก่อน แล้ว upsert `zdata_xray_result` ตาม Accession No. เป็นสอง write แยก.
+- Process มีผลตอบกลับกรณี `Log saved, but unable to upsert xray_result` โดยตั้งใจ จึงยอมรับ partial state; X-ray history คือ RIS ส่งฉบับใหม่ ไม่ใช่ดินสอ HIS แก้ clinical Result Item แบบ LAB.
+- LAB จึงชน transaction ไม่ใช่เพราะ Mongo เขียนไม่ได้ แต่เพราะเราเพิ่ม guarantee ว่า log + current Result ต้อง atomic. ทางเลือกโดยไม่เปลี่ยน DB คือ state machine `pending log → compare-and-set Result Item → success/failed log` พร้อม recovery/idempotency; ห้ามใช้สอง write ธรรมดาแบบ X-ray ตรง ๆ.
+
+## [2026-09-29] fix | EMR manual LAB hide and LAB-style result grouping
+
+- ตรวจ HIS แบบ read-only ของ HN `6900031`: Result 10 แถวชี้ `order_no` ไป Sodium Work Item เดียว ขณะที่ `selected_items_json` map 9 CPOE Items และ Potassium มี audited manual hide จริง; นี่เป็นสาเหตุที่ EMR รวมทุกผลใต้ Sodium และยังเห็นค่าที่ปกปิด.
+- ปรับ `emr-lab-board-get` ให้ resolve owner ของ Result รายแถวจาก batch snapshot + Item Master/result-component mapping แล้วจัดกลุ่มตาม `lab_parent` เหมือน LAB Worklist. แยก manual CPOE hide ออกจาก master Sensitive: manual hide ตัด value/previous/unit/flag/range/comment ที่ server และไม่อนุญาต doctor re-auth; Sensitive flow เดิมไม่เปลี่ยน.
+- EMR History card/popup คงชื่อ/รหัสและแสดง `ปกปิดผล` สีแดงในตำแหน่งแถว/Profile เดิม; popup ใช้กลุ่มรายการ/ผลย่อย pattern LAB เดิมแทนหนึ่ง Profile ผิดรายการ. HTML/TXT mirror ตรงกัน.
+- เพิ่ม regression สำหรับ aggregate batch/manual hide และขยาย EMR card test; full dialog, Sensitive redaction/UI/reauth และ `git diff --check` ผ่าน. Candidate local เท่านั้น; ต้อง replace Process + EMR onCreated + template แล้ว runtime UAT.
+
+## [2026-09-29] implement | LAB reject/cancel reason settings Form
+
+- Added `Form-Builder/SDForm/Lab/lab-reject-cancel-reason-settings-v1.json` and its deterministic
+  generator `Form-Builder/seed/tests-tools/scripts/build_lab_reason_settings_form.py`.
+- The Form stores one reason per record, separates specimen rejection from Order cancellation,
+  supports LAB Section scope/order/active state, and preserves history by deactivation instead of
+  deletion. It has no Worklist/API event wiring, so the existing flow is unchanged.
+- SDForm validator and deep structure/event checks pass; Builder/Preview/import/runtime CRUD UAT
+  remain pending.
+
+## [2026-09-29] inspect | Imported LAB reason settings type and current seed values
+
+- Read-only HIS inspection confirmed Form `6abbb70cc54b3f93ce799a16` is enabled as `form_ui` with
+  empty `form_table` and readable schema, so it cannot yet persist reason records by itself.
+- Current LAB Worklist sources contain 10 specimen-rejection choices and 7 Order-cancellation
+  choices, all globally scoped. A backing `form_db` master (or explicit UI/API persistence) is
+  required before replacing these hard-coded fallbacks.
+
+## [2026-09-29] inspect | LAB reject/cancel reason CRUD seed records
+
+- Read-only Builder/CRUD inspection confirmed Form `6abbc3b0c54b3f93ce799f4e` is a working
+  `form_db`; Auto Number generated unique `LABR-00001` through `LABR-00016` and all visible rows
+  are active with `ALL` scope.
+- The CRUD currently has 16 rather than 17 rows: ORDER_CANCEL `อื่น ๆ` order 7 is missing, while
+  SPECIMEN_REJECT `อื่น ๆ` has order 7 and must be order 10.
+- The actual table is `zdata_zdata_lab_reject_cancel_reason` because the platform added its own
+  `zdata_` prefix. It remains functional but must stay stable after data exists unless an explicit
+  migration/re-entry is performed. No Worklist wiring was changed.
+
+## [2026-09-30] implement | LAB OPD/IPD Agent encounter class and AN badge
+
+- Read-only HIS inspection confirmed `zdata_visit.an` and the CPOE `vid.an` snapshot; Visit
+  `visit_type` is a service type and must not be reused as OPD/IPD.
+- Receive now derives non-empty AN as `IPD`, otherwise `OPD`, and sends the value at
+  `encounter.class` while retaining the legacy flat `visit_type`. Agent gateway/schema accept only
+  `OPD` or `IPD` and reject unknown nested fields.
+- Worklist responses expose `visit.an`/`visit.encounter_class`; the Form shows a read-only red
+  `AN : ...` badge only when AN exists, including CBC rows. AN is not sent separately because its
+  Agent destination field is not yet confirmed.
+- Agent Submit, Receive, Worklist API/Form regression tests and SDForm validation pass locally;
+  deploy/Builder/runtime UAT remains pending.
+
+## [2026-10-01] note | Grouped commit and push of the backlogged worktree
+
+- Split 86 of 95 dirty paths into 9 scoped commits `68caf35`..`f544503` plus this bookkeeping
+  commit: X-ray worklist, X-ray staff master, X-ray contrast history, LAB OPD/IPD encounter class,
+  CPOE VN picker, LAB log/settings forms, EMR sensitive redaction, report/slip sensitive gating,
+  Immunology mockup.
+- Baseline check first: 10 test suites already failed at `c84f22f` (`test_lab_workbench_widget_draft`,
+  `test_multilab_reject_api`, `test_multilab_reject_ui`, `test_open_manual_lab_results_button`,
+  `test_prepare_manual_lab_results`, `test_specimen_receive_processing_api`,
+  `test_start_processing_flow`, `test_xray_order_ris_params`, `test_xray_ris_team_apis`,
+  `test_result_report_viewer_manual_lis`). They are pre-existing, not caused by this work.
+- Committed state verified in a clean worktree: 48 pass / 10 fail — exactly the pre-existing set.
+  SDForm validator passes on all 11 changed form JSONs.
+- Held back deliberately, still in the dirty worktree:
+  `02-his/data/xray-staff-master-seed-v1.json` (13 real staff names + 7 personal emails; this repo
+  is public), `test_xray_staff_master_forms.js` (reads that seed),
+  `test_xray_cpoe_worklist_form.js` (fails: the X-ray form lacks the refresh button the LAB form
+  just gained), the two `.txt` byte-duplicates of the EMR/treat-summary HTML templates, and both
+  `.obsidian/` editor-state files.

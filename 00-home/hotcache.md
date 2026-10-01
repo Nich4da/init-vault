@@ -1,36 +1,55 @@
 ---
 type: meta
 title: Hot Cache
-updated: 2026-09-25
+updated: 2026-10-01
 ---
 
 # 🔥 Hot Cache — read this first
 
-## LAB result visibility — draft for confirmation
+## Git state (2026-10-01)
 
-- Reviewed local code and live HIS schema read-only; **no production change/deploy**. LAB's daily Item result list uses top-level CPOE Item `is_hide_result`; the API requires the same Section, an eligible received/result status, a persisted result, and a reason. It remains hidden until manual unhide and is not result-version scoped.
-- `emr-lab-board-get` reads Result Items directly and does not join that flag, so EMR can still expose a LAB-hidden result.
-- Live CPOE master form has `is_hide_result` (`ปกปิดผล`, default false). Only 3 masters store false and none true. Order Item snapshots expose `pick_master.is_hide_result` (326 exist: 4 false, none true; others null). No runtime top-level flag is deployed.
-- Interactive prototype: `02-his/ui/lab-result-visibility-policy-mockup.html`. Revised to model one accepted LIS callback as one immutable whole-bundle revision: Technical Receipt (`zdata_lab_result_inbound`) → proposed `zdata_lab_result_revision_log` → current projection (`zdata_lab_result_item`). LAB has no send/retest button; LIS resends the same LAB No./codes as a full bundle and ingestion creates the next revision automatically.
-- Temporary LAB hold is bound to `held_revision_id` versus `active_revision_id`, not individual item versions. A newer accepted revision auto-releases the old hold while retaining history. Sensitive master policy remains independent and requires server-side EMR re-auth; hold wins when both apply. Revision timeline, old snapshots, full-bundle callback, Sensitive re-auth, precedence, desktop/mobile, and console were verified. Awaiting confirmation before production edits.
+- Backlog split into 9 scoped commits `68caf35`..`f544503` + bookkeeping, pushed to `origin/main`.
+- Verified in a clean worktree: 48 test suites pass, 10 fail. Those 10 **already failed at
+  `c84f22f`** (multilab reject, manual-lab-results, specimen receive, start processing, workbench
+  widget draft, xray RIS params/team, result report viewer) — pre-existing, not this work.
+- SDForm validator passes on all 11 changed form JSONs.
+- **Still uncommitted on purpose:** `02-his/data/xray-staff-master-seed-v1.json` (13 real staff
+  names + 7 personal emails — repo is public; sanitize before committing) and its reader
+  `test_xray_staff_master_forms.js`; `test_xray_cpoe_worklist_form.js` (red — X-ray worklist form
+  lacks the refresh button the LAB form gained); two `.txt` byte-duplicates of the EMR/treat-summary
+  HTML templates; both `.obsidian/` editor-state files. Never bulk-commit these.
 
-## EMR History — separate LAB result card
+## LAB Worklist / CPOE
 
-- Implemented locally, **not deployed**. In vue-ui `emr_view`, the existing Lab order card remains unchanged; the complete LAB result card is a separate sibling after it.
-- Paste-ready: `02-his/form-factory/emr-history-template-FULL-v1.html` and `Form-Builder/API/form-factory/events/emr-history-onCreated-FULL-v1.js`.
-- Loads through `emr-lab-board-get` `6ab3be31cec3020e8562a2c9`; restored `emr-history-get` was not edited. Join only by exact Order ID and exclude `scope: today`.
-- Static/regression tests pass; Builder/Preview confirmation remains. Do not replace the whole EMR History Form.
+- Non-empty current Visit or CPOE snapshot `an` ⇒ `encounter.class="IPD"`, else `"OPD"`. Legacy flat
+  `visit_type` unchanged (service type 1–5). Agent gateway/schema allow only OPD/IPD and reject
+  extra nested fields. Worklist returns `visit.an`/`visit.encounter_class`, red read-only `AN : ...`
+  badge only when AN exists, CBC rows included. AN not sent separately until Agent confirms its path.
+- Live evidence: Visit Form `6a40fdec4b6dfdf45acbfbce` has `an`; CPOE `vid.an` + admission sync
+  exist. At check: Visit AN 3, CPOE snapshot AN 4, admission-log AN 3.
+- Readiness audit: Work Item 175, Outbound 97, Receipt 14, Report 19, Result Item 36, Edit Log 1,
+  Revision 0. Still need callback/revision, multi-item final/corrected/duplicate, Report/EMR UAT,
+  IM LAB NO/sticker, upload/RBAC. Critical contract: `is_critical` Boolean. Cancel is HIS-only;
+  `retest_item` still needs explicit LIS-deletion confirmation.
+- CPOE VN picker: Thai VN dates, optional Source, Visit-locked entitlement; IM/MI-OUT hide `All`.
+  Cash badge: `sent` red unpaid, post-Finance green. Runtime test pending.
+- Result correction writes append-only Edit Log `6ab78b7159662ac8f059105a`. Manual hide blocks EMR
+  publication but LAB can edit; only Master Sensitive hides LAB values. Revision Log
+  `6abbabdcc54b3f93ce799576` stores whole callbacks; runtime UAT pending.
 
-## CPOE cancellation + finance gate — ready, not deployed
+## X-ray
 
-- Implemented in `lab_cpoe_worklist_api.js`, generated `lab-cpoe-worklist-waiting-v1.json`, source `update_lab_cpoe_worklist_ui.js`. HIS-only; never cancels through Agent/LIS and preserves sent outbound audit.
-- Server rechecks Finance: no Bill Item or refund/terminal bill permits cancellation; unpaid items become cancelled; active paid/receipt blocks all writes. Work Item/CPOE Item become cancelled; parent Order stays read-only. Regression/validator pass; runtime import/UAT remains.
+- Worklist: `ready` can dispatch, `sent` disabled; cash badges follow LAB. Staff selector uses Form
+  `6abcb7c0c54b3f93ce7a0489`, role-validated. Deploy/UAT pending.
 
-## LAB result attachments
+## EMR LAB result
 
-- Local only: PDF/JPG/JPEG/PNG, 10 files, 10 MB/file, 50 MB total; metadata unlink confirmed, no blob delete. Re-import Worklist JSON and runtime-check.
+- HN `6900031` UAT proved Sodium unhide (`3000`). API resolves each Result through batch snapshot +
+  Item Master and groups Profile like LAB. Manual hide is server-redacted and cannot be overridden;
+  Sensitive doctor re-auth stays separate. Latest UI/template needs deploy/UAT.
 
-## Source / safety
+## Remaining blockers
 
-- Immutable export: `Form-Builder/SDForm/backup/emr-history-6a96557e422c1ca959829eae-export-2026-09-24_18-03-01.json`.
-- Mongo is read-only. Commit `03f9b5d` carries the X-ray/LAB/EMR checkpoint. `origin` is public (`Nich4da/init-vault`): never commit the localhost print-agent token. Related X-ray/LAB files remain uncommitted until sanitized; existing dirty worktree belongs to other work.
+- Result Report join fix (`order_status_id → CPOE Item → Order`) and Sensitive PDF package
+  `02-his/handoff/lab-result-pdf-sensitive-v3.zip` await Report team/runtime verification.
+- Immunology LAB NO/sticker remains design-only.

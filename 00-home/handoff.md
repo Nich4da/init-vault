@@ -1,11 +1,35 @@
 ---
 type: meta
 title: Conversation Reset Handoff
-updated: 2026-09-18
+updated: 2026-09-27
 status: inactive
 ---
 
 # Conversation Reset Handoff
+
+## Resolved reset — X-ray lookup now clones the real LAB lookup UI (2026-09-27)
+
+The user confirmed that only the X-ray `สืบค้นผลแลป` area must reuse the UI of the
+LAB result-search view; this does not authorize changes to other X-ray/LAB flows.
+The local generator now clones the generated LAB widget and stylesheet directly,
+removes only LAB's own top-level view switcher, and locks the copied widget to
+`viewMode='lookup'`. The rejected `.xll-*` markup and CSS are absent from the
+generated Form. Search/list, expansion, pagination, result dialog, Microbiology,
+Sensitive authorization, and read-only PDF/EMR presentation therefore track LAB.
+
+The Form-level Process guard allows only list, `get_manual_result`, and
+`authorize_sensitive_result`; every other LAB action fails before the connector.
+The LAB Process still enforces radiology-unit cross-section access and disclosure
+logging. Unit Queue, My Room, X-ray, Completed, RIS viewer, ordering, cancellation,
+contrast, and the source LAB Form were not changed by this resolution.
+
+Parity/isolation behavior, the LAB Form test, and SDForm validator pass. Of 17 X-ray
+suites, 15 pass; the same unrelated RIS fixture/message suites remain red:
+`test_xray_order_ris_params` and `test_xray_ris_team_apis`. Runtime remains pending:
+replace the LAB Worklist Process if its radiology read-only change is not deployed,
+then import Form `6a953fb6422c1ca959829e14`, hard-refresh, and visually verify the
+lookup/list/result dialog with authorized radiology accounts. No commit or deployment
+was made; the shared worktree remains heavily dirty.
 
 ## Resolved reset — X-ray cancellation scope corrected (2026-09-18)
 
