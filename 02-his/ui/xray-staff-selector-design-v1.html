@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>X-ray staff selector — design confirmation</title>
+  <style>
+    :root {
+      --blue: #1677ff;
+      --blue-50: #eef6ff;
+      --blue-100: #d8eaff;
+      --ink: #1f2937;
+      --text: #526071;
+      --muted: #7b8794;
+      --line: #dce3ea;
+      --surface: #ffffff;
+      --canvas: #f4f7fa;
+      --green: #238636;
+      --green-bg: #edf9f0;
+      --amber: #9a5b00;
+      --amber-bg: #fff7e8;
+      --red: #c9362b;
+      --red-bg: #fff1f0;
+      --shadow: 0 12px 32px rgba(31, 41, 55, .08);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--canvas);
+      color: var(--ink);
+      font-family: "Leelawadee UI", "Noto Sans Thai", Tahoma, sans-serif;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    .page { max-width: 1240px; margin: 0 auto; padding: 34px 22px 56px; }
+    .eyebrow { color: var(--blue); font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+    h1 { margin: 6px 0 6px; font-size: clamp(23px, 3vw, 32px); line-height: 1.2; }
+    .lead { margin: 0; color: var(--text); max-width: 780px; }
+
+    .notice {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      margin: 22px 0;
+      padding: 14px 16px;
+      border: 1px solid #f2c47b;
+      border-radius: 10px;
+      background: var(--amber-bg);
+      color: #6e4607;
+    }
+    .notice strong { display: block; margin-bottom: 3px; }
+    .notice-mark { flex: 0 0 auto; font-weight: 900; }
+
+    .layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; align-items: start; }
+    .panel { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: var(--shadow); }
+    .panel-head { padding: 17px 18px; border-bottom: 1px solid var(--line); }
+    .panel-head h2 { margin: 0; font-size: 17px; }
+    .panel-head p { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
+
+    .order { padding: 18px; }
+    .order-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .tag { display: inline-flex; align-items: center; min-height: 24px; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+    .tag.blue { color: #0c57af; background: var(--blue-50); border: 1px solid var(--blue-100); }
+    .tag.green { color: var(--green); background: var(--green-bg); border: 1px solid #bfe8c8; }
+    .exam { display: flex; justify-content: space-between; gap: 20px; padding: 14px 0 18px; border-bottom: 1px solid var(--line); }
+    .exam strong { display: block; font-size: 15px; }
+    .exam span { color: var(--muted); font-size: 12px; }
+
+    .selectors { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding-top: 18px; }
+    .field label { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 7px; font-weight: 750; }
+    .field label small { color: var(--muted); font-weight: 500; }
+    .combo { position: relative; }
+    .combo-input {
+      width: 100%; height: 40px; padding: 0 38px 0 12px;
+      border: 1px solid #cbd5df; border-radius: 7px; outline: none; color: var(--ink); background: #fff;
+      transition: border-color .16s, box-shadow .16s;
+    }
+    .combo-input:hover { border-color: #9aa8b6; }
+    .combo-input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(22, 119, 255, .13); }
+    .combo-arrow { position: absolute; top: 10px; right: 12px; color: var(--muted); pointer-events: none; }
+    .menu {
+      position: absolute; z-index: 5; left: 0; right: 0; top: calc(100% + 6px);
+      display: none; max-height: 260px; overflow: auto; padding: 6px;
+      border: 1px solid var(--line); border-radius: 9px; background: #fff; box-shadow: 0 14px 34px rgba(31, 41, 55, .16);
+    }
+    .combo.open .menu { display: block; }
+    .option { width: 100%; display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 9px 10px; border: 0; border-radius: 6px; background: transparent; color: var(--ink); text-align: left; }
+    .option:hover, .option:focus-visible { background: var(--blue-50); outline: none; }
+    .option-name { font-weight: 650; }
+    .option-meta { color: var(--muted); font-size: 11px; }
+    .option-create { margin-top: 4px; border-top: 1px solid var(--line); border-radius: 0 0 6px 6px; color: var(--amber); }
+    .empty { padding: 12px 10px; color: var(--muted); font-size: 12px; }
+    .helper { min-height: 18px; margin: 7px 0 0; color: var(--muted); font-size: 11px; }
+    .helper.external { color: var(--amber); }
+    .selected-info { display: none; align-items: center; gap: 7px; margin-top: 8px; }
+    .selected-info.show { display: flex; }
+    .source-pill { padding: 2px 7px; border-radius: 999px; font-size: 10px; font-weight: 800; letter-spacing: .03em; }
+    .source-pill.master { color: var(--green); background: var(--green-bg); }
+    .source-pill.external { color: var(--amber); background: var(--amber-bg); }
+    .selected-name { color: var(--text); font-size: 12px; }
+
+    .preview-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 22px; padding-top: 15px; border-top: 1px solid var(--line); }
+    .btn { min-height: 36px; padding: 0 14px; border: 1px solid var(--line); border-radius: 7px; background: #fff; color: var(--text); font-weight: 700; }
+    .btn.primary { border-color: var(--blue); background: var(--blue); color: #fff; }
+
+    .side { display: grid; gap: 14px; }
+    .side-card { padding: 16px; border: 1px solid var(--line); border-radius: 11px; background: #fff; }
+    .side-card h3 { margin: 0 0 10px; font-size: 14px; }
+    .rule { display: grid; grid-template-columns: 24px 1fr; gap: 9px; margin: 12px 0; }
+    .rule-num { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; background: var(--blue-50); color: var(--blue); font-size: 11px; font-weight: 900; }
+    .rule strong { display: block; font-size: 12px; }
+    .rule span { color: var(--muted); font-size: 11px; }
+    .payload { margin: 0; padding: 12px; overflow: auto; border-radius: 8px; background: #16202c; color: #d8e6f3; font: 11px/1.55 "SFMono-Regular", Consolas, monospace; }
+    .decision { padding: 14px 16px; border: 1px solid var(--blue-100); border-radius: 10px; background: var(--blue-50); color: #174a80; }
+    .decision strong { display: block; margin-bottom: 4px; }
+
+    @media (max-width: 880px) {
+      .layout { grid-template-columns: 1fr; }
+      .side { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 620px) {
+      .page { padding: 22px 12px 42px; }
+      .selectors, .side { grid-template-columns: 1fr; }
+      .exam { flex-direction: column; gap: 5px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="eyebrow">Design confirmation · ไม่เชื่อมฐานข้อมูล</div>
+    <h1>เลือก Radiographer / Radiologist จาก Member Master</h1>
+    <p class="lead">ต้นแบบเฉพาะพฤติกรรมการค้นหา เลือก และกรอกแพทย์นอกระบบ ค่าบนหน้านี้ไม่ถูกบันทึก</p>
+
+    <div class="notice" role="status">
+      <div class="notice-mark">!</div>
+      <div><strong>ต้องแก้ข้อมูลก่อนเปิดใช้จริง</strong>Live master ปัจจุบันมี Radiologist 6 / Radiographer 7 เพราะ “ศรัญญา บุญเกิด” ถูกจัดเป็น Radiologist และมีชื่อ 2 รายที่มีช่องว่างท้ายข้อความ</div>
+    </div>
+
+    <div class="layout">
+      <section class="panel" aria-labelledby="preview-title">
+        <header class="panel-head">
+          <h2 id="preview-title">ตัวอย่างในตารางรายการตรวจ</h2>
+          <p>กดช่องแล้วพิมพ์เพื่อค้นหา ลองพิมพ์ชื่อที่ไม่มีในช่อง Radiologist</p>
+        </header>
+        <div class="order">
+          <div class="order-meta">
+            <span class="tag blue">XR-2026-0142</span>
+            <span class="tag green">พร้อมส่งเครื่อง</span>
+          </div>
+          <div class="exam">
+            <div><strong>Chest PA Upright</strong><span>XR · ตัวอย่างข้อมูล ไม่ใช่ผู้ป่วยจริง</span></div>
+            <div><strong>ACC-000142</strong><span>Accession No.</span></div>
+          </div>
+
+          <div class="selectors">
+            <div class="field">
+              <label for="radiographer-input">Radiographer <small>เลือกจาก Master เท่านั้น</small></label>
+              <div class="combo" id="radiographer-combo">
+                <input class="combo-input" id="radiographer-input" autocomplete="off" role="combobox" aria-expanded="false" placeholder="ค้นหา Radiographer">
+                <span class="combo-arrow">⌄</span>
+                <div class="menu" role="listbox"></div>
+              </div>
+              <div class="selected-info" id="radiographer-selected"><span class="source-pill master">MASTER</span><span class="selected-name"></span></div>
+              <p class="helper" id="radiographer-helper">ไม่พบชื่อ → เพิ่ม/แก้ที่ Member Master ก่อน</p>
+            </div>
+
+            <div class="field">
+              <label for="radiologist-input">Radiologist <small>Master หรือแพทย์นอก</small></label>
+              <div class="combo" id="radiologist-combo">
+                <input class="combo-input" id="radiologist-input" autocomplete="off" role="combobox" aria-expanded="false" placeholder="ค้นหา หรือพิมพ์ชื่อแพทย์นอก">
+                <span class="combo-arrow">⌄</span>
+                <div class="menu" role="listbox"></div>
+              </div>
+              <div class="selected-info" id="radiologist-selected"><span class="source-pill"></span><span class="selected-name"></span></div>
+              <p class="helper" id="radiologist-helper">ชื่อที่พิมพ์เองจะเก็บเฉพาะรายการตรวจนี้ และไม่สร้าง Member ใหม่</p>
+            </div>
+          </div>
+
+          <div class="preview-actions">
+            <button class="btn" type="button" id="clear-all">ล้างตัวอย่าง</button>
+            <button class="btn primary" type="button" id="show-payload">ดูข้อมูลที่จะบันทึก</button>
+          </div>
+        </div>
+      </section>
+
+      <aside class="side">
+        <div class="side-card">
+          <h3>กติกาที่เสนอ</h3>
+          <div class="rule"><span class="rule-num">1</span><div><strong>กรองตามตำแหน่ง</strong><span>Radiologist เห็นเฉพาะ RADIOLOGIST_*; Radiographer เห็นเฉพาะ RADIOGRAPHER_*</span></div></div>
+          <div class="rule"><span class="rule-num">2</span><div><strong>Free text เฉพาะ Radiologist</strong><span>รองรับแพทย์ไม่ประจำ แต่ไม่ทำให้ Master เกิดข้อมูลซ้ำ/สะกดต่างกัน</span></div></div>
+          <div class="rule"><span class="rule-num">3</span><div><strong>รักษาค่าเดิมไว้</strong><span>เก็บชื่อ string เดิมเพื่อไม่กระทบ flow พร้อมเพิ่ม source และ member_id สำหรับอ้างอิง</span></div></div>
+        </div>
+
+        <div class="side-card">
+          <h3>ตัวอย่าง contract ที่เสนอ</h3>
+          <pre class="payload" id="payload">{
+  "radiographer": "",
+  "radiographer_source": "",
+  "radiographer_member_id": "",
+  "radiologist": "",
+  "radiologist_source": "",
+  "radiologist_member_id": ""
+}</pre>
+        </div>
+
+        <div class="decision">
+          <strong>จุดที่ขอให้ยืนยัน</strong>
+          Free text เปิดเฉพาะ Radiologist ตามเหตุผล “แพทย์ไม่ประจำ” ส่วน Radiographer ต้องมีใน Member Master ก่อน
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <script>
+    const radiographers = [
+      ['6abcbefac54b3f93ce7a0787', 'นางสุกัญญา ประจะเน'],
+      ['6abcc6efc54b3f93ce7a0ad5', 'น.ส.อารีรัตน์ หล้าสิงห์'],
+      ['FIX-MASTER-FIRST', 'น.ส.ศรัญญา บุญเกิด'],
+      ['6abcc7b9c54b3f93ce7a0b2c', 'นายศุภกร ทองนิ่ม'],
+      ['6abcc7d7c54b3f93ce7a0b39', 'น.ส.พิมพ์พันธ์ พุทธวงศ์'],
+      ['6abcc7f5c54b3f93ce7a0b46', 'น.ส.วนัชพร เผื่อแผ่'],
+      ['6abcc813c54b3f93ce7a0b53', 'น.ส.อัญชลี สิทธิเจริญธรรม'],
+      ['6abcc82fc54b3f93ce7a0b60', 'นายณัฐพล ธนรัชต์สกุล']
+    ].map(([id, name]) => ({ id, name }));
+
+    const radiologists = [
+      ['6abcb7f8c54b3f93ce7a04a2', 'พ.ญ.กนกพร ชุติวงศ์ธนะพัฒน์'],
+      ['6abcbcfcc54b3f93ce7a06b1', 'พ.ญ.ปรางใส คุ้มสาธิต'],
+      ['6abcbe69c54b3f93ce7a074a', 'พ.ญ.ธนิฏฐา พฤกษหิรัญ'],
+      ['6abcbe80c54b3f93ce7a0755', 'พ.ญ.ชมนาด จิตต์แจ้ง'],
+      ['6abcbe9fc54b3f93ce7a0762', 'พ.ญ.ลลิตพรรณ นิมมานเกียรติกุล']
+    ].map(([id, name]) => ({ id, name }));
+
+    const state = { radiographer: null, radiologist: null };
+
+    function bindCombo(kind, items, allowExternal) {
+      const combo = document.getElementById(kind + '-combo');
+      const input = document.getElementById(kind + '-input');
+      const menu = combo.querySelector('.menu');
+      const selected = document.getElementById(kind + '-selected');
+      const pill = selected.querySelector('.source-pill');
+      const selectedName = selected.querySelector('.selected-name');
+
+      function close() { combo.classList.remove('open'); input.setAttribute('aria-expanded', 'false'); }
+      function choose(item, source) {
+        state[kind] = { name: item.name, id: source === 'master' ? item.id : '', source };
+        input.value = item.name;
+        pill.textContent = source === 'master' ? 'MASTER' : 'แพทย์นอก';
+        pill.className = 'source-pill ' + source;
+        selectedName.textContent = item.name;
+        selected.classList.add('show');
+        close();
+        renderPayload();
+      }
+      function render() {
+        const query = input.value.trim();
+        const found = items.filter(item => item.name.toLowerCase().includes(query.toLowerCase()));
+        menu.innerHTML = '';
+        found.forEach(item => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'option';
+          button.innerHTML = '<span class="option-name"></span><span class="option-meta">Member Master</span>';
+          button.querySelector('.option-name').textContent = item.name;
+          button.addEventListener('mousedown', event => { event.preventDefault(); choose(item, 'master'); });
+          menu.appendChild(button);
+        });
+        const exact = items.some(item => item.name.toLowerCase() === query.toLowerCase());
+        if (allowExternal && query && !exact) {
+          const create = document.createElement('button');
+          create.type = 'button';
+          create.className = 'option option-create';
+          create.innerHTML = '<span class="option-name"></span><span class="option-meta">ไม่เพิ่มเข้า Master</span>';
+          create.querySelector('.option-name').textContent = 'ใช้ “' + query + '” เป็นแพทย์นอกระบบ';
+          create.addEventListener('mousedown', event => { event.preventDefault(); choose({ name: query }, 'external'); });
+          menu.appendChild(create);
+        }
+        if (!found.length && (!allowExternal || !query)) {
+          const empty = document.createElement('div');
+          empty.className = 'empty';
+          empty.textContent = query ? 'ไม่พบชื่อใน Member Master' : 'เริ่มพิมพ์เพื่อค้นหา';
+          menu.appendChild(empty);
+        }
+      }
+      input.addEventListener('focus', () => { combo.classList.add('open'); input.setAttribute('aria-expanded', 'true'); render(); });
+      input.addEventListener('input', () => { state[kind] = null; selected.classList.remove('show'); combo.classList.add('open'); render(); renderPayload(); });
+      input.addEventListener('keydown', event => {
+        if (event.key === 'Enter' && allowExternal && input.value.trim()) { event.preventDefault(); choose({ name: input.value.trim() }, 'external'); }
+        if (event.key === 'Escape') close();
+      });
+      document.addEventListener('mousedown', event => { if (!combo.contains(event.target)) close(); });
+      render();
+      return () => { input.value = ''; state[kind] = null; selected.classList.remove('show'); render(); };
+    }
+
+    const clearRadiographer = bindCombo('radiographer', radiographers, false);
+    const clearRadiologist = bindCombo('radiologist', radiologists, true);
+
+    function renderPayload() {
+      const rgr = state.radiographer || {};
+      const rdl = state.radiologist || {};
+      document.getElementById('payload').textContent = JSON.stringify({
+        radiographer: rgr.name || '',
+        radiographer_source: rgr.source || '',
+        radiographer_member_id: rgr.id || '',
+        radiologist: rdl.name || '',
+        radiologist_source: rdl.source || '',
+        radiologist_member_id: rdl.id || ''
+      }, null, 2);
+    }
+
+    document.getElementById('clear-all').addEventListener('click', () => { clearRadiographer(); clearRadiologist(); renderPayload(); });
+    document.getElementById('show-payload').addEventListener('click', () => {
+      renderPayload();
+      document.getElementById('payload').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  </script>
+</body>
+</html>

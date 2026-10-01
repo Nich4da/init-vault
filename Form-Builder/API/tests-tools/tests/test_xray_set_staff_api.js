@@ -2,9 +2,9 @@ const assert = require('assert')
 const fs = require('fs')
 const path = require('path')
 
-/* action `set_staff` ของ Process worklist — บันทึก Radiographer ระดับ item พร้อม log
-   ผู้ใช้สั่ง 2026-09-03: "เปลี่ยนคอลัม ผู้ส่ง เป็นคำว่า radiographer ทำเป็น dropdown
-   … แล้วก็ต้องเก็บ log ด้วยนะ"
+/* action `set_staff` ของ Process worklist — บันทึก Radiographer/Radiologist ระดับ item พร้อม log
+   เปลี่ยน contract 2026-09-30 ตามคำสั่งผู้ใช้: ทั้งสองช่องเชื่อม X-ray Member Master;
+   Radiologist รองรับแพทย์ภายนอกแบบ free text ส่วน Radiographer เลือกจาก master เท่านั้น
 
    อยู่ใน Process worklist ตัวเดิม ไม่มี Process ID ใหม่ (ทรงเดียวกับ cancel_order)
    ถ้าใครย้ายออกไปเป็น Process แยก ต้องแก้ฟอร์มด้วย ไม่งั้น dropdown จะยิงผิดที่ */
@@ -21,6 +21,9 @@ assert(!apiBody.includes('mongoTxn'), 'MongoDB standalone — ห้ามเป
 const ITEM = 'bbbbbbbbbbbbbbbbbbbbbbb1'
 const ITEM_LAB = 'bbbbbbbbbbbbbbbbbbbbbbb2'
 const ITEM_CANCELLED = 'bbbbbbbbbbbbbbbbbbbbbbb3'
+const MEMBER_RADIOGRAPHER = '111111111111111111111111'
+const MEMBER_RADIOLOGIST = '222222222222222222222222'
+const MEMBER_OTHER = '333333333333333333333333'
 const NAME_A = 'นางสุกัญญา ประจะเน'
 const NAME_B = 'นายศุภกร ทองนิ่ม'
 
@@ -43,6 +46,23 @@ const makeHarness = () => {
     { _id: ITEM_CANCELLED, xrstatx: 1, service_type: { value: 'xray' }, current_status: 'cancelled' },
   ]
   const itemMap = new Map(rows.map(row => [row._id, clone(row)]))
+  const memberMap = new Map([
+    [MEMBER_RADIOGRAPHER, {
+      _id: MEMBER_RADIOGRAPHER, xrstatx: 1,
+      prename: { value: 'PN1', label: 'นาง' }, first_name: 'สุกัญญา ', last_name: 'ประจะเน',
+      position: { value: 'RADIOGRAPHER_PRO', label: 'นักรังสีการแพทย์ชำนาญการ' },
+    }],
+    [MEMBER_RADIOLOGIST, {
+      _id: MEMBER_RADIOLOGIST, xrstatx: 1,
+      prename: { value: 'PN2', label: 'พญ.' }, first_name: 'กนกพร ', last_name: 'ชุติวงศ์ธนะพัฒน์',
+      position: { value: 'RADIOLOGIST_PRO', label: 'นายแพทย์ชำนาญการ' },
+    }],
+    [MEMBER_OTHER, {
+      _id: MEMBER_OTHER, xrstatx: 1,
+      prename: { value: 'PN3', label: 'นาย' }, first_name: 'บุคคล', last_name: 'อื่น',
+      position: { value: 'OTHER', label: 'อื่น ๆ' },
+    }],
+  ])
   const itemCollection = {
     findOne: async query => clone(itemMap.get(String(query._id)) || null),
     updateOne: async (query, update) => {
@@ -56,12 +76,18 @@ const makeHarness = () => {
       return { matchedCount: 1, modifiedCount: 1 }
     },
   }
+  const memberCollection = {
+    findOne: async query => clone(memberMap.get(String(query._id)) || null),
+  }
   const app = {
     isAuth: () => true,
     curDate: () => '2026-09-03 11:00:00',
     dbObjectId: id => String(id),
     dbFindAll: async () => ({ success: true, reply: { data: [] } }),
-    db: { collection: name => ({ zdata_cpoe_order_item: itemCollection })[name] },
+    db: { collection: name => ({
+      zdata_cpoe_order_item: itemCollection,
+      zdata_xray_member_master: memberCollection,
+    })[name] },
   }
   return { app, items: itemMap }
 }
@@ -116,6 +142,46 @@ const save = (h, extra, user) => Process(
     )
   }
 
+  /* ── contract ใหม่: master id/role ถูกตรวจฝั่ง server (ผู้ใช้ขอ 2026-09-30) ── */
+  {
+    const h = makeHarness()
+    const out = await save(h, {
+      radiographer: 'ข้อความจาก client ที่ห้ามเชื่อ',
+      radiographer_source: 'master',
+      radiographer_member_id: MEMBER_RADIOGRAPHER,
+    })
+    assert.strictEqual(out.success, true, out.message)
+    assert.strictEqual(out.data.radiographer, NAME_A, 'ชื่อที่บันทึกต้องประกอบจาก master และ trim')
+    const row = h.items.get(ITEM)
+    assert.strictEqual(row.radiographer, NAME_A)
+    assert.strictEqual(row.radiographer_source, 'master')
+    assert.strictEqual(row.radiographer_member_id, MEMBER_RADIOGRAPHER)
+    assert.strictEqual(row.radiographer_log[0].source, 'master')
+    assert.strictEqual(row.radiographer_log[0].member_id, MEMBER_RADIOGRAPHER)
+  }
+
+  {
+    const h = makeHarness()
+    let out = await save(h, {
+      radiologist: 'ชื่อจาก client',
+      radiologist_source: 'master',
+      radiologist_member_id: MEMBER_RADIOLOGIST,
+    })
+    assert.strictEqual(out.success, true, out.message)
+    assert.strictEqual(out.data.radiologist, 'พญ.กนกพร ชุติวงศ์ธนะพัฒน์')
+    assert.strictEqual(h.items.get(ITEM).radiologist_source, 'master')
+    assert.strictEqual(h.items.get(ITEM).radiologist_log.length, 1)
+
+    out = await save(h, {
+      radiologist: 'พญ.แพทย์ ภายนอก', radiologist_source: 'external', radiologist_member_id: '',
+    })
+    assert.strictEqual(out.success, true, out.message)
+    assert.strictEqual(h.items.get(ITEM).radiologist, 'พญ.แพทย์ ภายนอก')
+    assert.strictEqual(h.items.get(ITEM).radiologist_source, 'external')
+    assert.strictEqual(h.items.get(ITEM).radiologist_member_id, '')
+    assert.strictEqual(h.items.get(ITEM).radiologist_log.length, 2)
+  }
+
   /* ── ล้างค่า: ต้องถูกบันทึกเป็น log เหมือนกัน ไม่ใช่ลบเงียบ ─────────── */
   {
     const h = makeHarness()
@@ -156,6 +222,26 @@ const save = (h, extra, user) => Process(
     out = await save(h, { radiographer: 'ก'.repeat(121) })
     assert.strictEqual(out.error, 'radiographer_too_long')
 
+    out = await save(h, {
+      radiographer: NAME_A, radiographer_source: 'external', radiographer_member_id: '',
+    })
+    assert.strictEqual(out.error, 'external_radiographer_not_allowed')
+
+    out = await save(h, {
+      radiographer: NAME_A, radiographer_source: 'master', radiographer_member_id: MEMBER_RADIOLOGIST,
+    })
+    assert.strictEqual(out.error, 'member_role_mismatch')
+
+    out = await save(h, {
+      radiologist: 'พญ.คนอื่น', radiologist_source: 'master', radiologist_member_id: MEMBER_OTHER,
+    })
+    assert.strictEqual(out.error, 'member_role_mismatch')
+
+    out = await save(h, {
+      radiologist: 'พญ.คนอื่น', radiologist_source: 'master', radiologist_member_id: 'not-an-id',
+    })
+    assert.strictEqual(out.error, 'invalid_member_id')
+
     out = await save(h, { item_id: ITEM_LAB, radiographer: NAME_A })
     assert.strictEqual(out.error, 'not_xray_item', 'รายการ LAB ไม่ใช่งานของหน้าจอนี้')
     assert.strictEqual(h.items.get(ITEM_LAB).radiographer, undefined)
@@ -177,8 +263,13 @@ const save = (h, extra, user) => Process(
     'list ต้องคืน radiographer ไม่งั้นรีเฟรชแล้วค่าที่เลือกจะหายทั้งที่บันทึกแล้ว',
   )
   assert(apiBody.includes("radiographer_at: '$radiographer_at'"))
+  assert(apiBody.includes("radiographer_source: '$radiographer_source'"))
+  assert(apiBody.includes("radiographer_member_id: '$radiographer_member_id'"))
+  assert(apiBody.includes("radiologist: '$radiologist'"))
+  assert(apiBody.includes("radiologist_source: '$radiologist_source'"))
+  assert(apiBody.includes("radiologist_member_id: '$radiologist_member_id'"))
 
-  console.log('X-ray set_staff (Radiographer) API tests passed')
+  console.log('X-ray set_staff (Radiographer/Radiologist) API tests passed')
 })().catch(error => {
   console.error(error)
   process.exit(1)
