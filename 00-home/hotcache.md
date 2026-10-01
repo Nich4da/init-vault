@@ -8,7 +8,9 @@ updated: 2026-10-01
 
 ## Git state (2026-10-01)
 
-- Backlog split into 9 scoped commits `68caf35`..`f544503` + bookkeeping, pushed to `origin/main`.
+- Backlog split into 9 scoped commits `68caf35`..`f544503` + bookkeeping `4f90e3e`. **Not pushed
+  yet** — `git push` was blocked by the auto-mode classifier and needs the user to run or allow it.
+  `origin/main` is still at `c84f22f`, so 11 commits are waiting.
 - Verified in a clean worktree: 48 test suites pass, 10 fail. Those 10 **already failed at
   `c84f22f`** (multilab reject, manual-lab-results, specimen receive, start processing, workbench
   widget draft, xray RIS params/team, result report viewer) — pre-existing, not this work.
