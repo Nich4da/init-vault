@@ -48,7 +48,7 @@ unknown.
   "xsitex": {"code": "0000",  "name": "0000"},
   "xunitx": {"code": "B001",  "name": "เภสัชกรรม"},
   "xrstatx": 1, "xversionx": "v1", "xerrorx": null,
-  "created_by": {"id": {"$oid": "…"}, "name": "SuperAdmin InitAPI (iencoded@gmail.com)"},
+  "created_by": {"id": {"$oid": "…"}, "name": "SuperAdmin InitAPI"},
   "created_at": "2026-07-29 01:53:23",   // string, "YYYY-MM-DD HH:mm:ss" — not a BSON date
   "updated_by": {...}, "updated_at": "2026-08-02 17:31:56",
   "dataid": "…",                          // duplicate of _id as a plain string

@@ -8,7 +8,7 @@
       "id": {
         "$oid": "6a75b1f50796231c653df997"
       },
-      "name": "Parinya Tumchay (staff@example.invalid)"
+      "name": "Parinya Tumchay"
     },
     "pdf_assign_roles": null,
     "pdf_bg": null,
@@ -233,7 +233,7 @@
       "id": {
         "$oid": "6a75b1f50796231c653df997"
       },
-      "name": "Parinya Tumchay (staff@example.invalid)"
+      "name": "Parinya Tumchay"
     },
     "xclonex": null,
     "xerrorx": null,

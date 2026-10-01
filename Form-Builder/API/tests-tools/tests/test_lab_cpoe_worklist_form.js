@@ -1081,8 +1081,11 @@ assert.deepStrictEqual(s.specimenTooltipLines(tooltipOrder), [
   'Clotted blood · C34 Gamma GT',
   'EDTA blood · C64 Ammonia',
 ])
+// 2026-10-01: fixture email replaced with a placeholder when creator stamps were scrubbed
+// from the repo. The "Name (email)" shape is deliberately kept — stripping the parenthesised
+// address is exactly what requesterName() must do, so this assertion stays as strict as before.
 assert.strictEqual(
-  s.requesterName({ requester: { visit_doctor: 'Nichada Patcharasumransuk (marnichacha27@gmail.com)' } }),
+  s.requesterName({ requester: { visit_doctor: 'Nichada Patcharasumransuk (doctor.one@example.invalid)' } }),
   'Nichada Patcharasumransuk',
 )
 assert.strictEqual(

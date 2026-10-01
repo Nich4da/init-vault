@@ -8,7 +8,7 @@
       "id": {
         "$oid": "6a75b1f50796231c653df997"
       },
-      "name": "Parinya Tumchay (staff@example.invalid)"
+      "name": "Parinya Tumchay"
     },
     "nosql_collections": "[\"zdata_lab_report_manual_entry\",\"zdata_lab_result_item\",\"zdata_cpoe_order_item\",\"zdata_master_item_order\",\"zdata_emr_sensitive_access_grant\"]",
     "nosql_filter": null,
@@ -224,7 +224,7 @@
       "id": {
         "$oid": "6a75b1f50796231c653df997"
       },
-      "name": "Parinya Tumchay (staff@example.invalid)"
+      "name": "Parinya Tumchay"
     },
     "xclonex": null,
     "xerrorx": null,

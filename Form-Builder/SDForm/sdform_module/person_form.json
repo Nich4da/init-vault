@@ -643,12 +643,12 @@
                           "lib_license": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFkbWluIiwibGljZW5zZV9jb2RlIjoic29mdG1heF9oaXMiLCJpYXQiOjE3ODE2MDExOTB9.8MJdCx3j-EZMIhhxm-XCGG1IiULekmVHxRd5uw3sjjc",
                           "updated_by": {
                             "id": "6a2ec873d6b772af1543b669",
-                            "name": "SuperAdmin InitAPI (iencoded@gmail.com)"
+                            "name": "SuperAdmin InitAPI"
                           },
                           "updated_at": "2026-06-22 10:46:38",
                           "created_by": {
                             "id": "6a2ec873d6b772af1543b669",
-                            "name": "SuperAdmin InitAPI (iencoded@gmail.com)"
+                            "name": "SuperAdmin InitAPI"
                           },
                           "created_at": "2026-06-22 10:46:38",
                           "_id": "6a39128e59778ce80e569a11",
@@ -5532,12 +5532,12 @@
                                   "lib_license": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFkbWluIiwibGljZW5zZV9jb2RlIjoic29mdG1heF9oaXMiLCJpYXQiOjE3ODE2MDExOTB9.8MJdCx3j-EZMIhhxm-XCGG1IiULekmVHxRd5uw3sjjc",
                                   "updated_by": {
                                     "id": "6a2ec873d6b772af1543b669",
-                                    "name": "SuperAdmin InitAPI (iencoded@gmail.com)"
+                                    "name": "SuperAdmin InitAPI"
                                   },
                                   "updated_at": "2026-06-24 04:40:22",
                                   "created_by": {
                                     "id": "6a2ec873d6b772af1543b669",
-                                    "name": "SuperAdmin InitAPI (iencoded@gmail.com)"
+                                    "name": "SuperAdmin InitAPI"
                                   },
                                   "created_at": "2026-06-24 04:40:22",
                                   "id": "masked-input102269"
