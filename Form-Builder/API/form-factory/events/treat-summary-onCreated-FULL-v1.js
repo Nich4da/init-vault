@@ -218,10 +218,9 @@ s.tsOpenVisit = () => {
    ห้องแลปทั่วไป : `Lab result` ดึงจาก `zdata_lab_report_manual_entry`
                   ⇒ ผูกกับ **Result Report** ด้วย `xparentx = result_report_id` (ไม่ใช่ใบสั่ง)
                   🔴 ใบที่มีชุดผลหลายชุด พิมพ์เพียงชุดเดียวไม่ได้ ⇒ ซ่อนปุ่ม (กติกาเดียวกับ Worklist)
-   Microbiology  : `Lab result - microbiology (static)` ดึงจาก `zdata_visit` — **ยังเป็น static**
-                  เพราะ SQL ฝั่ง micro ยังไม่เชื่อม ⇒ เชื่อมปุ่มไว้รอก่อนตามที่พี่สั่ง (2026-09-22)
-                  ส่ง params ว่างเหมือน Worklist ทำ · พอ SQL เชื่อมแล้วน่าจะเปลี่ยนเป็น
-                  `xparentx = result_report_id` เหมือนของทั่วไป — แก้ที่ `microParams` จุดเดียว */
+   Microbiology  : `Lab result - microbiology` ผูก `lab_micro_slip` แล้ว
+                  ⇒ ส่ง `xparentx = result_report_id` เฉพาะเมื่อมี Result Report ชุดเดียว
+                  ถ้ามีหลายชุด (เช่น Gram stain แยกใบ) ให้หยุด ไม่เดาเลือกผลให้ */
 const LAB_RESULT_PDF_REPORT_ID = '6aa8f5a8b92813319a86ea11';
 const MICRO_RESULT_PDF_REPORT_ID = '6ab1c2d3e4f5061728394a5b';
 const MICRO_SECTIONS = ['MB'];
@@ -248,8 +247,8 @@ const TS_PENDING = ['draft', 'sent', 'ready', 'prepared', 'accepted', 'collected
 /* ══ state ใหม่ (ต้องมีค่าตั้งแต่ตรงนี้ — ขาดตัวเดียว = error box ทั้ง widget) ══ */
 s.tsLgOn = false; // มีข้อมูลแบบจัดกลุ่มจาก process ไหม (false = ตกไปใช้ลิสต์แบบเดิม)
 s.tsXgOn = false;
-s.tsLgVisit = []; // ใบสั่งของ VN ที่เปิดอยู่
-s.tsLgToday = []; // สั่งครั้งก่อน แต่ผลออกวันนี้
+s.tsLgVisit = []; // ordered_today — ใบสั่งของ VN ที่ HIS เปิดอยู่
+s.tsLgToday = []; // resulted_today — ผลที่เข้าในวันบริการของ VN นั้น (รวมใบเดียวกันและใบเก่า)
 s.tsXgVisit = [];
 s.tsXgToday = [];
 s.tsLgSections = []; // [{ key, title, empty, list }] — หัวข้อ "วิสิทนี้ / ผลออกวันนี้" ประกอบที่ JS
@@ -526,10 +525,10 @@ const tsMkOrder = (raw) => {
 	o.section_code = String(raw.section_code || '');
 	const reportIds = (Array.isArray(raw.result_report_ids) ? raw.result_report_ids : []).filter((x) => /^[a-f0-9]{24}$/i.test(String(x)));
 	o.micro = MICRO_SECTIONS.indexOf(o.section_code) >= 0;
-	// micro: Report เป็น static ⇒ ไม่ต้องมี Result Report ก็เปิดได้ (params ว่าง เหมือน Worklist)
+	// micro: Report รับ xparentx แล้ว; ต้องมี Result Report ชุดเดียวเพื่อไม่พิมพ์ผิดชุด
 	// ทั่วไป: ต้องมี Result Report ชุดเดียวเท่านั้น ไม่งั้นพิมพ์ผิดชุด
-	const microParams = {};
-	o.report_ready = o.micro ? !!MICRO_RESULT_PDF_REPORT_ID : !!LAB_RESULT_PDF_REPORT_ID && reportIds.length === 1;
+	const microParams = reportIds.length === 1 ? { xparentx: reportIds[0] } : {};
+	o.report_ready = o.micro ? !!MICRO_RESULT_PDF_REPORT_ID && reportIds.length === 1 : !!LAB_RESULT_PDF_REPORT_ID && reportIds.length === 1;
 	o.report_list = o.report_ready
 		? [{ reportId: o.micro ? MICRO_RESULT_PDF_REPORT_ID : LAB_RESULT_PDF_REPORT_ID, label: 'PDF', type: 'pdf' }]
 		: [];
@@ -537,9 +536,9 @@ const tsMkOrder = (raw) => {
 	// Screen grant and PDF grant are deliberately separate. A doctor must re-auth
 	// for every Sensitive PDF click; the five-minute screen grant is never passed here.
 	o.report_params = o.report_ready ? (o.micro ? microParams : { xparentx: reportIds[0] }) : {};
-	// บอกเหตุที่ปุ่มไม่มา / เตือนว่ายังเป็นตัวอย่าง ดีกว่าปล่อยให้เข้าใจผิด
+	// บอกเหตุที่ปุ่มไม่มา; MLab หลาย Result Report ต้องไม่เดาเลือกใบ
 	o.report_hint = o.micro
-		? 'Microbiology: Report ยังเป็นแบบ static (SQL ยังไม่เชื่อม) — เนื้อผลจริงอ่านได้จากรายงานในการ์ด'
+		? o.report_ready ? '' : reportIds.length > 1 ? 'MLab มีผลหลายชุด จึงไม่เลือก Result Report ให้อัตโนมัติ' : 'ยังไม่มี Result Report สำหรับ PDF MLab'
 		: o.report_ready
 		? ''
 		: reportIds.length > 1
@@ -674,19 +673,23 @@ s.tsAbsorb = (d) => {
 	//    ถ้าผูกกับจำนวนข้อมูล วิสิทที่ยังไม่ได้สั่งตรวจจะตกไปแสดงลิสต์แบบเก่า
 	//    ซึ่งเป็นผลของ "วิสิทอื่น" ⇒ หมอเห็นผลเก่าแล้วนึกว่าเป็นของวันนี้ (อันตรายกว่าไม่แสดงอะไร)
 	//    ⇒ ดูที่ "มีคีย์ส่งมาไหม" แทน · ไม่มีใบก็แสดงสถานะว่างของแบบใหม่ ตรงกับการ์ด "ใบสั่งตรวจ" ข้าง ๆ
-	const groups = (Array.isArray(src.lab_orders) ? src.lab_orders : []).map(tsMkOrder).filter(Boolean);
-	s.tsLgVisit = groups.filter((g) => g.scope !== 'today');
-	s.tsLgToday = groups.filter((g) => g.scope === 'today');
-	s.tsLgOn = Array.isArray(src.lab_orders);
+	const legacyGroups = (Array.isArray(src.lab_orders) ? src.lab_orders : []).map(tsMkOrder).filter(Boolean);
+	const hasSplitContract = Array.isArray(src.ordered_today) && Array.isArray(src.resulted_today);
+	s.tsLgVisit = (hasSplitContract ? src.ordered_today.map(tsMkOrder).filter(Boolean) : legacyGroups.filter((g) => g.scope !== 'today'));
+	s.tsLgToday = (hasSplitContract ? src.resulted_today.map(tsMkOrder).filter(Boolean) : legacyGroups.filter((g) => g.scope === 'today'));
+	s.tsLgOn = hasSplitContract || Array.isArray(src.lab_orders);
 
 	const xs = (Array.isArray(src.xray_results) ? src.xray_results : []).map(tsMkXray).filter(Boolean);
 	s.tsXgVisit = xs.filter((x) => x.scope !== 'today');
 	s.tsXgToday = xs.filter((x) => x.scope === 'today');
 	s.tsXgOn = Array.isArray(src.xray_results);
 
-	const vnText = s.tsVnLabel ? 'ใบสั่งของวิสิทนี้ · VN ' + s.tsVnLabel : 'ใบสั่งของวิสิทนี้';
-	s.tsLgSections = [{ key: 'visit', title: vnText, empty: '— ยังไม่มีใบสั่งตรวจในวิสิทนี้ —', list: s.tsLgVisit }];
-	if (s.tsLgToday.length) s.tsLgSections.push({ key: 'today', title: 'ผลออกวันนี้ · จากใบสั่งครั้งก่อน', empty: '', list: s.tsLgToday });
+	const vnSuffix = s.tsVnLabel ? ' · VN ' + s.tsVnLabel : '';
+	const vnText = 'ใบสั่งของวิสิทนี้' + vnSuffix;
+	s.tsLgSections = [
+		{ key: 'ordered_today', title: 'Order ที่สั่งใน visit วันนี้' + vnSuffix, empty: '— ยังไม่มีใบสั่งตรวจใน visit วันนี้ —', list: s.tsLgVisit },
+		{ key: 'resulted_today', title: 'ผล LAB ที่ออกใน visit วันนี้' + vnSuffix, empty: '— ยังไม่มีผล LAB ออกใน visit วันนี้ —', list: s.tsLgToday },
+	];
 	s.tsXgSections = [{ key: 'visit', title: vnText, empty: '— ยังไม่มีใบสั่ง X-ray ในวิสิทนี้ —', list: s.tsXgVisit }];
 	if (s.tsXgToday.length) s.tsXgSections.push({ key: 'today', title: 'ผลออกวันนี้ · จากใบสั่งครั้งก่อน', empty: '', list: s.tsXgToday });
 
@@ -695,7 +698,7 @@ s.tsAbsorb = (d) => {
 
 	// ก้อนที่มีค่าวิกฤติกางไว้ให้เลย — สิ่งที่หมอต้องเห็นก่อน ไม่ควรต้องกดหา
 	const nextOpen = {};
-	groups.forEach((g) => {
+	s.tsLgVisit.concat(s.tsLgToday).forEach((g) => {
 		if (g.criticals.length) nextOpen[g.key] = true;
 	});
 	s.tsOgOpen = nextOpen;

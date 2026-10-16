@@ -64,10 +64,10 @@ const unwrapProcess = (result) => {
 
 // ใบสั่งตรวจของวิสิทนี้ + ผลที่ออกวันนี้ — คนละ process กันโดยตั้งใจ (emr-lab-board-get)
 // 🔴 ครอบ try ไว้: board ล้มก็แค่ไม่มีก้อนผล ห้ามลาก cc/hpi/PE/dx/ยา ของตัวนี้พังไปด้วย
-let board = { current_vn: '', lab_orders: [], summary_lab: [], xray_results: [], lab_trends: [] };
+let board = { current_vn: '', service_date: '', ordered_today: [], resulted_today: [], lab_orders: [], summary_lab: [], xray_results: [], lab_trends: [] };
 try {
 	const bo = unwrapProcess(await app.runProcess(BOARD_PROC, { person_id: personId, hn: hn, visit_id: curVisitId }, userInfo));
-	if (bo && bo.success) board = { current_vn: bo.current_vn || '', lab_orders: bo.lab_orders || [], summary_lab: bo.summary_lab || [], xray_results: bo.xray_results || [], lab_trends: bo.lab_trends || [] };
+	if (bo && bo.success) board = { current_vn: bo.current_vn || '', service_date: bo.service_date || '', ordered_today: bo.ordered_today || [], resulted_today: bo.resulted_today || [], lab_orders: bo.lab_orders || [], summary_lab: bo.summary_lab || [], xray_results: bo.xray_results || [], lab_trends: bo.lab_trends || [] };
 } catch (boardErr) {
 	app.log.warn('[emr-summary] lab board ล้ม: ' + ((boardErr && boardErr.message) || boardErr));
 }

@@ -66,10 +66,32 @@ const unwrapProcess = (result) => {
 // 🌸 เพิ่ม ② — เรียก process ที่แยกออกไป (ครอบ try เพื่อไม่ให้ลากของเดิมพัง)
 // ใบสั่งตรวจของวิสิทนี้ + ผลที่ออกวันนี้ — คนละ process กันโดยตั้งใจ (emr-lab-board-get)
 // 🔴 ครอบ try ไว้: board ล้มก็แค่ไม่มีก้อนผล ห้ามลาก cc/hpi/PE/dx/ยา ของตัวนี้พังไปด้วย
-let board = { current_vn: '', lab_orders: [], summary_lab: [], xray_results: [], lab_trends: [] };
+let board = {
+	current_vn: '',
+	// 🌸 เพิ่ม ⑤.1 — default ของสัญญาแยกสองหัวข้อ LAB; เพิ่มคีย์อย่างเดียว ไม่แก้คีย์เดิม
+	service_date: '',
+	ordered_today: [],
+	resulted_today: [],
+	lab_orders: [],
+	summary_lab: [],
+	xray_results: [],
+	lab_trends: [],
+};
 try {
 	const bo = unwrapProcess(await app.runProcess(BOARD_PROC, { person_id: personId, hn: hn, visit_id: curVisitId }, userInfo));
-	if (bo && bo.success) board = { current_vn: bo.current_vn || '', lab_orders: bo.lab_orders || [], summary_lab: bo.summary_lab || [], xray_results: bo.xray_results || [], lab_trends: bo.lab_trends || [] };
+	if (bo && bo.success) {
+		board = {
+			current_vn: bo.current_vn || '',
+			// 🌸 เพิ่ม ⑤.2 — pass-through สามคีย์ใหม่จาก LAB board ไปหน้า EMR
+			service_date: bo.service_date || '',
+			ordered_today: bo.ordered_today || [],
+			resulted_today: bo.resulted_today || [],
+			lab_orders: bo.lab_orders || [],
+			summary_lab: bo.summary_lab || [],
+			xray_results: bo.xray_results || [],
+			lab_trends: bo.lab_trends || [],
+		};
+	}
 } catch (boardErr) {
 	app.log.warn('[emr-summary] lab board ล้ม: ' + ((boardErr && boardErr.message) || boardErr));
 }
@@ -87,6 +109,7 @@ const visitRows = await findAll(
 );
 const prev = visitRows.find((v) => !curVisitId || String(v._id) !== curVisitId) || null;
 
+// 🌸 เพิ่ม ③ — ไม่มี Visit History ก็ยังต้องคืนข้อมูล LAB board ของ VN ที่ HIS เปิดอยู่
 if (!prev) {
 	return { success: true, built: 0, has_history: false, hn: hn || null, visit: null, cc: '', hpi: '', pe: null, dx: [], meds: [], other: [], plan: null, lab: Array.isArray(board.summary_lab) ? board.summary_lab : [], xray: [], ...board }; // LAB legacy surface ต้องผ่าน policy ของ board เช่นกัน
 }
@@ -316,6 +339,6 @@ return {
 	lab_form_id: '6a8bc91df851000f28e501fb',
 	xray_form_id: '6a860980f851000f28e44ab0',
 
-	// 🌸 เพิ่ม ④ — คีย์ของการ์ดแท็บ Lab / X-Ray (current_vn · lab_orders · xray_results · lab_trends)
+	// 🌸 เพิ่ม ④ — คีย์ของการ์ดแท็บ Lab / X-Ray รวมสัญญาใหม่จาก ⑤ (service_date · ordered_today · resulted_today)
 	...board,
 };

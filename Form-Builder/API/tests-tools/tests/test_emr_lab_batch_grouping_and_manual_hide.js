@@ -137,13 +137,15 @@ const app = {
   assert.strictEqual(payload.lab_orders.length, 1, 'aggregate batch children must stay in one LAB order/section')
   const order = payload.lab_orders[0]
   assert.strictEqual(order.items.length, 8)
+  assert.strictEqual(order.ordered_items.length, definitions.length, 'EMR must preserve every CPOE Item for item-level MLab navigation')
+  assert.deepStrictEqual(order.ordered_items.map(item => item.item_code), definitions.map(([, itemCode]) => itemCode))
 
   const potassium = order.items.find(item => item.name === 'Potassium (K) จาก Clotted blood')
   assert(potassium, 'manual-hidden CPOE Item must remain visible by name')
   assert.strictEqual(potassium.visibility.state, 'hidden')
   assert.strictEqual(potassium.visibility.manual_hidden, true)
   assert.strictEqual(potassium.group_id, 'panel:C25-CD')
-  for (const forbidden of ['value', 'unit', 'ref', 'flag', 'critical', 'result_item_id', 'result_comment', 'previous']) {
+  for (const forbidden of ['value', 'unit', 'ref', 'flag', 'critical', 'result_item_id', 'result_comment', 'previous', 'previous_values']) {
     assert.strictEqual(Object.prototype.hasOwnProperty.call(potassium, forbidden), false, `${forbidden} leaked from manual-hidden row`)
   }
 

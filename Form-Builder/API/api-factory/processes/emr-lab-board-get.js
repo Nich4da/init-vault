@@ -8,7 +8,8 @@
  * params : { visit_id, hn?, person_id? }     visit_id = visit `_id` ของวิสิทที่เปิดอยู่
  *          { action:'open_sensitive', visit_id, source_order_id, item_id,
  *            username, password, purpose, request_id }
- * return : { success, current_vn, lab_orders[], xray_results[], lab_trends[] }
+ * return : { success, current_vn, service_date, ordered_today[], resulted_today[],
+ *            lab_orders[], xray_results[], lab_trends[] }
  *          ไม่มี visit_id ⇒ คืนค่าว่างทั้งหมด (การ์ดจะตกไปแสดงลิสต์แบบเดิมเอง)
  *
  * 🔴 ห้ามแก้ `emr-summary-get` ให้เกินกว่าการเรียก process นี้ — cc/hpi/PE/dx/ยา ของตัวนั้น
@@ -25,7 +26,7 @@
  * 🔴 ใบที่ห้องแลปยังไม่รับยังไม่มี Work Item ⇒ ตั้งต้นจาก CPOE Item
  *    ไม่งั้นใบ "ส่งแล้วรอผล" หายทั้งใบ ซึ่งคือสิ่งที่หมอต้องเห็นที่สุด
  * 🔴 "ผลออกวันนี้" นับจาก `created_at` ของ Result Item = เวลาที่ผลเข้าระบบ HIS
- *    และ "วันนี้" = `visit_date` ของวิสิทที่เปิดอยู่ ไม่ใช่วันบนนาฬิกาเครื่อง
+ *    และ "วันนี้" = `visit_date` ของวิสิทที่ HIS เปิดอยู่ ไม่ใช่ timer/วันจาก browser
  */
 
 const VISIT_TABLE = 'zdata_visit';
@@ -139,6 +140,33 @@ const jsonArray = (value) => {
 		return [];
 	}
 };
+const jsonObject = (value) => {
+	if (value && typeof value === 'object' && !Array.isArray(value)) return value;
+	if (typeof value !== 'string') return {};
+	try {
+		const parsed = JSON.parse(value || '{}');
+		return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+	} catch (error) {
+		return {};
+	}
+};
+// Specimen metadata must come from structured CPOE/Work Item fields only.
+// MLab result_value is a narrative report and must never be parsed to derive it.
+const specimenMeta = (item, workItem) => {
+	const labData = item && item.lab_data && typeof item.lab_data === 'object' ? item.lab_data : {};
+	const rows = Array.isArray(labData.specimens) && labData.specimens.length ? labData.specimens : [labData];
+	const snapshot = jsonObject(workItem && workItem.specimen_json);
+	const names = [];
+	const collectedAts = [];
+	rows.concat([snapshot]).forEach((row) => {
+		if (!row || typeof row !== 'object') return;
+		const name = String(row.spec_source || row.source || row.specimen_name || row.name || row.specimen_code || row.code || '').trim();
+		const collectedAt = String(row.specimen_at || row.at || row.collected_at || '').trim();
+		if (name && names.indexOf(name) < 0) names.push(name);
+		if (collectedAt && collectedAts.indexOf(collectedAt) < 0) collectedAts.push(collectedAt);
+	});
+	return { specimen_names: names, specimen_name: names.join(' / '), collected_ats: collectedAts, collected_at: collectedAts[0] || '' };
+};
 const resultComponentCodesForOrderCode = (orderCode) => {
 	const code = String(orderCode || '').trim();
 	if (!code) return [];
@@ -164,6 +192,12 @@ const RESULT_FIELDS = {
 	obs_name: 1, obs_code: 1, test_name: 1, test_code: 1, panel_name: 1, result_value: 1, unit_symbol_snapshot: 1, units: 1,
 	reference_range_snapshot: 1, ref_range: 1, interpretation_code: 1, is_critical: 1, result_status: 1,
 	result_sequence: 1, result_definition_id: 1, result_comment: 1, result_source: 1, result_version: 1, result_uid: 1, obx_status: 1,
+	// 🌸 เพิ่มเฉพาะ MY: freestyle identity. Other sections keep the existing mapper and
+	// response shape; these fields are exposed only when `myPathologyMeta` matches.
+	pathology_row_key: 1, pathology_sub_index: 1, source_item_id: 1, specimen_index: 1,
+	specimen_code_snapshot: 1, specimen_name_snapshot: 1,
+	ordered_site_code_snapshot: 1, ordered_site_name_snapshot: 1,
+	actual_site_code: 1, actual_site_name: 1, actual_site_detail: 1,
 	order_no: 1, filler_order_no: 1, lab_section: 1, visit_id: 1, hn: 1, created_at: 1, entered_at: 1, xupdatx: 1,
 	result_report_id: 1, xparentx: 1, reported_at: 1, reported_by_source_id: 1, reported_by_source_name: 1,
 	verified_at: 1, verified_by_source_id: 1, verified_by_source_name: 1,
@@ -284,14 +318,17 @@ const loadResultPolicies = async (itemIds) => {
 let currentVn = '';
 let currentDay = '';
 let currentVisit = null;
+let currentPatientName = '';
 let labOrders = [];
+let orderedToday = [];
+let resultedToday = [];
 let xrayResults = [];
 let labTrends = [];
 let summaryLab = [];
 
 
 if (curVisitId) {
-	const curRows = await findAll(VISIT_TABLE, { _id: idOne(curVisitId), xrstatx: 1 }, { limit: 1, projection: { vn: 1, visit_date: 1, 'pid.hn': 1, 'pid.value': 1 } });
+	const curRows = await findAll(VISIT_TABLE, { _id: idOne(curVisitId), xrstatx: 1 }, { limit: 1, projection: { vn: 1, visit_date: 1, 'pid.hn': 1, 'pid.value': 1, 'pid.prename': 1, 'pid.p_fname': 1, 'pid.p_lname': 1 } });
 	const cur = curRows[0] || null;
 	if (cur) {
 		currentVisit = cur;
@@ -299,6 +336,8 @@ if (curVisitId) {
 		currentDay = dayOf(cur.visit_date);
 		// patient scope ต้อง derive จาก visit ที่ server เท่านั้น — ไม่เชื่อ hn จาก client
 		hn = (cur.pid && cur.pid.hn) || null;
+		currentPatientName = [labelOf(cur.pid && cur.pid.prename), cur.pid && cur.pid.p_fname, cur.pid && cur.pid.p_lname]
+			.map((part) => String(part || '').trim()).filter(Boolean).join(' ');
 	}
 }
 
@@ -310,13 +349,58 @@ if (curVisitId) {
 const NARRATIVE_MIN = 60; // ยาวเกินนี้หรือมีขึ้นบรรทัดใหม่ = รายงาน ไม่ใช่ค่าเดี่ยว
 const CODE_ONLY = /^[0-9]+$/; // obs_name ของ MB เป็นรหัสล้วน ("4001") อ่านไม่รู้เรื่อง
 
-const resultIdentity = (r) => String((r && (r.result_definition_id || r.obs_code || r.test_code || r.obs_name || r.test_name)) || '').trim();
-const resultKeys = (r) =>
-	uniq([
-		resultIdentity(r),
-		String((r && (r.obs_code || r.test_code)) || '').trim(),
-		String((r && (r.obs_name || r.test_name)) || '').trim(),
-	]);
+const historyMatchText = (value) => String(value == null ? '' : value).trim().replace(/\s+/g, ' ').toLocaleLowerCase();
+const historyTestCode = (r) => String((r && (r.obs_code || r.test_code)) || '').trim().toUpperCase();
+const historyTestName = (r) => {
+	const obs = String((r && r.obs_name) || '').trim();
+	const test = String((r && r.test_name) || '').trim();
+	// MB/MLab may store a numeric obs_name. In that case the authoritative
+	// CPOE Item name resolved into __item is the readable Test name.
+	return historyMatchText((!CODE_ONLY.test(obs) && obs) || (!CODE_ONLY.test(test) && test) || (r && r.__item) || obs || test);
+};
+const historyTestKey = (r) => {
+	const code = historyTestCode(r);
+	const name = historyTestName(r);
+	// Fail closed: history is comparable only when both Test code and Test name
+	// are present and equal. Name-only/code-only fallback can mix clinical tests.
+	return code && name ? code + '|' + name : '';
+};
+const myPathologyMeta = (r) => {
+	if (String((r && r.lab_section) || '').trim().toUpperCase() !== 'MY') return null;
+	const pathologyRowKey = String((r && r.pathology_row_key) || '').trim();
+	const actualSiteName = String((r && r.actual_site_name) || '').trim();
+	const orderedSiteName = String((r && r.ordered_site_name_snapshot) || '').trim();
+	const specimenName = String((r && r.specimen_name_snapshot) || '').trim();
+	if (!pathologyRowKey && !actualSiteName && !orderedSiteName && !specimenName) return null;
+	const actualSiteDetail = String((r && r.actual_site_detail) || '').trim();
+	const siteName = actualSiteName || orderedSiteName;
+	const siteDisplay = siteName && actualSiteDetail ? siteName + ' (' + actualSiteDetail + ')' : siteName || actualSiteDetail;
+	return {
+		pathology_row_key: pathologyRowKey,
+		pathology_sub_index: Number.isInteger(Number(r && r.pathology_sub_index)) ? Number(r.pathology_sub_index) : null,
+		specimen_index: Number.isInteger(Number(r && r.specimen_index)) ? Number(r.specimen_index) : null,
+		specimen_code: String((r && r.specimen_code_snapshot) || '').trim(),
+		specimen_name: specimenName,
+		ordered_site_code: String((r && r.ordered_site_code_snapshot) || '').trim(),
+		ordered_site_name: orderedSiteName,
+		actual_site_code: String((r && r.actual_site_code) || '').trim(),
+		actual_site_name: actualSiteName,
+		actual_site_detail: actualSiteDetail,
+		display_name: [siteDisplay || 'ไม่ระบุตำแหน่ง', specimenName ? 'Specimen ' + specimenName : ''].filter(Boolean).join(' · '),
+	};
+};
+// 🌸 เพิ่มเฉพาะ MY: a previous value is clinically comparable only when test, specimen and
+// actual site match. Falling back to M14/Wood light alone repeats one unrelated
+// historical value across every freestyle location.
+const myPathologyPreviousKey = (r) => {
+	const meta = myPathologyMeta(r);
+	if (!meta) return '';
+	const testCode = String((r && (r.obs_code || r.test_code)) || '').trim().toUpperCase();
+	const specimen = String(meta.specimen_code || meta.specimen_name || '').trim().toLocaleLowerCase();
+	const site = String(meta.actual_site_code || meta.actual_site_name || meta.ordered_site_code || meta.ordered_site_name || '').trim().toLocaleLowerCase();
+	const siteDetail = String(meta.actual_site_detail || '').trim().toLocaleLowerCase();
+	return testCode && specimen && site ? [testCode, specimen, site, siteDetail].join('|') : '';
+};
 const resultTime = (r) => String((r && (r.entered_at || r.reported_at || r.created_at || r.xupdatx)) || '');
 const personName = (r, prefix) =>
 	String((r && (r[prefix + '_by_source_name'] || r[prefix + '_by_name'] || r[prefix + '_by'])) || '').trim();
@@ -328,6 +412,8 @@ const previousData = (r) =>
 				interpretation: String(r.interpretation_code || ''),
 				reference_range: String(r.reference_range_snapshot || r.ref_range || ''),
 				visit_vn: String(r.visit_id || r.visit_vn || ''),
+				lab_no: String(r.filler_order_no || ''),
+				status: String(r.result_status || r.obx_status || ''),
 				entered_at: resultTime(r),
 		  }
 		: null;
@@ -365,9 +451,13 @@ const mapResultRow = (r) => {
 	const obs = String(r.obs_name || '').trim();
 	const tst = String(r.test_name || '').trim();
 	const policy = resultPolicy(r);
+	const pathology = myPathologyMeta(r);
+	const clinicalName = (!CODE_ONLY.test(obs) && obs) || (!CODE_ONLY.test(tst) && tst) || String(r.__item || '') || obs || tst || '';
 	return {
 		// ชื่อที่หมออ่านรู้เรื่อง — รหัสล้วนตกไปใช้ชื่อรายการที่สั่งจาก CPOE Item แทน
-		name: (!CODE_ONLY.test(obs) && obs) || (!CODE_ONLY.test(tst) && tst) || String(r.__item || '') || obs || tst || '',
+		// 🌸 เพิ่มเฉพาะ MY: ใช้ตำแหน่ง+specimen เป็นชื่อแถวใต้ Profile ของรายการตรวจ
+		// เพื่อให้ผล 1 test หลายตำแหน่งไม่กลายเป็น Wood light ซ้ำแบบแยกไม่ออก.
+		name: pathology ? pathology.display_name : clinicalName,
 		code: r.obs_code || r.test_code || '',
 		value: raw,
 		text: raw.indexOf('\n') >= 0 || raw.length > NARRATIVE_MIN,
@@ -388,8 +478,28 @@ const mapResultRow = (r) => {
 		reported_by_source_name: personName(r, 'reported'),
 		verified_at: String(r.verified_at || ''),
 		verified_by_source_name: personName(r, 'verified'),
+		// `previous` remains for backward-compatible cards. The doctor's full
+		// result popup consumes `previous_values` (newest -> oldest, max 5).
 		previous: previousData(r.__previous),
+		previous_values: (Array.isArray(r.__previous_values) ? r.__previous_values : r.__previous ? [r.__previous] : [])
+			.slice(0, 5)
+			.map(previousData)
+			.filter(Boolean),
 		visibility: publicPolicy(policy),
+		...(pathology ? {
+			my_pathology: true,
+			test_name: clinicalName,
+			pathology_row_key: pathology.pathology_row_key,
+			pathology_sub_index: pathology.pathology_sub_index,
+			specimen_index: pathology.specimen_index,
+			specimen_code: pathology.specimen_code,
+			specimen_name: pathology.specimen_name,
+			ordered_site_code: pathology.ordered_site_code,
+			ordered_site_name: pathology.ordered_site_name,
+			actual_site_code: pathology.actual_site_code,
+			actual_site_name: pathology.actual_site_name,
+			actual_site_detail: pathology.actual_site_detail,
+		} : {}),
 	};
 };
 
@@ -652,7 +762,10 @@ const openSensitiveResult = async () => {
 		row.__item = (rowItem && rowItem.item_name) || rowPolicy.item_name || '';
 		row.__policy = disclosedPolicy;
 		const mapped = mapResultRow(row);
+		// Historical Sensitive values are not covered by the current
+		// Order+Section grant. Keep them fail-closed instead of widening scope.
 		mapped.previous = null;
+		mapped.previous_values = [];
 		mapped.visibility = Object.assign({}, publicPolicy(disclosedPolicy), { disclosed: true });
 		return mapped;
 	});
@@ -763,12 +876,16 @@ const buildGroup = (g) => {
 		result_report_ids: uniq(rows.map((r) => String(r.result_report_id || r.xparentx || '')).filter(Boolean)),
 		lab_no: g.lab_no || '',
 		patient_hn: String(hn || ''),
+		patient_name: g.patient_name || currentPatientName || '',
+		specimen_name: uniq([].concat(g.specimen_names || []).filter(Boolean)).join(' / '),
+		specimen_names: uniq([].concat(g.specimen_names || []).filter(Boolean)),
+		ordered_items: Array.isArray(g.ordered_items) ? g.ordered_items : [],
 		status: groupStatus(g.stages, g.rows.length > 0),
 		scope: g.scope,
 		ordered_at: g.ordered_at || '',
 		resulted_at: resultedAt,
 		received_at: g.received_at || '',
-		collected_at: '',
+		collected_at: (g.collected_ats || [])[0] || '',
 		in_process_at: '',
 		cancel_reason: g.cancel_reason || '',
 		reported_at: firstMeta('reported_at'),
@@ -784,7 +901,7 @@ if (currentVn) {
 	const groups = {}; // key -> ก้อน
 	const snapshotTestCodeByItemId = {};
 	const touch = (key, seed) => {
-		if (!groups[key]) groups[key] = Object.assign({ key, rows: [], reports: [], item_ids: [], stages: [], names: [], scope: 'visit' }, seed);
+		if (!groups[key]) groups[key] = Object.assign({ key, rows: [], reports: [], item_ids: [], stages: [], names: [], ordered_items: [], specimen_names: [], collected_ats: [], scope: 'visit' }, seed);
 		return groups[key];
 	};
 
@@ -792,26 +909,34 @@ if (currentVn) {
 	const cpoeItems = await findAll(
 		CPOE_ITEM_TABLE,
 		{ 'order_id.xtbxlv2_xfx_id': idOne(curVisitId), xrstatx: 1 },
-		{ sort: { _id: 1 }, limit: MAX_CPOE_ITEM },
+		{
+			sort: { _id: 1 },
+			limit: MAX_CPOE_ITEM,
+			projection: { order_id: 1, service_type: 1, item_data_id: 1, item_code: 1, item_name: 1, current_status: 1, lab_data: 1, created_at: 1 },
+		},
 	);
 	const labItems = cpoeItems.filter((r) => String(codeOf(r.service_type) || '').toLowerCase() === 'lab');
 
 	if (labItems.length) {
 		const orderIds = uniq(labItems.map((r) => String(codeOf(r.order_id) || '')));
-		const orderRows = orderIds.length
-			? await findAll(CPOE_ORDER_TABLE, { _id: idsIn(orderIds), xrstatx: 1 }, { limit: orderIds.length, projection: { order_number: 1, created_at: 1, current_status: 1, order_to_location: 1 } })
-			: [];
+		// ทั้งสาม query ใช้ key ที่ทราบแล้วและไม่พึ่งผลกัน จึงยิงพร้อมกันเพื่อลดเวลารวมของ Tab LAB.
+		const [orderRows, workRows, resultRows] = await Promise.all([
+			orderIds.length
+				? findAll(CPOE_ORDER_TABLE, { _id: idsIn(orderIds), xrstatx: 1 }, { limit: orderIds.length, projection: { order_number: 1, created_at: 1, current_status: 1, order_to_location: 1 } })
+				: Promise.resolve([]),
+			findAll(
+				WORK_ITEM_TABLE,
+				{ visit_id: String(currentVn), xrstatx: 1 },
+				{ limit: MAX_CPOE_ITEM, projection: { lab_no: 1, section_code: 1, section_name: 1, work_status: 1, received_at: 1, ordered_at: 1, source_order_id: 1, source_order_number: 1, source_specimen_record_id: 1, receipt_batch_id: 1, selected_items: 1, selected_items_json: 1, specimen_json: 1, patient_name: 1, cancel_reason: 1, reject_reason_detail: 1 } },
+			),
+			findAll(LAB_TABLE, { visit_id: String(currentVn), xrstatx: 1 }, { sort: { _id: 1 }, limit: MAX_RESULT_ROW, projection: RESULT_FIELDS }),
+		]);
 		const orderById = {};
 		orderRows.forEach((o) => {
 			orderById[String(o._id)] = o;
 		});
 
 		// Work Item ของ VN นี้ — `_id` ตรงกับ CPOE Item `_id`
-		const workRows = await findAll(
-			WORK_ITEM_TABLE,
-			{ visit_id: String(currentVn), xrstatx: 1 },
-			{ limit: MAX_CPOE_ITEM, projection: { lab_no: 1, section_code: 1, section_name: 1, work_status: 1, received_at: 1, ordered_at: 1, source_order_id: 1, source_order_number: 1, source_specimen_record_id: 1, receipt_batch_id: 1, selected_items: 1, selected_items_json: 1, cancel_reason: 1, reject_reason_detail: 1 } },
-		);
 		const workByItem = {};
 		workRows.forEach((w) => {
 			workByItem[String(w._id)] = w;
@@ -826,7 +951,6 @@ if (currentVn) {
 			});
 		});
 
-		const resultRows = await findAll(LAB_TABLE, { visit_id: String(currentVn), xrstatx: 1 }, { sort: { _id: 1 }, limit: MAX_RESULT_ROW, projection: RESULT_FIELDS });
 		const resultByOrderNo = {};
 		resultRows.forEach((r) => {
 			const k = String(r.order_no || '');
@@ -840,6 +964,7 @@ if (currentVn) {
 			const orderId = String(codeOf(it.order_id) || '');
 			const order = orderById[orderId] || null;
 			const sectionCode = (wi && wi.section_code) || '';
+			const specimen = specimenMeta(it, wi);
 			const g = touch(orderId + '|' + sectionCode, {
 				source_order_id: orderId,
 				section_code: sectionCode,
@@ -851,13 +976,29 @@ if (currentVn) {
 				ordered_at: (order && order.created_at) || (wi && wi.ordered_at) || it.created_at || '',
 				received_at: (wi && wi.received_at) || '',
 				cancel_reason: (wi && (wi.cancel_reason || wi.reject_reason_detail)) || '',
+				patient_name: (wi && wi.patient_name) || currentPatientName || '',
 			});
 			if (!g.lab_no && wi && wi.lab_no) g.lab_no = wi.lab_no;
 			if (!g.received_at && wi && wi.received_at) g.received_at = wi.received_at;
 			if (!g.cancel_reason && wi && (wi.cancel_reason || wi.reject_reason_detail)) g.cancel_reason = wi.cancel_reason || wi.reject_reason_detail;
+			if (!g.patient_name && wi && wi.patient_name) g.patient_name = wi.patient_name;
+			specimen.specimen_names.forEach((name) => { if (g.specimen_names.indexOf(name) < 0) g.specimen_names.push(name); });
+			specimen.collected_ats.forEach((at) => { if (g.collected_ats.indexOf(at) < 0) g.collected_ats.push(at); });
 			g.stages.push(itemStage(codeOf(it.current_status), wi));
 			if (g.item_ids.indexOf(itemId) < 0) g.item_ids.push(itemId);
 			if (it.item_name) g.names.push(String(it.item_name));
+			if (!g.ordered_items.some((row) => row.item_id === itemId)) {
+				g.ordered_items.push({
+					item_id: itemId,
+					item_code: String(codeOf(it.item_code) || ''),
+					item_name: String(it.item_name || ''),
+					result_code: String(snapshotTestCodeByItemId[itemId] || ''),
+					status: itemStage(codeOf(it.current_status), wi),
+					specimen_name: specimen.specimen_name,
+					specimen_names: specimen.specimen_names,
+					collected_at: specimen.collected_at,
+				});
+			}
 			// ชื่อรายการที่สั่งติดไปกับผล — ใช้ตอน obs_name เป็นรหัสล้วน
 			(resultByOrderNo[itemId] || []).forEach((r) => {
 				r.__item = it.item_name || '';
@@ -865,6 +1006,11 @@ if (currentVn) {
 			});
 		});
 	}
+
+	// History ใช้ทำ previous/trend/legacy summary; เริ่มพร้อม query ผลวันนี้เพื่อลดเวลารอรวม.
+	const resultHistoryPromise = hn
+		? findAll(LAB_TABLE, { hn: String(hn), xrstatx: 1 }, { sort: { entered_at: -1, _id: -1 }, limit: 1000, projection: RESULT_FIELDS })
+		: Promise.resolve([]);
 
 	/* ── ② ผลที่เข้าระบบ "วันของวิสิทนี้" แต่มาจาก VN อื่น (สั่งไว้ครั้งก่อน) ── */
 	const dayEnd = nextDayOf(currentDay);
@@ -925,10 +1071,7 @@ if (currentVn) {
 	}
 
 	/* ── เติมค่าก่อนหน้า + metadata/ไฟล์แนบ เพื่อให้ EMR เปิด popup ผลทั้งใบแบบเดียวกับ LAB ── */
-	let resultHistory = [];
-	if (hn) {
-		resultHistory = await findAll(LAB_TABLE, { hn: String(hn), xrstatx: 1 }, { sort: { entered_at: -1, _id: -1 }, limit: 1000, projection: RESULT_FIELDS });
-	}
+	const resultHistory = await resultHistoryPromise;
 
 	// ผูกทุก Result Item กลับ CPOE Item -> Item Master ปัจจุบันก่อนประกอบ previous/trend/response
 	// เพื่อให้ผลเก่าที่สั่งก่อนมี snapshot ถูกคุ้มครองทันทีเมื่อ master ถูกตั้ง Sensitive
@@ -1004,19 +1147,49 @@ if (currentVn) {
 				currentOrderNos[String(r.order_no || '')] = true;
 			});
 		});
-		const finalHistory = resultHistory.filter((r) => {
+		const publishedHistory = resultHistory.filter((r) => {
 			if (!isResultVisible(r)) return false;
+			// Defense in depth: the query is already HN-scoped with a server-derived
+			// HN, but never accept a row whose stored HN differs from that patient.
+			if (String(r.hn || '') !== String(hn || '')) return false;
 			if (currentIds[String(r._id || '')] || currentOrderNos[String(r.order_no || '')]) return false;
 			const st = String(r.result_status || '').toLowerCase();
 			const obx = String(r.obx_status || '').toUpperCase();
-			return ['final', 'corrected', 'completed', 'resulted'].indexOf(st) >= 0 || ['F', 'C'].indexOf(obx) >= 0;
+			return ['partial', 'final', 'corrected', 'completed', 'resulted'].indexOf(st) >= 0 || ['P', 'F', 'C'].indexOf(obx) >= 0;
 		});
 		Object.keys(groups).forEach((key) => {
 			groups[key].rows.forEach((r) => {
 				if (!isResultVisible(r)) return;
-				const keys = resultKeys(r);
-				r.__previous =
-					finalHistory.find((old) => resultKeys(old).some((key) => keys.indexOf(key) >= 0) && resultTime(old) < resultTime(r)) || null;
+				const currentTime = resultTime(r);
+				const testKey = historyTestKey(r);
+				const pathologyKey = myPathologyPreviousKey(r);
+				if (!currentTime || !testKey || (myPathologyMeta(r) && !pathologyKey)) {
+					r.__previous = null;
+					r.__previous_values = [];
+					return;
+				}
+				const candidates = publishedHistory.filter((old) => {
+					if (resultTime(old) >= currentTime || historyTestKey(old) !== testKey) return false;
+					return !pathologyKey || myPathologyPreviousKey(old) === pathologyKey;
+				});
+				// A corrected/partial/final chain from the same historical examination
+				// is one previous occurrence, not several. Keep its latest effective row.
+				const latestByOccurrence = {};
+				candidates.forEach((old) => {
+					const occurrenceKey = [
+						String(old.visit_id || ''),
+						String(old.order_no || ''),
+						String(old.result_report_id || old.xparentx || old.filler_order_no || ''),
+						testKey,
+					].join('|');
+					const saved = latestByOccurrence[occurrenceKey];
+					if (!saved || resultTime(old) > resultTime(saved)) latestByOccurrence[occurrenceKey] = old;
+				});
+				r.__previous_values = Object.keys(latestByOccurrence)
+					.map((occurrenceKey) => latestByOccurrence[occurrenceKey])
+					.sort((a, b) => resultTime(b).localeCompare(resultTime(a)))
+					.slice(0, 5);
+				r.__previous = r.__previous_values[0] || null;
 			});
 		});
 	}
@@ -1084,6 +1257,14 @@ if (currentVn) {
 		const rb = sortRank(b);
 		if (ra !== rb) return ra - rb;
 		return String(b.ordered_at).localeCompare(String(a.ordered_at));
+	});
+
+	// Contract ใหม่แยกความหมายของสองหัวข้อให้ชัด แต่คง lab_orders เดิมไว้ให้ผู้ใช้เก่า.
+	// รายการที่สั่งและออกผลในวัน VN เดียวกันจึงปรากฏได้ทั้งสองหัวข้อโดยอ้าง record เดียวกัน.
+	orderedToday = labOrders.filter((order) => String(order.scope || 'visit') !== 'today');
+	resultedToday = labOrders.filter((order) => {
+		if (String(order.scope || '') === 'today') return true;
+		return !!currentDay && dayOf(order.resulted_at || order.reported_at) === currentDay;
 	});
 
 	/* ── ③ แนวโน้มของค่าที่อยู่ในสองกลุ่มข้างบน ─────────────────────────── */
@@ -1177,6 +1358,9 @@ if (currentVn) {
 return {
 	success: true,
 	current_vn: currentVn,
+	service_date: currentDay,
+	ordered_today: orderedToday,
+	resulted_today: resultedToday,
 	lab_orders: labOrders,
 	summary_lab: summaryLab,
 	xray_results: xrayResults,

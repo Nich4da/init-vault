@@ -192,7 +192,7 @@ s.ehLoad = (visitId, historyId) => {
 		(err) => {
 			s.ehLoading = false;
 			s.ehErr = 'อ่านประวัติการรักษาไม่สำเร็จ: ' + ((err && err.message) || err);
-		}
+		},
 	);
 };
 
@@ -236,10 +236,13 @@ s.ehLabOrders = [];
 s.ehLabHn = '';
 s.ehLabOgOpen = {};
 s.ehLabDialog = { visible: false, order: null };
+s.ehLabMbHistory = { visible: false, row: null };
+s.ehLabMicroSelectedGroupKey = '';
 s.ehLabResultGroupOpen = {};
 s.ehLabReauth = { visible: false, loading: false, error: '', username: '', password: '', purpose: 'ดูแลรักษาผู้ป่วย', mode: 'view', placement: '', order: null, item: null };
 s.ehLabPdfGrant = { orderKey: '', placement: '', token: '', expiresAt: 0 };
 s.ehLabSensitiveExpiryTimer = null;
+s.ehLabSensitiveGrants = {};
 
 /* ══ helper เล็ก ๆ ════════════════════════════════════════════════════════ */
 // "2026-09-22 10:52:00" → "10:52" (รับ "10:52" ที่ส่งมาตรง ๆ ด้วย)
@@ -270,10 +273,100 @@ const ehLabFlagOf = (it) => {
 };
 const ehLabIsAbn = (r) => r.flag === 'C' || r.flag === 'H' || r.flag === 'L' || r.flag === 'A';
 
+const ehLabSessionUsername = () => {
+	const form = field.getFormRef && field.getFormRef();
+	const user = (form && form.userState && form.userState.user) || (field.globalUserState && field.globalUserState.user) || {};
+	return String(user.username || (user.account && user.account.username) || '').trim();
+};
+const ehLabGrantCache = () => {
+	const form = field.getFormRef && field.getFormRef();
+	const userState = form && form.userState;
+	if (!userState) return s.ehLabSensitiveGrants;
+	const cacheKey = '__emrHistorySensitiveGrants';
+	if (!userState[cacheKey] || typeof userState[cacheKey] !== 'object' || Array.isArray(userState[cacheKey])) userState[cacheKey] = {};
+	return userState[cacheKey];
+};
+const ehLabEpoch = (value) => {
+	if (value && typeof value === 'object' && value.$numberLong != null) return Number(value.$numberLong || 0);
+	return Number(value || 0);
+};
+const ehLabGrantScope = (source) => {
+	const order = source || {};
+	const raw = order._raw || order;
+	const items = Array.isArray(raw.__sensitive_base_items) ? raw.__sensitive_base_items : Array.isArray(raw.items) ? raw.items : [];
+	const sensitive = items.find((row) => row && row.visibility && row.visibility.sensitive) || items.find((row) => row && row.visibility) || {};
+	const visibility = sensitive.visibility || {};
+	const username = ehLabSessionUsername();
+	const visitId = String(visibility.visit_id || raw.visit_id || (s.ehVisit && (s.ehVisit.visit_id || s.ehVisit.data_id)) || '');
+	const sourceOrderId = String(visibility.source_order_id || raw.source_order_id || order.source_order_id || '');
+	const sectionCode = String(raw.section_code || order.section_code || '').toUpperCase();
+	return username && sourceOrderId ? [username, visitId, sourceOrderId, sectionCode].join('|') : '';
+};
+const ehLabGrantFromRaw = (source) => {
+	const raw = (source && source._raw) || source || {};
+	const scope = ehLabGrantScope(source);
+	const ownerScope = String(raw.__sensitive_grant_scope || '');
+	if (ownerScope && ownerScope !== scope) return null;
+	const token = String(raw.__sensitive_grant_token || '');
+	const expiresAt = ehLabEpoch(raw.__sensitive_grant_expires_at_epoch);
+	return token && expiresAt > Date.now() ? { token, expiresAt } : null;
+};
+const ehLabRememberSensitiveGrant = (source) => {
+	const key = ehLabGrantScope(source);
+	const grant = ehLabGrantFromRaw(source);
+	if (key && grant) ehLabGrantCache()[key] = grant;
+	return grant;
+};
+const ehLabForgetSensitiveGrant = (source) => {
+	const key = ehLabGrantScope(source);
+	if (key) delete ehLabGrantCache()[key];
+};
+const ehLabSensitiveGrant = (source) => {
+	const direct = ehLabRememberSensitiveGrant(source);
+	if (direct) return direct;
+	const key = ehLabGrantScope(source);
+	const cache = ehLabGrantCache();
+	const stored = key ? cache[key] : null;
+	if (!stored) return null;
+	if (!stored.token || ehLabEpoch(stored.expiresAt) <= Date.now()) {
+		delete cache[key];
+		return null;
+	}
+	return { token: String(stored.token), expiresAt: ehLabEpoch(stored.expiresAt) };
+};
+const ehLabAttachSensitiveGrant = (raw) => {
+	const grant = ehLabSensitiveGrant(raw);
+	if (!grant && !raw.__sensitive_grant_token && !raw.__sensitive_grant_expires_at_epoch) return raw;
+	const next = Object.assign({}, raw);
+	if (grant) {
+		next.__sensitive_grant_token = grant.token;
+		next.__sensitive_grant_expires_at_epoch = grant.expiresAt;
+		next.__sensitive_grant_scope = ehLabGrantScope(raw);
+	} else {
+		delete next.__sensitive_grant_token;
+		delete next.__sensitive_grant_expires_at_epoch;
+		delete next.__sensitive_grant_scope;
+	}
+	return next;
+};
+
+const ehLabPreviousRow = (item) => ({
+	value: item && item.value != null && item.value !== '' ? String(item.value) : '—',
+	unit: String((item && item.unit) || ''),
+	interpretation: String((item && item.interpretation) || ''),
+	ref: String((item && item.reference_range) || ''),
+	when: String((item && item.entered_at) || ''),
+	visit_vn: String((item && item.visit_vn) || ''),
+	lab_no: String((item && item.lab_no) || ''),
+	status: String((item && item.status) || ''),
+});
 const ehLabRow = (it) => {
 	const visibility = (it && it.visibility) || { state: 'visible' };
 	const visibilityState = String(visibility.state || 'visible');
 	const manuallyHidden = visibilityState === 'hidden' || visibility.manual_hidden === true;
+	const previousValues = (it && Array.isArray(it.previous_values) ? it.previous_values : it && it.previous ? [it.previous] : [])
+		.slice(0, 5)
+		.map(ehLabPreviousRow);
 	const r = {
 		visibility: visibility,
 		// Manual LAB hide stays in its original row/Profile position but contains
@@ -291,6 +384,8 @@ const ehLabRow = (it) => {
 		interpretation: String((it && (it.interpretation || it.interpretation_code || it.flag)) || '').trim(),
 		comment: String((it && it.result_comment) || ''),
 		result_item_id: String((it && it.result_item_id) || ''),
+		// Preserve the printable Result Report parent after row normalization.
+		result_report_id: String((it && (it.result_report_id || it.xparentx)) || ''),
 		group_id: String((it && it.group_id) || ''),
 		group_name: String((it && it.group_name) || ''),
 		source: String((it && it.result_source) || ''),
@@ -299,14 +394,8 @@ const ehLabRow = (it) => {
 		reported_by: String((it && it.reported_by_source_name) || ''),
 		verified_at: String((it && it.verified_at) || ''),
 		verified_by: String((it && it.verified_by_source_name) || ''),
-		previous:
-			it && it.previous
-				? {
-						value: String(it.previous.value == null || it.previous.value === '' ? '—' : it.previous.value),
-						unit: String(it.previous.unit || ''),
-						when: String(it.previous.entered_at || ''),
-				  }
-				: null,
+		previous: previousValues[0] || null,
+		previous_values: previousValues,
 	};
 	r.flag = ehLabFlagOf(it);
 	r.arrow = s.ehLabArrow(r.flag, r.value);
@@ -352,6 +441,7 @@ s.ehLabStepDot = (st) => {
 /* ══ ประกอบก้อนผล 1 ใบสั่ง ════════════════════════════════════════════════ */
 const ehLabMkOrder = (raw) => {
 	if (!raw) return null;
+	raw = ehLabAttachSensitiveGrant(raw);
 	const status = String(raw.status || '');
 	const st = EH_LAB_STATUS[status] || { label: status || '—', type: 'danger' };
 	const cancelled = status === 'cancelled' || status === 'rejected';
@@ -374,6 +464,7 @@ const ehLabMkOrder = (raw) => {
 			};
 			resultGroups.push(resultGroupByKey[groupKey]);
 		}
+		if (!resultGroupByKey[groupKey].test_code && row.code) resultGroupByKey[groupKey].test_code = row.code;
 		resultGroupByKey[groupKey].results.push(row);
 	});
 
@@ -387,11 +478,16 @@ const ehLabMkOrder = (raw) => {
 		order_no: String(raw.order_no || raw.order_id || ''),
 		lab_no: String(raw.lab_no || ''),
 		patient_hn: String(raw.patient_hn || s.ehLabHn || ''),
+		patient_name: String(raw.patient_name || ''),
+		specimen_name: String(raw.specimen_name || ''),
+		ordered_items: Array.isArray(raw.ordered_items) ? raw.ordered_items : [],
 		status: status,
 		pending: pending,
 		cancelled: cancelled,
 		cancel_reason: String(raw.cancel_reason || ''),
 		ordered_at: String(raw.ordered_at || ''),
+		received_at: String(raw.received_at || ''),
+		collected_at: String(raw.collected_at || ''),
 		resulted_at: String(raw.resulted_at || ''),
 		reported_at: String(raw.reported_at || ''),
 		reported_by: String(raw.reported_by_source_name || ''),
@@ -430,10 +526,10 @@ const ehLabMkOrder = (raw) => {
 	o.section_code = String(raw.section_code || '');
 	const reportIds = (Array.isArray(raw.result_report_ids) ? raw.result_report_ids : []).filter((x) => /^[a-f0-9]{24}$/i.test(String(x)));
 	o.micro = EH_LAB_MICRO_SECTIONS.indexOf(o.section_code) >= 0;
-	// micro: Report เป็น static ⇒ ไม่ต้องมี Result Report ก็เปิดได้ (params ว่าง เหมือน Worklist)
+	// micro: Report รับ xparentx แล้ว; ต้องมี Result Report ชุดเดียวเพื่อไม่พิมพ์ผิดชุด
 	// ทั่วไป: ต้องมี Result Report ชุดเดียวเท่านั้น ไม่งั้นพิมพ์ผิดชุด
-	const microParams = {};
-	o.report_ready = o.micro ? !!EH_LAB_MICRO_RESULT_PDF_REPORT_ID : !!EH_LAB_RESULT_PDF_REPORT_ID && reportIds.length === 1;
+	const microParams = reportIds.length === 1 ? { xparentx: reportIds[0] } : {};
+	o.report_ready = o.micro ? !!EH_LAB_MICRO_RESULT_PDF_REPORT_ID && reportIds.length === 1 : !!EH_LAB_RESULT_PDF_REPORT_ID && reportIds.length === 1;
 	o.report_list = o.report_ready
 		? [{ reportId: o.micro ? EH_LAB_MICRO_RESULT_PDF_REPORT_ID : EH_LAB_RESULT_PDF_REPORT_ID, label: 'PDF', type: 'pdf' }]
 		: [];
@@ -441,9 +537,9 @@ const ehLabMkOrder = (raw) => {
 	// Screen grant and PDF grant are deliberately separate. A doctor must re-auth
 	// for every Sensitive PDF click; the five-minute screen grant is never passed here.
 	o.report_params = o.report_ready ? (o.micro ? microParams : { xparentx: reportIds[0] }) : {};
-	// บอกเหตุที่ปุ่มไม่มา / เตือนว่ายังเป็นตัวอย่าง ดีกว่าปล่อยให้เข้าใจผิด
+	// บอกเหตุที่ปุ่มไม่มา; MLab หลาย Result Report ต้องไม่เดาเลือกใบ
 	o.report_hint = o.micro
-		? 'Microbiology: Report ยังเป็นแบบ static (SQL ยังไม่เชื่อม) — เนื้อผลจริงอ่านได้จากรายงานในการ์ด'
+		? o.report_ready ? '' : reportIds.length > 1 ? 'MLab มีผลหลายชุด จึงไม่เลือก Result Report ให้อัตโนมัติ' : 'ยังไม่มี Result Report สำหรับ PDF MLab'
 		: o.report_ready
 		? ''
 		: reportIds.length > 1
@@ -459,9 +555,8 @@ const ehLabMkOrder = (raw) => {
 	return o;
 };
 
-// SdReport keeps its own parameter form state. The visible normal-result report
-// never receives a Sensitive grant. Protected PDF rendering uses the separate
-// PDF-specific key/params below after a fresh doctor re-auth.
+// SdReport เก็บ parameter ภายใน component จึงต้อง remount เมื่อ Order/grant เปลี่ยน
+// เพื่อไม่ให้ PDF ใช้ token เก่าหรือ token ของใบอื่น.
 s.ehLabReportInstanceKey = (order, placement) => {
 	const o = order || {};
 	const params = o.report_params || {};
@@ -519,6 +614,8 @@ const ehLabOpenAuthorizedPdf = (order, placement, data) => {
 	setTimeout(() => ehLabClickAuthorizedPdf(order, placement, 0), 0);
 };
 
+
+
 /* ══ interactions ═════════════════════════════════════════════════════════ */
 // 🔴 เขียน object ใหม่ทั้งก้อน ไม่แก้ key เดิมในที่ — ให้ Vue เห็นการเปลี่ยนแน่นอน (pattern เดียวกับ item_card)
 s.ehLabOgToggle = (key) => {
@@ -535,6 +632,8 @@ s.ehLabTxtClamp = (key) => {
 	if (s.ehLabOgOpen['r|' + key]) return Object.assign({}, base, { maxHeight: '260px', overflow: 'auto' });
 	return Object.assign({}, base, { display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' });
 };
+
+
 
 // เปิดผลทั้งใบใน popup อ่านอย่างเดียวแบบเดียวกับ LAB Worklist
 // 🔴 ห้าม fallback ไปเปิด Result Item ตัวแรก — นั่นคือหน้ากรอก/แก้ไขผลของห้อง LAB ไม่ใช่หน้าดูผลของ EMR
@@ -557,6 +656,7 @@ s.ehLabOpenOrder = (o) => {
 		if (Array.isArray(group.results) && group.results.length > 1) opened[s.ehLabResultGroupKey(group, index)] = true;
 	});
 	s.ehLabResultGroupOpen = opened;
+	s.ehLabMbHistory = { visible: false, row: null };
 	s.ehLabDialog = { visible: true, order };
 };
 s.ehLabCloseLabDialog = () => {
@@ -565,16 +665,14 @@ s.ehLabCloseLabDialog = () => {
 	if (order && order._sensitive_disclosed) {
 		const redactedOrder = ehLabRedactSensitiveOrder(order, ehLabSensitiveGrantValid(order));
 		ehLabReplaceOrder(order, redactedOrder);
+		if (ehLabSensitiveGrantValid(redactedOrder)) ehLabScheduleSensitiveExpiry(redactedOrder);
 	}
 	s.ehLabDialog = { visible: false, order: null };
+	s.ehLabMbHistory = { visible: false, row: null };
+	s.ehLabMicroSelectedGroupKey = '';
 	s.ehLabResultGroupOpen = {};
 };
 
-const ehLabSessionUsername = () => {
-	const form = field.getFormRef && field.getFormRef();
-	const user = (form && form.userState && form.userState.user) || (field.globalUserState && field.globalUserState.user) || {};
-	return String(user.username || (user.account && user.account.username) || '').trim();
-};
 const ehLabRequestId = () => 'emr-sensitive-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
 s.ehLabRequestSensitive = (order, item) => {
 	if (!order || !item || !item.reauth_required) return;
@@ -591,30 +689,38 @@ const ehLabReplaceOrder = (oldOrder, nextOrder) => {
 	s.ehLabOrders = (Array.isArray(s.ehLabOrders) ? s.ehLabOrders : []).map((order) => (order === oldOrder || order.key === oldOrder.key ? nextOrder : order));
 };
 const ehLabSensitiveGrantValid = (order) => {
-	const raw = (order && order._raw) || {};
-	return !!raw.__sensitive_grant_token && Number(raw.__sensitive_grant_expires_at_epoch || 0) > Date.now();
+	return !!ehLabSensitiveGrant(order);
 };
 const ehLabClearSensitiveExpiryTimer = () => {
 	if (s.ehLabSensitiveExpiryTimer) clearTimeout(s.ehLabSensitiveExpiryTimer);
 	s.ehLabSensitiveExpiryTimer = null;
 };
 const ehLabRedactSensitiveOrder = (order, keepGrant) => {
+	const grant = keepGrant ? ehLabSensitiveGrant(order) : null;
 	const raw = Object.assign({}, (order && order._raw) || {});
 	if (Array.isArray(raw.__sensitive_base_items)) raw.items = raw.__sensitive_base_items.slice();
 	raw.__sensitive_disclosed = false;
-	if (!keepGrant) {
+	if (grant) {
+		raw.__sensitive_grant_token = grant.token;
+		raw.__sensitive_grant_expires_at_epoch = grant.expiresAt;
+		raw.__sensitive_grant_scope = ehLabGrantScope(order);
+	} else {
 		delete raw.__sensitive_grant_token;
 		delete raw.__sensitive_grant_expires_at_epoch;
+		delete raw.__sensitive_grant_scope;
+		ehLabForgetSensitiveGrant(order);
 	}
 	return ehLabMkOrder(raw);
 };
 const ehLabScheduleSensitiveExpiry = (order) => {
 	ehLabClearSensitiveExpiryTimer();
-	const expiresAt = Number(order && order._raw && order._raw.__sensitive_grant_expires_at_epoch || 0);
+	const grant = ehLabSensitiveGrant(order);
+	const expiresAt = grant ? grant.expiresAt : 0;
 	const delay = expiresAt - Date.now();
 	if (!(delay > 0)) return;
 	s.ehLabSensitiveExpiryTimer = setTimeout(() => {
 		const active = s.ehLabDialog.order && s.ehLabDialog.order.key === order.key ? s.ehLabDialog.order : order;
+		ehLabForgetSensitiveGrant(active);
 		const redactedOrder = ehLabRedactSensitiveOrder(active, false);
 		ehLabReplaceOrder(active, redactedOrder);
 		if (s.ehLabDialog.order && s.ehLabDialog.order.key === active.key) s.ehLabDialog = { visible: true, order: redactedOrder };
@@ -631,12 +737,14 @@ const ehLabApplySensitiveDisclosure = (order, item, data) => {
 	raw.items = raw.__sensitive_base_items.filter((row) => !disclosedIds[String((row.visibility && row.visibility.item_id) || row.group_id || '')]).concat(Array.isArray(data.items) ? data.items : []);
 	raw.result_report_ids = Array.from(new Set([].concat(raw.result_report_ids || [], data.result_report_ids || []).map(String).filter(Boolean)));
 	raw.__sensitive_grant_token = data.sensitive_grant_token || '';
-	raw.__sensitive_grant_expires_at_epoch = Number(data.sensitive_grant_expires_at_epoch || 0);
+	raw.__sensitive_grant_expires_at_epoch = ehLabEpoch(data.sensitive_grant_expires_at_epoch);
+	raw.__sensitive_grant_scope = ehLabGrantScope(raw);
 	raw.reported_at = data.reported_at || raw.reported_at;
 	raw.reported_by_source_name = data.reported_by_source_name || raw.reported_by_source_name;
 	raw.verified_at = data.verified_at || raw.verified_at;
 	raw.verified_by_source_name = data.verified_by_source_name || raw.verified_by_source_name;
 	raw.__sensitive_disclosed = true;
+	ehLabRememberSensitiveGrant(raw);
 	const nextOrder = ehLabMkOrder(raw);
 	ehLabReplaceOrder(order, nextOrder);
 	ehLabScheduleSensitiveExpiry(nextOrder);
@@ -645,10 +753,9 @@ const ehLabApplySensitiveDisclosure = (order, item, data) => {
 };
 const ehLabReuseSensitive = (order, item) => {
 	const form = field.getFormRef && field.getFormRef();
-	const raw = (order && order._raw) || {};
 	const visibility = (item && item.visibility) || {};
-	const visitId = visibility.visit_id || String((s.ehVisit && (s.ehVisit.visit_id || s.ehVisit.data_id)) || '');
-	if (!form || !form.userState || typeof form.userState.runProcess !== 'function' || !ehLabSensitiveGrantValid(order)) {
+	const grant = ehLabSensitiveGrant(order);
+	if (!form || !form.userState || typeof form.userState.runProcess !== 'function' || !grant) {
 		s.ehLabRequestSensitive(order, item);
 		return;
 	}
@@ -656,17 +763,18 @@ const ehLabReuseSensitive = (order, item) => {
 		EH_LAB_BOARD_PROC,
 		{
 			action: 'reuse_sensitive',
-			visit_id: visitId,
+			visit_id: visibility.visit_id || String((s.ehVisit && (s.ehVisit.visit_id || s.ehVisit.data_id)) || ''),
 			source_order_id: visibility.source_order_id || order.source_order_id,
 			item_id: visibility.item_id || item.group_id,
 			section_code: order.section_code || '',
-			sensitive_grant_token: raw.__sensitive_grant_token,
+			sensitive_grant_token: grant.token,
 			request_id: ehLabRequestId(),
 			screen: 'emr_history',
 		},
 		(res) => {
 			const data = (res && res.data) || {};
 			if (!data.success) {
+				ehLabForgetSensitiveGrant(order);
 				const redactedOrder = ehLabRedactSensitiveOrder(order, false);
 				ehLabReplaceOrder(order, redactedOrder);
 				s.ehLabReauth = { visible: true, loading: false, error: data.message || 'สิทธิ์เปิดดู 5 นาทีหมดอายุแล้ว กรุณายืนยันใหม่', username: ehLabSessionUsername(), password: '', purpose: 'ดูแลรักษาผู้ป่วย', mode: 'view', placement: '', order: redactedOrder, item };
@@ -690,12 +798,11 @@ s.ehLabSubmitSensitive = () => {
 	const password = auth.password;
 	s.ehLabReauth = Object.assign({}, auth, { loading: true, error: '', password: '' });
 	const visibility = auth.item.visibility || {};
-	const visitId = visibility.visit_id || String((s.ehVisit && (s.ehVisit.visit_id || s.ehVisit.data_id)) || '');
 	form.userState.runProcess(
 		EH_LAB_BOARD_PROC,
 		{
 			action: 'open_sensitive',
-			visit_id: visitId,
+			visit_id: visibility.visit_id || String((s.ehVisit && (s.ehVisit.visit_id || s.ehVisit.data_id)) || ''),
 			source_order_id: visibility.source_order_id || auth.order.source_order_id,
 			item_id: visibility.item_id || auth.item.group_id,
 			section_code: auth.order.section_code || '',
@@ -703,7 +810,7 @@ s.ehLabSubmitSensitive = () => {
 			password,
 			purpose: String(auth.purpose || '').trim(),
 			request_id: ehLabRequestId(),
-			screen: auth.mode === 'pdf' ? 'emr_history_pdf' : 'emr_history',
+				screen: auth.mode === 'pdf' ? 'emr_history_pdf' : 'emr_history',
 		},
 		(res) => {
 			const data = (res && res.data) || {};
@@ -721,6 +828,7 @@ s.ehLabSubmitSensitive = () => {
 };
 s.ehLabResultGroups = () => {
 	const order = s.ehLabDialog.order;
+	if (s.ehLabIsMicrobiologyDialog && s.ehLabIsMicrobiologyDialog()) return s.ehLabMicroGroupsForDisplay();
 	return order && Array.isArray(order.result_groups) ? order.result_groups : [];
 };
 s.ehLabResultGroupKey = (group, index) => String((group && group.group_key) || 'group|' + index);
@@ -748,9 +856,7 @@ s.ehLabLockedResultCount = () => {
 // ชื่อรายการ Sensitive เป็น metadata ที่แสดงได้ แม้ค่าผลยังล็อกอยู่
 // จึงต้องนับรวมเป็น "รายการสั่งตรวจ" แต่ไม่รวมในจำนวนผลย่อยที่เปิดเผยแล้ว
 s.ehLabResultTestCount = () => s.ehLabResultGroups().length + s.ehLabLockedResultCount();
-s.ehLabResultRowsCount = () => {
-	return s.ehLabResultGroups().reduce((count, group) => count + (Array.isArray(group && group.results) ? group.results.length : 0), 0);
-};
+s.ehLabResultRowsCount = () => s.ehLabResultGroups().reduce((count, group) => count + (Array.isArray(group && group.results) ? group.results.length : 0), 0);
 s.ehLabResultCriticalCount = () => {
 	const order = s.ehLabDialog.order;
 	return order && Array.isArray(order.criticals) ? order.criticals.length : 0;
@@ -815,17 +921,191 @@ s.ehLabFileSize = (file) => {
 	return n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.ceil(n / 1024) + ' KB';
 };
 
+/* ══ ล้าง state ใหม่ตอนเปลี่ยนคนไข้ ═══════════════════════════════════════
+   ห่อ ehLabLoad เดิมไว้ ตัวเดิมยังถูกเรียกครบทุกครั้ง — ที่เพิ่มคือล้างของใหม่ก่อนโหลดรอบใหม่
+   (ถ้า process error ข้อมูลกลุ่มของคนไข้คนก่อนต้องไม่ค้างอยู่บนจอ) */
+
+
+/* MLab read-only viewer parity with LAB Worklist.
+ * Raw result_value is displayed and copied as received. Do not infer Gram
+ * stain, organism, MIC, S/I/R, abnormal, or critical values from its text.
+ */
+s.ehLabIsMicrobiologyDialog = () => !!(s.ehLabDialog && s.ehLabDialog.order && s.ehLabDialog.order.micro);
+s.ehLabAttachmentCount = () => (s.ehLabDialog && s.ehLabDialog.order && Array.isArray(s.ehLabDialog.order.attachments) ? s.ehLabDialog.order.attachments.length : 0);
+s.ehLabScrollToAttachments = () => {
+	if (typeof document === 'undefined') return;
+	const target = document.getElementById('eh-lab-result-attachments');
+	if (target && typeof target.scrollIntoView === 'function') target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+s.ehLabPreviousValues = (row) => (row && !row.redacted && Array.isArray(row.previous_values) ? row.previous_values.slice(0, 5) : []);
+s.ehLabPreviousSnapshot = (item) => [
+	item && item.unit ? item.unit : '',
+	item && item.interpretation ? item.interpretation : '',
+	item && item.ref ? 'ปกติ ' + item.ref : '',
+].filter(Boolean).join(' · ');
+s.ehLabOpenMbHistory = (row) => {
+	if (!row || !s.ehLabPreviousValues(row).length) return;
+	s.ehLabMbHistory = { visible: true, row };
+};
+s.ehLabCloseMbHistory = () => {
+	s.ehLabMbHistory = { visible: false, row: null };
+};
+s.ehLabMicroGroupKey = (group, index) => String((group && (group.group_key || group.test_code || group.test_name)) || 'micro-result-' + String(index || 0));
+s.ehLabMicroGroupsForDisplay = () => {
+	const groups = s.ehLabIsMicrobiologyDialog() && Array.isArray(s.ehLabDialog.order.result_groups) ? s.ehLabDialog.order.result_groups : [];
+	return s.ehLabMicroSelectedGroupKey ? groups.filter((group, index) => s.ehLabMicroGroupKey(group, index) === s.ehLabMicroSelectedGroupKey) : groups;
+};
+s.ehLabMicroHasValue = (row) => !!row && !row.redacted && String(row.value == null ? '' : row.value).trim() !== '' && String(row.value).trim() !== '—';
+s.ehLabMicroResultRows = (group) => (Array.isArray(group && group.results) ? group.results : []).filter(s.ehLabMicroHasValue);
+s.ehLabMicroGroupHasResult = (group) => s.ehLabMicroResultRows(group).length > 0;
+s.ehLabMicroGroupStatusValue = (group) => {
+	const rows = s.ehLabMicroResultRows(group);
+	if (!rows.length) return 'pending';
+	const statuses = rows.map((row) => String((row && row.status) || '').toLowerCase()).filter(Boolean);
+	return statuses.length && statuses.every((status) => ['f', 'final', 'completed', 'complete'].indexOf(status) >= 0) ? 'final' : 'partial';
+};
+s.ehLabMicroGroupStatusText = (group) => ({ final: 'Final', partial: 'Partial result', pending: 'รอผล' }[s.ehLabMicroGroupStatusValue(group)]);
+s.ehLabMicroStatusStyle = (value) =>
+	value === 'final'
+		? { borderColor: '#b3e19d', background: '#f0f9eb', color: '#529b2e' }
+		: value === 'partial'
+		? { borderColor: '#f3d19e', background: '#fdf6ec', color: '#b88230' }
+		: { borderColor: '#c8c9cc', background: '#f4f4f5', color: '#909399' };
+s.ehLabMicroGroupStatusStyle = (group) => s.ehLabMicroStatusStyle(s.ehLabMicroGroupStatusValue(group));
+s.ehLabMicroOverallStatusValue = () => {
+	const groups = s.ehLabMicroGroupsForDisplay();
+	if (!groups.length || groups.every((group) => !s.ehLabMicroGroupHasResult(group))) return 'pending';
+	return groups.every((group) => s.ehLabMicroGroupStatusValue(group) === 'final') ? 'final' : 'partial';
+};
+s.ehLabMicroOverallStatusText = () => ({ final: 'Final', partial: 'Partial result', pending: 'รอผล' }[s.ehLabMicroOverallStatusValue()]);
+s.ehLabMicroOverallStatusStyle = () => s.ehLabMicroStatusStyle(s.ehLabMicroOverallStatusValue());
+s.ehLabMicroGroupReportedAt = (group) => {
+	const times = (Array.isArray(group && group.results) ? group.results : []).map((row) => String((row && row.reported_at) || '')).filter(Boolean).sort();
+	return times[times.length - 1] || '';
+};
+s.ehLabMicroLatestReportedAt = () => {
+	const order = (s.ehLabDialog && s.ehLabDialog.order) || {};
+	const times = s.ehLabMicroGroupsForDisplay().map(s.ehLabMicroGroupReportedAt).filter(Boolean).sort();
+	return times[times.length - 1] || order.reported_at || order.resulted_at || '';
+};
+s.ehLabMicroResultCountText = () => {
+	const groups = s.ehLabMicroGroupsForDisplay();
+	const done = groups.filter(s.ehLabMicroGroupHasResult).length;
+	return 'ทั้งหมด ' + groups.length + ' · มีผล ' + done + ' · รอผล ' + Math.max(0, groups.length - done);
+};
+s.ehLabMicroPatientName = () => {
+	const order = (s.ehLabDialog && s.ehLabDialog.order) || {};
+	const raw = order._raw || {};
+	const visit = s.ehVisit || {};
+	const person = visit.person || visit.patient || {};
+	return String(raw.patient_name || visit.patient_name || person.name || person.full_name || person.display_name || [person.prefix, person.first_name || person.firstname, person.last_name || person.lastname].filter(Boolean).join(' ') || '');
+};
+s.ehLabMicroItems = (order) => {
+	const o = order || {};
+	const groups = Array.isArray(o.result_groups) ? o.result_groups : [];
+	const ordered = o._raw && Array.isArray(o._raw.ordered_items) ? o._raw.ordered_items : [];
+	const used = {};
+	const items = ordered.map((item, itemIndex) => {
+		const itemId = String((item && item.item_id) || '');
+		let groupIndex = groups.findIndex((group) => String((group && group.group_key) || '') === itemId);
+		if (groupIndex < 0) groupIndex = groups.findIndex((group) => (Array.isArray(group && group.results) ? group.results : []).some((row) => String((row && row.visibility && row.visibility.item_id) || '') === itemId));
+		if (groupIndex < 0 && item && item.result_code) groupIndex = groups.findIndex((group) => String((group && group.test_code) || '') === String(item.result_code));
+		if (groupIndex < 0 && ordered.length === 1 && groups.length === 1) groupIndex = 0;
+		const group = groupIndex >= 0 ? groups[groupIndex] : null;
+		if (group) used[s.ehLabMicroGroupKey(group, groupIndex)] = true;
+		return {
+			item_id: itemId || 'micro-item-' + itemIndex,
+			item_code: String((item && (item.item_code || item.result_code)) || ''),
+			item_name: String((item && item.item_name) || (group && group.test_name) || ''),
+			specimen_name: String((item && item.specimen_name) || ''),
+			collected_at: String((item && item.collected_at) || ''),
+			group_key: group ? s.ehLabMicroGroupKey(group, groupIndex) : '',
+			has_result: !!group && (Array.isArray(group.results) ? group.results : []).some(s.ehLabMicroHasValue),
+		};
+	});
+	groups.forEach((group, groupIndex) => {
+		const groupKey = s.ehLabMicroGroupKey(group, groupIndex);
+		if (used[groupKey]) return;
+		items.push({ item_id: groupKey, item_code: String(group.test_code || ''), item_name: String(group.test_name || ''), specimen_name: '', collected_at: '', group_key: groupKey, has_result: s.ehLabMicroGroupHasResult(group) });
+	});
+	return items;
+};
+s.ehLabMicroSelectedItem = () => {
+	const order = (s.ehLabDialog && s.ehLabDialog.order) || {};
+	return s.ehLabMicroItems(order).find((item) => item.group_key && item.group_key === s.ehLabMicroSelectedGroupKey) || null;
+};
+s.ehLabMicroSpecimenName = () => {
+	const order = (s.ehLabDialog && s.ehLabDialog.order) || {};
+	const raw = order._raw || {};
+	const item = s.ehLabMicroSelectedItem();
+	return String((item && item.specimen_name) || raw.specimen_name || raw.specimen || raw.specimen_type || '');
+};
+s.ehLabMicroCollectedAt = () => {
+	const order = (s.ehLabDialog && s.ehLabDialog.order) || {};
+	const item = s.ehLabMicroSelectedItem();
+	return String((item && item.collected_at) || order.collected_at || '');
+};
+const ehLabMicroItemReportOrder = (order, item) => {
+	const groups = Array.isArray(order && order.result_groups) ? order.result_groups : [];
+	const group = groups.find((candidate, index) => s.ehLabMicroGroupKey(candidate, index) === String((item && item.group_key) || ''));
+	const reportIds = Array.from(
+		new Set(
+			(Array.isArray(group && group.results) ? group.results : [])
+				.map((row) => String((row && row.result_report_id) || ''))
+				.filter((id) => /^[a-f0-9]{24}$/i.test(id)),
+		),
+	);
+	const ready = !!EH_LAB_MICRO_RESULT_PDF_REPORT_ID && reportIds.length === 1;
+	const next = Object.assign({}, order, {
+		report_ready: ready,
+		report_list: ready ? [{ reportId: EH_LAB_MICRO_RESULT_PDF_REPORT_ID, label: 'PDF', type: 'pdf' }] : [],
+		report_params: ready ? { xparentx: reportIds[0] } : {},
+		report_hint: ready ? '' : reportIds.length > 1 ? 'รายการนี้มีผลหลายชุด จึงไม่เลือก Result Report ให้อัตโนมัติ' : 'ยังไม่มี Result Report สำหรับ PDF MLab',
+	});
+	next._raw = Object.assign({}, (order && order._raw) || {}, { result_report_ids: reportIds });
+	return next;
+};
+s.ehLabOpenMicroItem = (order, item) => {
+	if (!order || !item || !item.has_result || !item.group_key) return;
+	s.ehLabMicroSelectedGroupKey = item.group_key;
+	// The card groups an entire Microbiology Order, but this popup is one CPOE
+	// Item. Pass only that Item's current Result Report parent to Report Factory.
+	s.ehLabOpenOrder(ehLabMicroItemReportOrder(order, item));
+};
+s.ehLabCopyMicrobiologyResult = () => {
+	const lines = [];
+	s.ehLabMicroGroupsForDisplay().forEach((group) => {
+		lines.push([String((group && group.test_code) || ''), String((group && group.test_name) || ''), s.ehLabMicroGroupStatusText(group)].filter(Boolean).join(' · '));
+		s.ehLabMicroResultRows(group).forEach((row) => {
+			lines.push(['รหัสผล ' + (row.code || '-'), 'ชื่อ/รหัสจาก MLab ' + (row.name || '-')].join(' · '));
+			lines.push(String(row.value || ''));
+		});
+		if (!s.ehLabMicroGroupHasResult(group)) lines.push('รอผล');
+		lines.push('');
+	});
+	const text = lines.join('\n').trim();
+	if (!text) {
+		if (field.notify) field.notify('ไม่มีผลให้คัดลอก', 'warning', 2500);
+		return;
+	}
+	if (typeof field.copyClipboard === 'function') field.copyClipboard(text);
+	if (field.notify) field.notify('คัดลอกผลที่แสดงแล้ว', 'success', 2200);
+};
+
 s.ehLabReset = () => {
-	ehLabClearSensitiveExpiryTimer();
+	if (s.ehLabSensitiveExpiryTimer) clearTimeout(s.ehLabSensitiveExpiryTimer);
 	s.ehLabLoading = false;
 	s.ehLabError = '';
 	s.ehLabOrders = [];
 	s.ehLabHn = '';
 	s.ehLabOgOpen = {};
 	s.ehLabDialog = { visible: false, order: null };
+	s.ehLabMbHistory = { visible: false, row: null };
+	s.ehLabMicroSelectedGroupKey = '';
 	s.ehLabResultGroupOpen = {};
 	s.ehLabReauth = { visible: false, loading: false, error: '', username: '', password: '', purpose: 'ดูแลรักษาผู้ป่วย', mode: 'view', placement: '', order: null, item: null };
 	s.ehLabPdfGrant = { orderKey: '', placement: '', token: '', expiresAt: 0 };
+	s.ehLabSensitiveExpiryTimer = null;
 };
 
 s.ehLabCardsForGroup = (group) => {
@@ -876,7 +1156,7 @@ s.ehLabLoad = (visit) => {
 		(err) => {
 			s.ehLabLoading = false;
 			s.ehLabError = 'อ่านผล Lab ไม่สำเร็จ: ' + ((err && err.message) || err);
-		}
+		},
 	);
 };
 
