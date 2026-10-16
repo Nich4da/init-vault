@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LAB Worklist — เวลาเก็บและการเก็บรักษา Specimen</title>
+  <style>
+    :root{
+      --primary:#409eff;--primary-soft:#ecf5ff;--success:#20a77a;--success-soft:#eaf8f3;
+      --warning:#e6a23c;--warning-soft:#fdf6ec;--purple:#7867d8;--purple-soft:#f2f0ff;
+      --text:#303133;--text-2:#606266;--text-3:#909399;--line:#dcdfe6;--line-2:#ebeef5;
+      --fill:#f5f7fa;--page:#f2f4f8;--surface:#fff;--danger:#f56c6c;
+      --shadow:0 18px 50px rgba(31,45,61,.16);--radius:12px;
+      --font:"Leelawadee UI","Noto Sans Thai","IBM Plex Sans Thai","Segoe UI",sans-serif;
+      --mono:ui-monospace,"Cascadia Mono",Consolas,monospace;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--page);color:var(--text);font-family:var(--font);font-size:14px;line-height:1.45}
+    button,input{font:inherit}
+    button{cursor:pointer}
+    .page{max-width:1500px;margin:auto;padding:24px 24px 60px}
+    .notice{display:flex;gap:10px;align-items:flex-start;padding:11px 14px;margin-bottom:16px;border:1px solid #c6e2ff;border-radius:10px;background:var(--primary-soft);color:#3e6d9b;font-size:13px}
+    .notice strong{color:#245b91}
+    .topbar{display:flex;justify-content:space-between;gap:20px;align-items:flex-end;margin-bottom:16px}
+    h1{font-size:24px;line-height:1.25;margin:0 0 3px;letter-spacing:-.2px}
+    .subtitle{color:var(--text-3)}
+    .segmented{display:inline-flex;padding:4px;border:1px solid var(--line);border-radius:10px;background:var(--surface);box-shadow:0 1px 3px rgba(0,0,0,.04)}
+    .segmented button{border:0;background:transparent;color:var(--text-2);padding:7px 13px;border-radius:7px;font-weight:700;font-size:13px}
+    .segmented button[aria-pressed="true"]{background:var(--primary);color:#fff}
+    .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:12px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius) var(--radius) 0 0}
+    .search{flex:1;min-width:240px;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--fill);color:var(--text)}
+    .selectlike{padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--text-2)}
+    .count{color:var(--text-3);font-size:13px;margin-left:auto}
+    .table-shell{background:var(--surface);border:1px solid var(--line);border-top:0;border-radius:0 0 var(--radius) var(--radius);overflow:auto;box-shadow:0 3px 14px rgba(31,45,61,.05)}
+    table{width:100%;min-width:1250px;border-collapse:collapse;table-layout:fixed}
+    th{height:46px;padding:8px 10px;background:#fafafa;color:var(--text-3);border-bottom:1px solid var(--line);text-align:left;font-size:12px;font-weight:700;white-space:nowrap}
+    td{padding:13px 10px;border-bottom:1px solid var(--line-2);vertical-align:top}
+    tr:last-child td{border-bottom:0}
+    tbody tr:hover td{background:#fafcff}
+    .c-check{width:44px;text-align:center}.c-no{width:58px}.c-lab{width:115px}.c-order{width:235px}.c-spec{width:190px}.c-collect{width:245px}.c-receive{width:125px}.c-status{width:104px}.c-by{width:135px}.c-action{width:94px}
+    .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+    .order-name{font-weight:800;font-size:14px}.code{margin-top:2px;color:var(--text-3);font-size:12px}.profile{display:inline-block;margin-left:5px;padding:1px 6px;border-radius:5px;background:var(--primary-soft);color:var(--primary);font-size:10px;font-weight:800}
+    .spec-name{font-weight:700}.spec-system{margin-top:3px;color:var(--text-3);font-size:12px}
+    .collected-at{font-weight:750;white-space:nowrap}.collected-time{color:var(--text-2);font-size:12px}
+    .preserve{display:inline-flex;align-items:center;gap:5px;margin-top:7px;padding:3px 8px;border-radius:999px;border:1px solid;font-size:11px;font-weight:800;white-space:nowrap}
+    .preserve::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+    .p-im{color:var(--success);border-color:#9bdac5;background:var(--success-soft)}
+    .p-rf{color:#3978c5;border-color:#a8ccee;background:#eef7ff}
+    .p-rt{color:var(--warning);border-color:#f1cf9c;background:var(--warning-soft)}
+    .temp{margin-left:5px;color:inherit;font-weight:650}
+    .source{display:flex;gap:5px;margin-top:6px;min-width:0;color:var(--text-2);font-size:12px;line-height:1.35}
+    .source-label{color:var(--text-3);flex:none}.source-value{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:650}
+    .source-empty{font-weight:400;color:#b1b3b8;font-style:italic}
+    .order-source{display:none;margin-top:7px;padding-top:6px;border-top:1px dashed var(--line)}
+    body.alt-layout .collect-source{display:none}
+    body.alt-layout .order-source{display:flex}
+    .status{display:inline-flex;padding:4px 9px;border:1px solid #f3d19e;border-radius:6px;background:var(--warning-soft);color:#b87918;font-size:11px;font-weight:800}
+    .status.received{border-color:#b3e19d;background:#f0f9eb;color:#529b2e}
+    .linkbtn{border:0;background:transparent;color:var(--primary);font-weight:750;padding:4px 0}
+    .hint{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
+    .hint-card{padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);font-size:12.5px;color:var(--text-2)}
+    .hint-card b{display:block;color:var(--text);margin-bottom:3px}
+    .hint-card.recommended{border-color:#a0cfff;background:var(--primary-soft)}
+    .overlay{position:fixed;inset:0;display:grid;place-items:center;padding:22px;background:rgba(20,31,44,.47);z-index:10}
+    .overlay[hidden]{display:none}
+    .modal{width:min(760px,100%);max-height:calc(100vh - 44px);overflow:auto;background:#fff;border-radius:16px;box-shadow:var(--shadow)}
+    .modal-head{display:flex;align-items:flex-start;gap:12px;padding:22px 24px 17px;border-bottom:1px solid var(--line-2)}
+    .modal-head h2{margin:0;font-size:21px}.modal-head p{margin:5px 0 0;color:var(--text-3)}
+    .close{margin-left:auto;width:34px;height:34px;border:0;border-radius:8px;background:transparent;color:var(--text-3);font-size:24px}.close:hover{background:var(--fill);color:var(--text)}
+    .modal-body{padding:21px 24px 24px}
+    .field{margin-bottom:20px}.field:last-child{margin-bottom:0}
+    label,.label{display:block;margin-bottom:7px;font-weight:800}.optional{font-weight:500;color:var(--text-3)}
+    .input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;color:var(--text);background:#fff}.input:focus{outline:2px solid #c6e2ff;border-color:var(--primary)}
+    .helper{margin-top:5px;color:var(--text-3);font-size:12px}
+    .storage-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+    .storage-option{position:relative;display:block;margin:0;padding:13px 12px;border:1px solid var(--line);border-radius:10px;cursor:pointer;background:#fff}
+    .storage-option:hover{border-color:#a0cfff}.storage-option.selected{border-color:var(--primary);box-shadow:0 0 0 1px var(--primary) inset;background:var(--primary-soft)}
+    .storage-option input{position:absolute;opacity:0}.storage-title{display:flex;align-items:center;gap:8px;font-weight:800}.radio{width:17px;height:17px;border:2px solid #b7bcc5;border-radius:50%;display:grid;place-items:center}.selected .radio{border-color:var(--primary)}.selected .radio::after{content:"";width:7px;height:7px;border-radius:50%;background:var(--primary)}
+    .storage-desc{margin:5px 0 0 25px;color:var(--text-3);font-size:11.5px;font-weight:500}
+    .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    .temp-wrap[hidden]{display:none}
+    .sample-warning{display:flex;gap:8px;padding:9px 11px;margin-top:7px;border-radius:8px;background:var(--warning-soft);color:#9c6718;font-size:11.5px}
+    .modal-foot{display:flex;justify-content:flex-end;gap:9px;padding:14px 24px;border-top:1px solid var(--line-2);background:#fafafa}
+    .btn{padding:9px 18px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--text-2);font-weight:750}.btn.primary{border-color:var(--primary);background:var(--primary);color:#fff}
+    .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);opacity:0;pointer-events:none;padding:10px 15px;border-radius:8px;background:#2d3a4b;color:#fff;box-shadow:var(--shadow);transition:.2s;z-index:20}.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+    @media(max-width:850px){.topbar{align-items:flex-start;flex-direction:column}.hint{grid-template-columns:1fr}.storage-grid,.two{grid-template-columns:1fr}.segmented{width:100%;overflow:auto}.segmented button{flex:1;white-space:nowrap}}
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="notice">
+      <span aria-hidden="true">✦</span>
+      <div><strong>Prototype สำหรับยืนยันหน้าตาเท่านั้น</strong> — ข้อมูลผู้ป่วยและเลข LAB เป็นข้อมูลสมมติ และค่าอุณหภูมิที่เห็นเป็นตัวอย่าง UI ต้องยืนยันกับห้อง LAB/Test Master ก่อนนำไปใช้จริง</div>
+    </div>
+
+    <div class="topbar">
+      <div>
+        <h1>LAB Worklist · รายการวันนี้</h1>
+        <div class="subtitle">เพิ่ม Source of specimen และการเก็บรักษาไว้ในบริบทเดียวกับเวลาเก็บ</div>
+      </div>
+      <div class="segmented" aria-label="เปรียบเทียบตำแหน่ง Source of specimen">
+        <button type="button" id="recommendedBtn" aria-pressed="true">แนะนำ: ใต้เวลาเก็บ</button>
+        <button type="button" id="alternateBtn" aria-pressed="false">เทียบ: ใต้ Order/Test</button>
+      </div>
+    </div>
+
+    <section aria-label="ตัวอย่างตาราง LAB Worklist">
+      <div class="toolbar">
+        <input class="search" aria-label="ค้นหา" placeholder="ค้นหา HN, VN, Lab no. หรือรายการตรวจ">
+        <button class="selectlike" type="button">รอรับ specimen ▾</button>
+        <button class="selectlike" type="button">ทุกห้อง LAB ▾</button>
+        <span class="count">3 รายการ</span>
+      </div>
+      <div class="table-shell">
+        <table>
+          <thead>
+            <tr>
+              <th class="c-check"><input type="checkbox" aria-label="เลือกทั้งหมด"></th>
+              <th class="c-no">ลำดับ</th>
+              <th class="c-lab">Lab no.</th>
+              <th class="c-order">รายการสั่งตรวจ</th>
+              <th class="c-spec">Specimen</th>
+              <th class="c-collect">เวลาเก็บ / การเก็บรักษา</th>
+              <th class="c-receive">เวลารับ specimen</th>
+              <th class="c-status">สถานะ</th>
+              <th class="c-by">ผู้ดำเนินการ</th>
+              <th class="c-action">ดำเนินการ</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="hint">
+      <div class="hint-card recommended"><b>ข้อเสนอแนะ</b>เก็บ Source + วิธีรักษา + เวลาไว้คอลัมน์เดียวกัน เพราะเป็นข้อมูลของ specimen ชุดเดียวกัน และไม่ทำให้ชื่อ Order/Test ยาวเกินไป</div>
+      <div class="hint-card"><b>แสดงเมื่อไม่มี Source</b>ใช้ข้อความ “ไม่ระบุ” สีเทา เพื่อแยกจากข้อมูลหาย และยังคงเงื่อนไขเดิมว่า Source เป็น optional</div>
+      <div class="hint-card"><b>อุณหภูมิ</b>แสดงเป็นค่าประกอบวิธีเก็บรักษา และเปิดให้กรอกเฉพาะกรณีที่ต้องระบุ โดยค่าจริงควรมาจากเกณฑ์ห้อง LAB/Test Master</div>
+    </div>
+  </main>
+
+  <div class="overlay" id="overlay" hidden>
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-head">
+        <div>
+          <h2 id="modalTitle">ระบุสิ่งส่งตรวจ</h2>
+          <p><strong id="modalOrder">Amylase pancreatic</strong> · <span id="modalCode">C53</span> · สิ่งส่งตรวจในระบบ: <span id="modalSpec">CD (Clotted blood)</span></p>
+        </div>
+        <button class="close" id="closeBtn" type="button" aria-label="ปิด">×</button>
+      </div>
+      <form id="specForm">
+        <div class="modal-body">
+          <div class="field">
+            <label for="sourceInput">Source of specimen <span class="optional">(กรณีเป็นหนอง ระบุตำแหน่งด้วย · ไม่บังคับ)</span></label>
+            <input class="input" id="sourceInput" placeholder="เช่น หนองจากแผลขาขวา / น้ำไขสันหลัง">
+            <div class="helper">ถ้าไม่กรอก ตารางจะแสดง “ไม่ระบุ”</div>
+          </div>
+
+          <div class="field">
+            <span class="label">การเก็บรักษาก่อนนำส่ง</span>
+            <div class="storage-grid" id="storageGrid">
+              <label class="storage-option" data-value="IM">
+                <input type="radio" name="storage" value="IM">
+                <span class="storage-title"><span class="radio"></span>ส่งทันที</span>
+                <span class="storage-desc">นำส่งหลังเก็บโดยตรง</span>
+              </label>
+              <label class="storage-option" data-value="RF">
+                <input type="radio" name="storage" value="RF">
+                <span class="storage-title"><span class="radio"></span>ตู้เย็น</span>
+                <span class="storage-desc">ระบุอุณหภูมิได้</span>
+              </label>
+              <label class="storage-option" data-value="RT">
+                <input type="radio" name="storage" value="RT">
+                <span class="storage-title"><span class="radio"></span>อุณหภูมิห้อง</span>
+                <span class="storage-desc">ระบุอุณหภูมิได้</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="field temp-wrap" id="tempWrap">
+            <label for="tempInput">อุณหภูมิระหว่างเก็บรักษา <span class="optional">(ไม่บังคับ)</span></label>
+            <input class="input" id="tempInput" placeholder="เช่น 2–8°C ตามเกณฑ์ห้องตรวจ">
+            <div class="sample-warning"><span>!</span><span>Prototype ยังไม่กำหนดช่วงอุณหภูมิแทนห้อง LAB — ค่าที่ใช้จริงควรดึงจาก Test Master หรือให้เจ้าหน้าที่ระบุ</span></div>
+          </div>
+
+          <div class="two">
+            <div class="field">
+              <label for="atInput">วัน–เวลาที่เก็บ</label>
+              <input class="input" id="atInput" type="datetime-local" required>
+            </div>
+            <div class="field">
+              <label for="byInput">Collected by</label>
+              <input class="input" id="byInput" value="Nurse Demo" required>
+            </div>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn" id="cancelBtn" type="button">ยกเลิก</button>
+          <button class="btn primary" type="submit">บันทึกข้อมูล specimen</button>
+        </div>
+      </form>
+    </section>
+  </div>
+  <div class="toast" id="toast" role="status">อัปเดตตัวอย่างในตารางแล้ว</div>
+
+  <script>
+    const samples = [
+      {no:1,lab:'6900001',name:'Amylase pancreatic',code:'C53',profile:false,spec:'CD',specName:'Clotted blood',date:'01/10/69',time:'10:28',storage:'IM',temp:'',source:'หนองจากแผลขาขวา',received:'—',status:'รอรับ',by:'Nurse Demo'},
+      {no:2,lab:'6900002',name:'CSF Protein',code:'C41',profile:false,spec:'CSF',specName:'Cerebrospinal fluid',date:'01/10/69',time:'10:42',storage:'RF',temp:'2–8°C',source:'น้ำไขสันหลัง',received:'10:51',status:'รับแล้ว',by:'Nurse Demo'},
+      {no:3,lab:'6900003',name:'Liver function test',code:'C20',profile:true,spec:'S',specName:'Serum',date:'01/10/69',time:'11:03',storage:'RT',temp:'20–25°C',source:'',received:'—',status:'รอรับ',by:'Ward 3 Nurse'}
+    ];
+    const storageMeta={IM:{label:'ส่งทันที',cls:'p-im'},RF:{label:'ตู้เย็น',cls:'p-rf'},RT:{label:'อุณหภูมิห้อง',cls:'p-rt'}};
+    const rows=document.getElementById('rows');
+    const overlay=document.getElementById('overlay');
+    const sourceInput=document.getElementById('sourceInput');
+    const tempInput=document.getElementById('tempInput');
+    const tempWrap=document.getElementById('tempWrap');
+    const atInput=document.getElementById('atInput');
+    const byInput=document.getElementById('byInput');
+    let activeIndex=0;
+
+    function escapeHtml(v){return String(v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+    function sourceLine(item,extraClass=''){
+      const value=item.source?escapeHtml(item.source):'<span class="source-empty">ไม่ระบุ</span>';
+      return `<div class="source ${extraClass}" title="${escapeHtml(item.source||'ไม่ระบุ')}"><span class="source-label">Source:</span><span class="source-value">${value}</span></div>`;
+    }
+    function render(){
+      rows.innerHTML=samples.map((item,index)=>{
+        const meta=storageMeta[item.storage];
+        const temp=item.temp?`<span class="temp">· ${escapeHtml(item.temp)}</span>`:'';
+        return `<tr>
+          <td class="c-check"><input type="checkbox" aria-label="เลือกรายการ ${item.no}"></td>
+          <td class="c-no mono">${item.no}</td>
+          <td class="c-lab mono"><strong>${item.lab}</strong></td>
+          <td class="c-order"><div class="order-name">${escapeHtml(item.name)}${item.profile?'<span class="profile">PROFILE</span>':''}</div><div class="code">${item.code}</div>${sourceLine(item,'order-source')}</td>
+          <td class="c-spec"><div class="spec-name">${item.spec}</div><div class="spec-system">${escapeHtml(item.specName)}</div></td>
+          <td class="c-collect"><div class="collected-at mono">${item.date} <span class="collected-time">${item.time} น.</span></div><div class="preserve ${meta.cls}">${meta.label}${temp}</div>${sourceLine(item,'collect-source')}</td>
+          <td class="c-receive mono">${item.received}</td>
+          <td class="c-status"><span class="status ${item.status==='รับแล้ว'?'received':''}">${item.status}</span></td>
+          <td class="c-by">${escapeHtml(item.by)}</td>
+          <td class="c-action"><button class="linkbtn" type="button" data-edit="${index}">แก้ไข</button></td>
+        </tr>`;
+      }).join('');
+      document.querySelectorAll('[data-edit]').forEach(btn=>btn.addEventListener('click',()=>openModal(Number(btn.dataset.edit))));
+    }
+    function setLayout(mode){
+      document.body.classList.toggle('alt-layout',mode==='alternate');
+      document.getElementById('recommendedBtn').setAttribute('aria-pressed',String(mode==='recommended'));
+      document.getElementById('alternateBtn').setAttribute('aria-pressed',String(mode==='alternate'));
+    }
+    function selectStorage(value){
+      document.querySelectorAll('.storage-option').forEach(option=>{
+        const selected=option.dataset.value===value;
+        option.classList.toggle('selected',selected);
+        option.querySelector('input').checked=selected;
+      });
+      tempWrap.hidden=value==='IM';
+      if(value==='IM') tempInput.value='';
+    }
+    function openModal(index){
+      activeIndex=index;const item=samples[index];
+      document.getElementById('modalOrder').textContent=item.name;
+      document.getElementById('modalCode').textContent=item.code;
+      document.getElementById('modalSpec').textContent=`${item.spec} (${item.specName})`;
+      sourceInput.value=item.source;tempInput.value=item.temp;byInput.value=item.by;
+      atInput.value='2026-10-01T'+item.time;
+      selectStorage(item.storage);overlay.hidden=false;sourceInput.focus();
+    }
+    function closeModal(){overlay.hidden=true;}
+    document.getElementById('recommendedBtn').addEventListener('click',()=>setLayout('recommended'));
+    document.getElementById('alternateBtn').addEventListener('click',()=>setLayout('alternate'));
+    document.querySelectorAll('input[name="storage"]').forEach(input=>input.addEventListener('change',()=>selectStorage(input.value)));
+    document.getElementById('closeBtn').addEventListener('click',closeModal);
+    document.getElementById('cancelBtn').addEventListener('click',closeModal);
+    overlay.addEventListener('click',e=>{if(e.target===overlay)closeModal();});
+    document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!overlay.hidden)closeModal();});
+    document.getElementById('specForm').addEventListener('submit',e=>{
+      e.preventDefault();
+      const item=samples[activeIndex];const storage=document.querySelector('input[name="storage"]:checked').value;
+      item.source=sourceInput.value.trim();item.storage=storage;item.temp=storage==='IM'?'':tempInput.value.trim();item.by=byInput.value.trim();
+      const date=new Date(atInput.value);if(!Number.isNaN(date.getTime())){item.time=String(date.getHours()).padStart(2,'0')+':'+String(date.getMinutes()).padStart(2,'0');}
+      render();closeModal();const toast=document.getElementById('toast');toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),1800);
+    });
+    render();
+  </script>
+</body>
+</html>

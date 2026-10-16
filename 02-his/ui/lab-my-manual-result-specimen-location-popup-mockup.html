@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MY Manual Result Popup — Review</title>
+  <style>
+    :root {
+      --primary: #409eff;
+      --primary-dark: #337ecc;
+      --primary-soft: #ecf5ff;
+      --primary-border: #a0cfff;
+      --success: #67c23a;
+      --danger: #f56c6c;
+      --danger-soft: #fef0f0;
+      --warning-soft: #fdf6ec;
+      --ink: #303133;
+      --text: #606266;
+      --muted: #909399;
+      --border: #dcdfe6;
+      --border-light: #e4e7ed;
+      --border-lighter: #ebeef5;
+      --fill: #f5f7fa;
+      --fill-soft: #fafafa;
+      --white: #fff;
+      --font: "Leelawadee UI", "Noto Sans Thai", Tahoma, "Segoe UI", sans-serif;
+      --mono: "SFMono-Regular", "Roboto Mono", Consolas, monospace;
+      --shadow: 0 18px 54px rgba(31, 35, 41, .24);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { min-width: 320px; min-height: 100%; }
+    body {
+      margin: 0;
+      color: var(--text);
+      background: #eef2f7;
+      font: 14px/1.45 var(--font);
+    }
+    button, input, textarea { font: inherit; }
+    button { cursor: pointer; }
+
+    .worklist-ghost {
+      min-height: 100vh;
+      padding: 24px 5vw;
+      background: #f8fafc;
+      opacity: .72;
+      filter: blur(1px);
+    }
+    .ghost-brand { width: 230px; height: 30px; border-radius: 5px; background: #d9e5f5; }
+    .ghost-toolbar { display: flex; gap: 12px; margin-top: 86px; }
+    .ghost-toolbar span { width: 240px; height: 36px; border: 1px solid #dfe5ed; border-radius: 5px; background: #fff; }
+    .ghost-toolbar span:nth-child(2) { width: 330px; }
+    .ghost-table { height: 460px; margin-top: 76px; border: 1px solid #dfe5ed; border-radius: 7px; background: #fff; }
+
+    .veil {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+      background: rgba(31, 35, 41, .56);
+    }
+    .dialog {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      width: min(1580px, 97vw);
+      max-height: calc(100vh - 36px);
+      overflow: hidden;
+      border-radius: 10px;
+      background: var(--white);
+      box-shadow: var(--shadow);
+    }
+
+    .dialog-header {
+      padding: 19px 24px 15px;
+      border-bottom: 1px solid var(--border-lighter);
+    }
+    .header-main { display: flex; align-items: flex-start; gap: 16px; }
+    .header-copy { min-width: 0; flex: 1; }
+    .title-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    h1 { margin: 0; color: var(--ink); font-size: 21px; line-height: 1.25; }
+    .tag {
+      display: inline-flex;
+      min-height: 23px;
+      align-items: center;
+      padding: 2px 8px;
+      border: 1px solid var(--primary-border);
+      border-radius: 999px;
+      color: var(--primary-dark);
+      background: var(--primary-soft);
+      font-size: 10px;
+      font-weight: 750;
+    }
+    .tag.manual { border-color: #f3d19e; color: #a06b1b; background: var(--warning-soft); }
+    .subtitle { margin-top: 5px; color: var(--muted); font-size: 11px; }
+    .header-actions { display: flex; gap: 8px; }
+
+    .button, .icon-button {
+      min-height: 34px;
+      padding: 6px 13px;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      color: var(--text);
+      background: var(--white);
+      font-weight: 650;
+      transition: border-color .15s, color .15s, background-color .15s;
+    }
+    .button:hover, .icon-button:hover { border-color: var(--primary-border); color: var(--primary); }
+    .button:focus-visible, .icon-button:focus-visible, input:focus-visible, textarea:focus-visible {
+      outline: 3px solid rgba(64, 158, 255, .22);
+      outline-offset: 1px;
+    }
+    .button.primary { border-color: var(--primary); color: #fff; background: var(--primary); }
+    .button.success { border-color: var(--success); color: #fff; background: var(--success); }
+    .button.text { min-height: 28px; padding: 4px 7px; border-color: transparent; color: var(--primary); background: transparent; }
+    .button:disabled { cursor: not-allowed; opacity: .5; }
+    .icon-button { width: 34px; padding: 0; font-size: 20px; line-height: 1; }
+
+    .patient-strip {
+      display: grid;
+      grid-template-columns: minmax(235px, 1.4fr) minmax(150px, .75fr) minmax(200px, 1fr) minmax(125px, .6fr) minmax(155px, .7fr);
+      margin-top: 15px;
+      overflow: hidden;
+      border: 1px solid var(--border-light);
+      border-radius: 7px;
+      background: var(--fill-soft);
+    }
+    .patient-cell { min-width: 0; padding: 9px 12px; border-right: 1px solid var(--border-light); }
+    .patient-cell:last-child { border-right: 0; }
+    .patient-cell span { display: block; color: var(--muted); font-size: 9px; font-weight: 700; }
+    .patient-cell strong { display: block; margin-top: 3px; overflow: hidden; color: var(--ink); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+    .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+    .dialog-body { min-height: 0; overflow: auto; padding: 17px 24px 24px; }
+    .guide {
+      display: flex;
+      align-items: flex-start;
+      gap: 9px;
+      margin-bottom: 14px;
+      padding: 9px 11px;
+      border: 1px solid var(--primary-border);
+      border-radius: 6px;
+      color: var(--primary-dark);
+      background: var(--primary-soft);
+      font-size: 11px;
+    }
+    .guide strong { color: #2d6fae; }
+    .section-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; margin-bottom: 9px; }
+    .section-head h2 { margin: 0; color: var(--ink); font-size: 16px; }
+    .section-head p { margin: 3px 0 0; color: var(--muted); font-size: 10px; }
+    .count-note { color: var(--muted); font-size: 11px; }
+    .count-note strong { color: var(--ink); }
+
+    .result-table { min-width: 1160px; overflow: hidden; border: 1px solid var(--border); border-radius: 7px; }
+    .table-head, .order-item {
+      display: grid;
+      grid-template-columns: 52px minmax(190px, .72fr) minmax(245px, .92fr) minmax(610px, 2.25fr);
+    }
+    .table-head {
+      min-height: 42px;
+      align-items: center;
+      color: var(--muted);
+      background: var(--fill);
+      border-bottom: 1px solid var(--border);
+      font-size: 11px;
+      font-weight: 750;
+    }
+    .table-head > div { height: 100%; padding: 12px; border-right: 1px solid var(--border-light); }
+    .table-head > div:last-child { border-right: 0; }
+
+    .order-item { min-height: 154px; background: var(--white); }
+    .order-item + .order-item { border-top: 1px solid var(--border); }
+    .order-item > .item-index,
+    .order-item > .test-cell,
+    .order-item > .specimen-cell { border-right: 1px solid var(--border-light); }
+    .item-index { padding: 16px 9px; color: var(--muted); text-align: center; font: 12px var(--mono); background: #fbfcfe; }
+    .test-cell, .specimen-cell { min-width: 0; padding: 14px 13px; background: #fbfcfe; }
+    .test-title { display: flex; align-items: baseline; gap: 7px; color: var(--ink); font-size: 13px; overflow-wrap: anywhere; }
+    .test-code { color: var(--primary); font: 750 11px var(--mono); }
+    .specimen-cell strong { display: block; color: var(--ink); font-size: 13px; overflow-wrap: anywhere; }
+    .test-cell small, .specimen-cell small { display: block; margin-top: 4px; color: var(--muted); font-size: 9px; line-height: 1.45; }
+    .ordered-site-tag {
+      display: inline-flex;
+      min-height: 25px;
+      align-items: center;
+      gap: 7px;
+      margin-top: 11px;
+      padding: 3px 10px;
+      border: 1px solid var(--primary-border);
+      border-radius: 999px;
+      color: var(--primary);
+      background: var(--primary-soft);
+      font-size: 10px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .ordered-site-tag b { font-weight: 800; }
+
+    .result-cell { min-width: 0; }
+    .result-cell-head {
+      display: flex;
+      min-height: 40px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 6px 10px 6px 12px;
+      border-bottom: 1px dashed var(--border-lighter);
+      background: #fcfdff;
+    }
+    .result-cell-head strong { color: var(--ink); font-size: 11px; }
+    .result-cell-head small { display: block; margin-top: 1px; color: var(--muted); font-size: 9px; }
+    .sub-list { min-width: 0; }
+    .sub-row {
+      display: grid;
+      grid-template-columns: minmax(290px, .92fr) minmax(315px, 1.08fr) 38px;
+      min-height: 104px;
+      border-bottom: 1px dashed var(--border-lighter);
+    }
+    .sub-row:last-child { border-bottom: 0; }
+    .sub-row > div { min-width: 0; padding: 9px 10px; border-right: 1px solid var(--border-lighter); }
+    .sub-row > div:last-child { border-right: 0; }
+    .field-label { display: block; margin-bottom: 5px; color: var(--ink); font-size: 10px; font-weight: 750; }
+    .required::after { content: " *"; color: var(--danger); }
+    .input, .textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      color: var(--ink);
+      background: var(--white);
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .input { height: 34px; padding: 6px 9px; }
+    .textarea { min-height: 60px; padding: 8px 9px; resize: vertical; line-height: 1.45; }
+    .input:hover, .textarea:hover { border-color: #c0c4cc; }
+    .site-combobox { border-color: var(--primary-border); background: #fbfdff; }
+    .field-help { display: block; margin-top: 4px; color: var(--muted); font-size: 9px; }
+    .remove-cell { display: flex; align-items: flex-start; justify-content: center; }
+    .remove-button { width: 28px; height: 28px; padding: 0; border: 0; border-radius: 4px; color: var(--danger); background: transparent; font-size: 18px; }
+    .remove-button:hover { background: var(--danger-soft); }
+
+    .attachments {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-top: 13px;
+      padding: 10px 12px;
+      border: 1px solid var(--border-light);
+      border-radius: 6px;
+      background: var(--fill-soft);
+    }
+    .attachments strong { color: var(--ink); font-size: 11px; }
+    .attachments small { display: block; margin-top: 2px; color: var(--muted); font-size: 9px; }
+
+    .dialog-footer {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 24px;
+      border-top: 1px solid var(--border-lighter);
+      background: var(--fill-soft);
+    }
+    .footer-note { margin-right: auto; color: var(--muted); font-size: 10px; }
+    .footer-note strong { color: var(--ink); }
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 22px;
+      z-index: 4;
+      max-width: min(520px, calc(100vw - 32px));
+      padding: 10px 14px;
+      transform: translate(-50%, 16px);
+      border: 1px solid #b3e19d;
+      border-radius: 6px;
+      color: #529b2e;
+      background: #f0f9eb;
+      box-shadow: 0 8px 22px rgba(31, 35, 41, .16);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .18s, transform .18s;
+    }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    @media (max-width: 900px) {
+      .veil { padding: 0; place-items: stretch; }
+      .dialog { width: 100%; max-height: 100vh; border-radius: 0; }
+      .dialog-header, .dialog-body, .dialog-footer { padding-left: 14px; padding-right: 14px; }
+      .patient-strip { grid-template-columns: 1fr 1fr; }
+      .patient-cell { border-bottom: 1px solid var(--border-light); }
+      .patient-cell:first-child { grid-column: 1 / -1; }
+      .header-actions .button { display: none; }
+      .result-table { overflow-x: auto; }
+      .dialog-footer { flex-wrap: wrap; }
+      .footer-note { width: 100%; margin: 0 0 3px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="worklist-ghost" aria-hidden="true">
+    <div class="ghost-brand"></div>
+    <div class="ghost-toolbar"><span></span><span></span><span></span></div>
+    <div class="ghost-table"></div>
+  </main>
+
+  <div class="veil">
+    <section class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
+      <header class="dialog-header">
+        <div class="header-main">
+          <div class="header-copy">
+            <div class="title-row">
+              <h1 id="dialogTitle">ลงผลตรวจห้องพยาธิ</h1>
+              <span class="tag">MY</span>
+              <span class="tag manual">Manual result</span>
+            </div>
+            <div class="subtitle">รายการที่สั่งคูณจะแสดงแยกเป็นแต่ละ Item เหมือนแท็บ Order/ออกผล และเพิ่มตำแหน่งตรวจจริงได้ภายใน Item นั้น</div>
+          </div>
+          <div class="header-actions">
+            <button class="button" type="button" disabled title="เปิดได้เมื่อบันทึกผลแล้ว">▣ รายงานผล</button>
+            <button class="icon-button" type="button" aria-label="ปิดหน้าต่าง">×</button>
+          </div>
+        </div>
+
+        <div class="patient-strip" aria-label="ข้อมูล Order ตัวอย่าง">
+          <div class="patient-cell"><span>ผู้ป่วย</span><strong>ผู้ป่วยตัวอย่าง · <b class="mono">HN ••••••</b></strong></div>
+          <div class="patient-cell"><span>LAB NO.</span><strong class="mono">41XXXXXXXXXX</strong></div>
+          <div class="patient-cell"><span>รายการตรวจ</span><strong>M14 Wood light × 3</strong></div>
+          <div class="patient-cell"><span>จำนวนที่สั่ง</span><strong>3 items</strong></div>
+          <div class="patient-cell"><span>สถานะ Order</span><strong>รับ specimen แล้ว</strong></div>
+        </div>
+      </header>
+
+      <div class="dialog-body">
+        <div class="guide">
+          <span aria-hidden="true">ⓘ</span>
+          <div><strong>1 รายการที่สั่ง = 1 แถว</strong> — Test เดียวกันที่สั่ง ×3 จะแสดง 3 แถวตาม Specimen จริง และแต่ละแถวเพิ่มตำแหน่งตรวจจริงได้หลายตำแหน่ง</div>
+        </div>
+
+        <div class="section-head">
+          <div>
+            <h2>รายการลงผล</h2>
+            <p>ตำแหน่งเริ่มต้นมาจากใบสั่งแพทย์ · ห้องแล็บเลือกหรือพิมพ์ตำแหน่งจริงเพิ่มเติมได้</p>
+          </div>
+          <div class="count-note"><strong id="itemCount">3</strong> รายการตามคำสั่ง · <strong id="siteCount">3</strong> ตำแหน่งตรวจจริง</div>
+        </div>
+
+        <div class="result-table">
+          <div class="table-head" aria-hidden="true">
+            <div>#</div>
+            <div>รายการตรวจ</div>
+            <div>Specimen ตามคำสั่ง</div>
+            <div>ตำแหน่งตรวจจริง / ผลตรวจ</div>
+          </div>
+          <div id="orderItems"></div>
+        </div>
+
+        <div class="attachments">
+          <div><strong>ไฟล์แนบผลตรวจ</strong><small>PDF / JPG / JPEG / PNG · ไม่เกิน 10 MB ต่อไฟล์ · สูงสุด 10 ไฟล์</small></div>
+          <button class="button" type="button">Upload file</button>
+        </div>
+      </div>
+
+      <footer class="dialog-footer">
+        <div class="footer-note"><strong id="footerCount">3 รายการ · 3 ตำแหน่ง</strong> · ยังไม่แสดงสถานะรายแถว</div>
+        <button class="button" type="button">ปิด</button>
+        <button class="button primary" id="saveButton" type="button">บันทึกผล</button>
+        <button class="button success" id="finalButton" type="button">ยืนยันออกผลครบ</button>
+      </footer>
+    </section>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <datalist id="siteOptions">
+    <option value="ช่องท้อง"></option>
+    <option value="หลัง / บั้นเอว"></option>
+    <option value="ทรวงอก"></option>
+    <option value="เส้นผม"></option>
+    <option value="หนังศีรษะ"></option>
+    <option value="ผิวหนัง"></option>
+    <option value="เล็บ"></option>
+  </datalist>
+
+  <script>
+    const orders = [
+      { testCode: 'M14', testName: 'Wood light', specimen: 'Stool', doctorSite: 'ช่องท้อง' },
+      { testCode: 'M14', testName: 'Wood light', specimen: 'Pus swab จากหู (Ear)', doctorSite: 'หลัง / บั้นเอว' },
+      { testCode: 'M14', testName: 'Wood light', specimen: 'Heart blood', doctorSite: 'ทรวงอก' },
+    ];
+
+    const orderItems = document.getElementById('orderItems');
+    const toast = document.getElementById('toast');
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[character]);
+    }
+
+    function locationRowTemplate(itemIndex, locationId, site, removable) {
+      return `
+        <div class="sub-row" data-location-id="${locationId}">
+          <div>
+            <label class="field-label required" for="site-${itemIndex}-${locationId}">ตำแหน่งตรวจจริง</label>
+            <input id="site-${itemIndex}-${locationId}" class="input site-combobox" list="siteOptions" value="${escapeHtml(site)}" placeholder="เลือกหรือพิมพ์ตำแหน่ง" />
+            <small class="field-help">${locationId === 0 ? 'ค่าเริ่มต้นจากตำแหน่งที่แพทย์เลือก' : 'ตำแหน่งเพิ่มเติมจากการตรวจจริงในห้องแล็บ'}</small>
+          </div>
+          <div>
+            <label class="field-label" for="result-${itemIndex}-${locationId}">ผลตรวจ</label>
+            <textarea id="result-${itemIndex}-${locationId}" class="textarea result-input" placeholder="กรอกผลของตำแหน่งนี้"></textarea>
+          </div>
+          <div class="remove-cell">
+            ${removable ? '<button class="remove-button" type="button" aria-label="ลบตำแหน่งตรวจจริง">×</button>' : ''}
+          </div>
+        </div>`;
+    }
+
+    function orderItemTemplate(item, index) {
+      return `
+        <article class="order-item" data-item-index="${index}" data-next-location-id="1">
+          <div class="item-index">${String(index + 1).padStart(2, '0')}</div>
+          <div class="test-cell">
+            <strong class="test-title"><span class="test-code">${escapeHtml(item.testCode)}</span><span>${escapeHtml(item.testName)}</span></strong>
+            <small>Item ที่ ${index + 1} จากจำนวนที่สั่ง ×${orders.length}</small>
+          </div>
+          <div class="specimen-cell">
+            <strong>${escapeHtml(item.specimen)}</strong>
+            <span class="ordered-site-tag"><span>ตำแหน่ง</span><b>${escapeHtml(item.doctorSite)}</b></span>
+          </div>
+          <div class="result-cell">
+            <div class="result-cell-head">
+              <div><strong>ตำแหน่ง / ผล</strong><small>เพิ่มหลายตำแหน่งภายใต้ Item นี้ได้</small></div>
+              <button class="button text add-location" type="button">＋ เพิ่มตำแหน่ง</button>
+            </div>
+            <div class="sub-list">${locationRowTemplate(index, 0, item.doctorSite, false)}</div>
+          </div>
+        </article>`;
+    }
+
+    function render() {
+      orderItems.innerHTML = orders.map(orderItemTemplate).join('');
+      updateCounts();
+    }
+
+    function updateCounts() {
+      const count = orderItems.querySelectorAll('.sub-row').length;
+      document.getElementById('siteCount').textContent = count;
+      document.getElementById('footerCount').textContent = `${orders.length} รายการ · ${count} ตำแหน่ง`;
+    }
+
+    function addLocation(item) {
+      const itemIndex = Number(item.dataset.itemIndex);
+      const list = item.querySelector('.sub-list');
+      const locationId = Number(item.dataset.nextLocationId);
+      item.dataset.nextLocationId = String(locationId + 1);
+      list.insertAdjacentHTML('beforeend', locationRowTemplate(itemIndex, locationId, '', true));
+      updateCounts();
+      list.lastElementChild.querySelector('.site-combobox').focus();
+    }
+
+    orderItems.addEventListener('click', event => {
+      const addButton = event.target.closest('.add-location');
+      if (addButton) {
+        addLocation(addButton.closest('.order-item'));
+        return;
+      }
+      const removeButton = event.target.closest('.remove-button');
+      if (removeButton) {
+        removeButton.closest('.sub-row').remove();
+        updateCounts();
+      }
+    });
+
+    function showToast(message, type = 'success') {
+      toast.textContent = message;
+      toast.style.borderColor = type === 'error' ? '#fab6b6' : '#b3e19d';
+      toast.style.color = type === 'error' ? '#c45656' : '#529b2e';
+      toast.style.background = type === 'error' ? '#fef0f0' : '#f0f9eb';
+      toast.classList.add('show');
+      window.clearTimeout(showToast.timer);
+      showToast.timer = window.setTimeout(() => toast.classList.remove('show'), 2600);
+    }
+
+    function allRows() { return [...orderItems.querySelectorAll('.sub-row')]; }
+    function rowHasSite(row) { return Boolean(row.querySelector('.site-combobox').value.trim()); }
+    function rowHasResult(row) { return Boolean(row.querySelector('.result-input').value.trim()); }
+
+    document.getElementById('saveButton').addEventListener('click', () => {
+      const missingSite = allRows().some(row => !rowHasSite(row));
+      showToast(missingSite ? 'กรุณาระบุตำแหน่งตรวจจริงให้ครบทุกแถว' : 'Prototype: พร้อมบันทึกผล', missingSite ? 'error' : 'success');
+    });
+
+    document.getElementById('finalButton').addEventListener('click', () => {
+      const incomplete = allRows().some(row => !rowHasSite(row) || !rowHasResult(row));
+      showToast(incomplete ? 'กรุณากรอกตำแหน่งและผลตรวจให้ครบก่อนยืนยันออกผล' : 'Prototype: พร้อมยืนยันออกผลครบ', incomplete ? 'error' : 'success');
+    });
+
+    render();
+  </script>
+</body>
+</html>

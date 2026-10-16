@@ -17,6 +17,7 @@
     "source_id": "LIS-VERIFY-TEST",
     "source_name": "LIS Test Verifier"
   },
+  "order_note": "Synthetic final order-level note\nApplies to the whole result report",
   "items": [
     {
       "obs_code": "NA",

@@ -102,9 +102,15 @@ const ITEM_KEYS = [
   'collector_code',
   'collector_name',
   'lab_code',
+  'comment',
+  'specimens',
   'collected_at',
   'received_at',
   'receiver'
+]
+const SPECIMEN_KEYS = [
+  'spec_site_code', 'spec_site_name', 'spec_source_code', 'spec_source',
+  'specimen_at', 'ship_storage', 'ship_temp', 'spec_note'
 ]
 
 const ROOT_REQUIRED = ['order_no', 'labno', 'hn', 'ordered_at', 'priority', 'sex', 'items']
@@ -119,6 +125,7 @@ const ITEM_REQUIRED = [
 
 const rootLookup = Object.fromEntries(ROOT_KEYS.map(key => [key, true]))
 const itemLookup = Object.fromEntries(ITEM_KEYS.map(key => [key, true]))
+const specimenLookup = Object.fromEntries(SPECIMEN_KEYS.map(key => [key, true]))
 
 const validateText = (value, path, errors, options) => {
   const settings = options || {}
@@ -162,7 +169,12 @@ const validatePayload = payload => {
   if (own(payload, 'sex') && !['M', 'F'].includes(payload.sex)) {
     errors.push('payload.sex ต้องเป็น M หรือ F')
   }
-  if (own(payload, 'visit_type')) validateText(payload.visit_type, 'payload.visit_type', errors, { max: 50 })
+  if (own(payload, 'visit_type')) {
+    validateText(payload.visit_type, 'payload.visit_type', errors, { max: 50 })
+    if (typeof payload.visit_type === 'string' && !['OPD', 'IPD'].includes(payload.visit_type)) {
+      errors.push('payload.visit_type ต้องเป็น OPD หรือ IPD')
+    }
+  }
   if (own(payload, 'encounter')) {
     if (!isPlainObject(payload.encounter)) {
       errors.push('payload.encounter ต้องเป็น JSON object')
@@ -240,6 +252,39 @@ const validatePayload = payload => {
         ;['collector_code', 'lab_code'].forEach(key => {
           if (own(item, key)) validateText(item[key], path + '.' + key, errors, { max: 100 })
         })
+        if (own(item, 'comment')) validateText(item.comment, path + '.comment', errors, { max: 2000 })
+        if (own(item, 'specimens')) {
+          if (!Array.isArray(item.specimens) || item.specimens.length === 0) {
+            errors.push(path + '.specimens ต้องเป็น array ที่มีอย่างน้อย 1 รายการ')
+          } else {
+            item.specimens.forEach((specimen, specimenIndex) => {
+              const specimenPath = path + '.specimens[' + specimenIndex + ']'
+              if (!isPlainObject(specimen)) {
+                errors.push(specimenPath + ' ต้องเป็น JSON object')
+                return
+              }
+              Object.keys(specimen).forEach(key => {
+                if (!specimenLookup[key]) errors.push('ไม่รองรับ field ' + specimenPath + '.' + key)
+              })
+              ;['spec_site_code', 'spec_source_code', 'ship_storage'].forEach(key => {
+                if (own(specimen, key)) validateText(specimen[key], specimenPath + '.' + key, errors, { max: 100 })
+              })
+              ;['spec_site_name', 'spec_source'].forEach(key => {
+                if (own(specimen, key)) validateText(specimen[key], specimenPath + '.' + key, errors, { max: 300 })
+              })
+              if (own(specimen, 'spec_note')) validateText(specimen.spec_note, specimenPath + '.spec_note', errors, { max: 2000 })
+              if (own(specimen, 'specimen_at') && specimen.specimen_at !== '') {
+                validateText(specimen.specimen_at, specimenPath + '.specimen_at', errors, {})
+                if (typeof specimen.specimen_at === 'string' && !thaiDateTimePattern.test(specimen.specimen_at)) {
+                  errors.push(specimenPath + '.specimen_at ต้องเป็นเวลาไทย YYYYMMDDHHmmss หรือ ISO +07:00')
+                }
+              }
+              if (own(specimen, 'ship_temp') && specimen.ship_temp !== null && typeof specimen.ship_temp !== 'number') {
+                errors.push(specimenPath + '.ship_temp ต้องเป็น number หรือ null')
+              }
+            })
+          }
+        }
         ;['collected_at', 'received_at'].forEach(key => {
           if (!own(item, key)) return
           validateText(item[key], path + '.' + key, errors, { required: true })

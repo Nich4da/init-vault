@@ -394,9 +394,10 @@ const userAt = code => ({ roles: ['auth'], username: 'lab-test', fullname: 'Lab 
   {
     const harness = makeHarness()
     const result = await Process.call(harness.context, { item_id: ids.my1 }, userAt('m1000'), harness.app)
-    assert.strictEqual(result.success, true, result.message)
-    assert.strictEqual(result.data.section_code, 'MY')
-    assert.strictEqual(result.data.lab_no, '416908310001')
+    assert.strictEqual(result.success, false)
+    assert(result.message.includes('CPOE'))
+    assert.strictEqual(harness.workItems.size, 0)
+    assert.strictEqual(harness.counterRows.size, 0, 'source-managed MY must never consume a LAB counter')
   }
 
   {

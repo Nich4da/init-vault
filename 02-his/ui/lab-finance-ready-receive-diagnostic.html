@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>LAB Finance → READY → Receive · Diagnostic Flow</title>
+  <style>
+    :root {
+      --blue: #409eff;
+      --blue-50: #ecf5ff;
+      --blue-200: #a0cfff;
+      --green: #67c23a;
+      --green-50: #f0f9eb;
+      --green-200: #b3e19d;
+      --amber: #e6a23c;
+      --amber-50: #fdf6ec;
+      --amber-200: #f3d19e;
+      --red: #f56c6c;
+      --red-50: #fef0f0;
+      --red-200: #fab6b6;
+      --ink: #303133;
+      --text: #606266;
+      --muted: #909399;
+      --line: #dcdfe6;
+      --line-soft: #ebeef5;
+      --fill: #f5f7fa;
+      --paper: #fff;
+      --page: #f2f5f9;
+      --mono: "SFMono-Regular", "Roboto Mono", Consolas, monospace;
+      --font: "Leelawadee UI", "Noto Sans Thai", Tahoma, "Segoe UI", sans-serif;
+      --shadow: 0 14px 38px rgba(31, 35, 41, .09);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--page);
+      color: var(--text);
+      font: 14px/1.5 var(--font);
+      -webkit-font-smoothing: antialiased;
+    }
+    button, select { font: inherit; }
+    :focus-visible { outline: 3px solid rgba(64, 158, 255, .3); outline-offset: 2px; }
+    code, .mono { font-family: var(--mono); }
+
+    .page { width: min(1400px, calc(100% - 32px)); margin: 0 auto; padding: 22px 0 54px; }
+    .notice {
+      display: flex;
+      gap: 10px;
+      padding: 11px 14px;
+      border: 1px solid var(--amber-200);
+      border-radius: 7px;
+      background: var(--amber-50);
+      color: #8a6525;
+      font-size: 12px;
+    }
+    .notice b { color: #6d4d17; }
+    .notice-mark { flex: 0 0 auto; font-weight: 900; }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 24px;
+      align-items: end;
+      padding: 27px 0 20px;
+    }
+    .eyebrow { color: var(--blue); font-size: 11px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+    .eyebrow::before { content: ""; display: inline-block; width: 18px; height: 2px; margin: 0 8px 3px 0; background: var(--blue); }
+    h1 { margin: 7px 0 0; color: var(--ink); font-size: clamp(26px, 3vw, 39px); line-height: 1.16; letter-spacing: -.025em; }
+    .hero p { max-width: 860px; margin: 10px 0 0; font-size: 15px; }
+    .verdict {
+      width: 260px;
+      padding: 14px 16px;
+      border: 1px solid var(--red-200);
+      border-left: 4px solid var(--red);
+      border-radius: 7px;
+      background: var(--red-50);
+    }
+    .verdict small { display: block; color: var(--red); font-size: 10px; font-weight: 800; letter-spacing: .07em; }
+    .verdict strong { display: block; margin-top: 3px; color: var(--ink); font-size: 15px; }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--paper);
+    }
+    .summary > div { min-height: 96px; padding: 14px 16px; border-right: 1px solid var(--line-soft); }
+    .summary > div:last-child { border-right: 0; }
+    .summary span { display: block; color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+    .summary strong { display: block; margin-top: 5px; color: var(--ink); font-size: 14px; }
+    .summary small { display: block; margin-top: 3px; color: var(--muted); }
+
+    .section { margin-top: 19px; }
+    .section-head { display: flex; align-items: end; justify-content: space-between; gap: 14px; margin-bottom: 9px; }
+    .section-head h2 { margin: 0; color: var(--ink); font-size: 18px; }
+    .section-head p { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
+    .pill { display: inline-flex; min-height: 23px; align-items: center; padding: 1px 9px; border: 1px solid var(--blue-200); border-radius: 999px; background: var(--blue-50); color: #337ecc; font-size: 11px; font-weight: 750; }
+
+    .flow-shell { border: 1px solid var(--line); border-radius: 9px; background: var(--paper); box-shadow: var(--shadow); overflow: hidden; }
+    .flow-tabs { display: flex; gap: 4px; padding: 10px 12px; border-bottom: 1px solid var(--line-soft); background: #fafafa; }
+    .flow-tabs button { min-height: 32px; padding: 0 12px; border: 1px solid transparent; border-radius: 5px; background: transparent; color: var(--muted); cursor: pointer; font-weight: 700; }
+    .flow-tabs button[aria-selected="true"] { border-color: var(--blue-200); background: var(--blue-50); color: #337ecc; }
+    .flow-view { padding: 20px 16px; overflow-x: auto; }
+    .flow { display: grid; grid-template-columns: repeat(7, minmax(145px, 1fr)); min-width: 1120px; }
+    .step { position: relative; display: flex; }
+    .step:not(:last-child)::after {
+      content: "→";
+      position: absolute;
+      top: 37px;
+      right: -7px;
+      z-index: 2;
+      color: var(--muted);
+      font: 800 19px var(--mono);
+    }
+    .step-card { width: calc(100% - 14px); min-height: 160px; margin: 0 7px; padding: 13px 12px; border: 1px solid var(--line); border-top: 3px solid var(--tone, var(--line)); background: var(--paper); }
+    .step:first-child .step-card { margin-left: 0; border-radius: 7px 0 0 7px; }
+    .step:last-child .step-card { margin-right: 0; border-radius: 0 7px 7px 0; }
+    .step-no { display: grid; width: 26px; height: 26px; place-items: center; border-radius: 50%; background: var(--tone-bg, var(--fill)); color: var(--tone, var(--text)); font: 800 11px var(--mono); }
+    .step h3 { margin: 9px 0 4px; color: var(--ink); font-size: 13px; }
+    .step p { margin: 0; color: var(--muted); font-size: 11.5px; }
+    .step code { display: block; margin-top: 8px; color: var(--tone, var(--text)); font: 700 10.5px/1.45 var(--mono); word-break: break-word; }
+    .blue { --tone: var(--blue); --tone-bg: var(--blue-50); }
+    .amber { --tone: var(--amber); --tone-bg: var(--amber-50); }
+    .green { --tone: var(--green); --tone-bg: var(--green-50); }
+    .red { --tone: var(--red); --tone-bg: var(--red-50); }
+
+    .bug-flow .step:nth-child(4) .step-card,
+    .bug-flow .step:nth-child(5) .step-card { box-shadow: inset 0 0 0 2px rgba(245, 108, 108, .13); }
+    .flow-note { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 0 16px 16px; }
+    .callout { padding: 10px 12px; border: 1px solid var(--line-soft); border-radius: 6px; background: #fafafa; font-size: 12px; }
+    .callout b { color: var(--ink); }
+    .callout.danger { border-color: var(--red-200); background: var(--red-50); }
+
+    .grid-2 { display: grid; grid-template-columns: minmax(0, 1.12fr) minmax(360px, .88fr); gap: 14px; }
+    .panel { border: 1px solid var(--line); border-radius: 8px; background: var(--paper); overflow: hidden; }
+    .panel-head { padding: 12px 14px; border-bottom: 1px solid var(--line-soft); background: #fafafa; }
+    .panel-head strong { color: var(--ink); }
+    .panel-head small { display: block; margin-top: 2px; color: var(--muted); }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; min-width: 680px; border-collapse: collapse; }
+    th { padding: 9px 11px; border-bottom: 1px solid var(--line); background: var(--fill); color: var(--muted); font-size: 10.5px; letter-spacing: .04em; text-align: left; }
+    td { padding: 11px; border-bottom: 1px solid var(--line-soft); vertical-align: top; font-size: 12px; }
+    tbody tr:last-child td { border-bottom: 0; }
+    td b { color: var(--ink); }
+    .tag { display: inline-flex; min-height: 22px; align-items: center; padding: 1px 7px; border: 1px solid; border-radius: 4px; font-size: 10.5px; font-weight: 750; white-space: nowrap; }
+    .tag.sent { border-color: var(--red-200); background: var(--red-50); color: var(--red); }
+    .tag.ready { border-color: var(--green-200); background: var(--green-50); color: var(--green); }
+    .tag.warn { border-color: var(--amber-200); background: var(--amber-50); color: #b88230; }
+
+    .sim { padding: 14px; }
+    .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    label { display: grid; gap: 5px; color: var(--muted); font-size: 11px; font-weight: 700; }
+    select { min-height: 35px; padding: 0 9px; border: 1px solid var(--line); border-radius: 5px; background: var(--paper); color: var(--ink); }
+    .sim-result { display: grid; gap: 7px; margin-top: 13px; padding-top: 13px; border-top: 1px solid var(--line-soft); }
+    .result-row { display: grid; grid-template-columns: minmax(130px, .8fr) minmax(0, 1.2fr); gap: 10px; align-items: center; }
+    .result-row span:first-child { color: var(--muted); font-size: 11px; }
+    .result-row output { color: var(--ink); font-weight: 700; }
+    .result-row.full { grid-template-columns: 1fr; margin-top: 4px; padding: 10px 11px; border-radius: 6px; background: var(--fill); }
+    .result-row.full output { font-weight: 600; }
+
+    .fix-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .fix { position: relative; min-height: 170px; padding: 15px 15px 14px 48px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); }
+    .fix-no { position: absolute; top: 14px; left: 14px; display: grid; width: 25px; height: 25px; place-items: center; border-radius: 50%; background: var(--blue-50); color: var(--blue); font: 800 11px var(--mono); }
+    .fix h3 { margin: 0; color: var(--ink); font-size: 14px; }
+    .fix p { margin: 5px 0 0; font-size: 12px; }
+    .fix code { display: block; margin-top: 9px; padding: 7px 8px; border-radius: 5px; background: var(--fill); color: #337ecc; font: 700 10.5px/1.45 var(--mono); word-break: break-word; }
+
+    .evidence { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .evidence-card { padding: 13px 14px; border: 1px solid var(--line); border-radius: 7px; background: var(--paper); }
+    .evidence-card span { color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .05em; }
+    .evidence-card strong { display: block; margin-top: 4px; color: var(--ink); font-size: 13px; }
+    .evidence-card code { display: block; margin-top: 7px; color: #337ecc; font-size: 10.5px; word-break: break-word; }
+    footer { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; }
+
+    @media (max-width: 980px) {
+      .hero { grid-template-columns: 1fr; }
+      .verdict { width: 100%; }
+      .summary { grid-template-columns: 1fr 1fr; }
+      .summary > div:nth-child(2) { border-right: 0; }
+      .summary > div:nth-child(-n+2) { border-bottom: 1px solid var(--line-soft); }
+      .grid-2, .fix-list, .evidence { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 640px) {
+      .page { width: min(100% - 20px, 1400px); padding-top: 12px; }
+      .summary, .controls, .flow-note { grid-template-columns: 1fr; }
+      .summary > div { border-right: 0; border-bottom: 1px solid var(--line-soft); }
+      .summary > div:last-child { border-bottom: 0; }
+      .section-head { align-items: start; flex-direction: column; }
+      .flow-tabs { overflow-x: auto; }
+      .flow-tabs button { white-space: nowrap; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="notice" role="note">
+      <span class="notice-mark">!</span>
+      <div><b>ขอบเขตเอกสาร:</b> วิเคราะห์จาก LAB Worklist / LAB NO. / Receive code ใน repository วันที่ 02/10/2569 · ยังไม่มี HN หรือ Order ID และไม่มีการเชื่อม HIS MongoDB ใน session นี้ จึงยังไม่ฟันธงว่าเคสจริงค้างที่จุดใด</div>
+    </div>
+
+    <header class="hero">
+      <div>
+        <div class="eyebrow">Finance gate diagnostic</div>
+        <h1>สิทธิ์ → เงินสด → <span class="mono">ready</span> → รับ specimen</h1>
+        <p>ปุ่ม LAB ไม่ได้ตัดสินจากชื่อสิทธิ์หรือยอดเงินโดยตรง แต่ตัดสินจากสถานะระดับ CPOE Item ทุกตัวที่เลือก หากเส้นทาง “ยืนยันไม่ใช้สิทธิ์” ไม่ส่งสถานะถึง <span class="mono">ready</span> หรือ Worklist แปลงสถานะผิด ปุ่มจะถูกปิดตามสัญญาปัจจุบัน</p>
+      </div>
+      <aside class="verdict">
+        <small>DIAGNOSIS</small>
+        <strong>Finance-to-CPOE projection หรือ Worklist status projection ขาดช่วง</strong>
+      </aside>
+    </header>
+
+    <section class="summary" aria-label="สรุปข้อค้นพบ">
+      <div><span>Gate จริง</span><strong>CPOE Item <code>current_status</code></strong><small>ต้องเป็น <code>ready</code> ทุก Active Item ที่เลือก</small></div>
+      <div><span>ไม่ใช่ Gate</span><strong>ชื่อสิทธิ์ / <code>paid_amount</code></strong><small>ใช้แสดงผล แต่ไม่ปลดล็อก Receive</small></div>
+      <div><span>บัคที่พบในโค้ด</span><strong><code>waiting_receive</code> ทับ <code>ready</code></strong><small>Worklist อาจส่งกลับเป็น <code>sent</code></small></div>
+      <div><span>ข้อจำกัดหน้า LAB</span><strong>ไม่มี auto-refresh การเงิน</strong><small>สถานะเดิมค้างจนกดรีเฟรช/โหลดใหม่</small></div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div><h2>Flow ที่ควรเป็น และตำแหน่งที่อาจขาด</h2><p>กดสลับแท็บเพื่อเทียบเส้นทางปกติกับเคสที่พบ</p></div>
+        <span class="pill">Source of truth: Item status</span>
+      </div>
+      <div class="flow-shell">
+        <div class="flow-tabs" role="tablist">
+          <button type="button" role="tab" aria-selected="true" data-flow="expected">Flow ที่ควรเป็น</button>
+          <button type="button" role="tab" aria-selected="false" data-flow="bug">เคสสิทธิ์ → ไม่ใช้สิทธิ์ → เงินสด</button>
+        </div>
+
+        <div class="flow-view" data-view="expected">
+          <div class="flow">
+            <div class="step blue"><div class="step-card"><span class="step-no">1</span><h3>แพทย์ส่ง Order</h3><p>สร้าง CPOE Order และ Items พร้อมสิทธิ์จาก Visit</p><code>Item = sent</code></div></div>
+            <div class="step amber"><div class="step-card"><span class="step-no">2</span><h3>การเงินตรวจสิทธิ์</h3><p>ยืนยันสิทธิ์ หรือเปลี่ยนช่องทางเป็นเงินสด</p><code>coverage / bill route</code></div></div>
+            <div class="step amber"><div class="step-card"><span class="step-no">3</span><h3>ปิดรายการการเงิน</h3><p>กรณีเงินสดต้องชำระและมีหลักฐานการเงินตาม flow</p><code>finance finalized</code></div></div>
+            <div class="step green"><div class="step-card"><span class="step-no">4</span><h3>Project กลับ CPOE</h3><p>การเงินอัปเดตทุก Active Item ที่ผ่านเกณฑ์</p><code>sent → ready</code></div></div>
+            <div class="step blue"><div class="step-card"><span class="step-no">5</span><h3>LAB โหลดใหม่</h3><p>Worklist ต้องคง <code>ready</code> และป้ายเป็นสีเขียว</p><code>API Item = ready</code></div></div>
+            <div class="step green"><div class="step-card"><span class="step-no">6</span><h3>รับ specimen</h3><p>ปุ่มเปิดเมื่อ Item ที่เลือกผ่านครบ</p><code>every(selected) = ready</code></div></div>
+            <div class="step green"><div class="step-card"><span class="step-no">7</span><h3>Receipt สำเร็จ</h3><p>สร้าง LAB NO./Work Item แล้วเปลี่ยน CPOE</p><code>ready → accepted</code></div></div>
+          </div>
+        </div>
+
+        <div class="flow-view" data-view="bug" hidden>
+          <div class="flow bug-flow">
+            <div class="step blue"><div class="step-card"><span class="step-no">1</span><h3>Order มีสิทธิ์</h3><p>หน้า LAB เห็น OFC/UCS และ Item ยังรอการเงิน</p><code>Item = sent</code></div></div>
+            <div class="step amber"><div class="step-card"><span class="step-no">2</span><h3>ยืนยันไม่ใช้สิทธิ์</h3><p>การเงินเปลี่ยนเส้นทางเป็นผู้ป่วยจ่ายเงินสด</p><code>coverage route → CASH</code></div></div>
+            <div class="step amber"><div class="step-card"><span class="step-no">3</span><h3>รับชำระ</h3><p>อาจมี Bill/Receipt แล้ว แต่ยอดระดับ Order ไม่ใช่ gate ของ LAB</p><code>receipt exists</code></div></div>
+            <div class="step red"><div class="step-card"><span class="step-no">4</span><h3>จุดขาด A</h3><p>Finance branch ไม่ได้เขียนสถานะ Item หรือเขียนไม่ครบทุก Item</p><code>ยังค้าง sent</code></div></div>
+            <div class="step red"><div class="step-card"><span class="step-no">5</span><h3>จุดขาด B/C</h3><p>LAB ยังถือ snapshot เก่า หรือ Worklist ทับ <code>ready</code> เป็น <code>sent</code></p><code>UI/API = sent</code></div></div>
+            <div class="step red"><div class="step-card"><span class="step-no">6</span><h3>ปุ่มถูกปิด</h3><p>หน้า LAB ปฏิเสธก่อนเรียก Receive API</p><code>canReceiveOrder = false</code></div></div>
+            <div class="step red"><div class="step-card"><span class="step-no">7</span><h3>ถ้าฝืนเรียก API</h3><p>LAB NO. และ Receive ตรวจ <code>ready</code> ซ้ำ จึง fail closed</p><code>payment_not_ready</code></div></div>
+          </div>
+        </div>
+
+        <div class="flow-note">
+          <div class="callout"><b>ถูกต้องอยู่แล้ว:</b> LAB ใช้ <code>ready</code> เป็น Finance gate ทั้งหน้า UI, LAB NO. generator และ Receive API</div>
+          <div class="callout danger"><b>ห้ามแก้ลัด:</b> ไม่ควรให้ LAB ตีความ “มีใบเสร็จ” หรือ <code>paid_amount</code> แล้วรับได้เอง เพราะอาจข้ามรายการที่การเงินยังไม่ finalize ครบ</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section grid-2">
+      <div class="panel">
+        <div class="panel-head"><strong>ลำดับตรวจเคสจริง</strong><small>ใช้ HN / Order No. เดียวกันทุกขั้น เพื่อไม่ให้เทียบคนละ Order</small></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>ตรวจอะไร</th><th>ถ้าพบ</th><th>สรุปสาเหตุ</th><th>เจ้าของแก้</th></tr></thead>
+            <tbody>
+              <tr><td><b>1. CPOE Item หลังรับเงิน</b><br><code>current_status</code></td><td><span class="tag sent">sent</span></td><td>ปุ่ม “ไม่ใช้สิทธิ์/เงินสด” ไม่ project การผ่านการเงินกลับ Item หรืออัปเดตไม่ครบ</td><td>ทีมการเงิน / Order integration</td></tr>
+              <tr><td><b>2. CPOE Item หลังรับเงิน</b></td><td><span class="tag ready">ready</span> แต่ Worklist API ส่ง <span class="tag sent">sent</span></td><td>มี Work Item <code>waiting_receive</code> แล้ว API ทับ <code>ready</code> กลับเป็น <code>sent</code></td><td>LAB Worklist API</td></tr>
+              <tr><td><b>3. Worklist API</b></td><td><span class="tag ready">ready</span> แต่หน้า LAB ยังแดง</td><td>หน้า LAB ถือข้อมูลเก่าและไม่มี auto-refresh หลังการเงินเปลี่ยนสถานะ</td><td>LAB Form / integration event</td></tr>
+              <tr><td><b>4. หลาย Item ใน Order</b></td><td>บางตัว <span class="tag ready">ready</span> บางตัว <span class="tag sent">sent</span></td><td>ปุ่มถูกปิดโดยตั้งใจ เพราะทุก Item ที่เลือกต้องผ่านการเงินครบ</td><td>Finance ต้อง finalize ราย Item</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><strong>จำลองเงื่อนไขปุ่มรับ specimen</strong><small>แสดงผลตาม logic ที่ตรวจพบในโค้ดปัจจุบัน</small></div>
+        <div class="sim">
+          <div class="controls">
+            <label>สถานะ CPOE Item จริง
+              <select id="rawStatus"><option value="sent">sent — ยังไม่ผ่าน</option><option value="ready" selected>ready — ผ่านการเงิน</option></select>
+            </label>
+            <label>Lab Work Item ก่อนรับ
+              <select id="workStatus"><option value="none">ยังไม่มี</option><option value="waiting_receive" selected>waiting_receive</option></select>
+            </label>
+            <label>หน้า LAB โหลดข้อมูลใหม่
+              <select id="refresh"><option value="yes" selected>โหลดใหม่แล้ว</option><option value="no">ยังใช้ snapshot เดิม sent</option></select>
+            </label>
+            <label>มี Item อื่นที่ยัง sent ในชุดเลือก
+              <select id="mixed"><option value="no" selected>ไม่มี</option><option value="yes">มี</option></select>
+            </label>
+          </div>
+          <div class="sim-result" aria-live="polite">
+            <div class="result-row"><span>สถานะจริงใน CPOE</span><output id="rawOut"></output></div>
+            <div class="result-row"><span>Worklist API ปัจจุบัน</span><output id="apiOut"></output></div>
+            <div class="result-row"><span>หน้า LAB เห็น</span><output id="uiOut"></output></div>
+            <div class="result-row"><span>ปุ่มรับ specimen</span><output id="buttonOut"></output></div>
+            <div class="result-row"><span>Receive API ถ้าเรียกตรง</span><output id="serverOut"></output></div>
+            <div class="result-row full"><output id="explainOut"></output></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head"><div><h2>แนวแก้ที่แนะนำ</h2><p>แก้ต้นเหตุโดยคง Finance gate และ fail-closed ของ LAB ไว้</p></div><span class="pill">ไม่ bypass การเงิน</span></div>
+      <div class="fix-list">
+        <article class="fix"><span class="fix-no">1</span><h3>รวม Finance finalization ให้ทุกช่องทาง</h3><p>ทั้ง “ใช้สิทธิ์ผ่าน” และ “ไม่ใช้สิทธิ์ → เงินสด → ชำระแล้ว” ต้องจบที่ operation เดียวกัน ซึ่งอัปเดต Active CPOE Items ครบทุกตัวแบบ idempotent พร้อม audit</p><code>sent → ready<br>finance_clearance_source + cleared_at</code></article>
+        <article class="fix"><span class="fix-no">2</span><h3>ห้าม Worklist กลบ ready</h3><p>เมื่อ Work Item เป็น <code>waiting_receive</code> ให้คง <code>current_status=ready</code>; แปลงเป็น <code>sent</code> เฉพาะ Item ที่ยังไม่ผ่านการเงินจริง</p><code>waiting_receive + ready → ready<br>waiting_receive + sent → sent</code></article>
+        <article class="fix"><span class="fix-no">3</span><h3>ทำให้หน้า LAB เห็นสถานะใหม่</h3><p>หลังการเงินสำเร็จให้ publish event หรือให้ LAB refresh เมื่อกลับมา focus; ระหว่างนี้ผู้ใช้ต้องกดปุ่มรีเฟรชก่อนทดสอบ Receive</p><code>finance-cleared event → loadOrders()</code></article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head"><div><h2>หลักฐานจาก implementation ปัจจุบัน</h2><p>แยกข้อเท็จจริงใน repository ออกจากข้อสันนิษฐานของเคส runtime</p></div></div>
+      <div class="evidence">
+        <article class="evidence-card"><span>LAB FORM</span><strong>ปุ่มเปิดเฉพาะ Item ที่เลือกเป็น ready ทุกตัว</strong><code>update_lab_cpoe_worklist_ui.js<br>isFinanceReadyItem / canReceiveOrder</code></article>
+        <article class="evidence-card"><span>SERVER GATES</span><strong>LAB NO. และ Receive ปฏิเสธ sent ซ้ำ</strong><code>lab_no_generate_api.js<br>lab_cpoe_receive_api.js</code></article>
+        <article class="evidence-card"><span>WORKLIST BUG CANDIDATE</span><strong>waiting_receive ถูก map เป็น sent ก่อนอ่าน current_status</strong><code>lab_cpoe_worklist_api.js<br>effective_status switch</code></article>
+      </div>
+    </section>
+
+    <footer>เอกสารวินิจฉัย · ไม่ได้แก้ Process หรือ Form runtime · ขั้นต่อไปที่ให้คำตอบเด็ดขาดคืออ่าน CPOE Item ของ Order ที่ทดสอบหลังการเงิน และเทียบกับ Worklist API response ของ Item เดียวกัน</footer>
+  </main>
+
+  <script>
+    const tabs = [...document.querySelectorAll('[data-flow]')]
+    const views = [...document.querySelectorAll('[data-view]')]
+    tabs.forEach(tab => tab.addEventListener('click', () => {
+      tabs.forEach(item => item.setAttribute('aria-selected', String(item === tab)))
+      views.forEach(view => { view.hidden = view.dataset.view !== tab.dataset.flow })
+    }))
+
+    const controls = ['rawStatus', 'workStatus', 'refresh', 'mixed'].map(id => document.getElementById(id))
+    const badge = status => `<span class="tag ${status === 'ready' ? 'ready' : 'sent'}">${status}</span>`
+    function renderSimulation() {
+      const raw = document.getElementById('rawStatus').value
+      const work = document.getElementById('workStatus').value
+      const refreshed = document.getElementById('refresh').value === 'yes'
+      const mixed = document.getElementById('mixed').value === 'yes'
+      const api = work === 'waiting_receive' ? 'sent' : raw
+      const ui = refreshed ? api : 'sent'
+      const enabled = ui === 'ready' && !mixed
+      const serverPass = raw === 'ready' && !mixed
+
+      document.getElementById('rawOut').innerHTML = badge(raw)
+      document.getElementById('apiOut').innerHTML = badge(api)
+      document.getElementById('uiOut').innerHTML = badge(ui)
+      document.getElementById('buttonOut').innerHTML = enabled ? '<span class="tag ready">เปิดใช้งาน</span>' : '<span class="tag sent">ปิด · ยังไม่ผ่านการเงิน</span>'
+      document.getElementById('serverOut').innerHTML = serverPass ? '<span class="tag ready">ผ่าน ready gate</span>' : '<span class="tag sent">payment_not_ready</span>'
+
+      let explanation = 'Flow ปกติ: CPOE และ Worklist เห็น ready ตรงกัน ปุ่มจึงเปิด'
+      if (raw === 'sent') explanation = 'Finance projection ยังไม่เกิด: ต้องแก้ฝั่งการเงิน/Order integration ก่อน ไม่ควร bypass ที่ LAB'
+      else if (work === 'waiting_receive') explanation = 'พบ false negative ใน Worklist: CPOE เป็น ready แต่ effective_status ถูกทับเป็น sent'
+      else if (!refreshed) explanation = 'ข้อมูลต้นทางถูกแล้ว แต่หน้า LAB ยังถือ snapshot sent เดิม ต้อง refresh หรือรับ event จากการเงิน'
+      else if (mixed) explanation = 'มี Item อื่นยัง sent ในชุดเลือก จึงถูกบล็อกทั้งชุดตามกติกา every(selected)=ready'
+      document.getElementById('explainOut').textContent = explanation
+    }
+    controls.forEach(control => control.addEventListener('change', renderSimulation))
+    renderSimulation()
+  </script>
+</body>
+</html>

@@ -28,7 +28,7 @@ const payload = () => ({
   patient_last_name: 'ทดสอบ',
   birth_date: '20200101',
   sex: 'M',
-  visit_type: 'OP',
+  visit_type: 'OPD',
   encounter: { class: 'OPD' },
   doctor_code: 'DOC-UAT',
   doctor_title: 'นพ.',
@@ -52,6 +52,17 @@ const payload = () => ({
     collector_code: 'COL-UAT',
     collector_name: 'Collector UAT',
     lab_code: 'CHEM',
+    comment: 'เก็บก่อนให้ยา',
+    specimens: [{
+      spec_site_code: 'L',
+      spec_site_name: 'Left arm',
+      spec_source_code: 'CD',
+      spec_source: 'Clotted blood',
+      specimen_at: '2026-08-31T08:10:00+07:00',
+      ship_storage: 'RT',
+      ship_temp: 24,
+      spec_note: 'tube 1',
+    }],
     collected_at: '2026-08-31T08:10:00+07:00',
     received_at: '2026-08-31T08:20:00+07:00',
     receiver: 'LAB-UAT',
@@ -131,6 +142,10 @@ const appWith = handler => {
     assert.strictEqual(calls[0][2].headers['X-Agent-Key'], 'test-only-key')
     assert.strictEqual(calls[0][1].items[0].test_code, 'HIS-CODE-001')
     assert.strictEqual(calls[0][1].items[0].lab_code, 'CHEM')
+    assert.strictEqual(calls[0][1].items[0].comment, 'เก็บก่อนให้ยา')
+    assert.strictEqual(calls[0][1].items[0].specimens[0].spec_site_name, 'Left arm')
+    assert.strictEqual(calls[0][1].items[0].specimens[0].ship_temp, 24)
+    assert.strictEqual(calls[0][1].visit_type, 'OPD')
     assert.deepStrictEqual(calls[0][1].encounter, { class: 'OPD' })
     assert.strictEqual(testApp.outboundRows.size, 1, 'Gateway submit must persist one Outbound record')
     const outbound = [...testApp.outboundRows.values()][0]
@@ -174,6 +189,16 @@ const appWith = handler => {
     assert.strictEqual(result.data.outbound_order_id, 'OUTBOUND-QUEUED')
     assert.strictEqual(result.data.attempt_count, 1)
     assert.strictEqual(called, false)
+  }
+
+  {
+    const bad = payload()
+    bad.items[0].specimens[0].unknown = 'not allowed'
+    bad.items[0].specimens[0].ship_temp = '24'
+    const result = await Process({ payload: bad }, userInfo, appWith(async () => { throw new Error('must not send') }))
+    assert.strictEqual(result.error, 'invalid_payload')
+    assert(result.errors.some(error => error.includes('specimens[0].unknown')))
+    assert(result.errors.some(error => error.includes('ship_temp')))
   }
 
   {
@@ -231,6 +256,17 @@ const appWith = handler => {
     const result = await Process({ payload: bad }, userInfo, testApp)
     assert.strictEqual(result.error, 'invalid_payload')
     assert(result.errors.some(error => error.includes('payload.encounter')))
+    assert.strictEqual(called, false)
+  }
+
+  for (const invalidVisitType of ['', '4', 'OP', 'WARD']) {
+    let called = false
+    const bad = payload()
+    bad.visit_type = invalidVisitType
+    const testApp = appWith(async () => { called = true; return { status: 202, data: {} } })
+    const result = await Process({ payload: bad }, userInfo, testApp)
+    assert.strictEqual(result.error, 'invalid_payload')
+    assert(result.errors.some(error => error.includes('payload.visit_type')))
     assert.strictEqual(called, false)
   }
 

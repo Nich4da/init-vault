@@ -61,6 +61,10 @@ assert(!rejectReasonField.onCreated.includes('const rows=formParams'), 'field ev
 }
 
 assert(!widget.content.includes('lab-page-head'), 'page header must be removed')
+assert(widget.content.includes("ค้นหา HN / VN / LN / Order No. / ชื่อผู้ป่วย…"), 'Today search placeholder must describe every supported identifier')
+assert(widget.onCreated.includes("if(search){if(s.scanMode||s.viewMode==='lookup'||s.viewMode==='cbc_swap')p.hn=search;else p.query=search;}"), 'typed Today search must use query while scanner/history keep exact HN')
+assert(widget.onCreated.includes("s.isOrderNumberSearch=v=>/^R?\\d{10}$/i.test"), 'Order No. search must recognize values with or without the R prefix')
+assert(widget.onCreated.includes("!s.isOrderNumberSearch(search)&&s.filters.dates"), 'Order No. search must omit the selected date range')
 assert(widget.content.includes('v-if="admissionNumber(order)" class="lab-admission-badge">AN : {{ admissionNumber(order) }}</span>'), 'IPD rows must show the AN badge only when AN exists')
 assert(widget.onCreated.includes('s.admissionNumber=o=>s.text(o&&o.visit&&o.visit.an);'))
 assert(widget.onCreated.includes("s.encounterClass=o=>s.admissionNumber(o)?'IPD'"))
@@ -72,21 +76,83 @@ assert(!widget.content.includes('ตรวจสอบชนิด specimen ก�
 assert(!widget.content.includes('<table'), 'expanded Item rows must follow the Stock grid pattern, not a boxed table')
 assert(widget.content.includes('lab-item-grid'))
 assert(widget.content.includes('lab-specimen-select'))
-assert(widget.content.includes('<el-input v-if="isImmunologyItem(item)" class="lab-specimen-select lab-specimen-locked"'))
+assert(widget.onCreated.includes("const LAB_SPECIMEN_FORM_ID='6a597657d448dfc9d33e2d3a';"), 'specimen dropdown must use the same Lab Specimen Form as CPOE Order')
+assert(widget.onCreated.includes("providerId:LAB_SPECIMEN_FORM_ID,providerType:'FORM'"), 'specimen dropdown must connect to the Form provider directly')
+assert(widget.onMounted.includes('s.loadSpecimenMaster();'))
+assert(widget.onCreated.includes("const PATHOLOGY_SITE_FORM_ID='6a473b6cd54977f38061dde0';"), 'MY actual-site dropdown must use the same PE Items Form as the CPOE Order site selector')
+assert(widget.onCreated.includes("providerId:PATHOLOGY_SITE_FORM_ID,providerType:'FORM'"), 'MY actual-site dropdown must connect to the CPOE site Form provider directly')
+assert(widget.onCreated.includes("where:'`enable` = true'"), 'MY actual-site dropdown must use the same enabled-only CPOE site filter')
+assert(widget.onCreated.includes("entry.name_th||entry.name"), 'MY actual-site dropdown must prefer the same Thai label used by the CPOE selector')
+assert(widget.onCreated.includes('s.loadPathologySiteMaster();'), 'opening the MY popup must load the shared CPOE site master')
+assert(widget.content.includes(':loading="pathologySiteMasterLoading"'), 'MY site selector must expose its master-data loading state')
+assert(widget.onCreated.includes("const PATHOLOGY_RESULT_DETAIL_FORM_ID='6acc8587481c196fbb332c60';"), 'MY result combobox must use LAB Manual Result Detail Settings')
+assert(widget.onCreated.includes("providerId:PATHOLOGY_RESULT_DETAIL_FORM_ID,providerType:'FORM'"), 'MY result combobox must connect to the approved Form provider')
+assert(widget.onCreated.includes("where:'`is_active` = true'"), 'MY result combobox must load active master rows only')
+assert(widget.onCreated.includes("toUpperCase()==='MY'"), 'master options must be scoped by section code MY instead of the room label')
+assert(widget.onCreated.includes('s.loadPathologyResultMaster();'), 'opening the MY popup must load the result-detail master')
+assert(widget.content.includes(':loading="pathologyResultMasterLoading"'), 'MY result combobox must expose its master-data loading state')
+assert(!widget.onCreated.includes('payload.specimen_options'), 'Worklist API must not rebuild the specimen master list')
+assert(widget.content.includes('<el-input v-else-if="isSpecimenLockedItem(item)" class="lab-specimen-select lab-specimen-locked"'))
 assert(widget.content.includes(':model-value="specimenDisplay(item)" disabled'))
 assert(widget.content.includes('@mousedown.prevent @click.stop />'))
 assert(widget.content.includes('<el-select v-else class="lab-specimen-select"'))
 assert(widget.content.includes('filterable default-first-option'))
 assert(widget.content.includes("'lab-specimen-changed':specimenChanged(item)"))
-assert(widget.onCreated.includes("s.isImmunologyItem=i=>['IM','MI-OUT'].includes"))
+assert(widget.onCreated.includes("s.sourceManagedSections=['IM','MI-OUT','MY','MB']"))
+assert(widget.onCreated.includes("s.specimenLockedSections=['IM','MI-OUT']"))
+assert(widget.content.includes('v-if="requiresItemComment(item)" class="lab-order-condition"'))
+// 2026-10-03: use the approved detail pattern for a source-managed Item whenever
+// its ordered specimen has a location, even when Item Master is not multi-specimen.
+assert(widget.content.includes('v-if="usesSpecimenDetailPattern(item)" class="lab-multi-specimen-list"'))
+assert(widget.content.includes('<template v-if="usesSpecimenDetailPattern(item)">'))
+assert(widget.content.includes('v-for="(row,rowIndex) in multiSpecimenRows(item)"'))
+assert(widget.content.includes('<el-input v-if="isSpecimenLockedItem(item)" class="lab-specimen-select lab-specimen-locked"'), 'IM and MI-OUT detail rows must remain read-only')
+assert(widget.content.includes(':model-value="specimenRowName(row)" disabled'))
+assert(widget.content.includes('<el-select v-else class="lab-specimen-select" :class="{\'lab-specimen-changed\':specimenRowChanged(item,row,specimenRowOriginalIndex(item,rowIndex))}"'), 'other detail rows must use the shared editable specimen selector')
+assert(widget.content.includes('@change="setSpecimen(item,$event,specimenRowOriginalIndex(item,rowIndex))"'))
+assert(!widget.content.includes('{{ rowIndex+1 }}. {{ specimenRowName(row) }}'), 'inner specimen sequence must be removed')
+assert(widget.content.includes('class="lab-specimen-site">ตำแหน่ง&nbsp; {{ specimenRowSite(row) }}</span>'), 'specimen location must stay in the specimen column as a blue pill')
+assert(widget.content.includes('class="lab-multi-collection-entry"'), 'multi-specimen collection details must render in the collection/storage column')
+assert(widget.content.includes('{{ datePart(specimenRowCollectedAt(row)) }}'))
+assert(widget.content.includes(':class="specimenRowStorageClass(row)">{{ specimenRowStorageText(row) }}</span>'))
+assert(widget.content.includes('class="lab-specimen-temperature" :class="specimenRowStorageClass(row)">{{ specimenRowTemperatureText(row) }}</span>'))
+assert(widget.content.includes(':content="specimenRowSourceText(row)" popper-class="lab-cpoe-source-popper"'))
+assert(worklist.formConfig.cssCode.includes('.lab-order-condition{display:grid'))
+assert(worklist.formConfig.cssCode.includes('.lab-multi-specimen-entry{gap:5px}'))
+assert(worklist.formConfig.cssCode.includes('.lab-specimen-site{display:inline-flex'))
+assert(worklist.formConfig.cssCode.includes('.lab-multi-collection-entry{gap:0}'))
+assert(worklist.formConfig.cssCode.includes('.lab-specimen-temperature.is-room-temperature{border-color:var(--el-color-warning-light-5,#f3d19e)'))
+assert(worklist.formConfig.cssCode.includes('.lab-item-collected-time>.lab-multi-collection-entry{grid-column:2}'))
+assert(!worklist.formConfig.cssCode.includes('.lab-multi-specimen-row{'), 'specimen card wrapper styling must be removed')
 assert(worklist.formConfig.cssCode.includes('.lab-specimen-locked .el-input__wrapper{min-height:30px;background:var(--white);box-shadow:0 0 0 1px var(--border) inset;cursor:default}'))
 assert(worklist.formConfig.cssCode.includes('.lab-specimen-locked .el-input__inner{color:var(--text);font-weight:700;-webkit-text-fill-color:var(--text);cursor:default}'))
 assert(worklist.formConfig.cssCode.includes('.lab-specimen-select .el-select__selected-item{color:var(--text);font-weight:700}'))
 assert(worklist.formConfig.cssCode.includes('.lab-specimen-select.lab-specimen-changed .el-select__selected-item{color:var(--danger);font-weight:700}'))
 assert(widget.content.includes('<div class="lab-item-grid lab-item-head"'), 'expanded Order must show the Item column header')
+assert(widget.content.includes('v-for="(item,index) in displayItems(order)"'), 'quantity must expand one CPOE Item into the ordered number of visible test rows')
+assert(widget.content.includes(':key="displayItemKey(item,index)"'))
+assert(widget.onCreated.includes('s.displayItems=o=>'))
+assert(widget.onCreated.includes('count=Math.max(s.itemQuantity(item),rows.length||0,1)'))
+// 2026-10-04: MY is one manual-result CPOE Item with quantity/specimen rows.
+// Show the shared selection checkbox on every visible MY row without changing
+// the one-Item receive contract used by the API or any other LAB room.
+assert(widget.content.includes('v-if="isFirstQuantityRow(item)||isManualPathologyItem(item)"'))
+assert(widget.onCreated.includes("s.isManualPathologyItem=i=>s.text(i&&(i.section&&i.section.code||i.section_code)).trim().toUpperCase()==='MY';"))
+assert(widget.onCreated.includes('s.receiveDisplayCount=items=>'))
+assert(widget.onCreated.includes('group.length&&group.every(s.isManualPathologyItem)'), 'MY receive must stop before the Worklist background Agent dispatch')
+assert(widget.onCreated.includes("item.agent_transport_state='manual'"))
 assert(widget.content.includes('aria-label="เลือกทุกรายการที่รอรับ" @change="toggleAll(order)"'))
 assert(widget.content.includes('<div>ลำดับ</div><div>Lab no.</div><div>รายการสั่งตรวจ</div><div>specimen</div>'))
-assert(widget.content.includes('<div>เวลาเก็บ specimen</div><div>เวลารับ specimen</div><div>สถานะ</div><div>เหตุผล</div><div>ผู้ดำเนินการ</div><div>ดำเนินการ</div>'))
+// 2026-10-11: MB has a dedicated result-entry column; every other room keeps
+// the existing general action column without an empty extra desktop column.
+assert(widget.content.includes('<div>เวลาเก็บ / การเก็บรักษา</div><div>เวลารับ specimen</div><div>สถานะ</div><div>เหตุผล</div><div>ผู้ดำเนินการ</div><div v-if="isMicrobiologyOrder(order)">ลงผล</div><div>ดำเนินการ</div>'))
+assert(widget.content.includes('<div class="lab-item-grid lab-item-head" :class="{\'is-microbiology\':isMicrobiologyOrder(order)}">'))
+assert(widget.content.includes("'is-selected':isSelected(item.item_id),'is-microbiology':isMicrobiologyOrder(order)"))
+// 2026-10-11: all LAB rooms show received_at as date and time on two lines,
+// while compactDateTime remains only as the invalid-source fallback.
+assert(widget.content.includes('<div data-label="เวลารับ specimen" class="lab-item-received-time">'))
+assert(widget.content.includes('<span>{{ datePart(item.received_at) || compactDateTime(item.received_at) }}</span>'))
+assert(widget.content.includes('<span v-if="timePart(item.received_at)">{{ timePart(item.received_at) }}</span>'))
 assert(widget.content.includes('{{ actionReasonText(item) }}'))
 assert(widget.content.includes('{{ actionActorText(item) }}'))
 assert(widget.content.includes('<div data-label="ผู้ดำเนินการ" class="lab-item-actor-cell">{{ actionActorText(item) }}</div>'))
@@ -139,20 +205,109 @@ assert(!widget.onCreated.includes("accepted:'รับแล้ว · รอผ�
 assert(widget.content.includes(':loading="createOrderLoading"'))
 assert(!worklist.formConfig.cssCode.includes('.lab-create-button{margin-left:auto}'), 'Create button must stay beside Report')
 assert(widget.onCreated.includes("specimen_insufficient:'ปริมาณสิ่งส่งตรวจไม่เพียงพอ'"))
-assert(!widget.content.includes('<div data-label="ผลตรวจ">'), 'Order tab must not contain Item-level result actions')
-assert(widget.content.includes('v-for="(item,index) in resultItems(order)"'))
-// 2026-09-21: ผู้ใช้ย้ายการดู/แก้ไขผลไประดับ Order และให้ระดับ Item เหลือเฉพาะปกปิด/ยกเลิกปกปิด
+assert(!widget.content.includes('<div data-label="ผลตรวจ">'), 'legacy generic result column must not return to the Order tab')
+assert(widget.content.includes('v-for="(item,index) in resultDisplayItems(order)"'), 'MY result tab must expand quantity rows without changing other rooms')
+assert(widget.content.includes(':key="\'result-\'+displayItemKey(item,index)"'), 'expanded MY result rows need stable quantity-row keys')
+assert(widget.onCreated.includes('s.resultDisplayItems=o=>'))
+// 2026-09-21: ห้องทั่วไปดู/แก้ไขผลระดับ Order; 2026-10-04 ยกเว้น MB/MLab
+// ซึ่งต้องเปิดทีละ test เพื่อให้ PDF ใช้ Result Report ID ของ test นั้นโดยไม่เดาเลือก
 assert(widget.content.includes('@click="openItemResultVisibility(item,order)"'))
 assert(widget.content.includes("{{ resultHiddenItem(item) ? 'ยกเลิกปกปิด' : 'ปกปิดผล' }}"))
-assert(widget.content.includes('<div v-else class="lab-result-list" :class="{\'is-lookup\':viewMode===\'lookup\'}">'))
+assert(widget.content.includes('<div v-else class="lab-result-list" :class="{\'is-lookup\':viewMode===\'lookup\',\'is-microbiology\':isMicrobiologyOrder(order)}">'))
 assert(widget.content.includes('<div v-if="viewMode===\'today\'">การแสดงผล</div>'), 'lookup mode must remove the Item visibility column header')
 assert(widget.content.includes('<div v-if="viewMode===\'today\'">\n                <el-button size="small" plain'), 'lookup mode must remove every Item visibility cell')
-assert(!widget.content.includes('@click="openResult(item,order,false)"'), 'Item rows must not duplicate the Order-level result viewer/editor')
-assert(widget.content.includes('@click="openOrderResults(order)">ดูผล</el-button>'), 'Order-row shortcut must open the complete Order result view')
+// 2026-10-11: user moved only the MB result-entry Report from the Result tab
+// into a dedicated MB-only Order-tab column. The general action column remains
+// reserved for actions such as retest; non-MB rooms keep their prior layout.
+const orderTabMarkup = widget.content.slice(
+  widget.content.indexOf('<div v-if="detailTab(order)===\'order\'" class="lab-item-grid-wrap">'),
+  widget.content.indexOf('<div v-else class="lab-result-list"'),
+)
+const resultTabMarkup = widget.content.slice(
+  widget.content.indexOf('<div v-else class="lab-result-list"'),
+  widget.content.indexOf('<div v-if="!loading && !orders.length"'),
+)
+assert(orderTabMarkup.includes('v-if="isMicrobiologyOrder(order)" data-label="ลงผล" class="lab-mb-order-result-entry" @click.stop'), 'MB result-entry action must have its own Order-tab column')
+assert(orderTabMarkup.includes('v-if="isMicrobiologyItem(item)&&microbiologyRequestPdfReady(item)" :report-list="microbiologyRequestPdfReportList" :params="microbiologyRequestPdfParams(item)"'), 'moved MB request PDF must keep the dedicated Report Factory binding')
+assert(orderTabMarkup.indexOf('data-label="ลงผล" class="lab-mb-order-result-entry"') < orderTabMarkup.indexOf('data-label="ดำเนินการ" class="lab-item-action-cell"'), 'MB result entry must be separate from and precede the general action column')
+assert(orderTabMarkup.includes('<div data-label="ดำเนินการ" class="lab-item-action-cell">\n                <el-button v-if="canRetestItem(item)"'), 'the general action column must retain the existing retest action only')
+assert(!resultTabMarkup.includes('data-label="ลงผล"'), 'MB Result tab must no longer contain the result-entry action')
+assert(!resultTabMarkup.includes('lab-result-test-pdf'), 'removed MB Result-tab column must not leave stale markup')
+assert(resultTabMarkup.includes('<div v-if="isMicrobiologyOrder(order)">ดูผล</div>'), 'MB Result table must keep the read-only result action heading')
+assert(widget.content.includes('v-if="isMicrobiologyOrder(order)" class="lab-result-test-action" data-label="ดูผล"'))
+assert(widget.content.includes('@click.stop="openResult(item,order,false)">ดูผล</el-button>'), 'only the MB test row must open the item-level result viewer')
+assert(widget.onCreated.includes("s.isMicrobiologyOrder=o=>{if(s.reportSectionCode(o)==='MB')return true;const items=s.resultItems(o);return !!items.length&&items.every(s.isMicrobiologyItem);}"))
+assert(widget.onCreated.includes("const MICROBIOLOGY_REQUEST_PDF_REPORT_ID='6ab4fa2200000000000f001a';"), 'MB request PDF must use the approved report id')
+assert(widget.onCreated.includes("s.microbiologyRequestPdfParams=i=>({item_id:s.text(i&&i.item_id)});"), 'MB request PDF must bind the row item_id without fallback guessing')
+assert(widget.content.includes("detailTab(order)==='results'&&!isMicrobiologyOrder(order)"), 'MB must remove the ambiguous Order-level result shortcut')
+assert(widget.content.includes("v-else-if=\"!isCancelledOrder(order)&&detailTab(order)==='results'\" class=\"lab-action-placeholder\""), 'MB result tab must keep the patient-row action column empty')
+assert(widget.content.includes('@click="openOrderResults(order)">{{ isManualPathologyOrder(order) ? \'ลงผล\' : \'ดูผล\' }}</el-button>'), 'Order-row shortcut must label only MY as ลงผล while every other room keeps ดูผล')
+// 2026-10-04: user approved the MY/pathology popup with one visible Item row per
+// ordered quantity/specimen. This intentionally replaces the earlier Test-once
+// hierarchy while preserving the existing MY-only persistence contract.
+assert(widget.content.includes('v-model="pathology.visible" class="lab-pathology-dialog"'))
+assert(widget.content.includes('width="min(1320px,calc(100vw - 64px))"'), 'MY popup must remain smaller than the prior near-full-screen layout')
+assert(widget.content.includes('<div class="lab-pathology-table-head"><div>#</div><div>รายการตรวจ</div><div>Specimen ตามคำสั่ง</div><div>ตำแหน่งตรวจจริง / ผลตรวจ</div></div>'))
+assert(widget.content.includes('v-for="(entry,itemIndex) in pathologyItems()"'))
+assert(widget.content.includes('v-for="(row,rowIndex) in entry.specimen.rows"'))
+assert(widget.content.includes('class="lab-pathology-ordered-site">ตำแหน่ง'))
+assert(widget.content.includes('v-model="row.actual_site_name" filterable allow-create default-first-option'))
+const pathologyMarkup = widget.content.slice(widget.content.indexOf('<el-dialog v-model="pathology.visible"'), widget.content.indexOf('<el-dialog v-model="manual.visible"'))
+assert(pathologyMarkup.includes('v-model="row.result_choices" multiple filterable allow-create default-first-option clearable reserve-keyword'), 'MY result must be a searchable multi-select that still allows free text')
+assert(pathologyMarkup.includes('@change="pathologyResultChanged(row,$event)"'), 'MY multi-select must synchronize its array UI value back to the existing String result_value contract')
+assert(pathologyMarkup.includes('v-for="option in pathologyResultOptions(row)"'), 'MY result dropdown must render the settings-backed options')
+assert(pathologyMarkup.includes('เลือกได้หลายผลจาก LAB Manual Result Detail Settings หรือพิมพ์ผลอื่นแล้วกด Enter'))
+assert(!pathologyMarkup.includes('v-model="row.result_value" type="textarea"'), 'the MY-only legacy result textarea must be replaced by the combobox')
+assert(!widget.content.includes('v-model="row.actual_site_detail"'), 'approved MY popup has one dropdown+free-text site field, without a second detail field')
+const manualMarkup = widget.content.slice(widget.content.indexOf('<el-dialog v-model="manual.visible"'))
+assert(manualMarkup.includes('v-model="manual.editMap[result._edit_key].result_value"'), 'non-MY result editing must keep the existing input and flow')
+assert(pathologyMarkup.includes('class="lab-result-edit-button"'), 'MY popup must keep the pencil action in its header')
+assert(pathologyMarkup.includes(':aria-pressed="pathology.editing"'))
+assert(pathologyMarkup.includes("!pathology.editing||pathology.saving||pathology.finalizing"), 'MY inputs must be read-only until the pencil opens edit mode')
+assert(pathologyMarkup.includes("'ประวัติการแก้ไข '+pathologyRevisionCount()+' ชุด'"), 'MY popup must expose grouped correction revisions instead of looking overwritten')
+assert(pathologyMarkup.includes('class="lab-pathology-revision-sheet"'))
+assert(pathologyMarkup.includes('ค่าก่อนแก้'))
+assert(pathologyMarkup.includes('ค่าหลังแก้'))
+assert(pathologyMarkup.includes('>Import file</el-button>'), 'MY popup must restore its own attachment import action')
+assert(pathologyMarkup.includes(':on-success="pathologyUploadSuccess"'))
+assert(pathologyMarkup.includes('v-model="pathology.correctionReason"'), 'MY corrections must allow a reason to be stored with the revision set')
+assert(widget.content.includes('@click="addPathologySub(entry.group,entry.specimen)">＋ เพิ่มตำแหน่ง'))
+assert(widget.content.includes('v-if="canRemovePathologySub(entry.specimen,row,rowIndex)"'), 'MY added locations must expose a remove cross in edit mode')
+assert(widget.content.includes('@click="removePathologySub(entry.group,entry.specimen,row,rowIndex)"'))
+assert(!pathologyMarkup.includes('<strong>ตำแหน่ง / ผล</strong>'), 'duplicate position/result heading must be removed because the table already has its column heading')
+assert(!pathologyMarkup.includes('เพิ่มหลายตำแหน่งภายใต้ Item นี้ได้'), 'duplicate helper heading must be removed')
+assert(!pathologyMarkup.includes('SPECIMEN 01'))
+assert(!pathologyMarkup.includes('SPECIMEN {{'))
+assert(!pathologyMarkup.includes('เพิ่ม Sub'))
+assert(!pathologyMarkup.includes('รอผล'))
+assert(!pathologyMarkup.includes('lab-pathology-subno'))
+assert(widget.onCreated.includes('s.isManualPathologyOrder='))
+assert(widget.onCreated.includes('s.openPathologyResults=async order=>'))
+assert(widget.onCreated.includes('s.pathologyItems=()=>'))
+assert(widget.onCreated.includes("s.pathologyIsFinal=()=>"), 'MY popup completion must be derived from persisted Final Result Items')
+assert(widget.onCreated.includes("return'รอยืนยันออกผลครบ'"), 'filled MY drafts must not be mislabeled as Final')
+assert(widget.onCreated.includes("item.current_status='completed';item.work_status='completed'"), 'MY Final must synchronize the visible Worklist row immediately')
+assert(widget.onCreated.includes('s.refreshWorklist();'), 'MY Final must reload the Worklist instead of refreshing counters only')
+assert(widget.onCreated.includes("action:'save_pathology_results'"))
+assert(widget.onCreated.includes("correction_reason:s.text(s.pathology.correctionReason),request_id:requestId"), 'every MY save must send its revision-group id and reason')
+assert(widget.onCreated.includes('removed_pathology_result_item_ids:removedResultItemIds'), 'saved MY added locations must be removed through the same Save request')
+assert(widget.onCreated.indexOf("const requestId='my-pathology-") < widget.onCreated.indexOf('for(const group of s.pathology.groups)'), 'one MY Save click must create one request id shared by every changed test group')
+assert(widget.onCreated.includes('if(s.isManualPathologyOrder(order))return s.openPathologyResults(order);'))
+assert(widget.content.includes('v-model="manual.visible" class="lab-result-dialog"'), 'the shared non-MY result popup must remain in place')
+assert(worklist.formConfig.cssCode.includes('.lab-pathology-dialog{'))
+assert(worklist.formConfig.cssCode.includes('.lab-pathology-subrow{'))
 // 2026-09-22: ผู้ใช้ให้คงหัวคอลัมน์ HN เดิม; เงื่อนไขสลับเป็น “ดูผล” ยังต้องเหมือนเดิม
 assert(widget.content.includes("detailTab(order)==='results' ? 'ดูผล' : 'HN'"), 'Order-row action heading must follow the active detail tab')
-assert(widget.content.includes('<div>ลำดับ</div><div>รายการสั่งตรวจ</div><div>เวลาออกผล</div><div v-if="viewMode===\'today\'">การแสดงผล</div><div>สถานะ</div>'))
-assert(worklist.formConfig.cssCode.includes('.lab-result-list.is-lookup .lab-result-list-head,.lab-result-list.is-lookup .lab-result-list-row{grid-template-columns:52px minmax(300px,2fr) 130px minmax(140px,.9fr);min-width:650px}'))
+// 2026-10-02: user added two read-only Agent actor columns after status;
+// keep the prior Today-only visibility column and all preceding result columns.
+assert(widget.content.includes('<div>ลำดับ</div><div>รายการสั่งตรวจ</div><div>เวลาออกผล</div><div v-if="viewMode===\'today\'">การแสดงผล</div><div>สถานะ</div><div>ผู้ออกผล</div><div>ผู้ยืนยัน</div>'))
+assert(worklist.formConfig.cssCode.includes('.lab-result-list.is-lookup .lab-result-list-head,.lab-result-list.is-lookup .lab-result-list-row{grid-template-columns:52px minmax(300px,2fr) 130px minmax(140px,.9fr) minmax(140px,.85fr) minmax(140px,.85fr);min-width:970px}'))
+assert(worklist.formConfig.cssCode.includes('.lab-result-list.is-microbiology .lab-result-list-head,.lab-result-list.is-microbiology .lab-result-list-row{grid-template-columns:52px minmax(240px,1.6fr) 120px 120px minmax(120px,.8fr) minmax(130px,.8fr) minmax(130px,.8fr) 82px;min-width:1122px}'), 'MB Result rows must reserve only the remaining ดูผล action column')
+assert(worklist.formConfig.cssCode.includes('.lab-result-test-action{display:flex'), 'MB read-only result action must keep its Result-tab styling')
+assert(worklist.formConfig.cssCode.includes('.lab-mb-order-result-entry{display:flex'), 'moved MB request PDF must use the Order-tab action-cell styling')
+assert(worklist.formConfig.cssCode.includes('.lab-item-grid.is-microbiology{grid-template-columns:42px 52px 100px minmax(190px,1.5fr) minmax(170px,1.1fr) minmax(190px,1.1fr) 125px 86px minmax(115px,.9fr) minmax(105px,.8fr) 82px 96px;min-width:1463px}'), 'only MB Order rows must reserve the separate result-entry column')
+assert(worklist.formConfig.cssCode.includes('.lab-item-collected-time,.lab-item-received-time{min-width:0}.lab-collected-date-time span,.lab-received-date-time span{display:block'), 'collection and received timestamps must share the two-line date/time pattern')
+assert(!worklist.formConfig.cssCode.includes('.lab-result-test-pdf'), 'removed MB Result-tab PDF class must not leave stale CSS')
 assert(widget.content.includes('{{ resultTime(item) }}'))
 assert(widget.content.includes('{{ resultStatusText(item) }}'))
 assert(widget.onCreated.includes('s.latestResultAt=i=>'), 'result tab must read the latest Partial/Final report time')
@@ -222,6 +377,11 @@ assert(widget.content.includes('{{ result.test_name || group.test_name || \'-\' 
 assert(widget.content.includes('ผลจาก {{ resultSourceText(result.result_source) }}'), 'result name cell must preserve the mockup secondary source line')
 assert(widget.content.includes('v-if="result.result_comment && !result.redacted" class="lab-result-comment" role="note" aria-label="หมายเหตุผลตรวจ"'), 'standard result rows must render a persisted LIS comment only when the row is not redacted')
 assert(widget.content.includes('<span>หมายเหตุผลตรวจ</span><p>{{ result.result_comment }}</p>'), 'result comment must remain visible as read-only clinical text')
+assert.strictEqual((widget.content.match(/v-if="resultOrderNote\(\)" class="lab-result-order-note"/g) || []).length, 2, 'standard and MLab layouts must each expose the same Order note')
+assert(widget.content.includes('<p>{{ resultOrderNote() }}</p>'))
+// 2026-10-03 user requested hiding only the technical field-name badge;
+// the Order-note heading and value remain visible.
+assert(!widget.content.includes('<span class="lab-result-order-note-key">order_note</span>'))
 assert(widget.onCreated.includes('result_comment:s.text(data.result_comment)'), 'single-result fallback must preserve result_comment')
 assert(widget.content.includes('{{ resultTestCount() }} tests'))
 assert(widget.content.includes('class="lab-result-byline" aria-label="ข้อมูลผู้ออกผลและผู้ยืนยันผล"'))
@@ -231,8 +391,14 @@ assert(widget.content.includes('<b>ออกผลเมื่อ:</b> <strong c
 assert(!widget.content.includes('ผลทั้งใบ · เคมีคลินิก · แสดงตามลำดับที่ได้รับจาก Agent/LIS'))
 assert(widget.content.includes('ยังไม่มีผลตรวจ · รอผลจาก LIS หรือกดดินสอเพื่อกรอกผล'))
 assert(!widget.content.includes('ยังไม่มีผลตรวจ · รอผลจาก Agent/LIS'))
+// 2026-10-04: the approved MY header now legitimately uses “รายการตรวจ”. Keep
+// this regression scoped to standard result rows, which remain label-free.
+const standardResultRowsMarkup = widget.content.slice(
+  widget.content.indexOf('<div v-else class="lab-result-values">'),
+  widget.content.indexOf('<div class="lab-result-attachments">'),
+)
 for (const repeatedLabel of ['ลำดับ', 'รายการตรวจ', 'ผลก่อนหน้า', 'ผลปัจจุบัน', 'หน่วย']) {
-  assert(!widget.content.includes(`<div><span>${repeatedLabel}</span>`), `result row must not repeat the ${repeatedLabel} label`)
+  assert(!standardResultRowsMarkup.includes(`<div><span>${repeatedLabel}</span>`), `result row must not repeat the ${repeatedLabel} label`)
 }
 assert(widget.onCreated.includes('s.resultContext=(item,order)=>'))
 assert(widget.onCreated.includes('s.resultRowsForDisplay=()=>'))
@@ -249,6 +415,9 @@ assert(widget.onCreated.includes('s.resultInterpretationClass=result=>'))
 assert(widget.onCreated.includes('s.resultReporterName=()=>'))
 assert(widget.onCreated.includes('s.resultVerifierName=()=>'))
 assert(widget.onCreated.includes('s.resultReportedAt=()=>'))
+assert(widget.onCreated.includes('s.resultOrderNote=()=>'))
+assert(widget.onCreated.includes('order_note:s.text(d.order_note)'))
+assert(widget.onCreated.includes("order_note:orderNotes.join('\\n\\n')"), 'Order popup must deduplicate and retain notes from every loaded item response')
 assert(widget.onCreated.includes('s.resultTestCount=()=>'))
 assert(widget.onCreated.includes('s.manualAbnormalCount=()=>'))
 assert(widget.onCreated.includes('s.standardResultStatusValue=()=>'))
@@ -274,7 +443,7 @@ assert(widget.onCreated.includes("action:'set_result_visibility'"))
 assert(widget.onCreated.includes('const fallback=s.resultContext(item,order)'))
 assert(widget.onCreated.includes('const merged={...fallback,...d'))
 assert(widget.content.includes('v-if="viewMode===\'today\'&&!manual.orderView && hasPersistedResult()"'), 'Item hide/unhide must remain scoped to an Item result and hidden in lookup mode')
-assert(widget.content.includes('v-if="manual.orderView && !isMicrobiologyResult()" class="lab-result-attachments"'), 'Upload UI must remain in the standard Order result popup but not the MB read-only viewer')
+assert(widget.content.includes('v-if="manual.orderView || isMicrobiologyResult()" class="lab-result-attachments"'), 'Order attachments must also be available from the item-level MLab viewer')
 assert(!widget.content.includes('อัปโหลดไฟล์จากปุ่มดูผลระดับรายการ'))
 assert(widget.onCreated.includes("attachment_scope:'order'"), 'Upload persistence must use the Order attachment scope')
 assert(worklist.formConfig.cssCode.includes('.lab-result-value-head,.lab-result-value-row{'))
@@ -290,6 +459,8 @@ assert(worklist.formConfig.cssCode.includes('.lab-result-value-head,.lab-result-
 assert(worklist.formConfig.cssCode.includes('.lab-result-value-head{min-height:42px;align-items:center;background:var(--fill-soft)}'))
 assert(worklist.formConfig.cssCode.includes('.lab-result-comment{grid-column:3/-1;'), 'result comment must span the clinical columns below its result row')
 assert(worklist.formConfig.cssCode.includes('white-space:pre-wrap;overflow-wrap:anywhere'), 'result comment must preserve LIS line breaks safely')
+assert(worklist.formConfig.cssCode.includes('.lab-result-order-note{display:grid;grid-template-columns:26px minmax(0,1fr) auto;'))
+assert(worklist.formConfig.cssCode.includes('.lab-result-order-note p{') && worklist.formConfig.cssCode.includes('white-space:pre-wrap'), 'Order note must preserve multiline Agent text')
 assert(worklist.formConfig.cssCode.includes('.lab-result-profile-row{display:grid;width:100%;grid-template-columns:56px 48px minmax(180px,1fr) 132px 132px 94px 104px 188px;'))
 assert(worklist.formConfig.cssCode.includes('.lab-result-profile-index{grid-column:1;padding:10px}'))
 assert(worklist.formConfig.cssCode.includes('.lab-result-profile-main{display:grid;grid-column:3/8;gap:1px;padding:10px}'))
@@ -317,8 +488,15 @@ assert(widget.content.includes('v-if="!result.redacted && hasResultValue(result)
 assert(widget.onCreated.includes('s.resultSignalClass=result=>s.resultTone(result)'))
 assert(widget.onCreated.includes("tone==='is-critical'?'ค่าวิกฤติ':tone==='is-abnormal'?'ค่าผิดปกติ':'ไม่มีค่าวิกฤติ'"))
 assert(widget.content.includes('v-if="isMicrobiologyResult()" class="lab-micro-source-tag">จุลชีววิทยา · MLab</span>'))
+assert(widget.content.includes('v-if="manual.orderView || isMicrobiologyResult()" class="lab-result-report-slot"'), 'item-level MLab viewer must expose its unambiguous PDF action')
+assert(widget.onCreated.includes('if(!s.manual||s.manual.loading)return false;'))
+assert(widget.onCreated.includes('if(!s.manual.orderView)return false;'), 'non-MLab item viewer must keep the existing no-PDF behavior')
+assert(widget.content.includes('v-if="isMicrobiologyResult() && manualCriticalCount()" class="lab-micro-critical-tag">Critical {{ manualCriticalCount() }}</span>'))
 assert(widget.content.includes('<template v-if="isMicrobiologyResult()">'))
 assert(widget.content.includes('class="lab-micro-patient-strip"'))
+assert(widget.content.includes('v-if="manualCriticalCount()" class="lab-result-critical-banner" role="alert" aria-label="แจ้งเตือนผลวิกฤติ"'))
+assert(widget.content.includes('Critical · {{ result.interpretation || \'-\' }}'))
+assert(widget.content.includes('compactDateTime(microResultReportedAt(result))'))
 assert(widget.content.includes('v-if="microUnmatchedFallback()" class="lab-micro-unmatched"'), 'unmatched MB receipt must use the raw-only fallback')
 assert(widget.content.includes('<strong>ข้อความต้นฉบับจาก MLab</strong>'))
 assert(widget.content.includes(':aria-expanded="microUnmatchedOpen" @click="microUnmatchedOpen=!microUnmatchedOpen"'))
@@ -336,15 +514,18 @@ assert(widget.onCreated.includes('s.microUnmatchedFallback=()=>'))
 assert(worklist.formConfig.cssCode.includes('.lab-micro-unmatched{'))
 assert(widget.content.includes('v-if="viewMode===\'today\'&&!isMicrobiologyResult()" class="lab-result-edit-button"'), 'standard pencil must be hidden for MB and in read-only lookup mode')
 assert(widget.content.includes('v-if="isMicrobiologyResult()" @click="copyMicrobiologyResult"'))
-assert(widget.onCreated.includes("s.isMicrobiologyItem=i=>s.text(i&&i.section&&i.section.code).toUpperCase()==='MB'"))
+assert(widget.onCreated.includes("s.isMicrobiologyItem=i=>s.text(i&&(i.section&&i.section.code||i.section_code)).toUpperCase()==='MB'"))
 assert(widget.onCreated.includes('if(s.isMicrobiologyResult())return false;'), 'MB machine-result viewer must not enter HIS manual edit mode')
 assert(widget.onCreated.includes('s.microResultRows=group=>'))
+assert(widget.onCreated.includes('s.microResultReportedAt=result=>'))
+assert(widget.onCreated.includes('s.microCriticalInterpretations=()=>'))
 assert(!widget.onCreated.includes('s.microCultureTitle=group=>'), 'MB viewer must not infer test identity from result text')
 assert(!widget.onCreated.includes('s.microGramStain=group=>'), 'MB viewer must not infer Gram stain values from result text')
 assert(!widget.onCreated.includes('s.microSusceptibilityRows=group=>'), 'MB viewer must not parse MIC/SIR from result text')
 assert(widget.onCreated.includes('s.copyMicrobiologyResult=()=>'))
 assert(worklist.formConfig.cssCode.includes('.lab-micro-patient-strip{'))
 assert(worklist.formConfig.cssCode.includes('.lab-micro-wire-meta{'))
+assert(worklist.formConfig.cssCode.includes('.lab-micro-critical-tag{'))
 // 2026-09-29: prior result remains longitudinal (previous encounter). Manual
 // Edit Log stays append-only in the API, but the popup now presents Agent
 // callbacks as whole-sheet Revision Log snapshots instead of row-level accordions.
@@ -377,7 +558,7 @@ assert(worklist.formConfig.cssCode.includes('.lab-result-revision-view{'))
 assert(worklist.formConfig.cssCode.includes('.lab-correction-reason{'))
 assert(widget.content.includes('class="lab-result-attachments"'))
 assert(widget.content.includes('ไฟล์แนบผลตรวจ'))
-assert(widget.content.includes('>Upload file</el-button>'))
+assert(widget.content.includes('>แนบไฟล์</el-button>'))
 assert(widget.content.includes('สูงสุด 10 ไฟล์ · รวมไม่เกิน 50 MB'))
 assert(widget.content.includes('{{ manual.attachments.length }}/10'))
 assert(widget.content.includes(':multiple="true"'), 'one file-picker selection must accept multiple result attachments')
@@ -409,7 +590,8 @@ assert(widget.onCreated.includes("s.hasPriorMedication=o=>s.optionCode(o&&o.prio
 assert(worklist.formConfig.cssCode.includes('.lab-prior-medication{'))
 assert(widget.content.includes('v-if="coverageAbbrev(order)" class="lab-inline-tag lab-meta-pill lab-coverage-pill"'))
 assert(widget.content.includes('{{ coverageAbbrev(order) }}'))
-assert(widget.content.includes('v-if="showCashPayment(order)" class="lab-inline-tag lab-meta-pill lab-payment-pill"'))
+assert(widget.content.includes('v-if="showPaymentStatus(order)" class="lab-inline-tag lab-meta-pill lab-payment-pill"'))
+assert(widget.content.indexOf('v-if="coverageAbbrev(order)" class="lab-inline-tag lab-meta-pill lab-coverage-pill"') < widget.content.indexOf('v-if="showPaymentStatus(order)" class="lab-inline-tag lab-meta-pill lab-payment-pill"'), 'coverage must stay visible before its payment status')
 assert(widget.content.includes(':class="{\'is-unpaid\':!isFinancePassed(order)}"'))
 assert(widget.content.includes("{{ isFinancePassed(order) ? 'ชำระเงินแล้ว' : 'ยังไม่ได้ชำระเงิน' }}"))
 assert(!widget.content.includes('v-if="showPaid(order)" class="lab-inline-tag lab-meta-pill lab-payment-pill"'))
@@ -419,7 +601,9 @@ assert(worklist.formConfig.cssCode.includes('.lab-context-top .lab-coverage-pill
 assert(worklist.formConfig.cssCode.includes('.lab-list-head.is-lookup,.lab-patient-row.is-lookup{grid-template-columns:32px minmax(190px,1.4fr) minmax(190px,1.35fr) 72px 82px 64px'))
 assert(worklist.formConfig.cssCode.includes('110px 72px 78px 64px'), 'short row-action labels must fit without pushing the grid past its container')
 assert(worklist.formConfig.cssCode.includes('.lab-plain-action{width:100%;min-width:0') && worklist.formConfig.cssCode.includes('white-space:nowrap'))
-assert(widget.content.includes(":class=\"{'is-selectable':viewMode==='today'&&isPendingReceiveItem(item),'is-selected':isSelected(item.item_id)}\""))
+// 2026-10-11: preserve the selectable/selected row states while adding only
+// the MB layout marker required by its dedicated result-entry column.
+assert(widget.content.includes(":class=\"{'is-selectable':viewMode==='today'&&isPendingReceiveItem(item),'is-selected':isSelected(item.item_id),'is-microbiology':isMicrobiologyOrder(order)}\""))
 assert(widget.content.includes('@click="selectRow(order,item,$event)"'))
 assert(widget.onCreated.includes('s.selectRow=(order,item,event)=>'))
 assert(widget.content.includes('class="lab-patient-row" :class="{\'is-lookup\':viewMode===\'lookup\'}" @click="toggleOrderFromRow(order,$event)"'))
@@ -434,12 +618,16 @@ assert(widget.content.includes('<div class="lab-item-check-cell"><el-checkbox'))
 assert(widget.content.includes('<div data-label="เลือก" class="lab-item-check-cell"><el-checkbox'))
 assert(worklist.formConfig.cssCode.includes('.lab-item-grid-wrap{overflow-x:auto;margin-left:-42px;padding-top:0}'))
 assert(worklist.formConfig.cssCode.includes('grid-template-columns:42px 52px 100px'))
-assert(worklist.formConfig.cssCode.includes('minmax(105px,.8fr) 96px;gap:10px;align-items:center;min-width:1316px'))
-assert(worklist.formConfig.cssCode.includes('min-width:1316px;padding:6px 0}.lab-item-head{min-height:44px'))
+assert(worklist.formConfig.cssCode.includes('minmax(190px,1.1fr) 125px 86px minmax(115px,.9fr) minmax(105px,.8fr) 96px;gap:10px;align-items:center;min-width:1371px'))
+// 2026-10-11: the MB-only grid override now sits between the shared grid and
+// header rules; assert both contracts independently instead of their adjacency.
+assert(worklist.formConfig.cssCode.includes('min-width:1371px;padding:6px 0}'))
+assert(worklist.formConfig.cssCode.includes('.lab-item-head{min-height:44px'))
 assert(worklist.formConfig.cssCode.includes('.lab-item-check-cell{position:sticky;left:0;z-index:2'))
 assert(worklist.formConfig.cssCode.includes('.lab-result-list{padding-top:0;overflow-x:auto;margin-left:-42px}'))
-// 2026-09-21: lookup-specific four-column rule now sits between the shared grid and header styling.
-assert(worklist.formConfig.cssCode.includes('grid-template-columns:52px minmax(260px,1.8fr) 130px 120px minmax(120px,.8fr);gap:12px;align-items:center;min-width:772px;padding:6px 0 6px 42px}'))
+// 2026-10-02: preserve the shared result grid while extending it with the two
+// requested actor columns; the Today-only visibility column remains unchanged.
+assert(worklist.formConfig.cssCode.includes('grid-template-columns:52px minmax(260px,1.8fr) 130px 120px minmax(120px,.8fr) minmax(140px,.85fr) minmax(140px,.85fr);gap:12px;align-items:center;min-width:1060px;padding:6px 0 6px 42px}'))
 assert(worklist.formConfig.cssCode.includes('.lab-result-list-head{min-height:44px'))
 assert(worklist.formConfig.cssCode.includes('.dark .lab-cpoe{--lab-wait-bg:rgba(250,219,20,.14);--lab-wait-text:#ffe45c}'))
 assert(widget.content.includes('<el-button size="small" type="success" :loading="receiveLoading"'))
@@ -448,9 +636,14 @@ assert(widget.content.includes('<el-button size="small" type="danger" :loading="
 assert(!widget.content.includes('type="warning" plain :loading="rejectLoading"'))
 assert(!widget.content.includes('type="danger" plain :loading="cancelDialog.loading&&cancelDialog.order===order"'))
 assert(worklist.formConfig.cssCode.includes('.lab-item-specimen-cell{padding-right:8px;transform:translateX(-8px)}'))
-assert(widget.content.includes('class="lab-mono lab-item-collected-time"'))
+assert(widget.content.includes('class="lab-item-collected-time"'))
 assert(widget.content.includes('{{ datePart(item.specimen && item.specimen.ordered && item.specimen.ordered.collected_at) }}'))
 assert(widget.content.includes('{{ timePart(item.specimen && item.specimen.ordered && item.specimen.ordered.collected_at) }}'))
+assert(widget.content.includes(':content="specimenSourceText(item)" popper-class="lab-cpoe-source-popper"'))
+assert(widget.content.includes("{{ specimenSourceText(item) || 'ไม่ระบุ' }}"))
+assert(widget.content.includes(':class="specimenStorageClass(item)">{{ specimenStorageText(item) }}</span>'))
+assert(worklist.formConfig.cssCode.includes('.lab-specimen-source{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:help}'))
+assert(worklist.formConfig.cssCode.includes('.lab-cpoe-source-popper{max-width:420px;overflow-wrap:anywhere;white-space:normal}'))
 assert(widget.content.includes(':disabled="!itemTooltipLines(order).length" popper-class="lab-cpoe-list-popper"'))
 assert(widget.content.includes(':disabled="!specimenTooltipLines(order).length" popper-class="lab-cpoe-list-popper"'))
 assert(widget.content.includes("class=\"lab-pop-line\">{{ line }}</div>"))
@@ -499,7 +692,7 @@ assert(widget.content.includes(':disabled="!hnOrderReportReady(order)||!!hnPrint
 assert(!widget.content.includes(':report-list="hnOrderReportList" :params="hnOrderReportParams(order)"'),
   'the HN row slot must not render the old sd-report preview')
 assert(worklist.formConfig.cssCode.includes('.lab-hn-print{white-space:nowrap}'))
-assert(widget.content.includes(":aria-label=\"'ดูผลของ '+(text(order.patient&&order.patient.hn)||'Order นี้')\""))
+assert(widget.content.includes(":aria-label=\"(isManualPathologyOrder(order)?'ลงผล':'ดูผล')+'ของ '+(text(order.patient&&order.patient.hn)||'Order นี้')\""))
 /* เปลี่ยน assertion เดิม 2026-09-04 ตามคำสั่งผู้ใช้: ปุ่มตรวจใหม่ต้องเรียก write action จริง
    และยังอยู่เฉพาะตำแหน่งเดิมบนแถวที่ยกเลิก/ปฏิเสธ */
 assert(widget.content.includes('@click="retestOrder(order)">ตรวจใหม่</el-button>'))
@@ -521,11 +714,15 @@ assert(widget.onCreated.includes("const MICROBIOLOGY_RESULT_PDF_REPORT_ID='6ab1c
 // 2026-09-22: คืนชื่อปุ่มใน popup ผลตรวจเป็น “รายงานผล”; จุดนี้ไม่ใช่ปุ่มแถวรายการที่ผู้ใช้ให้เปลี่ยน
 assert(widget.onCreated.includes("s.labResultPdfReportList=LAB_RESULT_PDF_REPORT_ID?[{reportId:LAB_RESULT_PDF_REPORT_ID,label:'รายงานผล',type:'pdf'}]:[]"))
 assert(widget.onCreated.includes("s.microbiologyResultPdfReportList=MICROBIOLOGY_RESULT_PDF_REPORT_ID?[{reportId:MICROBIOLOGY_RESULT_PDF_REPORT_ID,label:'รายงานผล',type:'pdf'}]:[]"))
-assert(widget.content.includes('v-if="manual.orderView" class="lab-result-report-slot"'), 'PDF action must keep a fixed-width flex slot so the nested parameter dialog cannot shift the header button')
+assert(widget.content.includes('v-if="manual.orderView || isMicrobiologyResult()" class="lab-result-report-slot"'), 'PDF action must keep a fixed-width flex slot and allow only the item-level MLab exception')
 assert(widget.content.includes('v-if="labResultPdfReady()" class="lab-result-report-action"'))
 assert(widget.content.includes(':report-list="activeLabResultPdfReportList()" :params="labResultPdfParams()"'))
 assert(widget.content.includes('v-else class="lab-result-report-action"'))
-assert(widget.content.includes(':title="labResultPdfHint()">รายงานผล</el-button>'))
+/* 2026-10-01: ผู้ใช้ให้ fallback ที่ยังไม่มี PDF ใช้หน้าตาปุ่ม PDF เดียวกันแบบ disabled
+   แทนปุ่ม danger สีชมพู โดยคงเงื่อนไข labResultPdfReady() เดิมทั้งหมด */
+assert(widget.content.includes('v-else class="lab-result-report-action" size="small" plain disabled'))
+assert(widget.content.includes(':title="labResultPdfHint()"><span aria-hidden="true">📄</span> รายงานผล</el-button>'))
+assert(!widget.content.includes('v-else class="lab-result-report-action" type="danger"'))
 assert(widget.onCreated.includes("s.activeLabResultPdfReportList=()=>s.isMicrobiologyResult()?s.microbiologyResultPdfReportList:s.labResultPdfReportList"))
 assert(widget.onCreated.includes('return {xparentx:s.labResultPdfParentId()}'))
 assert(widget.onCreated.includes('add(fallbackIds,fallbackSeen,group&&group.data&&group.data.result_report_id)'), 'locked Sensitive groups must still supply the parent for a redacted PDF')
@@ -606,7 +803,7 @@ assert(widget.content.includes("v-else-if=\"viewMode==='today'\" class=\"lab-pla
 assert(widget.content.includes('v-if="viewMode===\'today\'" class="lab-result-upload"'), 'Upload must remain hidden in lookup mode')
 assert(widget.onCreated.includes("p.cross_section=true"))
 assert(widget.onCreated.includes("p.lookup_mode=lookupModeOverride||s.lookupMode"))
-assert(widget.onCreated.includes("else if(hn)p.all_dates=true"))
+assert(widget.onCreated.includes("else if(search)p.all_dates=true"))
 assert(widget.onCreated.includes("s.lookupStatusMap={"))
 assert(widget.onCreated.includes("results:['resulted','completed']"))
 assert(widget.onCreated.includes("orders:['sent','accepted','prepared','ready','dispensed','resulted','completed','cancelled','rejected']"))
@@ -1033,11 +1230,13 @@ assert.strictEqual(s.showPaid({ finance: { coverage: [{ inscl_item_main: { value
 assert.strictEqual(s.showPaid({ finance: { coverage: [{ inscl_item_main: { value: 'CASH' } }], total_amount: 100, paid_amount: 100 } }), true)
 assert.strictEqual(s.showPaid({ finance: { coverage: [], total_amount: 100, paid_amount: 100 } }), true)
 assert.strictEqual(s.showPaid({ finance: { coverage: [{ inscl_item_main: { value: 'CASH' } }], total_amount: 100, paid_amount: 0 } }), false)
-assert.strictEqual(s.showCashPayment({ finance: { coverage: [{ inscl_item_main: { value: 'CASH' } }], total_amount: 100, paid_amount: 100 } }), true)
-assert.strictEqual(s.showCashPayment({ finance: { coverage: [{ inscl_item_main: { value: 'CASH' } }], total_amount: 100, paid_amount: 0 } }), true)
-assert.strictEqual(s.showCashPayment({ finance: { coverage: [], total_amount: 100, paid_amount: 0 } }), true)
-assert.strictEqual(s.showCashPayment({ finance: { coverage: [{ inscl_item_main: { value: 'OFC' } }], total_amount: 100, paid_amount: 0 } }), false)
-assert.strictEqual(s.showCashPayment({ finance: { coverage: [{ inscl_item_main: { value: 'CASH' } }], total_amount: 0, paid_amount: 0 } }), false)
+assert.strictEqual(s.showPaymentStatus({ finance: { coverage: [{ inscl_item_main: { value: 'CASH' } }], total_amount: 100, paid_amount: 100 } }), true)
+assert.strictEqual(s.showPaymentStatus({ finance: { coverage: [{ inscl_item_main: { value: 'CASH' } }], total_amount: 100, paid_amount: 0 } }), true)
+assert.strictEqual(s.showPaymentStatus({ finance: { coverage: [], total_amount: 100, paid_amount: 0 } }), true)
+assert.strictEqual(s.showPaymentStatus({ finance: { coverage: [{ inscl_item_main: { value: 'OFC' } }], total_amount: 0, paid_amount: 0 } }), true, 'coverage Orders must also show Finance status even when the patient amount is zero')
+assert.strictEqual(s.showPaymentStatus({ finance: { coverage: [{ inscl_item_main: { value: 'UCS' } }], total_amount: 100, paid_amount: 0 } }), true, 'coverage and payment status must be shown together')
+assert.strictEqual(s.showPaymentStatus({ finance: { coverage: [{ inscl_item_main: { value: 'CASH' } }], total_amount: 0, paid_amount: 0 } }), false)
+assert.strictEqual(s.showPaymentStatus({ finance: { coverage: [], total_amount: 0, paid_amount: 0 } }), false)
 assert.strictEqual(s.isFinancePassed({ items: [{ current_status: 'sent' }], finance: { total_amount: 100, paid_amount: 100 } }), false, 'sent means Finance has not passed even when amount fields look paid')
 assert.strictEqual(s.isFinancePassed({ items: [{ current_status: 'ready' }], finance: { total_amount: 100, paid_amount: 0 } }), true, 'ready is the explicit Finance-passed state')
 assert.strictEqual(s.isFinancePassed({ items: [{ current_status: 'accepted' }, { current_status: 'completed' }], finance: { total_amount: 100, paid_amount: 0 } }), true, 'post-receipt/result states already passed the Finance gate')
@@ -1069,6 +1268,16 @@ assert.deepStrictEqual(orderCounts.map(step => [step.key, step.count]), [
   ['complete', 1],
   ['cancelled', 1],
 ])
+const myQuantityStatusCounts = s.orderStatusCounts({ items: [{
+  current_status: 'accepted',
+  quantity: 3,
+  section: { code: 'MY' },
+  specimen: { ordered: { rows: [{}, {}, {}] } },
+}] })
+assert.deepStrictEqual(myQuantityStatusCounts.map(step => [step.key, step.count]), [['received', 3]], 'MY Order status badge must count every ordered quantity/specimen row')
+const otherQuantityStatusCounts = s.orderStatusCounts({ items: [{ current_status: 'accepted', quantity: 3, section: { code: 'BC' } }] })
+assert.deepStrictEqual(otherQuantityStatusCounts.map(step => [step.key, step.count]), [['received', 1]], 'quantity weighting must remain scoped to MY only')
+assert.strictEqual(s.orderStatusCountAria({ items: [{ current_status: 'accepted', quantity: 3, section: { code: 'MY' } }] }), 'รับแล้ว 3 รายการ')
 assert.strictEqual(
   s.orderStatusCountAria({ items: [{ current_status: 'accepted' }, { current_status: 'ready' }] }),
   'รอรับ 1 รายการ · รับแล้ว 1 รายการ',
@@ -1081,6 +1290,12 @@ assert.deepStrictEqual(s.specimenTooltipLines(tooltipOrder), [
   'Clotted blood · C34 Gamma GT',
   'EDTA blood · C64 Ammonia',
 ])
+const specimenContextItem = { specimen: { ordered: { source: 'Pus swab', note: 'หนองจากแผลขาขวา', storage: 'RF' } } }
+assert.strictEqual(s.specimenSourceText(specimenContextItem), 'หนองจากแผลขาขวา')
+assert.strictEqual(s.specimenStorageCode(specimenContextItem), 'RF')
+assert.strictEqual(s.specimenStorageText(specimenContextItem), 'ตู้เย็น')
+assert.strictEqual(s.specimenStorageClass(specimenContextItem), 'is-refrigerated')
+assert.strictEqual(s.specimenStorageText({ specimen: { ordered: { storage: 'อุณหภูมิห้อง' } } }), 'อุณหภูมิห้อง')
 // 2026-10-01: fixture email replaced with a placeholder when creator stamps were scrubbed
 // from the repo. The "Name (email)" shape is deliberately kept — stripping the parenthesised
 // address is exactly what requesterName() must do, so this assertion stays as strict as before.
@@ -1178,6 +1393,21 @@ assert.strictEqual(s.viewMode, 'today')
 assert.deepStrictEqual(s.filters, { hn: '', dates: [s.currentDay, s.currentDay] })
 assert.strictEqual(lookupLoads, 3, 'returning to today reloads the daily worklist once')
 assert.strictEqual(todayCountLoads, 1, 'returning to today refreshes daily counts once')
+s.filters = { hn: 'R2610010001', dates: ['2026-10-03', '2026-10-03'] }
+s.applyFilters()
+assert.deepStrictEqual(s.filters, { hn: 'R2610010001', dates: [] }, 'typed Order No. search must visibly clear the date filter')
+const orderNumberParams = s.params(s.statusMap.all, 30, 1)
+assert.strictEqual(orderNumberParams.query, 'R2610010001')
+assert(!Object.prototype.hasOwnProperty.call(orderNumberParams, 'hn'))
+assert(!Object.prototype.hasOwnProperty.call(orderNumberParams, 'date_from'))
+s.filters = { hn: '', dates: [s.currentDay, s.currentDay] }
+s.scanPatientHn('2610010001')
+assert.strictEqual(s.scanMode, false, 'ten-digit Order No. must not enter scanned-HN mode')
+assert.strictEqual(s.scannedHn, '')
+assert.deepStrictEqual(s.filters, { hn: '2610010001', dates: [] })
+const scannedOrderParams = s.params(s.statusMap.all, 30, 1)
+assert.strictEqual(scannedOrderParams.query, '2610010001')
+assert(!Object.prototype.hasOwnProperty.call(scannedOrderParams, 'date_from'))
 s.loadOrders = lookupSavedLoad
 s.refreshCounts = lookupSavedRefreshCounts
 s.refreshLookupCounts = lookupSavedRefreshLookupCounts
@@ -1230,7 +1460,7 @@ s.applyFilters()
 assert.strictEqual(s.scanMode, false, 'manual Search must exit scanned patient context')
 s.loadOrders = realLoadOrders
 s.refreshCounts = realRefreshCounts
-assert.strictEqual(s.specimenMasterOptions.length, 0)
+assert.strictEqual(s.specimenDropdownOptions.length, 0)
 assert.strictEqual(
   s.rejectReasonText({ reject_reason_code: 'specimen_insufficient', reject_reason_detail: '' }),
   'ปริมาณสิ่งส่งตรวจไม่เพียงพอ',
@@ -1247,8 +1477,192 @@ assert.strictEqual(
 const item = {
   item_id: 'ITEM-1',
   current_status: 'sent',
-  specimen: { complete: false, ordered: { source_code: 'CD' }, master: { code: 'CD', name: 'Clotted blood' } },
+  specimen: { complete: false, ordered: { source_code: 'CD', note: 'free-text เดิม' }, master: { code: 'CD', name: 'Clotted blood' } },
 }
+s.specimenDropdownOptions = [
+  { code: 'BL', name: 'Blood' },
+  { code: 'CD', name: 'Clotted blood' },
+]
+assert.deepStrictEqual(s.specimenOptions(item), [
+  { value: 'BL', label: 'Blood' },
+  { value: 'CD', label: 'Clotted blood' },
+])
+assert.deepStrictEqual(
+  s.specimenOptions({ ...item, specimen: { ordered: { source: 'Hemoculture ขวดที่1' } } }),
+  [{ value: 'BL', label: 'Blood' }, { value: 'CD', label: 'Clotted blood' }],
+  'an order snapshot name must not be injected as a selectable specimen code',
+)
+const quantityRows = [
+  { spec_source_code: 'WA', spec_source: 'Wash / Suction' },
+  { spec_source_code: '08', spec_source: 'Pus swab จากตา (Eye)' },
+  { spec_source_code: '03', spec_source: 'Hemoculture ขวดที่3' },
+]
+const quantityItem = {
+  ...item,
+  item_code: 'M12',
+  item_name: 'SCABIES',
+  quantity: 3,
+  section: { code: 'MY' },
+  order_requirements: { multi_specimen: true },
+  specimen: { ordered: { rows: quantityRows }, master: { code: 'M50', name: 'Other' } },
+}
+const visibleQuantityRows = s.displayItems({ items: [quantityItem] })
+assert.strictEqual(visibleQuantityRows.length, 3, 'quantity 3 must display three test rows')
+assert.deepStrictEqual(visibleQuantityRows.map(row => row.item_name), ['SCABIES', 'SCABIES', 'SCABIES'], 'visible rows keep the same ordered test identity')
+assert.deepStrictEqual(visibleQuantityRows.map(row => s.multiSpecimenRows(row)[0].spec_source_code), ['WA', '08', '03'])
+assert.deepStrictEqual(visibleQuantityRows.map(row => s.specimenRowOriginalIndex(row, 0)), [0, 1, 2])
+assert.strictEqual(s.displayItemCount({ items: [quantityItem] }), 3)
+assert.strictEqual(s.specimenCount({ items: [quantityItem] }), 3)
+assert.strictEqual(s.isManualPathologyItem(quantityItem), true)
+assert.strictEqual(s.receiveDisplayCount([quantityItem]), 3, 'one MY CPOE Item with quantity 3 must be communicated as three visible receive rows')
+assert.strictEqual(s.resultDisplayItems({ items: [quantityItem] }).length, 3, 'MY result tab must show all three ordered quantity/specimen rows')
+const nonManualQuantityItem = { ...quantityItem, section: { code: 'BC' } }
+assert.strictEqual(s.resultDisplayItems({ items: [nonManualQuantityItem] }).length, 1, 'result quantity expansion must remain scoped to MY only')
+assert.strictEqual(s.isManualPathologyOrder({ items: [quantityItem] }), true)
+assert.strictEqual(s.isManualPathologyOrder({ items: [nonManualQuantityItem] }), false, 'non-MY orders must keep the shared result popup')
+const pathologyItem = {
+  ...quantityItem,
+  item_id: 'cccccccccccccccccccccccc',
+  specimen: { ordered: { rows: [
+    { spec_source_code: 'HAIR', spec_source: 'Hair', spec_site_code: 'HEAD', spec_site_name: 'ศีรษะ' },
+    { spec_source_code: 'SKIN', spec_source: 'Skin scraping', spec_site_code: 'ARM', spec_site_name: 'แขน' },
+    { spec_source_code: 'NAIL', spec_source: 'Nail clipping', spec_site_code: 'LEG', spec_site_name: 'ขา' },
+  ] } },
+}
+const pathologyGroup = s.pathologyBuildGroup(pathologyItem, { items: [pathologyItem] }, {
+  results: [{
+    result_item_id: 'abababababababababababab',
+    pathology_row_key: pathologyItem.item_id + '|0|hair',
+    specimen_index: 0,
+    pathology_sub_index: 0,
+    actual_site_name: 'ศีรษะ',
+    actual_site_detail: 'เส้นผม',
+    result_value: 'พบเชื้อ A',
+  }],
+})
+assert.strictEqual(pathologyGroup.test_name, 'SCABIES')
+assert.strictEqual(pathologyGroup.specimens.length, 3, 'one MY test quantity 3 must retain three ordered specimen records')
+assert.deepStrictEqual(pathologyGroup.specimens.map(specimen => specimen.specimen_name), ['Hair', 'Skin scraping', 'Nail clipping'])
+assert.deepStrictEqual(pathologyGroup.specimens.map(specimen => specimen.ordered_site_name), ['ศีรษะ', 'แขน', 'ขา'])
+assert.strictEqual(pathologyGroup.specimens[0].rows[0].actual_site_detail, 'เส้นผม')
+assert.strictEqual(pathologyGroup.specimens[1].rows.length, 1, 'every ordered specimen must start with one nested site/result row')
+pathologyGroup.specimens[0].rows[0].correction_history = [{
+  event_id: 'my-revision-set-1:hair',
+  request_id: 'my-revision-set-1',
+  correction_group_id: 'my-revision-set-1',
+  reason: 'แก้ไขผลหลังยืนยัน',
+  corrected_by_name: 'LAB Editor',
+  corrected_at: '2026-10-05 09:15:00',
+  before: { result_value: 'ผลเดิม A' },
+  after: { result_value: 'ผลใหม่ A' },
+}]
+pathologyGroup.specimens[1].rows[0].correction_history = [{
+  event_id: 'my-revision-set-1:skin',
+  request_id: 'my-revision-set-1',
+  correction_group_id: 'my-revision-set-1',
+  reason: 'แก้ไขผลหลังยืนยัน',
+  corrected_by_name: 'LAB Editor',
+  corrected_at: '2026-10-05 09:15:00',
+  before: { result_value: 'ผลเดิม B' },
+  after: { result_value: 'ผลใหม่ B' },
+}]
+const pathologyRevisions = s.buildPathologyRevisions([pathologyGroup])
+assert.strictEqual(pathologyRevisions.length, 1, 'one MY save click must render as one grouped revision set')
+assert.strictEqual(pathologyRevisions[0].changes.length, 2, 'a grouped MY revision must retain every changed specimen/site row')
+assert.strictEqual(pathologyRevisions[0].changes[0].before_result_value, 'ผลเดิม A')
+assert.strictEqual(pathologyRevisions[0].changes[1].after_result_value, 'ผลใหม่ B')
+let pathologySiteProvider = null
+field.globalUserState.crudGetAll = (request, success) => {
+  pathologySiteProvider = request.sdProvider
+  success({ data: [
+    { code: 'pe_chest', name: 'Chest wall', name_th: 'ทรวงอก' },
+    { code: 'pe_neck', name: 'Neck', name_th: 'ลำคอ' },
+  ] })
+}
+s.loadPathologySiteMaster()
+assert.strictEqual(pathologySiteProvider.providerId, '6a473b6cd54977f38061dde0')
+assert.strictEqual(pathologySiteProvider.options.where, '`enable` = true')
+assert.deepStrictEqual(pathologySiteProvider.options.orderBy, [{ column: 'sort', sort: 'ASC' }])
+assert.strictEqual(s.pathologySiteMasterLoaded, true)
+assert.deepStrictEqual(
+  s.pathologySiteOptions(pathologyGroup, pathologyGroup.specimens[0], pathologyGroup.specimens[0].rows[0]).slice(0, 2),
+  [
+    { value: 'ทรวงอก', label: 'ทรวงอก', code: 'pe_chest' },
+    { value: 'ลำคอ', label: 'ลำคอ', code: 'pe_neck' },
+  ],
+  'MY actual-site dropdown must start with the complete shared CPOE site master, not only sites already selected in this Order',
+)
+s.pathologySiteChanged(pathologyGroup, pathologyGroup.specimens[0], pathologyGroup.specimens[0].rows[0], 'ลำคอ')
+assert.strictEqual(pathologyGroup.specimens[0].rows[0].actual_site_code, 'pe_neck', 'selecting a shared CPOE site option must retain its master code')
+s.pathologySiteChanged(pathologyGroup, pathologyGroup.specimens[0], pathologyGroup.specimens[0].rows[0], 'แขน')
+assert.strictEqual(pathologyGroup.specimens[0].rows[0].actual_site_code, 'ARM', 'selecting an ordered dropdown option must retain its site code')
+pathologyGroup.specimens[0].rows[0].actual_site_name = 'จุดเพาะเชื้อพิเศษ'
+s.pathologySiteChanged(pathologyGroup, pathologyGroup.specimens[0], pathologyGroup.specimens[0].rows[0], 'จุดเพาะเชื้อพิเศษ')
+assert.strictEqual(pathologyGroup.specimens[0].rows[0].actual_site_code, '', 'free text must not retain a stale code from the previous dropdown option')
+let pathologyResultProvider = null
+field.globalUserState.crudGetAll = (request, success) => {
+  pathologyResultProvider = request.sdProvider
+  success({ data: [
+    { result_code: 'LRS-0002', detail_rs: 'พบเชื้อ', display_order: 2, is_active: true, lab_sections: [{ code: 'MY', label: 'พยาธิ' }] },
+    { result_code: 'LRS-0001', detail_rs: 'ไม่พบเชื้อ', display_order: 1, is_active: true, lab_sections: '[{"value":"MY","label":"พยาธิ"}]' },
+    { result_code: 'LRS-0003', detail_rs: 'ผลห้อง MB', display_order: 3, is_active: true, lab_sections: [{ code: 'MB' }] },
+    { result_code: 'LRS-0004', detail_rs: 'รายการปิดใช้งาน', display_order: 4, is_active: false, lab_sections: [{ code: 'MY' }] },
+    { result_code: 'LRS-0005', detail_rs: 'พบเชื้อ', display_order: 5, is_active: true, lab_sections: [{ value: 'MY' }] },
+  ] })
+}
+s.loadPathologyResultMaster()
+assert.strictEqual(pathologyResultProvider.providerId, '6acc8587481c196fbb332c60')
+assert.strictEqual(pathologyResultProvider.options.where, '`is_active` = true')
+assert.deepStrictEqual(pathologyResultProvider.options.orderBy, [{ column: 'display_order', sort: 'ASC' }, { column: 'result_code', sort: 'ASC' }])
+assert.strictEqual(s.pathologyResultMasterLoaded, true)
+assert.deepStrictEqual(
+  s.pathologyResultMasterOptions.map(option => option.value),
+  ['ไม่พบเชื้อ', 'พบเชื้อ'],
+  'MY result combobox must include only active MY options, preserve display order, and deduplicate detail text',
+)
+assert.deepStrictEqual(
+  s.pathologyResultOptions({ result_value: 'ผลพิมพ์เอง' }).map(option => option.value),
+  ['ไม่พบเชื้อ', 'พบเชื้อ', 'ผลพิมพ์เอง'],
+  'a free-text value must remain available without changing the String persistence contract',
+)
+const pathologyMultiResultRow = { result_value: 'พบเชื้อ\nผลเดิมที่พิมพ์เอง', result_choices: s.pathologyResultValues('พบเชื้อ\nผลเดิมที่พิมพ์เอง') }
+assert.deepStrictEqual(pathologyMultiResultRow.result_choices, ['พบเชื้อ', 'ผลเดิมที่พิมพ์เอง'], 'an existing newline-delimited String must reopen as multiple selected choices')
+s.pathologyResultChanged(pathologyMultiResultRow, ['ไม่พบเชื้อ', 'ผลใหม่ที่พิมพ์เอง', 'ไม่พบเชื้อ', '  '])
+assert.deepStrictEqual(pathologyMultiResultRow.result_choices, ['ไม่พบเชื้อ', 'ผลใหม่ที่พิมพ์เอง'], 'multiple master/free-text choices must be trimmed and deduplicated')
+assert.strictEqual(pathologyMultiResultRow.result_value, 'ไม่พบเชื้อ\nผลใหม่ที่พิมพ์เอง', 'multiple MY choices must persist through the unchanged String result_value contract')
+s.pathology = { ...s.pathology, groups: [pathologyGroup], editing: true }
+assert.strictEqual(s.pathologyItems().length, 3, 'MY popup must render quantity 3 as three visible Item rows')
+assert.strictEqual(s.pathologyTestSummary(), 'M12 SCABIES × 3')
+s.addPathologySub(pathologyGroup, pathologyGroup.specimens[0])
+assert.strictEqual(pathologyGroup.specimens[0].rows.length, 2, 'MY staff can add actual positions under an Item')
+s.pathologyResultChanged(pathologyGroup.specimens[0].rows[1], ['พบเชื้อ', 'ผลเพิ่มที่พิมพ์เอง'])
+assert.strictEqual(s.pathologyPayload().length, 4, 'payload must contain one row per nested site/result across all specimens')
+assert(s.pathologyPayload().every(row => row.item_id === pathologyItem.item_id))
+const multiResultPayloadRow = s.pathologyPayload().find(row => row.pathology_row_key === pathologyGroup.specimens[0].rows[1].pathology_row_key)
+assert.strictEqual(multiResultPayloadRow.result_value, 'พบเชื้อ\nผลเพิ่มที่พิมพ์เอง', 'the API payload must receive all selected MY results in the existing String field')
+assert.strictEqual(Object.prototype.hasOwnProperty.call(multiResultPayloadRow, 'result_choices'), false, 'temporary multi-select state must never change the API payload schema')
+assert.strictEqual(s.canRemovePathologySub(pathologyGroup.specimens[0], pathologyGroup.specimens[0].rows[0], 0), false, 'the ordered base location must remain protected')
+const savedAddedPathologyRow = pathologyGroup.specimens[0].rows[1]
+savedAddedPathologyRow.result_item_id = '999999999999999999999999'
+assert.strictEqual(s.canRemovePathologySub(pathologyGroup.specimens[0], savedAddedPathologyRow, 1), true, 'a saved location added by the lab must show its remove cross')
+s.removePathologySub(pathologyGroup, pathologyGroup.specimens[0], savedAddedPathologyRow, 1)
+assert.strictEqual(pathologyGroup.specimens[0].rows.length, 1)
+assert.deepStrictEqual(s.pathology.removedRows, [{ item_id: pathologyItem.item_id, result_item_id: '999999999999999999999999' }], 'saved added locations must queue their Result Item for deletion on Save')
+const pathologyFinalGroup = JSON.parse(JSON.stringify(pathologyGroup))
+pathologyFinalGroup.specimens.forEach((specimen, specimenIndex) => specimen.rows.forEach((row, rowIndex) => {
+  row.result_item_id = String(specimenIndex + 1).repeat(24)
+  row.result_value = row.result_value || 'ไม่พบเชื้อ'
+  row.result_status = 'entered'
+}))
+s.pathology = { ...s.pathology, groups: [pathologyFinalGroup], editing: false, loading: false }
+assert.strictEqual(s.pathologyStatusText(), 'รอยืนยันออกผลครบ', 'filled drafts must not claim Final before confirmation')
+assert.strictEqual(s.canFinalizePathologyResults(), true)
+pathologyFinalGroup.specimens.forEach(specimen => specimen.rows.forEach(row => { row.result_status = 'final' }))
+assert.strictEqual(s.pathologyStatusText(), 'ออกผลครบ', 'MY completion must follow persisted Final Result Item status')
+assert.strictEqual(s.canFinalizePathologyResults(), false, 'an already Final MY result must not be finalized twice')
+s.startPathologyEdit()
+assert.strictEqual(s.pathology.editing, true, 'the MY pencil must open edit mode even after Final')
+s.resetPathology()
 const itemOrder = { order_id: 'ORDER-ROW-1', items: [item] }
 const normalRowTarget = { closest: () => null }
 const controlRowTarget = { closest: selector => selector.includes('.el-checkbox') ? {} : null }
@@ -1304,18 +1718,69 @@ assert.strictEqual(processCalls[0].params.action, 'update_specimen')
 assert.strictEqual(processCalls[0].params.organization_code, '10')
 assert.strictEqual(s.specimenEdits['ITEM-1'], 'BL')
 assert.strictEqual(item.specimen.ordered.source, 'Blood')
+assert.strictEqual(s.specimenSourceText(item), 'free-text เดิม', 'changing specimen must preserve the original Source free-text')
 assert.strictEqual(item.specimen.complete, true)
 assert.strictEqual(s.specimenChanged(item), true)
 
 for (const sectionCode of ['IM', 'MI-OUT']) {
-  const immunologyItem = { ...item, item_id: 'ITEM-' + sectionCode, section: { code: sectionCode } }
+  const sourceManagedItem = { ...item, item_id: 'ITEM-' + sectionCode, section: { code: sectionCode } }
   const processCallCount = processCalls.length
-  assert.strictEqual(s.isImmunologyItem(immunologyItem), true)
-  await s.setSpecimen(immunologyItem, 'BL')
+  assert.strictEqual(s.isSourceManagedItem(sourceManagedItem), true)
+  assert.strictEqual(s.isSpecimenLockedItem(sourceManagedItem), true)
+  await s.setSpecimen(sourceManagedItem, 'BL')
   assert.strictEqual(processCalls.length, processCallCount, sectionCode + ' must not call update_specimen')
-  assert.strictEqual(s.specimenEdits[immunologyItem.item_id], undefined)
+  assert.strictEqual(s.specimenEdits[sourceManagedItem.item_id], undefined)
 }
-assert.strictEqual(s.isImmunologyItem({ ...item, section: { code: 'BC' } }), false)
+for (const sectionCode of ['MY', 'MB']) {
+  const sourceManagedItem = { ...item, item_id: 'ITEM-' + sectionCode, section: { code: sectionCode } }
+  const processCallCount = processCalls.length
+  assert.strictEqual(s.isSourceManagedItem(sourceManagedItem), true)
+  assert.strictEqual(s.isSpecimenLockedItem(sourceManagedItem), false)
+  await s.setSpecimen(sourceManagedItem, 'BL')
+  assert.strictEqual(processCalls.length, processCallCount + 1, sectionCode + ' must call update_specimen')
+  assert.strictEqual(s.specimenEdits[sourceManagedItem.item_id], 'BL')
+}
+assert.strictEqual(s.isSourceManagedItem({ ...item, section: { code: 'BC' } }), false)
+const conditionalItem = {
+  ...item,
+  source_managed: true,
+  section: { code: 'MY' },
+  order_requirements: { req_commt: true, multi_specimen: true },
+  item_comment: 'เก็บก่อนให้ยา',
+  specimen: { ordered: { rows: [{ spec_source: 'Blood', spec_site_name: 'Left arm', specimen_at: '2026-10-03 02:25:00', ship_storage: 'RT', ship_temp: 24, spec_note: 'test' }] } },
+}
+assert.strictEqual(s.requiresItemComment(conditionalItem), true)
+assert.strictEqual(s.itemCommentText(conditionalItem), 'เก็บก่อนให้ยา')
+assert.strictEqual(s.isMultiSpecimenItem(conditionalItem), true)
+assert.strictEqual(s.multiSpecimenRows(conditionalItem).length, 1)
+const conditionalSpecimenRow = s.multiSpecimenRows(conditionalItem)[0]
+assert.strictEqual(s.specimenRowName(conditionalSpecimenRow), 'Blood')
+assert.strictEqual(s.specimenRowSite(conditionalSpecimenRow), 'Left arm')
+assert.strictEqual(s.specimenRowCollectedAt(conditionalSpecimenRow), '2026-10-03 02:25:00')
+assert.strictEqual(s.specimenRowStorageText(conditionalSpecimenRow), 'อุณหภูมิห้อง')
+assert.strictEqual(s.specimenRowStorageClass(conditionalSpecimenRow), 'is-room-temperature')
+assert.strictEqual(s.specimenRowTemperatureText(conditionalSpecimenRow), '24°C')
+assert.strictEqual(s.specimenRowSourceText(conditionalSpecimenRow), 'test')
+assert.strictEqual(s.hasSpecimenLocation(conditionalItem), true)
+assert.strictEqual(s.usesSpecimenDetailPattern(conditionalItem), true)
+assert.strictEqual(s.isSpecimenLockedItem(conditionalItem), false)
+const rowUpdateCallCount = processCalls.length
+await s.setSpecimen(conditionalItem, 'CD', 0)
+assert.strictEqual(processCalls.length, rowUpdateCallCount + 1)
+assert.strictEqual(processCalls.at(-1).params.specimen_index, 0)
+assert.strictEqual(s.specimenEdits['ITEM-1:0'], 'CD')
+assert.strictEqual(conditionalSpecimenRow.spec_source, 'Blood')
+assert.strictEqual(conditionalSpecimenRow.spec_source_code, 'CD')
+const locatedSingleSpecimenItem = {
+  ...item,
+  source_managed: true,
+  order_requirements: { req_commt: false, multi_specimen: false },
+  specimen: { ordered: { source: 'Hemoculture ขวดที่1', site_name: 'ข้อพับแขน', temperature: 25, note: 'test' } },
+}
+assert.strictEqual(s.isMultiSpecimenItem(locatedSingleSpecimenItem), false)
+assert.strictEqual(s.hasSpecimenLocation(locatedSingleSpecimenItem), true)
+assert.strictEqual(s.usesSpecimenDetailPattern(locatedSingleSpecimenItem), true, 'source-managed single specimen with a location must use the approved detail pattern')
+assert.strictEqual(s.usesSpecimenDetailPattern({ ...locatedSingleSpecimenItem, source_managed: false, section: { code: 'BC' } }), true, 'every room must reuse the same detail pattern when a location exists')
 
 s.specimenEdits['ITEM-1'] = 'CD'
 assert.strictEqual(s.specimenChanged(item), false)
@@ -1487,7 +1952,7 @@ const microbiologyItem = {
   section: { code: 'MB' },
 }
 const microbiologyRows = [
-  { test_code: '400199', test_name: '4001', result_value: '* Aerobic Culture *\n1. Acinetobacter baumannii (CRAB_PXDR)\nPIPERAC/TAZO..  > 128*  R', result_status: 'F', entered_at: '2026-09-14 09:14:00' },
+  { test_code: '400199', test_name: '4001', result_value: '* Aerobic Culture *\n1. Acinetobacter baumannii (CRAB_PXDR)\nPIPERAC/TAZO..  > 128*  R', result_status: 'F', entered_at: '2026-09-14 09:14:00', reported_at: '2026-09-14 10:25:00', interpretation: 'AA', is_critical: true, result_report_id: 'bbbbbbbbbbbbbbbbbbbbbbbb' },
 ]
 s.manual = {
   ...s.manual,
@@ -1502,13 +1967,37 @@ s.manual = {
   editMap: {},
 }
 assert.strictEqual(s.isMicrobiologyItem(microbiologyItem), true)
+assert.strictEqual(s.isMicrobiologyItem({ section_code: 'MB' }), true, 'MB detection must also accept the flat Worklist item shape')
 assert.strictEqual(s.isMicrobiologyResult(), true, 'custom viewer must activate for MB')
-assert.strictEqual(s.labResultPdfReady(), false, 'Item-level MLab/MB popup must not expose the Order result PDF')
+assert.strictEqual(s.orderAttachmentItem(), microbiologyItem, 'item-level MLab popup must use its Item as the Order attachment anchor')
+assert.strictEqual(s.canUploadResultFile(), true, 'item-level MLab popup must expose the attachment upload button')
+assert.strictEqual(s.canRemoveResultFile(), true, 'item-level MLab popup must allow removing an Order attachment')
+const microbiologyAttachment = { name: 'mlab-result.pdf', size: 2048, response: { fileId: 'dddddddddddddddddddddddd' } }
+await s.persistResultAttachments([microbiologyAttachment])
+const microbiologyAttachmentCall = processCalls.filter(call => call.params.action === 'save_result_attachments').at(-1)
+assert.strictEqual(microbiologyAttachmentCall.params.attachment_scope, 'order', 'MLab file must remain attached to the whole Order')
+assert.strictEqual(microbiologyAttachmentCall.params.item_id, microbiologyItem.item_id, 'MLab Item popup must send its Item as the attachment anchor')
+assert.deepStrictEqual(s.manual.attachments, [microbiologyAttachment])
+assert.strictEqual(s.isMicrobiologyOrder(s.manual.order), true, 'an all-MB Order must use test-level result actions')
+assert.strictEqual(s.isMicrobiologyOrder({ section_code: 'MY', items: [mycologyItem] }), false, 'non-MLab rooms must keep the Order-level result action')
+const microbiologyRequestPdfItem = { ...microbiologyItem, item_id: '6abdf75257db51ac6aa46f62' }
+assert.deepStrictEqual(s.microbiologyRequestPdfReportList, [{ reportId: '6ab4fa2200000000000f001a', label: 'ลงผล', type: 'typst' }], 'Typst reports must use the typst action; pdf would route to empty pdfmake content')
+assert.strictEqual(s.microbiologyRequestPdfReady(microbiologyRequestPdfItem), true, 'valid MB item must enable the request PDF')
+assert.deepStrictEqual(s.microbiologyRequestPdfParams(microbiologyRequestPdfItem), { item_id: '6abdf75257db51ac6aa46f62' }, 'request PDF must receive the exact Work Item id')
+assert.strictEqual(s.microbiologyRequestPdfReady({ ...microbiologyRequestPdfItem, section: { code: 'MY' } }), false, 'non-MLab items must never enable the MLab request PDF')
+assert.strictEqual(s.microbiologyRequestPdfReady(microbiologyItem), false, 'request PDF must fail closed when item_id is not a MongoDB ObjectId')
+assert.strictEqual(s.labResultPdfReady(), true, 'Item-level MLab/MB popup must expose the PDF for that test')
 assert.deepStrictEqual(s.activeLabResultPdfReportList(), [{ reportId: '6ab1c2d3e4f5061728394a5b', label: 'รายงานผล', type: 'pdf' }])
-assert.deepStrictEqual(s.labResultPdfParams(), {}, 'static Microbiology report must not receive the general xparentx parameter')
+assert.deepStrictEqual(s.labResultPdfParams(), { xparentx: 'bbbbbbbbbbbbbbbbbbbbbbbb' }, 'MLab PDF must receive its Result Report id as xparentx')
+s.manual.groups = [{ item_id: 'MB-ITEM-1', test_code: '400199', test_name: 'Gram stain', results: microbiologyRows }]
 s.manual.orderView = true
-assert.strictEqual(s.labResultPdfReady(), true, 'Order-level MLab/MB popup must enable the existing static Microbiology PDF')
+assert.strictEqual(s.labResultPdfReady(), true, 'Order-level MLab/MB popup must enable the SQL-backed Microbiology PDF')
+assert.deepStrictEqual(s.labResultPdfParams(), { xparentx: 'bbbbbbbbbbbbbbbbbbbbbbbb' })
+s.manual.groups[0].results.push({ ...microbiologyRows[0], result_report_id: 'cccccccccccccccccccccccc' })
+assert.strictEqual(s.labResultPdfReady(), false, 'MLab PDF must fail closed when more than one Result Report is present')
+assert(s.labResultPdfHint().includes('หลายชุด'))
 s.manual.orderView = false
+s.manual.groups = []
 assert.strictEqual(s.isMicrobiologyItem(mycologyItem), false, 'MY must keep the standard result popup')
 assert.strictEqual(s.canEditResult(), false, 'MB custom viewer is read-only')
 s.startManualEdit()
@@ -1526,6 +2015,10 @@ assert.strictEqual(s.microResultRows(microbiologyGroup)[0].test_name, '4001', 'M
 assert(String(s.microResultRows(microbiologyGroup)[0].result_value).includes('* Aerobic Culture *'), 'raw MLab result must be shown unchanged even when its title conflicts with the mapped code')
 assert.strictEqual(s.microGroupStatusText(microbiologyGroup), 'Final')
 assert.strictEqual(s.microOverallStatusText(), 'Final')
+assert.strictEqual(s.microResultReportedAt(s.microResultRows(microbiologyGroup)[0]), '2026-09-14 10:25:00')
+assert.strictEqual(s.microGroupReportedAt(microbiologyGroup), '2026-09-14 10:25:00', 'MB popup must prefer latest reported_at over the initial entered_at')
+assert.strictEqual(s.microLatestReportedAt(), '2026-09-14 10:25:00')
+assert.strictEqual(s.microCriticalInterpretations(), 'AA', 'MB popup must expose the explicit Agent critical interpretation')
 const microbiologyMappedGroups = s.groupOrderResultGroups([
   { item_id: 'MB-GRAM', test_code: '400199', test_name: 'Gram stain', panel: { set_code: 'MB-CULTURE', set_name: 'Microbiology' }, data: { section_code: 'MB' }, results: [{ test_code: '400199', result_value: '* Aerobic Culture *' }] },
   { item_id: 'MB-ANAEROBIC', test_code: '400999', test_name: 'Anaerobic culture', panel: { set_code: 'MB-CULTURE', set_name: 'Microbiology' }, data: { section_code: 'MB' }, results: [] },
@@ -1725,6 +2218,7 @@ s.processCall = async (id, params) => {
     test_code: electrolyteItems[electrolyteIndex].item_code,
     test_name: electrolyteItems[electrolyteIndex].item_name,
     patient_hn: 'HN-PANEL',
+    order_note: 'หมายเหตุระดับ Order\nบรรทัดที่สอง',
     results: [{
       result_item_id: String(electrolyteIndex + 1).repeat(24),
       result_report_id: aggregateResultReportId,
@@ -1745,6 +2239,7 @@ s.processCall = async (id, params) => {
     test_code: 'C43',
     test_name: osmolalityItem.item_name,
     patient_hn: 'HN-PANEL',
+    order_note: 'หมายเหตุระดับ Order\nบรรทัดที่สอง',
     results: [
       { result_item_id: '333333333333333333333333', result_report_id: aggregateResultReportId, test_code: 'C43', test_name: 'Osmolality', result_value: osmolalityValue, is_critical: false },
     ],
@@ -1754,6 +2249,7 @@ s.processCall = async (id, params) => {
 await s.openOrderResults(aggregateOrder)
 assert.strictEqual(s.manual.orderView, true)
 assert.strictEqual(s.manual.item, null, 'Order view must not silently target the first Item for writes')
+assert.strictEqual(s.resultOrderNote(), 'หมายเหตุระดับ Order\nบรรทัดที่สอง', 'duplicate Order notes from grouped Item reads must render once')
 assert.strictEqual(s.resultTestCount(), 2, 'Order header count represents ordered Parent Items')
 assert.strictEqual(s.resultGroupsForDisplay().length, 2)
 assert.strictEqual(s.resultGroupsForDisplay()[0].test_name, 'Electrolyte จาก Ionized Ca Tube')
@@ -2088,6 +2584,53 @@ assert(notifications.at(-1)[0].includes('รับ specimen แล้ว แต�
   s.refreshCounts = originalRefreshCountsForAsync
 }
 
+{
+  /* 2026-10-04: MY is manual-result only. A quantity-three row remains one
+     source CPOE Item, but the UI must count/show all three specimen rows and
+     must not launch the background Agent dispatch used by machine rooms. */
+  const originalProcessCall = s.processCall
+  const originalLoadOrdersForManual = s.loadOrders
+  const originalRefreshCountsForManual = s.refreshCounts
+  const manualReceiveCalls = []
+  const manualQuantityItem = {
+    item_id: '666666666666666666666666',
+    item_code: 'M14',
+    item_name: 'Wood light',
+    quantity: 3,
+    current_status: 'ready',
+    section: { code: 'MY' },
+    specimen: { ordered: { rows: quantityRows } },
+  }
+  s.loadOrders = () => {}
+  s.refreshCounts = () => {}
+  s.processCall = async (id, request) => {
+    manualReceiveCalls.push({ id, request })
+    assert.strictEqual(request.dispatch_mode, 'deferred', 'MY must never issue the sync Agent-dispatch follow-up')
+    return { success: true, data: {
+      item_id: manualQuantityItem.item_id,
+      outbound_order_id: manualQuantityItem.item_id,
+      current_status: 'accepted',
+      lab_no: '416910040001',
+      received_at: '2026-10-04 12:31:27',
+      received_by: 'LAB-USER',
+      hl7_status: 'new',
+      agent_dispatch_queued: true,
+      agent_transport_state: 'pending_dispatch',
+    } }
+  }
+  notifications.length = 0
+  await s.performReceive({ order_id: 'ORDER-MY-QUANTITY', items: [manualQuantityItem] }, [manualQuantityItem])
+  assert.strictEqual(manualReceiveCalls.length, 1, 'MY receive must stop after receipt even if the API returns a queued outbound')
+  assert.strictEqual(manualQuantityItem.current_status, 'accepted')
+  assert.strictEqual(manualQuantityItem.hl7_status, 'manual')
+  assert.strictEqual(manualQuantityItem.agent_transport_state, 'manual')
+  assert(notifications.at(-1)[0].includes('รับ specimen สำเร็จ 3 รายการ'))
+  assert(notifications.at(-1)[0].includes('ห้อง MY ลงผล Manual ไม่ส่ง Agent 3 รายการ'))
+  s.processCall = originalProcessCall
+  s.loadOrders = originalLoadOrdersForManual
+  s.refreshCounts = originalRefreshCountsForManual
+}
+
 s.allowedSectionCodes = ['BC']
 s.filters = { ...s.filters, hn: '' }
 await s.openCreateOrder()
@@ -2407,6 +2950,45 @@ assert.deepStrictEqual(itemRetestCall.params, {
 assert.strictEqual(s.itemRetestDialog.visible, false)
 assert.strictEqual(s.statusKey, 'waiting')
 assert(notifications.some(note => note[0].includes('เปิดตรวจใหม่เฉพาะรายการแล้ว')))
+
+// 2026-10-02: the user requested two additive Item-level result columns in
+// Today and Result Lookup only. They reuse the same read contract as "ดูผล".
+assert.strictEqual((widget.content.match(/<div>ผู้ออกผล<\/div>/g) || []).length, 1)
+assert.strictEqual((widget.content.match(/<div>ผู้ยืนยัน<\/div>/g) || []).length, 1)
+assert(widget.content.includes('resultReporterFor(item)'))
+assert(widget.content.includes('resultVerifierFor(item)'))
+assert(!widget.content.includes("resultActorIsLoading(item) ? 'กำลังโหลด…' : '—'"), 'missing actor values must render as blank cells, never a dash')
+const actorOriginalProcessCall = s.processCall
+const actorOriginalViewMode = s.viewMode
+const actorCalls = []
+const actorItem = { item_id: 'efefefefefefefefefefefef', current_status: 'completed' }
+s.viewMode = 'lookup'
+s.resultActorMeta = {}
+s.resultActorLoading = {}
+s.processCall = async (id, params) => {
+  actorCalls.push({ id, params })
+  return { success: true, data: {
+    reported_by_source_name: 'Agent Reporter',
+    verified_by_source_name: 'Agent Verifier',
+    results: [{ reported_by_source_name: 'Agent Reporter', verified_by_source_name: 'Agent Verifier' }],
+  } }
+}
+await s.loadResultActorsForOrder({ items: [actorItem] })
+assert.strictEqual(actorCalls.length, 1)
+assert.deepStrictEqual(actorCalls[0].params, {
+  action: 'get_manual_result',
+  organization_code: '10',
+  item_id: actorItem.item_id,
+  result_actor_only: true,
+  cross_section: true,
+  lookup_mode: 'results',
+})
+assert.strictEqual(s.resultReporterFor(actorItem), 'Agent Reporter')
+assert.strictEqual(s.resultVerifierFor(actorItem), 'Agent Verifier')
+await s.loadResultActorsForOrder({ items: [actorItem] })
+assert.strictEqual(actorCalls.length, 1, 'Item actor metadata must be cached after the first read')
+s.processCall = actorOriginalProcessCall
+s.viewMode = actorOriginalViewMode
 
 const cpoe = read('Form-Builder/SDForm/sdform_module/EMR_form/CPOE_app.json')
 const patientHeader = named(cpoe, 'pt_header')

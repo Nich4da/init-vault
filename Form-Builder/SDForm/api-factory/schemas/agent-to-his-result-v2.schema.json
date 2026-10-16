@@ -48,6 +48,10 @@
     "reported_by": { "$ref": "#/$defs/sourceIdentity" },
     "verified_at": { "$ref": "#/$defs/thailandDateTime" },
     "verified_by": { "$ref": "#/$defs/sourceIdentity" },
+    "order_note": {
+      "type": "string",
+      "description": "Optional multiline note that applies to the whole result order/report. It remains separate from items[].comment."
+    },
     "items": {
       "type": "array",
       "minItems": 1,

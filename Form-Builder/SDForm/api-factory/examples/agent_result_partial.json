@@ -12,6 +12,7 @@
     "source_id": "LIS-TECH-TEST",
     "source_name": "LIS Test Technician"
   },
+  "order_note": "Synthetic order-level note\nApplies to the whole result report",
   "items": [
     {
       "obs_code": "NA",

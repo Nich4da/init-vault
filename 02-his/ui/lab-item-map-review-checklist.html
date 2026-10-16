@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LAB Map Code Checklist</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f2f5f5;
+      --paper: #fff;
+      --ink: #18313b;
+      --muted: #667a82;
+      --line: #d5dfe2;
+      --navy: #143f49;
+      --teal: #0f766e;
+      --teal-dark: #095852;
+      --teal-soft: #e7f5f2;
+      --amber: #9a5b08;
+      --amber-soft: #fff2d9;
+      --green: #27734d;
+      --green-soft: #e6f3eb;
+      --red: #a83e35;
+      --shadow: 0 14px 38px rgba(24,49,59,.10);
+      --radius: 14px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background:
+        linear-gradient(rgba(15,118,110,.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(15,118,110,.035) 1px, transparent 1px),
+        var(--bg);
+      background-size: 30px 30px;
+      color: var(--ink);
+      font-family: "Noto Sans Thai", "Leelawadee UI", Tahoma, sans-serif;
+      line-height: 1.45;
+    }
+    button, input, textarea, select { font: inherit; }
+    button { cursor: pointer; }
+    .page { width: min(1480px, calc(100% - 28px)); margin: 24px auto 64px; }
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: 28px 30px;
+      border-radius: 20px;
+      background: var(--navy);
+      color: #fff;
+      box-shadow: var(--shadow);
+    }
+    .hero::after {
+      position: absolute;
+      right: -70px;
+      bottom: -150px;
+      width: 360px;
+      height: 360px;
+      border: 1px solid rgba(255,255,255,.13);
+      border-radius: 50%;
+      box-shadow: 0 0 0 44px rgba(255,255,255,.035), 0 0 0 88px rgba(255,255,255,.02);
+      content: "";
+    }
+    .eyebrow { margin: 0 0 7px; color: #92ddd4; font-size: 12px; font-weight: 900; letter-spacing: .12em; }
+    h1 { max-width: 900px; margin: 0; font-size: clamp(28px,4vw,48px); line-height: 1.12; }
+    .hero p { max-width: 920px; margin: 12px 0 0; color: #d8e9ec; font-size: 14px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 18px; }
+    .chip { padding: 6px 10px; border: 1px solid rgba(255,255,255,.17); border-radius: 999px; background: rgba(255,255,255,.08); font-size: 12px; font-weight: 850; }
+    .summary { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; margin: 14px 0; }
+    .metric { padding: 16px 18px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); box-shadow: 0 6px 18px rgba(24,49,59,.05); }
+    .metric strong { display: block; font-size: 30px; line-height: 1; }
+    .metric span { color: var(--muted); font-size: 12px; font-weight: 800; }
+    .metric.ok strong { color: var(--green); }
+    .metric.blank strong { color: var(--amber); }
+    .metric.exclude strong { color: #6b7280; }
+    .metric.done strong { color: var(--teal); }
+    .notice { margin-bottom: 14px; padding: 12px 14px; border-left: 4px solid var(--amber); border-radius: 0 10px 10px 0; background: var(--amber-soft); color: #68420d; font-size: 12px; }
+    .toolbar {
+      position: sticky;
+      top: 10px;
+      z-index: 20;
+      display: grid;
+      grid-template-columns: minmax(260px,1fr) auto auto;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 14px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255,255,255,.96);
+      box-shadow: 0 10px 26px rgba(24,49,59,.10);
+      backdrop-filter: blur(12px);
+    }
+    .search-wrap { position: relative; }
+    .search-wrap svg { position: absolute; left: 12px; top: 50%; width: 18px; height: 18px; transform: translateY(-50%); color: #7a8d94; }
+    .search { width: 100%; height: 42px; padding: 8px 12px 8px 40px; border: 1px solid #bdcbd0; border-radius: 10px; background: #fff; color: var(--ink); }
+    .filters, .actions { display: flex; flex-wrap: wrap; gap: 6px; }
+    .btn { min-height: 38px; padding: 7px 11px; border: 1px solid #bdcbd0; border-radius: 9px; background: #fff; color: var(--ink); font-size: 12px; font-weight: 850; }
+    .btn:hover { border-color: var(--teal); color: var(--teal); }
+    .btn.primary { border-color: var(--teal); background: var(--teal); color: #fff; }
+    .btn.primary:hover { background: var(--teal-dark); }
+    .btn.danger { color: var(--red); }
+    .search:focus, .field:focus, .note:focus, select:focus { border-color: var(--teal); outline: 3px solid rgba(15,118,110,.14); }
+    .progress-card { display: grid; grid-template-columns: auto minmax(180px,1fr) auto; gap: 12px; align-items: center; margin-bottom: 14px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); }
+    .progress-label { font-size: 13px; font-weight: 900; }
+    .progress-track { overflow: hidden; height: 9px; border-radius: 999px; background: #dfe7e9; }
+    .progress-bar { width: 0; height: 100%; border-radius: inherit; background: var(--teal); transition: width .2s ease; }
+    .progress-text { min-width: 82px; color: var(--muted); font-size: 12px; font-weight: 800; text-align: right; }
+    .table-shell { overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); box-shadow: 0 8px 24px rgba(24,49,59,.06); }
+    .table-scroll { overflow: auto; max-height: calc(100vh - 224px); }
+    table { width: 100%; min-width: 1360px; border-collapse: separate; border-spacing: 0; }
+    thead { position: sticky; top: 0; z-index: 5; }
+    th { padding: 11px 10px; border-bottom: 1px solid var(--line); background: #edf3f4; color: #536870; font-size: 11px; font-weight: 900; text-align: left; white-space: nowrap; }
+    td { padding: 10px; border-bottom: 1px solid #e7edef; vertical-align: top; }
+    tbody tr:last-child td { border-bottom: 0; }
+    tbody tr:hover { background: #f8fbfb; }
+    tbody tr.is-done { background: #f0f8f3; }
+    .check-col { width: 54px; text-align: center; }
+    .check { width: 20px; height: 20px; accent-color: var(--green); cursor: pointer; }
+    .num { color: #7a8d94; font-variant-numeric: tabular-nums; }
+    .section-pill { display: inline-block; padding: 4px 7px; border-radius: 999px; background: var(--teal-soft); color: var(--teal-dark); font-size: 11px; font-weight: 900; white-space: nowrap; }
+    .code { color: #123f49; font-family: ui-monospace,SFMono-Regular,Menlo,monospace; font-size: 13px; font-weight: 900; white-space: nowrap; }
+    .master-id { margin-top: 4px; color: #87969c; font-size: 10px; overflow-wrap: anywhere; }
+    .item-name { min-width: 255px; max-width: 400px; font-size: 13px; font-weight: 750; }
+    .empty-map { color: var(--amber); font-size: 12px; font-weight: 900; }
+    .field, .note { width: 100%; border: 1px solid #c7d2d6; border-radius: 8px; background: #fff; color: var(--ink); }
+    .field { min-width: 165px; padding: 7px 9px; font-family: ui-monospace,SFMono-Regular,Menlo,monospace; font-weight: 850; }
+    .note { min-width: 220px; min-height: 38px; padding: 7px 9px; resize: vertical; }
+    .row-status { display: inline-block; margin-top: 5px; color: var(--muted); font-size: 10px; font-weight: 800; }
+    .empty-state { padding: 44px 20px; color: var(--muted); text-align: center; }
+    .footer { display: flex; justify-content: space-between; gap: 16px; margin-top: 12px; color: var(--muted); font-size: 11px; }
+    .toast { position: fixed; right: 18px; bottom: 18px; z-index: 50; padding: 11px 14px; border-radius: 10px; background: var(--navy); color: #fff; box-shadow: var(--shadow); font-size: 12px; font-weight: 850; opacity: 0; transform: translateY(12px); pointer-events: none; transition: .2s ease; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    @media (max-width: 980px) {
+      .summary { grid-template-columns: repeat(2,minmax(0,1fr)); }
+      .toolbar { grid-template-columns: 1fr; }
+      .table-scroll { max-height: none; }
+    }
+    @media (max-width: 620px) {
+      .page { width: min(100% - 18px,1480px); margin-top: 9px; }
+      .hero { padding: 22px 18px; border-radius: 14px; }
+      .summary { grid-template-columns: 1fr 1fr; }
+      .metric { padding: 13px; }
+      .metric strong { font-size: 25px; }
+      .progress-card { grid-template-columns: 1fr; }
+      .progress-text { text-align: left; }
+      .footer { flex-direction: column; }
+    }
+    @media print {
+      body { background: #fff; }
+      .page { width: 100%; margin: 0; }
+      .hero { color: #000; background: #fff; border: 1px solid #aaa; box-shadow: none; }
+      .hero p, .eyebrow { color: #333; }
+      .toolbar, .toast { display: none !important; }
+      .table-scroll { overflow: visible; max-height: none; }
+      .table-shell { box-shadow: none; }
+      table { min-width: 0; font-size: 9px; }
+      th, td { padding: 5px; }
+      .field, .note { border: 0; padding: 0; }
+      tr { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <p class="eyebrow">LAB MASTER DATA · MAP CODE REVIEW</p>
+      <h1>Checklist รายการ LAB ที่ยังไม่มีรหัส Map</h1>
+      <p>เทียบคอลัมน์ <strong>lab_item code</strong> ในไฟล์กับ <strong>lab_item.value / his_lab_code</strong> ในฐานข้อมูล เฉพาะรายการที่ฐานข้อมูลกำหนด <strong>service_type.code = lab</strong></p>
+      <div class="chips">
+        <span class="chip">ตรวจจากไฟล์ 801 รายการ</span>
+        <span class="chip">อยู่ใน LAB ของ DB 760 รายการ</span>
+        <span class="chip">ไม่เขียนกลับฐานข้อมูล</span>
+      </div>
+    </section>
+
+    <section class="summary" aria-label="สรุปผล">
+      <article class="metric ok"><strong>707</strong><span>รหัส Map ตรงกัน</span></article>
+      <article class="metric blank"><strong>53</strong><span>Map ว่างทั้งไฟล์และ DB</span></article>
+      <article class="metric exclude"><strong>41</strong><span>ตัดออก เพราะ DB ไม่ใช่ LAB</span></article>
+      <article class="metric done"><strong id="doneMetric">0</strong><span>ตรวจและกรอกแล้ว</span></article>
+    </section>
+
+    <div class="notice"><strong>ผลที่ถูกต้อง:</strong> ไม่พบกรณีที่ไฟล์มีรหัส Map แล้วแต่ DB เป็นคนละรหัส จำนวน 53 รายการด้านล่างคือรายการที่ Map ว่างทั้งสองฝั่งและต้องกำหนดรหัสใหม่</div>
+
+    <section class="toolbar" aria-label="เครื่องมือ">
+      <label class="search-wrap">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="m21 19.6-5.2-5.2a7 7 0 1 0-1.4 1.4l5.2 5.2zM5 10a5 5 0 1 1 10 0 5 5 0 0 1-10 0"/></svg>
+        <input id="search" class="search" type="search" placeholder="ค้นหา item_code ชื่อรายการ Section หรือ Master ID" autocomplete="off">
+      </label>
+      <div class="filters">
+        <select id="sectionFilter" class="btn" aria-label="กรอง Section">
+          <option value="all">ทุก Section</option>
+          <option value="BB">BB · Blood Bank (40)</option>
+          <option value="PA">PA · Pathology (12)</option>
+          <option value="RE">RE · Lab Research (1)</option>
+        </select>
+        <select id="progressFilter" class="btn" aria-label="กรองความคืบหน้า">
+          <option value="all">ทุกความคืบหน้า</option>
+          <option value="pending">ยังไม่เสร็จ</option>
+          <option value="done">กรอกแล้ว</option>
+        </select>
+      </div>
+      <div class="actions">
+        <button id="markVisible" class="btn" type="button">เลือกที่แสดง</button>
+        <button id="unmarkVisible" class="btn" type="button">ยกเลิกที่แสดง</button>
+        <button id="exportCsv" class="btn primary" type="button">ดาวน์โหลด CSV</button>
+        <button id="printPage" class="btn" type="button">พิมพ์</button>
+        <button id="resetAll" class="btn danger" type="button">ล้างความคืบหน้า</button>
+      </div>
+    </section>
+
+    <section class="progress-card">
+      <div class="progress-label">ความคืบหน้า</div>
+      <div class="progress-track"><div id="progressBar" class="progress-bar"></div></div>
+      <div id="progressText" class="progress-text">0 / 53</div>
+    </section>
+
+    <section class="table-shell">
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th class="check-col">เสร็จ</th>
+              <th>#</th>
+              <th>Section</th>
+              <th>item_code</th>
+              <th>ชื่อรายการ</th>
+              <th>Map ในไฟล์</th>
+              <th>Map ใน DB</th>
+              <th>รหัส Map ที่จะกำหนด</th>
+              <th>หมายเหตุ</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+        <div id="emptyState" class="empty-state" hidden>ไม่พบรายการตามตัวกรอง</div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <span>Checkbox รหัสใหม่ และหมายเหตุบันทึกใน Local Storage ของเบราว์เซอร์นี้</span>
+      <span id="visibleCount">แสดง 53 รายการ</span>
+    </footer>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const DATA = [{"source_row":5743,"file_item_code":"BB38","file_item_name":"ค่าตรวจ NAT (Nucleic Acid Testing)","master_id":"6abb8f10dc54727cbfc1a058","file_map_code":"","db_map_code":"","db_master_item_code":"BB38","db_item_name":"ค่าตรวจ NAT (Nucleic Acid Testing)","section_code":"BB","section_name":"Blood Bank"},{"source_row":5744,"file_item_code":"BB403","file_item_name":"Type and screen -Gel method","master_id":"6abb8f10dc54727cbfc1a059","file_map_code":"","db_map_code":"","db_master_item_code":"BB403","db_item_name":"Type and screen -Gel method","section_code":"BB","section_name":"Blood Bank"},{"source_row":5745,"file_item_code":"BB404","file_item_name":"Cross matching - Gel method","master_id":"6abb8f10dc54727cbfc1a05a","file_map_code":"","db_map_code":"","db_master_item_code":"BB404","db_item_name":"Cross matching - Gel method","section_code":"BB","section_name":"Blood Bank"},{"source_row":5746,"file_item_code":"BB405","file_item_name":"Antibody identification - Gel method","master_id":"6abb8f10dc54727cbfc1a05b","file_map_code":"","db_map_code":"","db_master_item_code":"BB405","db_item_name":"Antibody identification - Gel method","section_code":"BB","section_name":"Blood Bank"},{"source_row":5747,"file_item_code":"BB406","file_item_name":"Absorption test","master_id":"6abb8f10dc54727cbfc1a05c","file_map_code":"","db_map_code":"","db_master_item_code":"BB406","db_item_name":"Absorption test","section_code":"BB","section_name":"Blood Bank"},{"source_row":5748,"file_item_code":"BB407","file_item_name":"Antigen C","master_id":"6abb8f10dc54727cbfc1a05d","file_map_code":"","db_map_code":"","db_master_item_code":"BB407","db_item_name":"Antigen C","section_code":"BB","section_name":"Blood Bank"},{"source_row":5749,"file_item_code":"BB408","file_item_name":"Antigen Di(a)","master_id":"6abb8f10dc54727cbfc1a05e","file_map_code":"","db_map_code":"","db_master_item_code":"BB408","db_item_name":"Antigen Di(a)","section_code":"BB","section_name":"Blood Bank"},{"source_row":5750,"file_item_code":"BB409","file_item_name":"Antigen E","master_id":"6abb8f10dc54727cbfc1a05f","file_map_code":"","db_map_code":"","db_master_item_code":"BB409","db_item_name":"Antigen E","section_code":"BB","section_name":"Blood Bank"},{"source_row":5751,"file_item_code":"BB410","file_item_name":"Antigen e","master_id":"6abb8f10dc54727cbfc1a060","file_map_code":"","db_map_code":"","db_master_item_code":"BB410","db_item_name":"Antigen e","section_code":"BB","section_name":"Blood Bank"},{"source_row":5752,"file_item_code":"BB411","file_item_name":"Antigen Fy(a)","master_id":"6abb8f10dc54727cbfc1a061","file_map_code":"","db_map_code":"","db_master_item_code":"BB411","db_item_name":"Antigen Fy(a)","section_code":"BB","section_name":"Blood Bank"},{"source_row":5753,"file_item_code":"BB412","file_item_name":"Antigen Fy(b)","master_id":"6abb8f10dc54727cbfc1a062","file_map_code":"","db_map_code":"","db_master_item_code":"BB412","db_item_name":"Antigen Fy(b)","section_code":"BB","section_name":"Blood Bank"},{"source_row":5754,"file_item_code":"BB413","file_item_name":"Antigen Jk(a)","master_id":"6abb8f10dc54727cbfc1a063","file_map_code":"","db_map_code":"","db_master_item_code":"BB413","db_item_name":"Antigen Jk(a)","section_code":"BB","section_name":"Blood Bank"},{"source_row":5755,"file_item_code":"BB414","file_item_name":"Antigen Jk(b)","master_id":"6abb8f10dc54727cbfc1a064","file_map_code":"","db_map_code":"","db_master_item_code":"BB414","db_item_name":"Antigen Jk(b)","section_code":"BB","section_name":"Blood Bank"},{"source_row":5756,"file_item_code":"BB415","file_item_name":"Antigen K","master_id":"6abb8f10dc54727cbfc1a065","file_map_code":"","db_map_code":"","db_master_item_code":"BB415","db_item_name":"Antigen K","section_code":"BB","section_name":"Blood Bank"},{"source_row":5757,"file_item_code":"BB416","file_item_name":"Antigen k","master_id":"6abb8f10dc54727cbfc1a066","file_map_code":"","db_map_code":"","db_master_item_code":"BB416","db_item_name":"Antigen k","section_code":"BB","section_name":"Blood Bank"},{"source_row":5758,"file_item_code":"BB417","file_item_name":"Antigen Le(a)","master_id":"6abb8f10dc54727cbfc1a067","file_map_code":"","db_map_code":"","db_master_item_code":"BB417","db_item_name":"Antigen Le(a)","section_code":"BB","section_name":"Blood Bank"},{"source_row":5759,"file_item_code":"BB418","file_item_name":"Antigen Le(b)","master_id":"6abb8f10dc54727cbfc1a068","file_map_code":"","db_map_code":"","db_master_item_code":"BB418","db_item_name":"Antigen Le(b)","section_code":"BB","section_name":"Blood Bank"},{"source_row":5760,"file_item_code":"BB419","file_item_name":"Antigen Le(a) +Le(b)","master_id":"6abb8f10dc54727cbfc1a069","file_map_code":"","db_map_code":"","db_master_item_code":"BB419","db_item_name":"Antigen Le(a) +Le(b)","section_code":"BB","section_name":"Blood Bank"},{"source_row":5761,"file_item_code":"BB42","file_item_name":"(\u003e1ปี) Precrossmatch PRC (ค่าตรวจ ABO, Rh, Ab screening) + repeat ABO","master_id":"6abb8f10dc54727cbfc1a06a","file_map_code":"","db_map_code":"","db_master_item_code":"BB42","db_item_name":"(\u003e1ปี) Precrossmatch PRC (ค่าตรวจ ABO, Rh, Ab screening) + repeat ABO","section_code":"BB","section_name":"Blood Bank"},{"source_row":5762,"file_item_code":"BB420","file_item_name":"Antigen M","master_id":"6abb8f10dc54727cbfc1a06b","file_map_code":"","db_map_code":"","db_master_item_code":"BB420","db_item_name":"Antigen M","section_code":"BB","section_name":"Blood Bank"},{"source_row":5763,"file_item_code":"BB421","file_item_name":"Antigen Mi(a)","master_id":"6abb8f10dc54727cbfc1a06c","file_map_code":"","db_map_code":"","db_master_item_code":"BB421","db_item_name":"Antigen Mi(a)","section_code":"BB","section_name":"Blood Bank"},{"source_row":5764,"file_item_code":"BB422","file_item_name":"Antigen N","master_id":"6abb8f10dc54727cbfc1a06d","file_map_code":"","db_map_code":"","db_master_item_code":"BB422","db_item_name":"Antigen N","section_code":"BB","section_name":"Blood Bank"},{"source_row":5765,"file_item_code":"BB423","file_item_name":"Antigen P1","master_id":"6abb8f10dc54727cbfc1a06e","file_map_code":"","db_map_code":"","db_master_item_code":"BB423","db_item_name":"Antigen P1","section_code":"BB","section_name":"Blood Bank"},{"source_row":5766,"file_item_code":"BB424","file_item_name":"Antigen S","master_id":"6abb8f10dc54727cbfc1a06f","file_map_code":"","db_map_code":"","db_master_item_code":"BB424","db_item_name":"Antigen S","section_code":"BB","section_name":"Blood Bank"},{"source_row":5767,"file_item_code":"BB425","file_item_name":"Antigen s","master_id":"6abb8f10dc54727cbfc1a070","file_map_code":"","db_map_code":"","db_master_item_code":"BB425","db_item_name":"Antigen s","section_code":"BB","section_name":"Blood Bank"},{"source_row":5768,"file_item_code":"BB426","file_item_name":"Direct antiglobulin (Coomb's test) monospecific 5 ชนิดIgG, IgM, IgA, C3c และC3d - Gel method","master_id":"6abb8f10dc54727cbfc1a071","file_map_code":"","db_map_code":"","db_master_item_code":"BB426","db_item_name":"Direct antiglobulin (Coomb's test) monospecific 5 ชนิดIgG, IgM, IgA, C3c และC3d - Gel method","section_code":"BB","section_name":"Blood Bank"},{"source_row":5769,"file_item_code":"BB427","file_item_name":"Direct antiglobulin (Coomb's test) monospecific 2 ชนิดIgG และ C3c - Gel method","master_id":"6abb8f10dc54727cbfc1a072","file_map_code":"","db_map_code":"","db_master_item_code":"BB427","db_item_name":"Direct antiglobulin (Coomb's test) monospecific 2 ชนิดIgG และ C3c - Gel method","section_code":"BB","section_name":"Blood Bank"},{"source_row":5770,"file_item_code":"BB428","file_item_name":"Neutralization 32: ABH substance in saliva","master_id":"6abb8f10dc54727cbfc1a073","file_map_code":"","db_map_code":"","db_master_item_code":"BB428","db_item_name":"Neutralization 32: ABH substance in saliva","section_code":"BB","section_name":"Blood Bank"},{"source_row":5771,"file_item_code":"BB47","file_item_name":"(\u003e1ปี) Precrossmatch FFP (ค่าตรวจ ABO, Rh) + repeat ABO","master_id":"6abb8f10dc54727cbfc1a074","file_map_code":"","db_map_code":"","db_master_item_code":"BB47","db_item_name":"(\u003e1ปี) Precrossmatch FFP (ค่าตรวจ ABO, Rh) + repeat ABO","section_code":"BB","section_name":"Blood Bank"},{"source_row":5772,"file_item_code":"BB48","file_item_name":"(\u003e1ปี) Cryo-Removed Plasma (ค่าตรวจ ABO, Rh)","master_id":"6abb8f10dc54727cbfc1a075","file_map_code":"","db_map_code":"","db_master_item_code":"BB48","db_item_name":"(\u003e1ปี) Cryo-Removed Plasma (ค่าตรวจ ABO, Rh)","section_code":"BB","section_name":"Blood Bank"},{"source_row":5773,"file_item_code":"BB5","file_item_name":"Type \u0026 Screen ( T\u0026S ) - Tube method","master_id":"6abb8f10dc54727cbfc1a076","file_map_code":"","db_map_code":"","db_master_item_code":"BB5","db_item_name":"Type \u0026 Screen ( T\u0026S ) - Tube method","section_code":"BB","section_name":"Blood Bank"},{"source_row":5774,"file_item_code":"BB56","file_item_name":"(\u003c1ปี) Precrossmatch PRC, FFP (ค่าตรวจ ABO, Rh) + repeat ABO","master_id":"6abb8f10dc54727cbfc1a077","file_map_code":"","db_map_code":"","db_master_item_code":"BB56","db_item_name":"(\u003c1ปี) Precrossmatch PRC, FFP (ค่าตรวจ ABO, Rh) + repeat ABO","section_code":"BB","section_name":"Blood Bank"},{"source_row":5775,"file_item_code":"BB6","file_item_name":"Cross matching - Tube method","master_id":"6abb8f10dc54727cbfc1a078","file_map_code":"","db_map_code":"","db_master_item_code":"BB6","db_item_name":"Cross matching - Tube method","section_code":"BB","section_name":"Blood Bank"},{"source_row":5776,"file_item_code":"BB61","file_item_name":"(\u003c1ปี) (SDR) - non Filter (ค่าตรวจ ABO, Rh)","master_id":"6abb8f10dc54727cbfc1a079","file_map_code":"","db_map_code":"","db_master_item_code":"BB61","db_item_name":"(\u003c1ปี) (SDR) - non Filter (ค่าตรวจ ABO, Rh)","section_code":"BB","section_name":"Blood Bank"},{"source_row":5777,"file_item_code":"BB611","file_item_name":"ค่า cross match PRC","master_id":"6abb8f10dc54727cbfc1a07a","file_map_code":"","db_map_code":"","db_master_item_code":"BB611","db_item_name":"ค่า cross match PRC","section_code":"BB","section_name":"Blood Bank"},{"source_row":5778,"file_item_code":"BB622","file_item_name":"ค่า cross match FFP","master_id":"6abb8f10dc54727cbfc1a07b","file_map_code":"","db_map_code":"","db_master_item_code":"BB622","db_item_name":"ค่า cross match FFP","section_code":"BB","section_name":"Blood Bank"},{"source_row":5779,"file_item_code":"BB633","file_item_name":"ค่า cross match LPRC","master_id":"6abb8f10dc54727cbfc1a07c","file_map_code":"","db_map_code":"","db_master_item_code":"BB633","db_item_name":"ค่า cross match LPRC","section_code":"BB","section_name":"Blood Bank"},{"source_row":5780,"file_item_code":"BB644","file_item_name":"ค่า cross match exchange transfusion","master_id":"6abb8f10dc54727cbfc1a07d","file_map_code":"","db_map_code":"","db_master_item_code":"BB644","db_item_name":"ค่า cross match exchange transfusion","section_code":"BB","section_name":"Blood Bank"},{"source_row":5781,"file_item_code":"BB95","file_item_name":"Antigen c","master_id":"6abb8f10dc54727cbfc1a07e","file_map_code":"","db_map_code":"","db_master_item_code":"BB95","db_item_name":"Antigen c","section_code":"BB","section_name":"Blood Bank"},{"source_row":5782,"file_item_code":"BB999","file_item_name":"รายการจองเลือด","master_id":"6abb8f10dc54727cbfc1a07f","file_map_code":"","db_map_code":"","db_master_item_code":"BB999","db_item_name":"รายการจองเลือด","section_code":"BB","section_name":"Blood Bank"},{"source_row":146,"file_item_code":"38001","file_item_name":"Biopsy หรือชิ้นเนื้อที่มีความยาวมากที่สุดไม่เกิน 2 ซม.","master_id":"6a900cc00c6722b3af18161b","file_map_code":"","db_map_code":"","db_master_item_code":"38001","db_item_name":"Biopsy หรือชิ้นเนื้อที่มีความยาวมากที่สุดไม่เกิน 2 ซม.","section_code":"PA","section_name":"Pathology"},{"source_row":147,"file_item_code":"38002","file_item_name":"Biopsy หรือชิ้นเนื้อที่มีความยาวมากกว่า 2 ซม.แต่ไม่เกิน 5 ซม.","master_id":"6a900cc00c6722b3af18161c","file_map_code":"","db_map_code":"","db_master_item_code":"38002","db_item_name":"Biopsy หรือชิ้นเนื้อที่มีความยาวมากกว่า 2 ซม.แต่ไม่เกิน 5 ซม.","section_code":"PA","section_name":"Pathology"},{"source_row":148,"file_item_code":"38003","file_item_name":"Biopsy หรือชิ้นเนื้อที่มีความยาวมากกว่า 5 ซม.","master_id":"6a900cc00c6722b3af18161d","file_map_code":"","db_map_code":"","db_master_item_code":"38003","db_item_name":"Biopsy หรือชิ้นเนื้อที่มีความยาวมากกว่า 5 ซม.","section_code":"PA","section_name":"Pathology"},{"source_row":150,"file_item_code":"38010","file_item_name":"การตรวจด้วยวิธี Frozen section การตรวจรายละ","master_id":"6a900cc00c6722b3af181621","file_map_code":"","db_map_code":"","db_master_item_code":"38010","db_item_name":"การตรวจด้วยวิธี Frozen section การตรวจรายละ","section_code":"PA","section_name":"Pathology"},{"source_row":167,"file_item_code":"38303","file_item_name":"ตรวจชิ้นเนื้อย้อม Immunohistochemistry ชนิด Osteocalcin","master_id":"6a900cc00c6722b3af181638","file_map_code":"","db_map_code":"","db_master_item_code":"38303","db_item_name":"ตรวจชิ้นเนื้อย้อม Immunohistochemistry ชนิด Osteocalcin","section_code":"PA","section_name":"Pathology"},{"source_row":166,"file_item_code":"38401","file_item_name":"ตรวจชิ้นเนื้อย้อมพิเศษ(Histochemistry) ชนิดละ","master_id":"6a900cc00c6722b3af181636","file_map_code":"","db_map_code":"","db_master_item_code":"38401","db_item_name":"ตรวจชิ้นเนื้อย้อมพิเศษ(Histochemistry) ชนิดละ","section_code":"PA","section_name":"Pathology"},{"source_row":1054,"file_item_code":"71512","file_item_name":"การเจาะชิ้นเนื้อตับส่งตรวจพยาธิ (Liver Biopsy)","master_id":"6a900cc00c6722b3af1819df","file_map_code":"","db_map_code":"","db_master_item_code":"71512","db_item_name":"การเจาะชิ้นเนื้อตับส่งตรวจพยาธิ (Liver Biopsy)","section_code":"PA","section_name":"Pathology"},{"source_row":1065,"file_item_code":"71610","file_item_name":"ค่าส่งชิ้นเนื้อไตตรวจ / ครั้ง","master_id":"6a900cc00c6722b3af1819f0","file_map_code":"","db_map_code":"","db_master_item_code":"71610","db_item_name":"ค่าส่งชิ้นเนื้อไตตรวจ / ครั้ง","section_code":"PA","section_name":"Pathology"},{"source_row":1555,"file_item_code":"B6220","file_item_name":"Biopsy of Oral Tissue - Intrabony tissue (ไม่รวมค่าตรวจชิ้นเนื้อ)","master_id":"6a900cc00c6722b3af181c2b","file_map_code":"","db_map_code":"","db_master_item_code":"B6220","db_item_name":"Biopsy of Oral Tissue - Intrabony tissue (ไม่รวมค่าตรวจชิ้นเนื้อ)","section_code":"PA","section_name":"Pathology"},{"source_row":5038,"file_item_code":"B6220-9","file_item_name":"(คลินิกพิเศษ)Biopsy of Oral Tissue - Intrabony tissue (ไม่รวมค่าตรวจชิ้นเนื้อ)","master_id":"6a900cc00c6722b3af182b4b","file_map_code":"","db_map_code":"","db_master_item_code":"B6220-9","db_item_name":"(คลินิกพิเศษ)Biopsy of Oral Tissue - Intrabony tissue (ไม่รวมค่าตรวจชิ้นเนื้อ)","section_code":"PA","section_name":"Pathology"},{"source_row":2814,"file_item_code":"P0831","file_item_name":"การเจาะชิ้นเนื้อตับส่งตรวจพยาธิ ( Liver Biopsy )","master_id":"6a900cc00c6722b3af182202","file_map_code":"","db_map_code":"","db_master_item_code":"P0831","db_item_name":"การเจาะชิ้นเนื้อตับส่งตรวจพยาธิ ( Liver Biopsy )","section_code":"PA","section_name":"Pathology"},{"source_row":3254,"file_item_code":"P1501","file_item_name":"การตัดชิ้นเนื้อเพื่อการวินิจฉัยโรค (Skin Biopsy)","master_id":"6a900cc00c6722b3af1823bb","file_map_code":"","db_map_code":"","db_master_item_code":"P1501","db_item_name":"การตัดชิ้นเนื้อเพื่อการวินิจฉัยโรค (Skin Biopsy)","section_code":"PA","section_name":"Pathology"},{"source_row":5435,"file_item_code":"37029","file_item_name":"Paraneoplastic syndromes assay","master_id":"6a900cc00c6722b3af182d09","file_map_code":"","db_map_code":"","db_master_item_code":"37029","db_item_name":"Paraneoplastic syndromes assay","section_code":"RE","section_name":"Lab (Research)"}];
+    const STORAGE_KEY = "lab-map-blank-checklist-v2";
+    const state = loadState();
+    const els = {
+      body: document.getElementById("rows"),
+      search: document.getElementById("search"),
+      section: document.getElementById("sectionFilter"),
+      progress: document.getElementById("progressFilter"),
+      doneMetric: document.getElementById("doneMetric"),
+      progressBar: document.getElementById("progressBar"),
+      progressText: document.getElementById("progressText"),
+      visibleCount: document.getElementById("visibleCount"),
+      emptyState: document.getElementById("emptyState"),
+      toast: document.getElementById("toast")
+    };
+
+    function loadState() {
+      try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); }
+      catch (_) { return {}; }
+    }
+    function saveState() {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+      catch (_) {}
+    }
+    function record(item) {
+      if (!state[item.master_id]) state[item.master_id] = {done:false,target:"",note:""};
+      return state[item.master_id];
+    }
+    function cell(className) {
+      const td = document.createElement("td");
+      if (className) td.className = className;
+      return td;
+    }
+    function matches(item) {
+      const saved = record(item);
+      const q = els.search.value.trim().toLowerCase();
+      const haystack = [item.file_item_code,item.file_item_name,item.master_id,item.section_code,item.section_name].join(" ").toLowerCase();
+      const sectionOk = els.section.value === "all" || item.section_code === els.section.value;
+      const progressOk = els.progress.value === "all" || (els.progress.value === "done" ? saved.done : !saved.done);
+      return sectionOk && progressOk && (!q || haystack.includes(q));
+    }
+    function render() {
+      els.body.textContent = "";
+      let visible = 0;
+      DATA.forEach(function(item,index) {
+        if (!matches(item)) return;
+        visible += 1;
+        const saved = record(item);
+        const tr = document.createElement("tr");
+        tr.dataset.id = item.master_id;
+        if (saved.done) tr.className = "is-done";
+
+        const checkTd = cell("check-col");
+        const check = document.createElement("input");
+        check.type = "checkbox";
+        check.className = "check";
+        check.checked = !!saved.done;
+        check.setAttribute("aria-label","ตรวจเสร็จ " + item.file_item_code);
+        check.addEventListener("change",function(){ saved.done = check.checked; saveState(); render(); });
+        checkTd.appendChild(check);
+        tr.appendChild(checkTd);
+
+        const noTd = cell("num");
+        noTd.textContent = String(index + 1).padStart(2,"0");
+        tr.appendChild(noTd);
+
+        const sectionTd = cell();
+        const section = document.createElement("span");
+        section.className = "section-pill";
+        section.textContent = item.section_code + " · " + item.section_name;
+        sectionTd.appendChild(section);
+        tr.appendChild(sectionTd);
+
+        const codeTd = cell();
+        const code = document.createElement("div");
+        code.className = "code";
+        code.textContent = item.file_item_code;
+        const id = document.createElement("div");
+        id.className = "master-id";
+        id.textContent = "Master ID: " + item.master_id;
+        codeTd.append(code,id);
+        tr.appendChild(codeTd);
+
+        const nameTd = cell("item-name");
+        nameTd.textContent = item.file_item_name || item.db_item_name || "—";
+        tr.appendChild(nameTd);
+
+        ["file_map_code","db_map_code"].forEach(function(key){
+          const td = cell();
+          const empty = document.createElement("span");
+          empty.className = "empty-map";
+          empty.textContent = item[key] || "ว่าง";
+          td.appendChild(empty);
+          tr.appendChild(td);
+        });
+
+        const targetTd = cell();
+        const target = document.createElement("input");
+        target.type = "text";
+        target.className = "field";
+        target.value = saved.target || "";
+        target.placeholder = "กรอกรหัส Map";
+        target.setAttribute("aria-label","รหัส Map ใหม่สำหรับ " + item.file_item_code);
+        target.addEventListener("input",function(){ saved.target = target.value.trim(); saveState(); });
+        const targetStatus = document.createElement("span");
+        targetStatus.className = "row-status";
+        targetStatus.textContent = "ยังไม่เขียนเข้า DB";
+        targetTd.append(target,targetStatus);
+        tr.appendChild(targetTd);
+
+        const noteTd = cell();
+        const note = document.createElement("textarea");
+        note.className = "note";
+        note.rows = 1;
+        note.placeholder = "เหตุผล / ผู้ตรวจ / ข้อมูลอ้างอิง";
+        note.value = saved.note || "";
+        note.setAttribute("aria-label","หมายเหตุสำหรับ " + item.file_item_code);
+        note.addEventListener("input",function(){ saved.note = note.value; saveState(); });
+        noteTd.appendChild(note);
+        tr.appendChild(noteTd);
+
+        els.body.appendChild(tr);
+      });
+      els.emptyState.hidden = visible !== 0;
+      els.visibleCount.textContent = "แสดง " + visible + " จาก 53 รายการ";
+      updateProgress();
+      saveState();
+    }
+    function updateProgress() {
+      const done = DATA.reduce(function(total,item){ return total + (record(item).done ? 1 : 0); },0);
+      els.doneMetric.textContent = done;
+      els.progressText.textContent = done + " / " + DATA.length;
+      els.progressBar.style.width = (done / DATA.length * 100) + "%";
+    }
+    function visibleItems() {
+      const ids = Array.from(els.body.querySelectorAll("tr")).map(function(row){ return row.dataset.id; });
+      return DATA.filter(function(item){ return ids.includes(item.master_id); });
+    }
+    function setVisible(value) {
+      visibleItems().forEach(function(item){ record(item).done = value; });
+      saveState();
+      render();
+    }
+    function csv(value) {
+      return '"' + String(value == null ? "" : value).replace(/"/g,'""') + '"';
+    }
+    function downloadCsv() {
+      const columns = ["checked","section_code","section_name","item_code","item_name","file_map","db_map","map_code_to_set","note","master_id"];
+      const lines = [columns.map(csv).join(",")];
+      DATA.forEach(function(item){
+        const saved = record(item);
+        lines.push([
+          saved.done ? "yes" : "no",item.section_code,item.section_name,item.file_item_code,
+          item.file_item_name,item.file_map_code,item.db_map_code,saved.target,saved.note,item.master_id
+        ].map(csv).join(","));
+      });
+      const blob = new Blob(["\ufeff" + lines.join("\r\n")],{type:"text/csv;charset=utf-8"});
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "lab-map-blank-checklist.csv";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      toast("ดาวน์โหลด CSV แล้ว");
+    }
+    let toastTimer;
+    function toast(message) {
+      els.toast.textContent = message;
+      els.toast.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(function(){ els.toast.classList.remove("show"); },1800);
+    }
+
+    els.search.addEventListener("input",render);
+    els.section.addEventListener("change",render);
+    els.progress.addEventListener("change",render);
+    document.getElementById("markVisible").addEventListener("click",function(){ setVisible(true); });
+    document.getElementById("unmarkVisible").addEventListener("click",function(){ setVisible(false); });
+    document.getElementById("exportCsv").addEventListener("click",downloadCsv);
+    document.getElementById("printPage").addEventListener("click",function(){ window.print(); });
+    document.getElementById("resetAll").addEventListener("click",function(){
+      if (!confirm("ล้าง checkbox รหัส Map ใหม่ และหมายเหตุทั้งหมดหรือไม่?")) return;
+      Object.keys(state).forEach(function(key){ delete state[key]; });
+      saveState();
+      render();
+      toast("ล้างความคืบหน้าแล้ว");
+    });
+    render();
+  </script>
+</body>
+</html>

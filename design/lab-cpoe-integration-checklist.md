@@ -231,9 +231,9 @@ Local Step 1 artifact: `Form-Builder/API/api-factory/processes/lab_cpoe_worklist
 - [x] Receive อ่าน `request_payload_json` จาก Outbound แล้วเรียก
   `lab_agent_order_submit_api.js` นอก transaction; บันทึก attempt/status/response/error กลับ
   Outbound และไม่เปลี่ยนผล receipt เมื่อ transport fail
-- [x] เพิ่ม patient class ตาม Agent contract ที่ `encounter.class` โดยใช้ค่า `OPD`/`IPD`:
-  AN จาก Visit ปัจจุบันหรือ CPOE snapshot มีค่า = `IPD`, ไม่มี = `OPD`; คง flat `visit_type`
-  เดิมไว้เพื่อ backward compatibility. Gateway/schema ปฏิเสธ class อื่นและ nested field เกิน.
+- [x] ปรับตาม Agent contract ล่าสุดให้ flat `visit_type` ใช้ค่า `OPD`/`IPD`:
+  AN จาก Visit ปัจจุบันหรือ CPOE snapshot มีค่า = `IPD`, ไม่มี = `OPD`; คง
+  `encounter.class` เป็นค่าเดียวกันไว้เพื่อ compatibility. Gateway/schema ปฏิเสธค่าอื่น.
   Worklist แสดง badge `AN : ...` เฉพาะเมื่อมี AN; ยังรอ deploy/runtime UAT และยังไม่ส่ง AN
   แยกไป Agent จนกว่า Agent จะระบุ destination field.
 - [x] VPN curl จาก Mac เข้าถึง Agent และ key ผ่าน: payload ว่างได้ `422`

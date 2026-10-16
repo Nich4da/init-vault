@@ -1,8 +1,9 @@
 """Build the import-ready LAB reject/cancel reason settings SDForm.
 
-The form stores one selectable reason per record.  Reasons are retired by
-turning ``is_active`` off instead of deleting the row, so historical orders can
-retain their original reason code/text after the Worklist is wired later.
+The form stores one selectable reason per record.  A shared ``BOTH`` type lets
+the same record appear in both specimen rejection and order cancellation without
+duplicating the master row.  Reasons are retired by turning ``is_active`` off
+instead of deleting the row, so historical orders retain their original text.
 
 This builder only creates the data-entry form.  It intentionally does not wire
 the form into the LAB Worklist or change any existing rejection/cancellation
@@ -252,6 +253,7 @@ def grid_col(field):
 
 
 reason_types = [
+    {"label": "ใช้ได้ทั้งปฏิเสธและยกเลิก Order", "value": "BOTH"},
     {"label": "ปฏิเสธสิ่งส่งตรวจ", "value": "SPECIMEN_REJECT"},
     {"label": "ยกเลิก Order / รายการสั่งตรวจ", "value": "ORDER_CANCEL"},
 ]
@@ -275,7 +277,7 @@ fields = [
         "reason_type",
         "ประเภทเหตุผล",
         reason_types,
-        default="SPECIMEN_REJECT",
+        default="BOTH",
     ),
     select_field(
         "section_code",
@@ -317,9 +319,9 @@ fields = [
         "management_guidance",
         "วิธีจัดการรายการเหตุผล",
         default=(
-            "หนึ่ง record ใช้กับหนึ่งประเภทเหตุผลเท่านั้น หากข้อความเดียวกันใช้ทั้งการปฏิเสธสิ่งส่งตรวจและยกเลิก Order "
-            "ให้สร้างแยกสอง record เมื่อไม่ต้องการให้เลือกเหตุผลเดิมอีก ให้ปิด ‘เปิดใช้งานเหตุผลนี้’ แทนการลบ "
-            "เพื่อให้ Order และประวัติเดิมยังอ้างอิงรหัสและข้อความเดิมได้"
+            "เลือก ‘ใช้ได้ทั้งปฏิเสธและยกเลิก Order’ เมื่อเหตุผลเดียวกันต้องแสดงในทั้งสองเมนู โดยไม่ต้องสร้างซ้ำสอง record "
+            "เมื่อไม่ต้องการให้เลือกเหตุผลเดิมอีก ให้ปิด ‘เปิดใช้งานเหตุผลนี้’ แทนการลบ เพื่อให้ Order และประวัติเดิม "
+            "ยังอ้างอิงรหัสและข้อความเดิมได้"
         ),
         readonly=True,
         rows=4,

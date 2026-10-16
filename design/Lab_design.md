@@ -2,7 +2,7 @@
 
 สถานะเอกสาร: implementation baseline จาก mockup ที่ผู้ใช้ตรวจทานแล้ว
 
-อัปเดต: 2026-09-21
+อัปเดต: 2026-10-02
 
 หน้าต้นแบบ: `../02-his/ui/lab-workbench-stock-pattern-mockup.html`
 
@@ -20,7 +20,7 @@
 - พื้นผิวต้องดูเป็นระบบโรงพยาบาล: แม่นยำ ไม่ตกแต่งเกินจำเป็น ไม่มี gradient ไม่มี glass effect และไม่มี animation รบกวน
 - Worklist ถูกกำหนดจาก organization/lab section ของผู้ใช้ที่ login; UI ไม่แสดงตัวเลือกห้อง LAB ให้ผู้ใช้เลือกเอง
 - Organization `M1000` ชื่อ `กลุ่มงานพยาธิวิทยาคลินิกและเทคนิคการแพทย์` route เข้า Section `MY` เท่านั้น; `M1005` ชื่อ `งานจุลชีววิทยา` route เข้า `MB` เท่านั้น. หน้า `รายการวันนี้`, การสร้าง LAB NO. และการปฏิเสธ Item ต้องใช้ scope เดียวกัน
-- `MY` เป็นห้องลงผล Manual ตาม workflow ปกติ 100%; หลังรับ specimen ผู้ใช้ลง/แก้ผลผ่าน Order-level result popup ได้โดยไม่ต้องรอผลจาก MLab. ข้อนี้ไม่เปลี่ยนสิทธิอ่านข้ามทุกห้องในโหมด `สืบค้นผลแลป`
+- `MY` เป็นห้องลงผล Manual ตาม workflow ปกติ 100%; หลังรับ specimen ปุ่มระดับ Order ใช้คำว่า `ลงผล` และเปิด Popup เฉพาะ MY โดยไม่ต้องรอผลจาก MLab. ห้องอื่นยังเปิด shared result popup เดิม. ข้อนี้ไม่เปลี่ยนสิทธิอ่านข้ามทุกห้องในโหมด `สืบค้นผลแลป`
 - CPOE Order ที่มี Item หลาย Section ต้องแสดงเป็นหนึ่งแถวต่อ `order_id + section_code`;
   ทุกแถวคง Order ID/No. เดิม แต่มีเฉพาะ Item ของ Section นั้น
 
@@ -220,7 +220,7 @@ EMR is available while an Order is active or resulted. It exposes full patient/d
 3. Lab No.
 4. รายการสั่งตรวจ
 5. specimen searchable combobox
-6. เวลาเก็บ specimen (date and time)
+6. เวลาเก็บ / การเก็บรักษา: วัน–เวลาเก็บ, วิธีเก็บรักษาก่อนนำส่ง และ Source of specimen อยู่ในคอลัมน์เดียวกัน โดย Source ต้องตัดด้วย ellipsis เมื่อยาวเกินคอลัมน์และแสดงข้อความเต็มผ่าน tooltip เมื่อชี้เมาส์
 7. เวลารับ specimen (per test)
 8. สถานะ
 9. ปฏิเสธ (reason)
@@ -242,6 +242,11 @@ Popup columns:
 8. Reference range
 
 One test can produce multiple result component rows. Long text wraps and increases row height; it must never be truncated into a single-line result cell.
+
+When the Agent returns non-empty `order_note`, both the standard LAB popup and the
+`MB`/MLab popup show it once between the header/patient context and the result list.
+Preserve line breaks, hide the block when empty, and keep it separate from each
+analyte's `items[].comment`. A locked Sensitive response must not expose the note.
 
 ## 6. Components
 
@@ -321,6 +326,15 @@ One test can produce multiple result component rows. Long text wraps and increas
 - Later corrections must require reason and create a new immutable revision; never overwrite prior values
 - Values, units, reference ranges and interpretation come from API/master/result contract—not mock HTML
 - Result-file upload is Order-only, remains below the table, and is available before specimen receipt; upload alone never changes LAB/CPOE status
+
+#### 6.4.1 MY/pathology manual-result popup
+
+- Scope is fail-closed to Section `MY`; every non-MY Order keeps the existing shared result popup and save actions.
+- Hierarchy is `Test` (render once) → ordered `Specimen` rows → nested `ตำแหน่ง / ผล` Sub rows. Quantity 3 of one CPOE Item is one Test heading with three Specimen groups, not three independent Test headings.
+- Each Specimen starts with the physician-selected site as a locked source snapshot. LAB may add more actual examination/culture sites below it.
+- Actual site entry is a searchable/creatable dropdown plus free text for side, subsite, or observed detail. Each Sub has its own result textarea and status.
+- Persist one Sub as one row in the existing canonical Result Item collection. Use optional MY metadata (`source_item_id`, `pathology_row_key`, specimen index/snapshots, ordered-site snapshots, actual-site code/name/detail, Sub index). Reuse the canonical Result Report parent; **do not create a separate MY result table or Form**.
+- The API accepts `save_pathology_results` only after specimen receipt and only when the resolved master Section is `MY`; cross-section lookup remains read-only.
 
 ### 6.5 Accessibility
 
@@ -432,7 +446,7 @@ The filter label remains as approved even though its internal `active` bucket in
 | `result_entry_mode` | Behavior |
 |---|---|
 | `machine` | Show `ดูผล` before receipt; after receipt, authorized UAT/downtime Manual entry is reached through the pencil while Agent/LIS remains the normal source |
-| `manual` | Show `ดูผล`; after specimen receipt the pencil can enter the Manual result and the Item stays `รับแล้ว/รอผล` until saved |
+| `manual` | Normally show `ดูผล`; Section `MY` alone shows `ลงผล` and opens its Test → Specimen → nested site/result popup after receipt. Other manual rooms keep the shared popup |
 | `fallback` | Show `ดูผล`; after receipt Manual entry is reached through the pencil and remains distinguishable from later LIS data |
 
 Snapshot on Order Item: `result_entry_mode`, `result_schema_id`, `unit_id`, `requires_verification`, master/version identity and routing context.

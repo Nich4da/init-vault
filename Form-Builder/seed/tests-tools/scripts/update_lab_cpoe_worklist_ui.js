@@ -9,6 +9,7 @@ const defaultOrderRequestReportId = '6a977ac8422c1ca959829f97'
 const resultReportFormId = '6a8d4334f851000f28e5025b'
 const defaultLabResultPdfReportId = '6aa8f5a8b92813319a86ea11'
 const defaultMicrobiologyResultPdfReportId = '6ab1c2d3e4f5061728394a5b'
+const defaultMicrobiologyRequestPdfReportId = '6ab4fa2200000000000f001a'
 /* ปุ่ม HN ระดับ Order — เปลี่ยนเป็น "ป้ายติดแฟ้ม (HN)" ตามคำสั่งผู้ใช้ 2026-09-04
    ("เอาเข้า lab ให้ด้วย") ต่อจากฝั่ง X-ray ที่ย้ายไปแล้วในวันเดียวกัน
    ของเดิม `5256d813009293b480d0a15c` (ป้ายติดแฟ้ม/VN) รับ `xparentx` = Visit ID
@@ -45,6 +46,14 @@ const microbiologyResultPdfReportId = String(
 ).trim()
 if (microbiologyResultPdfReportId && !/^[a-f0-9]{24}$/i.test(microbiologyResultPdfReportId)) {
   throw new Error('LAB_MICROBIOLOGY_RESULT_PDF_REPORT_ID must be the 24-character existing Report Factory ID')
+}
+const microbiologyRequestPdfReportId = String(
+  process.env.LAB_MICROBIOLOGY_REQUEST_PDF_REPORT_ID === undefined
+    ? defaultMicrobiologyRequestPdfReportId
+    : process.env.LAB_MICROBIOLOGY_REQUEST_PDF_REPORT_ID
+).trim()
+if (microbiologyRequestPdfReportId && !/^[a-f0-9]{24}$/i.test(microbiologyRequestPdfReportId)) {
+  throw new Error('LAB_MICROBIOLOGY_REQUEST_PDF_REPORT_ID must be the 24-character existing Report Factory ID')
 }
 const orderRequestPdfAction = orderRequestReportId
   ? `<template v-if="!isCancelledOrder(order)">
@@ -151,7 +160,7 @@ widget.content = `<div class="lab-cpoe">
   <section aria-label="ค้นหาและกรองรายการ">
     <div class="lab-toolbar">
       <el-input class="lab-search-control" :model-value="filters.hn" size="small" clearable
-        prefix-icon="Search" :placeholder="viewMode==='lookup'?'ระบุ HN…':(viewMode==='cbc_swap'?'ค้นหา HN ในรายการ CBC…':'ค้นหา HN / VN / LN / ชื่อผู้ป่วย…')"
+        prefix-icon="Search" :placeholder="viewMode==='lookup'?'ระบุ HN…':(viewMode==='cbc_swap'?'ค้นหา HN ในรายการ CBC…':'ค้นหา HN / VN / LN / Order No. / ชื่อผู้ป่วย…')"
         @input="setSearch" @clear="applyFilters" @keyup.enter="applyFilters" />
       <el-date-picker class="lab-date-control" :model-value="filters.dates" size="small" type="daterange"
         :disabled="scanMode && statusKey==='complete'"
@@ -254,11 +263,11 @@ widget.content = `<div class="lab-cpoe">
             <div class="lab-patient-demographic"><span v-if="text(order.patient&&order.patient.gender_text)" class="lab-inline-tag lab-gender-pill">{{ text(order.patient.gender_text) }}</span><span v-if="orderAgeText(order)">{{ orderAgeText(order) }}</span></div>
           </div>
           <div class="lab-context-tags">
-            <div class="lab-context-top"><span v-if="sourceRoom(order)" class="lab-inline-tag lab-meta-pill lab-source-pill">{{ sourceRoom(order) }}</span><span v-if="showCashPayment(order)" class="lab-inline-tag lab-meta-pill lab-payment-pill" :class="{'is-unpaid':!isFinancePassed(order)}">{{ isFinancePassed(order) ? 'ชำระเงินแล้ว' : 'ยังไม่ได้ชำระเงิน' }}</span><span v-if="coverageAbbrev(order)" class="lab-inline-tag lab-meta-pill lab-coverage-pill">{{ coverageAbbrev(order) }}</span></div>
+            <div class="lab-context-top"><span v-if="sourceRoom(order)" class="lab-inline-tag lab-meta-pill lab-source-pill">{{ sourceRoom(order) }}</span><span v-if="coverageAbbrev(order)" class="lab-inline-tag lab-meta-pill lab-coverage-pill">{{ coverageAbbrev(order) }}</span><span v-if="showPaymentStatus(order)" class="lab-inline-tag lab-meta-pill lab-payment-pill" :class="{'is-unpaid':!isFinancePassed(order)}">{{ isFinancePassed(order) ? 'ชำระเงินแล้ว' : 'ยังไม่ได้ชำระเงิน' }}</span></div>
             <span v-if="admissionNumber(order)" class="lab-admission-badge">AN : {{ admissionNumber(order) }}</span>
             <span class="lab-cbc-flag">🩸 CBC <span class="lab-mono">{{ text(cbcItem(order).item_code) }}</span> · {{ cbcItemCountText(order) }}</span>
           </div>
-          <div class="lab-metric lab-items-cell" data-label="รายการ"><span class="lab-field-value">{{ order.item_count||0 }} orders</span></div>
+          <div class="lab-metric lab-items-cell" data-label="รายการ"><span class="lab-field-value">{{ displayItemCount(order) }} orders</span></div>
           <div class="lab-metric lab-specimen-cell" data-label="Specimen"><span class="lab-field-value">{{ specimenCount(order) }} specimens</span></div>
           <div class="lab-cbc-section-cell"><span v-for="code in cbcSectionCodes(order)" :key="code" class="lab-section-code" :class="{'is-other':code!==text(cbcItem(order).section_code)}">{{ code }}</span></div>
           <div class="lab-metric lab-order-cell"><span class="lab-order-no-tag">{{ text(order.order_number) }}</span><span class="lab-field-value lab-time-value lab-mono"><span>{{ datePart(order.requested_at) }}</span><span>{{ timePart(order.requested_at) }}</span></span></div>
@@ -328,8 +337,8 @@ widget.content = `<div class="lab-cpoe">
           <div class="lab-context-tags">
             <div class="lab-context-top">
               <span v-if="sourceRoom(order)" class="lab-inline-tag lab-meta-pill lab-source-pill">{{ sourceRoom(order) }}</span>
-              <span v-if="showCashPayment(order)" class="lab-inline-tag lab-meta-pill lab-payment-pill" :class="{'is-unpaid':!isFinancePassed(order)}">{{ isFinancePassed(order) ? 'ชำระเงินแล้ว' : 'ยังไม่ได้ชำระเงิน' }}</span>
               <span v-if="coverageAbbrev(order)" class="lab-inline-tag lab-meta-pill lab-coverage-pill">{{ coverageAbbrev(order) }}</span>
+              <span v-if="showPaymentStatus(order)" class="lab-inline-tag lab-meta-pill lab-payment-pill" :class="{'is-unpaid':!isFinancePassed(order)}">{{ isFinancePassed(order) ? 'ชำระเงินแล้ว' : 'ยังไม่ได้ชำระเงิน' }}</span>
             </div>
             <span v-if="admissionNumber(order)" class="lab-admission-badge">AN : {{ admissionNumber(order) }}</span>
             <span v-if="hasPriorMedication(order)" class="lab-prior-medication">💊 {{ priorMedicationText(order) }}</span>
@@ -337,7 +346,7 @@ widget.content = `<div class="lab-cpoe">
 
           <div class="lab-metric lab-items-cell" data-label="รายการ">
             <el-tooltip placement="top" :disabled="!itemTooltipLines(order).length" popper-class="lab-cpoe-list-popper">
-              <span class="lab-field-value lab-hover-summary">{{ order.item_count || 0 }} orders</span>
+              <span class="lab-field-value lab-hover-summary">{{ displayItemCount(order) }} orders</span>
               <template #content>
                 <div v-for="(line,index) in itemTooltipLines(order)" :key="'item-'+index" class="lab-pop-line">{{ line }}</div>
               </template>
@@ -378,10 +387,11 @@ widget.content = `<div class="lab-cpoe">
             title="นำรายการเดิมกลับไปรอรับ specimen · ล้าง LAB NO. เดิมและสร้างใหม่เมื่อกดรับ"
             @click="retestOrder(order)">ตรวจใหม่</el-button>
           <span v-else class="lab-action-placeholder" aria-hidden="true"></span>
-          <el-button v-if="!isCancelledOrder(order)&&detailTab(order)==='results'" class="lab-plain-action" size="small"
+          <el-button v-if="!isCancelledOrder(order)&&detailTab(order)==='results'&&!isMicrobiologyOrder(order)" class="lab-plain-action" size="small"
             :disabled="!resultItems(order).length"
-            :aria-label="'ดูผลของ '+(text(order.patient&&order.patient.hn)||'Order นี้')"
-            @click="openOrderResults(order)">ดูผล</el-button>
+            :aria-label="(isManualPathologyOrder(order)?'ลงผล':'ดูผล')+'ของ '+(text(order.patient&&order.patient.hn)||'Order นี้')"
+            @click="openOrderResults(order)">{{ isManualPathologyOrder(order) ? 'ลงผล' : 'ดูผล' }}</el-button>
+          <span v-else-if="!isCancelledOrder(order)&&detailTab(order)==='results'" class="lab-action-placeholder" aria-hidden="true"></span>
           <template v-else>
             ${hnPrintAction}
             <span v-else class="lab-action-placeholder" aria-hidden="true"></span>
@@ -416,23 +426,46 @@ widget.content = `<div class="lab-cpoe">
           </div>
 
           <div v-if="detailTab(order)==='order'" class="lab-item-grid-wrap">
-            <div class="lab-item-grid lab-item-head">
+            <div class="lab-item-grid lab-item-head" :class="{'is-microbiology':isMicrobiologyOrder(order)}">
               <div class="lab-item-check-cell"><el-checkbox :model-value="allSelectableChecked(order)"
                 :indeterminate="someSelectableChecked(order)" :disabled="viewMode==='lookup'||!selectableItems(order).length"
                 aria-label="เลือกทุกรายการที่รอรับ" @change="toggleAll(order)" /></div>
               <div>ลำดับ</div><div>Lab no.</div><div>รายการสั่งตรวจ</div><div>specimen</div>
-              <div>เวลาเก็บ specimen</div><div>เวลารับ specimen</div><div>สถานะ</div><div>เหตุผล</div><div>ผู้ดำเนินการ</div><div>ดำเนินการ</div>
+              <div>เวลาเก็บ / การเก็บรักษา</div><div>เวลารับ specimen</div><div>สถานะ</div><div>เหตุผล</div><div>ผู้ดำเนินการ</div><div v-if="isMicrobiologyOrder(order)">ลงผล</div><div>ดำเนินการ</div>
             </div>
-            <div v-for="(item,index) in order.items" :key="item.item_id" class="lab-item-grid lab-item-row"
-              :class="{'is-selectable':viewMode==='today'&&isPendingReceiveItem(item),'is-selected':isSelected(item.item_id)}"
+            <div v-for="(item,index) in displayItems(order)" :key="displayItemKey(item,index)" class="lab-item-grid lab-item-row"
+              :class="{'is-selectable':viewMode==='today'&&isPendingReceiveItem(item),'is-selected':isSelected(item.item_id),'is-microbiology':isMicrobiologyOrder(order)}"
               @click="selectRow(order,item,$event)">
-              <div data-label="เลือก" class="lab-item-check-cell"><el-checkbox :model-value="isSelected(item.item_id)"
+              <div data-label="เลือก" class="lab-item-check-cell"><el-checkbox v-if="isFirstQuantityRow(item)||isManualPathologyItem(item)" :model-value="isSelected(item.item_id)"
                 :disabled="viewMode==='lookup'||!isPendingReceiveItem(item)" @change="toggleItem(order,item.item_id)" /></div>
               <div data-label="ลำดับ" class="lab-mono">{{ index+1 }}</div>
               <div data-label="Lab no." class="lab-mono">{{ text(item.lab_no) || '' }}</div>
-              <div data-label="รายการสั่งตรวจ" class="lab-test-name">{{ text(item.item_code) }} {{ text(item.item_name) }}</div>
+              <div data-label="รายการสั่งตรวจ" class="lab-test-name">
+                <div>{{ text(item.item_code) }} {{ text(item.item_name) }}</div>
+                <div v-if="requiresItemComment(item)" class="lab-order-condition" :class="{'is-missing':!itemCommentText(item)}">
+                  <span>ต้องระบุหมายเหตุ</span>
+                  <strong>{{ itemCommentText(item) || 'ไม่พบหมายเหตุจากใบสั่ง' }}</strong>
+                </div>
+              </div>
               <div data-label="specimen" class="lab-item-specimen-cell">
-                <el-input v-if="isImmunologyItem(item)" class="lab-specimen-select lab-specimen-locked"
+                <div v-if="usesSpecimenDetailPattern(item)" class="lab-multi-specimen-list">
+                  <div v-for="(row,rowIndex) in multiSpecimenRows(item)" :key="item.item_id+'-specimen-'+specimenRowOriginalIndex(item,rowIndex)" class="lab-multi-specimen-entry">
+                    <el-input v-if="isSpecimenLockedItem(item)" class="lab-specimen-select lab-specimen-locked"
+                      size="small" :model-value="specimenRowName(row)" disabled
+                      @mousedown.prevent @click.stop />
+                    <el-select v-else class="lab-specimen-select" :class="{'lab-specimen-changed':specimenRowChanged(item,row,specimenRowOriginalIndex(item,rowIndex))}"
+                      size="small" :model-value="specimenRowValue(item,row,specimenRowOriginalIndex(item,rowIndex))" placeholder="ค้นหา / เลือก specimen"
+                      filterable default-first-option :loading="!!specimenSaving[specimenSelectionKey(item,specimenRowOriginalIndex(item,rowIndex))]"
+                      :disabled="viewMode==='lookup'||!isPendingReceiveItem(item)||!!specimenSaving[specimenSelectionKey(item,specimenRowOriginalIndex(item,rowIndex))]"
+                      @change="setSpecimen(item,$event,specimenRowOriginalIndex(item,rowIndex))">
+                      <el-option v-for="option in specimenOptions(item)" :key="option.value"
+                        :label="option.label" :value="option.value" />
+                    </el-select>
+                    <span v-if="specimenRowSite(row)" class="lab-specimen-site">ตำแหน่ง&nbsp; {{ specimenRowSite(row) }}</span>
+                  </div>
+                  <div v-if="!multiSpecimenRows(item).length" class="lab-multi-specimen-empty">ไม่พบรายการ specimen จากใบสั่ง</div>
+                </div>
+                <el-input v-else-if="isSpecimenLockedItem(item)" class="lab-specimen-select lab-specimen-locked"
                   size="small" :model-value="specimenDisplay(item)" disabled
                   @mousedown.prevent @click.stop />
                 <el-select v-else class="lab-specimen-select" :class="{'lab-specimen-changed':specimenChanged(item)}"
@@ -444,15 +477,55 @@ widget.content = `<div class="lab-cpoe">
                     :label="option.label" :value="option.value" />
                 </el-select>
               </div>
-              <div data-label="เวลาเก็บ specimen" class="lab-mono lab-item-collected-time">
-                <span>{{ datePart(item.specimen && item.specimen.ordered && item.specimen.ordered.collected_at) }}</span>
-                <span>{{ timePart(item.specimen && item.specimen.ordered && item.specimen.ordered.collected_at) }}</span>
+              <div data-label="เวลาเก็บ / การเก็บรักษา" class="lab-item-collected-time">
+                <template v-if="usesSpecimenDetailPattern(item)">
+                  <div v-for="(row,rowIndex) in multiSpecimenRows(item)" :key="item.item_id+'-collection-'+specimenRowOriginalIndex(item,rowIndex)" class="lab-multi-collection-entry">
+                    <div class="lab-mono lab-collected-date-time">
+                      <span>{{ datePart(specimenRowCollectedAt(row)) }}</span>
+                      <span>{{ timePart(specimenRowCollectedAt(row)) }}</span>
+                    </div>
+                    <div v-if="specimenRowStorageText(row) || specimenRowTemperatureText(row)" class="lab-specimen-condition-line">
+                      <span v-if="specimenRowStorageText(row)" class="lab-specimen-storage" :class="specimenRowStorageClass(row)">{{ specimenRowStorageText(row) }}</span>
+                      <span v-if="specimenRowTemperatureText(row)" class="lab-specimen-temperature" :class="specimenRowStorageClass(row)">{{ specimenRowTemperatureText(row) }}</span>
+                    </div>
+                    <div class="lab-specimen-source-line">
+                      <span class="lab-specimen-source-label">Source:</span>
+                      <el-tooltip placement="top" :disabled="!specimenRowSourceText(row)"
+                        :content="specimenRowSourceText(row)" popper-class="lab-cpoe-source-popper">
+                        <span class="lab-specimen-source" :class="{'is-empty':!specimenRowSourceText(row)}">{{ specimenRowSourceText(row) || 'ไม่ระบุ' }}</span>
+                      </el-tooltip>
+                    </div>
+                  </div>
+                </template>
+                <template v-else>
+                  <div class="lab-mono lab-collected-date-time">
+                    <span>{{ datePart(item.specimen && item.specimen.ordered && item.specimen.ordered.collected_at) }}</span>
+                    <span>{{ timePart(item.specimen && item.specimen.ordered && item.specimen.ordered.collected_at) }}</span>
+                  </div>
+                  <span v-if="specimenStorageText(item)" class="lab-specimen-storage" :class="specimenStorageClass(item)">{{ specimenStorageText(item) }}</span>
+                  <div class="lab-specimen-source-line">
+                    <span class="lab-specimen-source-label">Source:</span>
+                    <el-tooltip placement="top" :disabled="!specimenSourceText(item)"
+                      :content="specimenSourceText(item)" popper-class="lab-cpoe-source-popper">
+                      <span class="lab-specimen-source" :class="{'is-empty':!specimenSourceText(item)}">{{ specimenSourceText(item) || 'ไม่ระบุ' }}</span>
+                    </el-tooltip>
+                  </div>
+                </template>
               </div>
-              <div data-label="เวลารับ specimen" class="lab-mono">{{ compactDateTime(item.received_at) }}</div>
+              <div data-label="เวลารับ specimen" class="lab-item-received-time">
+                <div class="lab-mono lab-received-date-time">
+                  <span>{{ datePart(item.received_at) || compactDateTime(item.received_at) }}</span>
+                  <span v-if="timePart(item.received_at)">{{ timePart(item.received_at) }}</span>
+                </div>
+              </div>
               <div data-label="สถานะ"><span class="lab-state-tag" :class="statusClass(item.current_status)">
                 {{ statusText(item.current_status) }}</span></div>
               <div data-label="เหตุผล">{{ actionReasonText(item) }}</div>
               <div data-label="ผู้ดำเนินการ" class="lab-item-actor-cell">{{ actionActorText(item) }}</div>
+              <div v-if="isMicrobiologyOrder(order)" data-label="ลงผล" class="lab-mb-order-result-entry" @click.stop>
+                <sd-report v-if="isMicrobiologyItem(item)&&microbiologyRequestPdfReady(item)" :report-list="microbiologyRequestPdfReportList" :params="microbiologyRequestPdfParams(item)" size="small" />
+                <el-button v-else size="small" plain disabled :title="microbiologyRequestPdfHint(item)">ลงผล</el-button>
+              </div>
               <div data-label="ดำเนินการ" class="lab-item-action-cell">
                 <el-button v-if="canRetestItem(item)" size="small" plain type="primary"
                   :loading="itemRetestDialog.loading&&itemRetestDialog.item===item"
@@ -461,9 +534,9 @@ widget.content = `<div class="lab-cpoe">
             </div>
           </div>
 
-          <div v-else class="lab-result-list" :class="{'is-lookup':viewMode==='lookup'}">
-            <div class="lab-result-list-head"><div>ลำดับ</div><div>รายการสั่งตรวจ</div><div>เวลาออกผล</div><div v-if="viewMode==='today'">การแสดงผล</div><div>สถานะ</div></div>
-            <div v-for="(item,index) in resultItems(order)" :key="'result-'+item.item_id" class="lab-result-list-row">
+          <div v-else class="lab-result-list" :class="{'is-lookup':viewMode==='lookup','is-microbiology':isMicrobiologyOrder(order)}">
+            <div class="lab-result-list-head"><div>ลำดับ</div><div>รายการสั่งตรวจ</div><div>เวลาออกผล</div><div v-if="viewMode==='today'">การแสดงผล</div><div>สถานะ</div><div>ผู้ออกผล</div><div>ผู้ยืนยัน</div><div v-if="isMicrobiologyOrder(order)">ดูผล</div></div>
+            <div v-for="(item,index) in resultDisplayItems(order)" :key="'result-'+displayItemKey(item,index)" class="lab-result-list-row">
               <div class="lab-mono">{{ index+1 }}</div>
               <div class="lab-test-name">{{ text(item.item_code) }} {{ text(item.item_name) }}</div>
               <div class="lab-mono">{{ resultTime(item) }}</div>
@@ -477,6 +550,11 @@ widget.content = `<div class="lab-cpoe">
                 </el-button>
               </div>
               <div class="lab-result-list-status"><span class="lab-critical-status" :class="resultStatusClass(item)">{{ resultStatusText(item) }}</span><span v-if="criticalValue(item)===true" class="lab-critical-status is-critical">ค่าวิกฤติ</span><span v-if="resultHiddenItem(item)" class="lab-result-hidden-tag">ปกปิด</span></div>
+              <div class="lab-result-actor" data-label="ผู้ออกผล" :title="resultReporterFor(item)">{{ resultReporterFor(item) }}</div>
+              <div class="lab-result-actor" data-label="ผู้ยืนยัน" :title="resultVerifierFor(item)">{{ resultVerifierFor(item) }}</div>
+              <div v-if="isMicrobiologyOrder(order)" class="lab-result-test-action" data-label="ดูผล">
+                <el-button size="small" type="primary" plain @click.stop="openResult(item,order,false)">ดูผล</el-button>
+              </div>
             </div>
             <div v-if="!resultItems(order).length" class="lab-empty">ไม่มีรายการผลตรวจใน Order นี้</div>
           </div>
@@ -593,6 +671,108 @@ widget.content = `<div class="lab-cpoe">
     </template>
   </el-dialog>
 
+  <el-dialog v-model="pathology.visible" class="lab-pathology-dialog" width="min(1320px,calc(100vw - 64px))"
+    :close-on-click-modal="false" :close-on-press-escape="!pathology.saving&&!pathology.finalizing"
+    :show-close="!pathology.saving&&!pathology.finalizing" destroy-on-close @closed="resetPathology">
+    <template #header>
+      <div class="lab-pathology-head">
+        <div>
+          <div class="lab-pathology-title"><strong>ลงผลตรวจห้องพยาธิ</strong><span>MY</span><span class="is-manual">Manual result</span>
+            <button v-if="viewMode==='today'" class="lab-result-edit-button" type="button"
+              :disabled="!pathologyCanEdit()" :aria-pressed="pathology.editing"
+              :aria-label="pathology.editing ? 'ยกเลิกการแก้ไขผลห้องพยาธิ' : 'แก้ไขผลห้องพยาธิ'"
+              :title="pathology.editing ? 'ยกเลิกการแก้ไข' : 'แก้ไขผลห้องพยาธิ'" @click="togglePathologyEdit">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5 5 5M4 20l4.2-1 10-10a2 2 0 0 0-5-5l-10 10L4 20Z"></path><path d="m12 6 5 5"></path></svg>
+            </button>
+            <span class="lab-result-mode" :class="{'is-editing':pathology.editing}">{{ pathology.editing ? 'โหมดแก้ไข' : 'โหมดดูอย่างเดียว' }}</span>
+          </div>
+          <small>รายการที่สั่งคูณจะแสดงแยกเป็นแต่ละ Item เหมือนแท็บ Order/ออกผล และเพิ่มตำแหน่งตรวจจริงได้ภายใน Item นั้น</small>
+        </div>
+        <span class="lab-result-report-slot">
+          <sd-report v-if="pathologyPdfReady()" class="lab-result-report-action" :report-list="labResultPdfReportList" :params="pathologyPdfParams()" size="small" />
+          <el-button v-else class="lab-result-report-action" size="small" plain disabled title="รายงานผลเปิดได้เมื่อมีผลที่บันทึกแล้ว"><span aria-hidden="true">📄</span> รายงานผล</el-button>
+        </span>
+      </div>
+    </template>
+    <div v-loading="pathology.loading" class="lab-pathology-body">
+      <section class="lab-pathology-patient-strip" aria-label="ข้อมูล Order ห้อง MY">
+        <div><span>ผู้ป่วย</span><strong>{{ patientName(pathology.order) || '-' }}</strong><small class="lab-mono">HN {{ text(pathology.order&&pathology.order.patient&&pathology.order.patient.hn)||'-' }}</small></div>
+        <div><span>LAB NO.</span><strong class="lab-mono">{{ pathologyLabNo() || '-' }}</strong></div>
+        <div><span>รายการตรวจ</span><strong>{{ pathologyTestSummary() }}</strong></div>
+        <div><span>จำนวนที่สั่ง</span><strong>{{ pathologySpecimenCount() }} items</strong></div>
+        <div><span>สถานะ</span><strong>{{ pathologyStatusText() }}</strong></div>
+      </section>
+
+      <div class="lab-pathology-summary">
+        <div><strong>รายการลงผล</strong><small>{{ pathologySpecimenCount() }} รายการตามคำสั่ง · {{ pathologySubCount() }} ตำแหน่งตรวจจริง</small></div>
+        <div class="lab-pathology-summary-actions"><span><b>{{ pathologyDoneCount() }}</b>/{{ pathologySubCount() }} ลงผลแล้ว</span><el-button v-if="pathologyRevisionCount()" plain type="primary" size="small" :disabled="pathology.editing" @click="togglePathologyRevisionHistory">{{ pathology.revisionHistoryOpen ? 'กลับผลล่าสุด' : 'ประวัติการแก้ไข '+pathologyRevisionCount()+' ชุด' }}</el-button></div>
+      </div>
+
+      <section v-if="pathology.revisionHistoryOpen&&selectedPathologyRevision()" class="lab-pathology-revisions" aria-label="ประวัติการแก้ไขผลห้อง MY">
+        <aside>
+          <strong>Revision จากการแก้ไขผล</strong>
+          <button v-for="revision in pathologyRevisions()" :key="revision.revision_id" type="button" :class="{'is-active':revision.revision_id===pathology.selectedRevisionId}" @click="selectPathologyRevision(revision)"><span>Revision {{ revision.no }} · {{ compactDateTime(revision.corrected_at)||'-' }}</span><small>{{ revision.corrected_by||'-' }} · {{ revision.changes.length }} รายการ</small></button>
+        </aside>
+        <div class="lab-pathology-revision-sheet">
+          <header><div><strong>Revision {{ selectedPathologyRevision().no }}</strong><small>{{ selectedPathologyRevision().reason||'ไม่ได้ระบุเหตุผลการแก้ไข' }}</small></div><span>{{ selectedPathologyRevision().changes.length }} รายการเปลี่ยนแปลง</span></header>
+          <div class="lab-pathology-revision-head"><span>รายการ / specimen</span><span>ตำแหน่งตรวจจริง</span><span>ค่าก่อนแก้</span><span>ค่าหลังแก้</span></div>
+          <div v-for="(change,index) in selectedPathologyRevision().changes" :key="change.event_id||index" class="lab-pathology-revision-row"><span><strong>{{ change.test_code }} {{ change.test_name }}</strong><small>{{ change.specimen_name||'-' }}</small></span><span>{{ change.actual_site_name||'-' }}</span><span>{{ change.before_result_value||'-' }}</span><strong>{{ change.after_result_value||'-' }}</strong></div>
+        </div>
+      </section>
+
+      <div v-else class="lab-pathology-table">
+        <div class="lab-pathology-table-head"><div>#</div><div>รายการตรวจ</div><div>Specimen ตามคำสั่ง</div><div>ตำแหน่งตรวจจริง / ผลตรวจ</div></div>
+        <article v-for="(entry,itemIndex) in pathologyItems()" :key="entry.group.item_id+'-specimen-'+entry.specimen.specimen_index" class="lab-pathology-item-row">
+          <div class="lab-pathology-item-index lab-mono">{{ String(itemIndex+1).padStart(2,'0') }}</div>
+          <aside class="lab-pathology-test-cell"><strong><span class="lab-mono">{{ entry.group.test_code||'-' }}</span> {{ entry.group.test_name||'-' }}</strong><small>Item ที่ {{ itemIndex+1 }} จากจำนวนที่สั่ง ×{{ entry.group.specimens.length }}</small></aside>
+          <aside class="lab-pathology-specimen-cell"><strong>{{ entry.specimen.specimen_name||'ไม่ระบุ specimen' }}</strong><span class="lab-pathology-ordered-site">ตำแหน่ง&nbsp; <b>{{ entry.specimen.ordered_site_name||'-' }}</b></span></aside>
+          <div class="lab-pathology-subresults">
+            <header class="lab-pathology-addbar"><el-button v-if="viewMode==='today'&&pathology.editing" text type="primary" size="small" :disabled="pathology.saving||pathology.finalizing" @click="addPathologySub(entry.group,entry.specimen)">＋ เพิ่มตำแหน่ง</el-button></header>
+            <div v-for="(row,rowIndex) in entry.specimen.rows" :key="row.pathology_row_key" class="lab-pathology-subrow">
+              <label class="lab-pathology-site-entry"><span>ตำแหน่งตรวจจริง <b>*</b></span>
+                      <el-select v-model="row.actual_site_name" filterable allow-create default-first-option clearable
+                        :loading="pathologySiteMasterLoading"
+                        :disabled="viewMode!=='today'||!pathology.editing||pathology.saving||pathology.finalizing" placeholder="เลือก / พิมพ์ตำแหน่ง"
+                        @change="pathologySiteChanged(entry.group,entry.specimen,row,$event)">
+                        <el-option v-for="option in pathologySiteOptions(entry.group,entry.specimen,row)" :key="option.value" :label="option.label" :value="option.value" />
+                      </el-select>
+                <small>{{ row.seeded_from_order ? 'ค่าเริ่มต้นจากตำแหน่งที่แพทย์เลือก' : 'ตำแหน่งเพิ่มเติมจากการตรวจจริงในห้องแล็บ' }}</small>
+              </label>
+              <label class="lab-pathology-result-entry"><span>ผลตรวจ</span>
+                <el-select v-model="row.result_choices" multiple filterable allow-create default-first-option clearable reserve-keyword
+                  :loading="pathologyResultMasterLoading"
+                  :disabled="viewMode!=='today'||!pathology.editing||pathology.saving||pathology.finalizing" placeholder="เลือกหรือพิมพ์ผลตรวจได้มากกว่า 1 ผล"
+                  @change="pathologyResultChanged(row,$event)">
+                  <el-option v-for="option in pathologyResultOptions(row)" :key="option.value" :label="option.label" :value="option.value" />
+                </el-select>
+                <small>เลือกได้หลายผลจาก LAB Manual Result Detail Settings หรือพิมพ์ผลอื่นแล้วกด Enter</small>
+              </label>
+              <div class="lab-pathology-remove"><el-button v-if="canRemovePathologySub(entry.specimen,row,rowIndex)" text type="danger" :disabled="pathology.saving||pathology.finalizing" aria-label="ลบตำแหน่งตรวจจริงที่เพิ่ม" title="ลบตำแหน่งที่เพิ่ม" @click="removePathologySub(entry.group,entry.specimen,row,rowIndex)">×</el-button></div>
+            </div>
+          </div>
+        </article>
+        <div v-if="!pathology.loading&&!pathology.groups.length" class="lab-empty">ไม่พบรายการห้อง MY สำหรับลงผล</div>
+      </div>
+
+      <label v-if="pathology.editing&&pathologyHasPersistedResults()" class="lab-correction-reason lab-pathology-correction-reason"><span>เหตุผลการแก้ไขผล <small>(ไม่บังคับ)</small></span><el-input v-model="pathology.correctionReason" type="textarea" :rows="2" maxlength="1000" show-word-limit placeholder="ระบุเหตุผล (ถ้ามี)" /><small>การกดบันทึกหนึ่งครั้งจะถูกเก็บเป็น Revision ชุดเดียว พร้อมค่าก่อน–หลัง ผู้แก้ไข และเวลา</small></label>
+
+      <section class="lab-result-attachments lab-pathology-attachments" aria-label="ไฟล์แนบผลตรวจห้อง MY">
+        <div class="lab-result-attachments-head"><div><strong>ไฟล์แนบผลตรวจ</strong><small>PDF / JPG / JPEG / PNG · ไม่เกิน 10 MB ต่อไฟล์ · สูงสุด 10 ไฟล์ · รวมไม่เกิน 50 MB</small></div><span>{{ pathology.attachments.length }}/10</span></div>
+        <div v-if="pathology.attachments.length" class="lab-result-file-list"><div v-for="fileItem in pathology.attachments" :key="attachmentKey(fileItem)" class="lab-result-file-row"><a :href="attachmentUrl(fileItem)" target="_blank" rel="noopener" class="lab-result-file"><span>เอกสาร</span><strong>{{ attachmentName(fileItem) }}</strong><small>{{ attachmentSize(fileItem) }}</small></a><el-button v-if="viewMode==='today'" class="lab-result-file-remove" type="danger" plain circle size="small" :aria-label="'นำไฟล์ '+attachmentName(fileItem)+' ออก'" title="นำไฟล์ออก" :disabled="!canRemovePathologyFile()" @click="requestRemovePathologyFile(fileItem)"><span aria-hidden="true">×</span></el-button></div></div>
+        <el-upload v-if="viewMode==='today'" class="lab-result-upload" :action="resultUploadAction()" :headers="resultUploadHeaders()" :data="resultUploadData()"
+          accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" :multiple="true" :show-file-list="false"
+          :disabled="!canUploadPathologyFile()" :before-upload="beforePathologyUpload" :on-progress="pathologyUploadProgress"
+          :on-success="pathologyUploadSuccess" :on-error="pathologyUploadError">
+          <el-button plain type="primary" :loading="pathology.uploading" :disabled="!canUploadPathologyFile()||pathology.attachments.length>=10">Import file</el-button>
+        </el-upload>
+        <small v-if="viewMode==='lookup'" class="lab-result-upload-note">โหมดสืบค้นอ่านไฟล์แนบได้อย่างเดียว</small>
+      </section>
+    </div>
+    <template #footer>
+      <div class="lab-pathology-footer"><span>{{ pathologyDoneCount() ? 'ลงผลแล้ว '+pathologyDoneCount()+' จาก '+pathologySubCount()+' ตำแหน่ง' : 'ยังไม่มีผลที่กรอก' }}</span><el-button :disabled="pathology.saving||pathology.finalizing||pathology.uploading" @click="pathology.visible=false">ปิด</el-button><el-button v-if="viewMode==='today'&&pathology.editing" type="primary" :loading="pathology.saving" :disabled="pathology.finalizing||pathology.uploading" @click="requestSavePathologyResults">บันทึกผล</el-button><el-button v-if="viewMode==='today'&&!pathology.editing&&!pathologyIsFinal()" type="success" :loading="pathology.finalizing" :disabled="pathology.saving||pathology.uploading||!canFinalizePathologyResults()" @click="requestFinalizePathologyResults">ยืนยันออกผลครบ</el-button></div>
+    </template>
+  </el-dialog>
+
   <el-dialog v-model="manual.visible" class="lab-result-dialog" :class="{'is-microbiology':isMicrobiologyResult()}"
     :width="isMicrobiologyResult()?'min(1180px,calc(100vw - 32px))':'min(1320px,calc(100vw - 48px))'"
     :close-on-click-modal="false" destroy-on-close @closed="resetManual">
@@ -602,6 +782,7 @@ widget.content = `<div class="lab-cpoe">
           <div class="lab-result-title-row">
             <strong>ผลตรวจทางห้องปฏิบัติการ</strong>
             <span v-if="isMicrobiologyResult()" class="lab-micro-source-tag">จุลชีววิทยา · MLab</span>
+            <span v-if="isMicrobiologyResult() && manualCriticalCount()" class="lab-micro-critical-tag">Critical {{ manualCriticalCount() }}</span>
             <button v-if="viewMode==='today'&&!isMicrobiologyResult()" class="lab-result-edit-button" type="button"
             :disabled="manual.loading || manual.saving || manual.finalizing || !canEditResult()" :aria-pressed="manual.editing"
             :aria-label="manual.editing ? 'ออกจากโหมดแก้ไขผลตรวจ' : 'แก้ไขผลตรวจทั้งหมด'"
@@ -628,11 +809,11 @@ widget.content = `<div class="lab-cpoe">
             <span v-if="resultReportedAt()"><b>ออกผลเมื่อ:</b> <strong class="lab-mono">{{ compactDateTime(resultReportedAt()) }}</strong></span>
           </div>
         </div>
-        <span v-if="manual.orderView" class="lab-result-report-slot">
+        <span v-if="manual.orderView || isMicrobiologyResult()" class="lab-result-report-slot">
           <sd-report v-if="labResultPdfReady()" class="lab-result-report-action"
             :report-list="activeLabResultPdfReportList()" :params="labResultPdfParams()" size="small" />
-          <el-button v-else class="lab-result-report-action" type="danger" size="small" disabled
-            :title="labResultPdfHint()">รายงานผล</el-button>
+          <el-button v-else class="lab-result-report-action" size="small" plain disabled
+            :title="labResultPdfHint()"><span aria-hidden="true">📄</span> รายงานผล</el-button>
         </span>
       </div>
     </template>
@@ -651,6 +832,16 @@ widget.content = `<div class="lab-cpoe">
           <div class="lab-micro-meta"><span>LAB NO.</span><strong>{{ manual.data.lab_no || '-' }}</strong></div>
           <div class="lab-micro-meta"><span>สิ่งส่งตรวจ</span><strong>{{ manual.data.specimen_name || '-' }}</strong></div>
           <div class="lab-micro-meta"><span>สถานะผล</span><strong><i class="lab-micro-status" :class="microOverallStatusClass()">{{ microOverallStatusText() }}</i></strong></div>
+        </section>
+
+        <section v-if="manualCriticalCount()" class="lab-result-critical-banner" role="alert" aria-label="แจ้งเตือนผลวิกฤติ">
+          <strong>Critical Result {{ manualCriticalCount() }} รายการ</strong>
+          <span>{{ microCriticalInterpretations() || 'Agent ระบุผลวิกฤติ' }}</span>
+        </section>
+
+        <section v-if="resultOrderNote()" class="lab-result-order-note" role="note" aria-label="หมายเหตุระดับ Order">
+          <span class="lab-result-order-note-icon" aria-hidden="true">i</span>
+          <div><strong>หมายเหตุระดับ Order</strong><p>{{ resultOrderNote() }}</p></div>
         </section>
 
         <section v-if="microUnmatchedFallback()" class="lab-micro-unmatched" aria-label="ข้อความต้นฉบับจาก MLab ที่ยังจับคู่รายการไม่ได้">
@@ -684,8 +875,8 @@ widget.content = `<div class="lab-cpoe">
                   <div class="lab-micro-wire-meta">
                     <div><span>รหัสผลที่บันทึกใน HIS</span><strong class="lab-mono">{{ result.test_code || group.test_code || '-' }}</strong></div>
                     <div><span>ชื่อ/รหัสที่มากับผล</span><strong>{{ result.test_name || '-' }}</strong></div>
-                    <div><span>สถานะผล</span><strong>{{ result.result_status || '-' }}</strong></div>
-                    <div><span>เวลาบันทึกผล</span><strong>{{ compactDateTime(result.entered_at) || '-' }}</strong></div>
+                    <div><span>สถานะผล</span><strong>{{ result.result_status || '-' }}</strong><i v-if="result.is_critical===true" class="lab-micro-critical-tag">Critical · {{ result.interpretation || '-' }}</i></div>
+                    <div><span>เวลารายงาน</span><strong>{{ compactDateTime(microResultReportedAt(result)) || '-' }}</strong></div>
                   </div>
                   <div class="lab-micro-wire-value"><strong>ผลจาก MLab</strong><pre>{{ result.result_value }}</pre></div>
                 </section>
@@ -699,6 +890,10 @@ widget.content = `<div class="lab-cpoe">
       </template>
 
       <template v-else>
+      <section v-if="resultOrderNote()" class="lab-result-order-note" role="note" aria-label="หมายเหตุระดับ Order">
+        <span class="lab-result-order-note-icon" aria-hidden="true">i</span>
+        <div><strong>หมายเหตุระดับ Order</strong><p>{{ resultOrderNote() }}</p></div>
+      </section>
       <div class="lab-result-profile-toolbar">
         <div><strong>รายการผลตรวจ</strong><small>{{ resultTestCount() }} รายการสั่งตรวจ · {{ resultRowsForDisplay().length }} ผลย่อย</small></div>
         <div class="lab-result-section-actions">
@@ -758,7 +953,7 @@ widget.content = `<div class="lab-cpoe">
       <label v-if="manual.editing && correctionReasonRequired()" class="lab-correction-reason"><span>เหตุผลการแก้ไขผล <small>(ไม่บังคับ)</small></span><el-input v-model="manual.correctionReason" type="textarea" :rows="2" maxlength="1000" show-word-limit placeholder="ระบุเหตุผล (ถ้ามี)" /><small>ระบบจะเก็บค่าก่อน–หลัง ผู้แก้ไข เวลา และเหตุผลเมื่อมีการระบุใน LAB Result Edit Log</small></label>
       <div v-if="manual.editing" class="lab-manual-hint">ผลเดิมที่แก้ไขจะเก็บประวัติแบบ append-only; ระบบไม่คำนวณ Critical ใหม่ และยังคงใช้ค่า Critical ที่ Agent/LIS ส่งมา</div>
       </template>
-      <section v-if="manual.orderView && !isMicrobiologyResult()" class="lab-result-attachments" aria-label="ไฟล์แนบผลตรวจระดับ Order">
+      <section v-if="manual.orderView || isMicrobiologyResult()" class="lab-result-attachments" aria-label="ไฟล์แนบผลตรวจระดับ Order">
         <div class="lab-result-attachments-head"><div><strong>ไฟล์แนบผลตรวจ</strong><small>PDF / JPG / JPEG / PNG · ไม่เกิน 10 MB ต่อไฟล์ · สูงสุด 10 ไฟล์ · รวมไม่เกิน 50 MB</small></div><span>{{ manual.attachments.length }}/10</span></div>
         <div v-if="manual.attachments.length" class="lab-result-file-list"><div v-for="fileItem in manual.attachments" :key="attachmentKey(fileItem)" class="lab-result-file-row"><a :href="attachmentUrl(fileItem)" target="_blank" rel="noopener" class="lab-result-file"><span>เอกสาร</span><strong>{{ attachmentName(fileItem) }}</strong><small>{{ attachmentSize(fileItem) }}</small></a><el-button v-if="viewMode==='today'" class="lab-result-file-remove" type="danger" plain circle size="small" :aria-label="'นำไฟล์ '+attachmentName(fileItem)+' ออก'" title="นำไฟล์ออก" :disabled="!canRemoveResultFile()" @click="requestRemoveResultFile(fileItem)"><span aria-hidden="true">×</span></el-button></div></div>
         <el-upload v-if="viewMode==='today'" class="lab-result-upload" :action="resultUploadAction()" :headers="resultUploadHeaders()" :data="resultUploadData()"
@@ -766,7 +961,7 @@ widget.content = `<div class="lab-cpoe">
           :disabled="!canUploadResultFile() || manual.saving"
           :before-upload="beforeResultUpload" :on-progress="resultUploadProgress"
           :on-success="resultUploadSuccess" :on-error="resultUploadError">
-          <el-button plain type="primary" :loading="manual.uploading" :disabled="!canUploadResultFile() || manual.attachments.length>=10">Upload file</el-button>
+          <el-button plain type="primary" :loading="manual.uploading" :disabled="!canUploadResultFile() || manual.attachments.length>=10">แนบไฟล์</el-button>
         </el-upload>
         <small v-if="viewMode==='today'&&!canUploadResultFile()" class="lab-result-upload-note">ไม่พบ LAB Item ใน Order สำหรับผูกไฟล์แนบ</small>
         <small v-if="viewMode==='lookup'" class="lab-result-upload-note">โหมดสืบค้นอ่านไฟล์แนบได้อย่างเดียว</small>
@@ -809,13 +1004,25 @@ const RECEIVE_PROCESS_ID='6a94f634422c1ca959829d70';
 const REJECT_PROCESS_ID='6a79ff46d5218a5b6a26bebc';
 const REJECTION_FORM_ID='6a7713fdcc7d0a8451130331';
 const CPOE_ORDER_APP_ID='6a995d064744260ea8c9498c';
+const LAB_SPECIMEN_FORM_ID='6a597657d448dfc9d33e2d3a';
+/* ใช้แหล่งตำแหน่งเดียวกับใบสั่ง CPOE: PE Items (code + name_th)
+   จำกัดการใช้งานไว้ที่ popup ลงผล Manual ของห้อง MY เท่านั้น */
+const PATHOLOGY_SITE_FORM_ID='6a473b6cd54977f38061dde0';
+const PATHOLOGY_SITE_PROVIDER={providerId:PATHOLOGY_SITE_FORM_ID,providerType:'FORM',params:{},options:{where:'\`enable\` = true',orderBy:[{column:'sort',sort:'ASC'}],limit:2000,page:1}};
+/* 🌼 ผลตรวจสำเร็จรูปใช้เฉพาะ popup Manual ของ section code MY เท่านั้น
+   UI เลือก/พิมพ์ได้หลายค่า แต่ยังรวมด้วยบรรทัดใหม่ลง result_value เป็น String เดิม
+   เพื่อไม่เปลี่ยน payload/API, correction history และ flow ของห้องอื่น */
+const PATHOLOGY_RESULT_DETAIL_FORM_ID='6acc8587481c196fbb332c60';
+const PATHOLOGY_RESULT_DETAIL_PROVIDER={providerId:PATHOLOGY_RESULT_DETAIL_FORM_ID,providerType:'FORM',params:{},options:{where:'\`is_active\` = true',orderBy:[{column:'display_order',sort:'ASC'},{column:'result_code',sort:'ASC'}],limit:2000,page:1}};
 const EMR_FORM_ID='6a96557e422c1ca959829eae';
 const RESULT_REPORT_FORM_ID='${resultReportFormId}';
 const ORDER_REQUEST_REPORT_ID='${orderRequestReportId}';
 const HN_ORDER_REPORT_ID='${hnOrderReportId}';
 const LAB_RESULT_PDF_REPORT_ID='${labResultPdfReportId}';
 const MICROBIOLOGY_RESULT_PDF_REPORT_ID='${microbiologyResultPdfReportId}';
+const MICROBIOLOGY_REQUEST_PDF_REPORT_ID='${microbiologyRequestPdfReportId}';
 const REJECT_REASON_LABELS={
+  'LABR-00017':'อื่น ๆ',
   specimen_incorrect:'สิ่งส่งตรวจไม่ถูกต้อง',
   specimen_insufficient:'ปริมาณสิ่งส่งตรวจไม่เพียงพอ',
   container_incorrect:'ภาชนะบรรจุไม่ถูกต้อง',
@@ -851,12 +1058,21 @@ s.expanded={};
 s.detailTabs={};
 s.selected={};
 s.specimenEdits={};
-s.specimenMasterOptions=[];
+s.specimenDropdownOptions=[];
+s.specimenMasterLoading=false;
+s.specimenMasterLoaded=false;
+s.pathologySiteMasterOptions=[];
+s.pathologySiteMasterLoading=false;
+s.pathologySiteMasterLoaded=false;
+s.pathologyResultMasterOptions=[];
+s.pathologyResultMasterLoading=false;
+s.pathologyResultMasterLoaded=false;
 s.allowedSectionCodes=[];
 s.orderRequestReportList=ORDER_REQUEST_REPORT_ID?[{reportId:ORDER_REQUEST_REPORT_ID,label:'ใบสั่ง',type:'pdf'}]:[];
 s.hnOrderReportList=HN_ORDER_REPORT_ID?[{reportId:HN_ORDER_REPORT_ID,label:'HN',type:'pdf'}]:[];
 s.labResultPdfReportList=LAB_RESULT_PDF_REPORT_ID?[{reportId:LAB_RESULT_PDF_REPORT_ID,label:'รายงานผล',type:'pdf'}]:[];
 s.microbiologyResultPdfReportList=MICROBIOLOGY_RESULT_PDF_REPORT_ID?[{reportId:MICROBIOLOGY_RESULT_PDF_REPORT_ID,label:'รายงานผล',type:'pdf'}]:[];
+s.microbiologyRequestPdfReportList=MICROBIOLOGY_REQUEST_PDF_REPORT_ID?[{reportId:MICROBIOLOGY_REQUEST_PDF_REPORT_ID,label:'ลงผล',type:'typst'}]:[];
 s.specimenSaving={};
 s.receiveLoading=false;
 s.agentDispatching={};
@@ -874,7 +1090,15 @@ s.cbcSwapCount=0;
 s.itemRetestReasonOptions=ITEM_RETEST_REASON_OPTIONS;
 s.itemRetestDialog={visible:false,loading:false,order:null,item:null,reasonCode:'',reasonDetail:''};
 s.visibilityDialog={visible:false,loading:false,targetHidden:true,reason:''};
+s.resultActorMeta={};
+s.resultActorLoading={};
 s.manual={visible:false,loading:false,saving:false,finalizing:false,uploading:false,editing:false,orderView:false,item:null,order:null,data:{results:[]},groups:[],editRows:[],editMap:{},attachments:[],pdfParentId:'',correctionReason:'',revisions:[],revisionHistoryOpen:false,selectedRevisionId:''};
+s.pathology={visible:false,loading:false,saving:false,finalizing:false,uploading:false,editing:false,order:null,groups:[],attachments:[],removedRows:[],revisions:[],revisionHistoryOpen:false,selectedRevisionId:'',correctionReason:'',reportedAt:'',reportedBy:'',verifiedBy:''};
+s.pathologyUploadReservations={};
+s.pathologyUploadPersistPending=0;
+s.pathologyUploadBatchSucceeded=0;
+s.pathologyUploadBatchFailed=0;
+s.pathologyUploadQueue=Promise.resolve();
 s.resultUploadReservations={};
 s.resultUploadPersistPending=0;
 s.resultUploadBatchSucceeded=0;
@@ -1001,7 +1225,7 @@ s.admissionNumber=o=>s.text(o&&o.visit&&o.visit.an);
 s.encounterClass=o=>s.admissionNumber(o)?'IPD':(s.text(o&&o.visit&&o.visit.encounter_class).toUpperCase()==='IPD'?'IPD':'OPD');
 s.isPaid=o=>{const f=o&&o.finance||{};const total=Number(f.total_amount||0);return total>0&&Number(f.paid_amount||0)>=total;};
 s.showPaid=o=>s.isPaid(o)&&!s.coverageAbbrev(o);
-s.showCashPayment=o=>{const f=o&&o.finance||{};return Number(f.total_amount||0)>0&&!s.coverageAbbrev(o);};
+s.showPaymentStatus=o=>{const f=o&&o.finance||{};return Number(f.total_amount||0)>0||!!s.coverageAbbrev(o);};
 s.isFinancePassed=o=>{
   const terminal=['cancelled','rejected','returned','reversed'];
   const passed=['ready','accepted','prepared','dispensed','processing','resulted','completed'];
@@ -1031,28 +1255,62 @@ s.orderAgeText=o=>{
 };
 s.diagnosisText=o=>s.text(o&&(o.diagnosis||(o.emr_context&&o.emr_context.diagnosis)));
 s.itemTooltipLines=o=>(o&&Array.isArray(o.items)?o.items:[]).map(i=>[s.text(i&&i.item_code),s.text(i&&i.item_name)].filter(Boolean).join(' ')).filter(Boolean);
-s.isImmunologyItem=i=>['IM','MI-OUT'].includes(s.text(i&&i.section&&i.section.code).trim().toUpperCase());
+s.sourceManagedSections=['IM','MI-OUT','MY','MB'];
+s.isSourceManagedItem=i=>i&&i.source_managed===true||s.sourceManagedSections.includes(s.text(i&&i.section&&i.section.code).trim().toUpperCase());
+s.isManualPathologyItem=i=>s.text(i&&(i.section&&i.section.code||i.section_code)).trim().toUpperCase()==='MY';
+s.isManualPathologyOrder=o=>{const items=s.resultItems(o);return !!items.length&&items.every(s.isManualPathologyItem);};
+s.specimenLockedSections=['IM','MI-OUT'];
+s.isSpecimenLockedItem=i=>s.specimenLockedSections.includes(s.text(i&&i.section&&i.section.code).trim().toUpperCase());
+s.requiresItemComment=i=>s.isSourceManagedItem(i)&&!!(i&&i.order_requirements&&i.order_requirements.req_commt);
+s.isMultiSpecimenItem=i=>s.isSourceManagedItem(i)&&!!(i&&i.order_requirements&&i.order_requirements.multi_specimen);
+s.itemCommentText=i=>s.text(i&&i.item_comment);
+s.itemQuantity=i=>{const value=Math.floor(Number(i&&i.quantity));return Number.isFinite(value)&&value>0?value:1;};
+s.displayItems=o=>{const out=[];(o&&Array.isArray(o.items)?o.items:[]).forEach(item=>{const ordered=item&&item.specimen&&item.specimen.ordered||{},rows=Array.isArray(ordered.rows)?ordered.rows:[],count=Math.max(s.itemQuantity(item),rows.length||0,1);if(count===1){out.push(item);return;}for(let index=0;index<count;index++)out.push({...item,_quantityView:true,_quantityIndex:index,_quantityCount:count,_quantitySpecimenRow:rows[index]||null});});return out;};
+s.displayItemCount=o=>s.displayItems(o).length;
+s.displayItemKey=(i,index)=>s.text(i&&i.item_id)+':'+(i&&i._quantityView===true?i._quantityIndex:index);
+s.isFirstQuantityRow=i=>!(i&&i._quantityView===true)||i._quantityIndex===0;
+s.specimenRowOriginalIndex=(i,rowIndex)=>i&&i._quantityView===true&&Number.isInteger(i._quantityIndex)?i._quantityIndex:rowIndex;
+s.specimenHasRows=i=>!!(i&&i.specimen&&i.specimen.ordered&&Array.isArray(i.specimen.ordered.rows)&&i.specimen.ordered.rows.length);
+s.multiSpecimenRows=i=>{
+  const ordered=i&&i.specimen&&i.specimen.ordered||{};
+  if(i&&i._quantityView===true)return i._quantitySpecimenRow?[i._quantitySpecimenRow]:[];
+  if(Array.isArray(ordered.rows)&&ordered.rows.length)return ordered.rows;
+  return ordered.source||ordered.source_code||ordered.site_name||ordered.site_code||ordered.collected_at?[ordered]:[];
+};
+s.specimenRowName=row=>s.text(row&&(row.spec_source||row.specimen_name||row.source||row.spec_source_code||row.specimen_code||row.source_code))||'ไม่ระบุ specimen';
+s.specimenRowSite=row=>s.text(row&&(row.spec_site_name||row.site_name||row.spec_site_code||row.site_code));
+s.hasSpecimenLocation=i=>s.multiSpecimenRows(i).some(row=>!!s.specimenRowSite(row));
+s.usesSpecimenDetailPattern=i=>s.isMultiSpecimenItem(i)||s.hasSpecimenLocation(i);
+s.specimenSelectionKey=(i,rowIndex)=>s.text(i&&i.item_id)+(s.specimenHasRows(i)&&Number.isInteger(rowIndex)?':'+rowIndex:'');
+s.specimenRowValue=(i,row,rowIndex)=>s.text(s.specimenEdits[s.specimenSelectionKey(i,rowIndex)])||s.text(row&&(row.spec_source_code||row.specimen_code||row.source_code))||s.specimenValue(i);
+s.specimenRowCollectedAt=row=>s.text(row&&(row.specimen_at||row.collected_at));
+s.specimenRowStorageCode=row=>{const raw=s.text(row&&(row.ship_storage||row.storage)).trim(),upper=raw.toUpperCase();if(upper==='IM'||raw==='ส่งทันที')return'IM';if(upper==='RF'||raw==='ตู้เย็น')return'RF';if(upper==='RT'||raw==='อุณหภูมิห้อง')return'RT';return raw;};
+s.specimenRowStorageText=row=>({IM:'ส่งทันที',RF:'ตู้เย็น',RT:'อุณหภูมิห้อง'})[s.specimenRowStorageCode(row)]||s.specimenRowStorageCode(row);
+s.specimenRowStorageClass=row=>({IM:'is-immediate',RF:'is-refrigerated',RT:'is-room-temperature'})[s.specimenRowStorageCode(row)]||'is-other';
+s.specimenRowTemperatureText=row=>{const value=s.text(row&&(row.ship_temp!=null?row.ship_temp:row.temperature)),upper=value.toUpperCase();return value&&!value.includes('°')&&!value.includes('℃')&&!upper.endsWith('C')?value+'°C':value;};
+s.specimenRowSourceText=row=>s.text(row&&(row.spec_note||row.note));
 s.specimenDisplay=i=>s.text(i&&i.specimen&&i.specimen.ordered&&i.specimen.ordered.source)||s.text(i&&i.specimen&&i.specimen.master&&i.specimen.master.name)||s.specimenValue(i)||'ไม่ระบุ specimen';
 s.specimenTooltipLines=o=>(o&&Array.isArray(o.items)?o.items:[]).map(i=>{const specimen=s.specimenDisplay(i),test=[s.text(i&&i.item_code),s.text(i&&i.item_name)].filter(Boolean).join(' ');return test?specimen+' · '+test:specimen;}).filter(Boolean);
-s.specimenCount=o=>(o&&Array.isArray(o.items)?o.items.length:0);
+s.specimenCount=o=>s.displayItemCount(o);
+s.specimenSourceText=i=>s.text(i&&i.specimen&&i.specimen.ordered&&i.specimen.ordered.note);
+s.specimenStorageCode=i=>{const raw=s.text(i&&i.specimen&&i.specimen.ordered&&i.specimen.ordered.storage).trim(),upper=raw.toUpperCase();if(upper==='IM'||raw==='ส่งทันที')return'IM';if(upper==='RF'||raw==='ตู้เย็น')return'RF';if(upper==='RT'||raw==='อุณหภูมิห้อง')return'RT';return raw;};
+s.specimenStorageText=i=>({IM:'ส่งทันที',RF:'ตู้เย็น',RT:'อุณหภูมิห้อง'})[s.specimenStorageCode(i)]||s.specimenStorageCode(i);
+s.specimenStorageClass=i=>({IM:'is-immediate',RF:'is-refrigerated',RT:'is-room-temperature'})[s.specimenStorageCode(i)]||'is-other';
 s.specimenBase=i=>s.text(i&&i.specimen&&i.specimen.ordered&&i.specimen.ordered.source_code)||s.text(i&&i.specimen&&i.specimen.master&&i.specimen.master.code)||s.text(i&&i.specimen&&i.specimen.ordered&&i.specimen.ordered.source);
 s.specimenValue=i=>s.text(s.specimenEdits[i&&i.item_id])||s.specimenBase(i);
 s.specimenExpected=i=>s.text(i&&i.specimen&&i.specimen.master&&i.specimen.master.code)||s.text(i&&i.specimen&&i.specimen.master&&i.specimen.master.name);
 s.specimenChanged=i=>{const expected=s.specimenExpected(i).trim().toUpperCase();const selected=s.specimenValue(i).trim().toUpperCase();return !!(expected&&selected&&expected!==selected);};
+s.specimenRowChanged=(i,row,rowIndex)=>{const expected=s.specimenExpected(i).trim().toUpperCase(),selected=s.specimenRowValue(i,row,rowIndex).trim().toUpperCase();return !!(expected&&selected&&expected!==selected);};
 s.specimenOptions=i=>{
-  const out=[];
-  const seen={};
-  const add=(value,label)=>{const key=s.text(value);if(!key||seen[key])return;seen[key]=true;out.push({value:key,label:s.text(label)||key});};
-  const spec=i&&i.specimen||{};
-  const choices=Array.isArray(s.specimenMasterOptions)&&s.specimenMasterOptions.length?s.specimenMasterOptions:(Array.isArray(spec.options)?spec.options:[]);
-  choices.forEach(x=>add(x&&x.value||x&&x.code||x,x&&x.label||x&&x.name||x));
-  add(spec.ordered&&spec.ordered.source,spec.ordered&&spec.ordered.source);
-  add(spec.master&&spec.master.code,spec.master&&spec.master.name||spec.master&&spec.master.code);
-  if(!out.length)add('ไม่ระบุ','ไม่ระบุ');
-  return out;
+  return (Array.isArray(s.specimenDropdownOptions)?s.specimenDropdownOptions:[])
+    .map(x=>({value:s.text(x&&x.code||x&&x.value||x),label:s.text(x&&x.name||x&&x.label||x&&x.code||x&&x.value||x)}));
 };
 s.isMycology=i=>s.text(i&&i.section&&i.section.code).toUpperCase()==='MY';
-s.isMicrobiologyItem=i=>s.text(i&&i.section&&i.section.code).toUpperCase()==='MB';
+s.isMicrobiologyItem=i=>s.text(i&&(i.section&&i.section.code||i.section_code)).toUpperCase()==='MB';
+s.isMicrobiologyOrder=o=>{if(s.reportSectionCode(o)==='MB')return true;const items=s.resultItems(o);return !!items.length&&items.every(s.isMicrobiologyItem);};
+s.microbiologyRequestPdfReady=i=>!!(MICROBIOLOGY_REQUEST_PDF_REPORT_ID&&s.isMicrobiologyItem(i)&&/^[a-f0-9]{24}$/i.test(s.text(i&&i.item_id)));
+s.microbiologyRequestPdfParams=i=>({item_id:s.text(i&&i.item_id)});
+s.microbiologyRequestPdfHint=i=>!MICROBIOLOGY_REQUEST_PDF_REPORT_ID?'ยังไม่ได้ตั้งค่า Report Factory สำหรับใบลงผล MLab':!s.isMicrobiologyItem(i)?'ใช้ใบลงผลนี้เฉพาะห้อง MLab':/^[a-f0-9]{24}$/i.test(s.text(i&&i.item_id))?'พร้อมเปิดใบลงผล MLab':'ไม่พบ Item ID สำหรับสร้างใบลงผล MLab';
 s.isMicrobiologyResult=()=>{
   const dataSection=s.text(s.manual&&s.manual.data&&s.manual.data.section_code).toUpperCase();
   if(dataSection)return dataSection==='MB';
@@ -1073,13 +1331,15 @@ s.canEditResult=()=>{
   return s.canEditManual(item)||(s.hasPersistedResult()&&s.resultEditStatuses.includes(status));
 };
 s.orderAttachmentItem=()=>{
-  if(!s.manual||!s.manual.orderView)return null;
+  if(!s.manual)return null;
+  if(!s.manual.orderView)return s.isMicrobiologyResult()&&s.manual.item&&s.canViewResult(s.manual.item)?s.manual.item:null;
   const items=s.manual.order&&Array.isArray(s.manual.order.items)?s.manual.order.items:[];
   return items.find(item=>item&&s.canViewResult(item))||null;
 };
 s.canUploadResultFile=()=>s.viewMode==='today'&&!!s.orderAttachmentItem();
 s.canViewResult=i=>['sent','accepted','prepared','ready','dispensed','resulted','completed'].includes(s.text(i&&i.current_status).toLowerCase());
 s.resultItems=o=>(o&&Array.isArray(o.items)?o.items:[]).filter(s.canViewResult);
+s.resultDisplayItems=o=>{const out=[];s.resultItems(o).forEach(item=>{if(s.isManualPathologyItem(item))out.push(...s.displayItems({items:[item]}));else out.push(item);});return out;};
 s.canOpenResultTab=o=>s.resultItems(o).length>0;
 s.resultedAt=i=>s.text(i&&(i.resulted_at||(i.result_summary&&i.result_summary.resulted_at)));
 s.latestResultAt=i=>s.text(i&&(i.latest_result_at||(i.result_summary&&i.result_summary.reported_at)))||s.resultedAt(i);
@@ -1097,11 +1357,11 @@ s.resultStatusText=i=>({partial:'ออกผลบางส่วน',complete:
 s.resultStatusClass=i=>s.resultStatusKey(i)==='pending'?'is-pending':'is-resulted';
 s.resultHiddenItem=i=>!!(i&&i.is_hide_result===true);
 s.detailTab=o=>s.detailTabs[s.orderRowKey(o)]||'order';
-s.setDetailTab=(o,tab)=>{const id=s.orderRowKey(o);if(!id)return;s.detailTabs={...s.detailTabs,[id]:tab};};
+s.setDetailTab=(o,tab)=>{const id=s.orderRowKey(o);if(!id)return;s.detailTabs={...s.detailTabs,[id]:tab};if(tab==='results')s.loadResultActorsForOrder(o);};
 s.resultSourceText=v=>{const source=s.text(v).toLowerCase();return source==='agent'||source==='lis'?'LIS':source==='manual'?'Manual':source||'';};
 s.resultDialogTitle=()=>s.manual.editing?'แก้ไขผลตรวจ':'ผลตรวจทางห้องปฏิบัติการ';
 s.editResultTitle=()=>s.canEditResult()?(s.manual.editing?'ออกจากโหมดแก้ไขผลตรวจ':s.manual.orderView?'กรอกหรือแก้ไขผลทุก Item ใน Order':'กรอกหรือแก้ไขผลตรวจ'):'รับ specimen ก่อนกรอกหรือแก้ไขผล';
-s.emptyResultData=()=>({reported_at:'',reported_by_source_id:'',reported_by_source_name:'',verified_at:'',verified_by_source_id:'',verified_by_source_name:'',results:[]});
+s.emptyResultData=()=>({reported_at:'',reported_by_source_id:'',reported_by_source_name:'',verified_at:'',verified_by_source_id:'',verified_by_source_name:'',order_note:'',results:[]});
 s.resultContext=(item,order)=>({
   item_id:s.text(item&&item.item_id),
   order_id:s.text(order&&order.order_id),
@@ -1124,6 +1384,7 @@ s.resultContext=(item,order)=>({
   verified_at:'',
   verified_by_source_id:'',
   verified_by_source_name:'',
+  order_note:'',
   is_hide_result:s.resultHiddenItem(item),
   result_visibility_action:s.text(item&&item.result_visibility_action),
   result_visibility_reason:s.text(item&&item.result_visibility_reason),
@@ -1198,17 +1459,23 @@ s.labResultPdfParentIds=()=>{
 s.labResultPdfParentId=()=>{const ids=s.labResultPdfParentIds();return ids.length===1?ids[0]:'';};
 s.activeLabResultPdfReportList=()=>s.isMicrobiologyResult()?s.microbiologyResultPdfReportList:s.labResultPdfReportList;
 s.labResultPdfReady=()=>{
-  if(!s.manual||!s.manual.orderView||s.manual.loading)return false;
-  if(s.isMicrobiologyResult())return !!MICROBIOLOGY_RESULT_PDF_REPORT_ID;
+  if(!s.manual||s.manual.loading)return false;
+  if(s.isMicrobiologyResult())return !!(MICROBIOLOGY_RESULT_PDF_REPORT_ID&&s.labResultPdfParentId());
+  if(!s.manual.orderView)return false;
   return !!(LAB_RESULT_PDF_REPORT_ID&&s.labResultPdfParentId());
 };
 s.labResultPdfParams=()=>{
-  if(s.isMicrobiologyResult())return {};
+  if(s.isMicrobiologyResult())return {xparentx:s.labResultPdfParentId()};
   return {xparentx:s.labResultPdfParentId()};
 };
 s.labResultPdfHint=()=>{
   if(s.manual&&s.manual.loading)return 'กำลังอ่านผลตรวจ';
-  if(s.isMicrobiologyResult())return MICROBIOLOGY_RESULT_PDF_REPORT_ID?'พร้อมสร้าง PDF รายงานผล Microbiology':'ยังไม่ได้ตั้งค่า Report Factory สำหรับ Microbiology';
+  if(s.isMicrobiologyResult()){
+    if(!MICROBIOLOGY_RESULT_PDF_REPORT_ID)return 'ยังไม่ได้ตั้งค่า Report Factory สำหรับ Microbiology';
+    const microIds=s.labResultPdfParentIds();
+    if(microIds.length>1)return 'MLab ส่งผลหลายชุด จึงไม่เลือก Result Report ให้เอง';
+    return microIds.length?'พร้อมสร้าง PDF รายงานผล Microbiology':'ยังไม่มี Result Report สำหรับสร้าง PDF Microbiology';
+  }
   const ids=s.labResultPdfParentIds();
   if(ids.length>1)return 'Order นี้มีผลหลายชุด จึงไม่พิมพ์เพียงบางชุดโดยอัตโนมัติ';
   return ids.length?'พร้อมสร้าง PDF รายงานผล':'ยังไม่มีชุดผลที่ Report Factory ใช้สร้าง PDF';
@@ -1245,20 +1512,25 @@ s.microGroupStatusClass=group=>'is-'+s.microGroupStatusValue(group);
 s.microOverallStatusValue=()=>{const groups=s.resultGroupsForDisplay();if(!groups.length||groups.every(group=>!s.microGroupHasResult(group)))return 'pending';return groups.every(group=>s.microGroupStatusValue(group)==='final')?'final':'partial';};
 s.microOverallStatusText=()=>({final:'Final',partial:'Partial result',pending:'รอผล'})[s.microOverallStatusValue()];
 s.microOverallStatusClass=()=>'is-'+s.microOverallStatusValue();
+s.microResultReportedAt=result=>s.text(result&&result.reported_at)||s.text(result&&result.entered_at);
 s.microGroupReportedAt=group=>{
-  const times=(Array.isArray(group&&group.results)?group.results:[]).map(result=>s.text(result&&result.entered_at)).filter(Boolean).sort();
+  const times=(Array.isArray(group&&group.results)?group.results:[]).map(s.microResultReportedAt).filter(Boolean).sort();
   return times[times.length-1]||s.text(group&&group.data&&group.data.reported_at);
 };
 s.microLatestReportedAt=()=>{const times=s.resultGroupsForDisplay().map(s.microGroupReportedAt).filter(Boolean).sort();return times[times.length-1]||s.text(s.manual&&s.manual.data&&s.manual.data.reported_at);};
+s.microCriticalInterpretations=()=>Array.from(new Set(s.resultRowsForDisplay().filter(result=>result&&result.is_critical===true).map(result=>s.text(result&&result.interpretation)).filter(Boolean))).join(', ');
 s.microResultCountText=()=>{const groups=s.resultGroupsForDisplay(),done=groups.filter(s.microGroupHasResult).length;return 'ทั้งหมด '+groups.length+' · มีผล '+done+' · รอผล '+Math.max(0,groups.length-done);};
 s.copyMicrobiologyResult=()=>{
   const fallback=s.microUnmatchedFallback()?s.microUnmatchedRawText():'';
+  const orderNote=s.resultOrderNote();
   if(fallback){
-    if(typeof field.copyClipboard==='function')field.copyClipboard(fallback);
+    const fallbackText=[orderNote?'หมายเหตุระดับ Order\\n'+orderNote:'',fallback].filter(Boolean).join('\\n\\n');
+    if(typeof field.copyClipboard==='function')field.copyClipboard(fallbackText);
     field.notify('คัดลอกผลที่แสดงแล้ว','success',2200);
     return;
   }
   const lines=[];
+  if(orderNote)lines.push('หมายเหตุระดับ Order',orderNote,'');
   s.resultGroupsForDisplay().forEach(group=>{
     lines.push([s.text(group&&group.test_code),s.text(group&&group.test_name),s.microGroupStatusText(group)].filter(Boolean).join(' · '));
     s.microResultRows(group).forEach(result=>{
@@ -1278,6 +1550,7 @@ s.resultTestCount=()=>s.resultGroupsForDisplay().length;
 s.resultReporterName=()=>{const names=[],seen={};s.resultRowsForDisplay().forEach(result=>{const name=s.text(result&&result.reported_by_source_name);if(name&&!seen[name]){seen[name]=true;names.push(name);}});const fallback=s.text(s.manual&&s.manual.data&&s.manual.data.reported_by_source_name);if(fallback&&!seen[fallback])names.push(fallback);return names.join(', ');};
 s.resultVerifierName=()=>{const names=[],seen={};s.resultRowsForDisplay().forEach(result=>{const name=s.text(result&&result.verified_by_source_name);if(name&&!seen[name]){seen[name]=true;names.push(name);}});const fallback=s.text(s.manual&&s.manual.data&&s.manual.data.verified_by_source_name);if(fallback&&!seen[fallback])names.push(fallback);return names.join(', ');};
 s.resultReportedAt=()=>{const times=s.resultRowsForDisplay().map(result=>s.text(result&&result.reported_at)||s.text(result&&result.entered_at)).filter(Boolean).sort();return times[times.length-1]||s.text(s.manual&&s.manual.data&&s.manual.data.reported_at);};
+s.resultOrderNote=()=>s.text(s.manual&&s.manual.data&&s.manual.data.order_note);
 s.hasRecordedResult=()=>s.resultRowsForDisplay().some(result=>(result&&result.redacted===true)||s.text(result&&result.result_value)!=='');
 s.hasPersistedResult=()=>s.resultRowsForDisplay().some(result=>/^[a-f0-9]{24}$/i.test(s.text(result&&result.result_item_id)));
 s.manualCriticalCount=()=>s.resultRowsForDisplay().filter(result=>result&&result.is_critical===true).length;
@@ -1440,7 +1713,7 @@ s.persistResultAttachments=async(attachments,change)=>{
   if(!(change&&change.silent))field.notify(operation==='remove'?'นำไฟล์ออกจากผลตรวจแล้ว':'อัปโหลดและบันทึกไฟล์แนบแล้ว','success',2800);
   return saved;
 };
-s.canRemoveResultFile=()=>s.viewMode==='today'&&s.manual.orderView===true&&!!s.orderAttachmentItem()&&!s.manual.uploading&&!s.manual.saving;
+s.canRemoveResultFile=()=>s.viewMode==='today'&&(s.manual.orderView===true||s.isMicrobiologyResult())&&!!s.orderAttachmentItem()&&!s.manual.uploading&&!s.manual.saving;
 s.removeResultFile=async fileItem=>{
   if(!s.canRemoveResultFile())return;
   const previous=s.manual.attachments.slice(),removedKey=s.attachmentKey(fileItem),next=previous.filter(item=>s.attachmentKey(item)!==removedKey);
@@ -1468,6 +1741,41 @@ s.resultUploadSuccess=async(result,fileItem)=>{
   return s.resultUploadQueue;
 };
 s.resultUploadError=(error,fileItem)=>{const key=s.resultUploadFileKey(fileItem),reservations={...(s.resultUploadReservations||{})};delete reservations[key];s.resultUploadReservations=reservations;s.resultUploadBatchFailed+=1;s.syncResultUploadState();field.notify((s.text(fileItem&&fileItem.name)||'ไฟล์แนบ')+': อัปโหลดไฟล์ไม่สำเร็จ','error',4500);s.finishResultUploadBatch();};
+s.pathologyAttachmentItem=()=>{const group=(s.pathology.groups||[]).find(entry=>entry&&entry.item);return group&&group.item||null;};
+s.canUploadPathologyFile=()=>s.viewMode==='today'&&!s.pathology.loading&&!s.pathology.uploading&&!s.pathology.saving&&!!s.pathologyAttachmentItem()&&s.pathology.attachments.length<10;
+s.pathologyUploadReservedBytes=()=>Object.values(s.pathologyUploadReservations||{}).reduce((sum,size)=>sum+Number(size||0),0);
+s.pathologyUploadBusy=()=>Object.keys(s.pathologyUploadReservations||{}).length>0||Number(s.pathologyUploadPersistPending||0)>0;
+s.syncPathologyUploadState=()=>{const uploading=s.pathologyUploadBusy();if(s.pathology.uploading!==uploading)s.pathology={...s.pathology,uploading:uploading};};
+s.finishPathologyUploadBatch=()=>{s.syncPathologyUploadState();if(s.pathologyUploadBusy())return;const succeeded=Number(s.pathologyUploadBatchSucceeded||0),failed=Number(s.pathologyUploadBatchFailed||0);if(succeeded)field.notify('Import และบันทึกไฟล์แนบแล้ว '+succeeded+' ไฟล์',failed?'warning':'success');s.pathologyUploadBatchSucceeded=0;s.pathologyUploadBatchFailed=0;};
+s.beforePathologyUpload=fileItem=>{
+  if(s.viewMode==='lookup'){field.notify('โหมดสืบค้นเป็นแบบอ่านอย่างเดียว','warning',3000);return false;}
+  const name=s.text(fileItem&&fileItem.name),ext=(name.split('.').pop()||'').toLowerCase(),mime=s.text(fileItem&&fileItem.type).toLowerCase(),allowedExt=['pdf','jpg','jpeg','png'],allowedMime=['application/pdf','image/jpeg','image/png'];
+  if(!allowedExt.includes(ext)||mime&&!allowedMime.includes(mime)){field.notify('รองรับเฉพาะ PDF, JPG, JPEG และ PNG','warning',4000);return false;}
+  const size=Number(fileItem&&fileItem.size||0);if(size>10*1024*1024){field.notify('ไฟล์ต้องมีขนาดไม่เกิน 10 MB','warning',4000);return false;}
+  const key=s.resultUploadFileKey(fileItem),reserved=s.pathologyUploadReservations||{},isReserved=Object.prototype.hasOwnProperty.call(reserved,key);
+  if(!isReserved&&s.pathology.attachments.length+Object.keys(reserved).length>=10){field.notify('แนบไฟล์ได้สูงสุด 10 ไฟล์ต่อผลตรวจ','warning',3500);return false;}
+  const total=s.pathology.attachments.reduce((sum,item)=>sum+Number(item&&item.size||0),0)+s.pathologyUploadReservedBytes()+(isReserved?0:size);
+  if(total>50*1024*1024){field.notify('ไฟล์แนบรวมต้องไม่เกิน 50 MB','warning',4000);return false;}
+  if(!isReserved)s.pathologyUploadReservations={...reserved,[key]:size};s.syncPathologyUploadState();return true;
+};
+s.pathologyUploadProgress=()=>s.syncPathologyUploadState();
+s.persistPathologyAttachments=async(attachments,change)=>{
+  if(s.viewMode==='lookup')throw new Error('โหมดสืบค้นเป็นแบบอ่านอย่างเดียว');
+  const item=change&&change.item||s.pathologyAttachmentItem();if(!item)throw new Error('ไม่พบ LAB Item ห้อง MY สำหรับผูกไฟล์แนบ');
+  const operation=change&&change.operation==='remove'?'remove':'replace';
+  const response=await s.processCall(PROCESS_ID,{action:'save_result_attachments',attachment_scope:'order',attachment_operation:operation,removed_attachment_key:operation==='remove'?s.text(change&&change.removedKey):'',organization_code:s.unitCode(),item_id:s.text(item.item_id),result_attachments:attachments});
+  if(!response||response.success===false)throw new Error(s.text(response&&response.message)||'บันทึกไฟล์แนบไม่สำเร็จ');
+  const saved=Array.isArray(response.data&&response.data.result_attachments)?response.data.result_attachments:attachments;
+  const visible=change&&change.preserveNewer?s.uniqueAttachments([...saved,...s.pathology.attachments]):saved;
+  s.pathology={...s.pathology,uploading:change&&change.keepUploading===true,attachments:visible};
+  if(!(change&&change.silent))field.notify(operation==='remove'?'นำไฟล์ออกจากผลตรวจแล้ว':'Import และบันทึกไฟล์แนบแล้ว','success',2800);
+  return saved;
+};
+s.canRemovePathologyFile=()=>s.viewMode==='today'&&!!s.pathologyAttachmentItem()&&!s.pathology.uploading&&!s.pathology.saving;
+s.removePathologyFile=async fileItem=>{if(!s.canRemovePathologyFile())return;const previous=s.pathology.attachments.slice(),removedKey=s.attachmentKey(fileItem),next=previous.filter(item=>s.attachmentKey(item)!==removedKey);if(!removedKey||next.length===previous.length){field.notify('ไม่พบไฟล์แนบที่ต้องการนำออก','warning',3200);return;}s.pathology={...s.pathology,uploading:true,attachments:next};try{await s.persistPathologyAttachments(next,{operation:'remove',removedKey:removedKey});}catch(error){s.pathology={...s.pathology,uploading:false,attachments:previous};field.notify(s.text(error&&error.message)||'นำไฟล์แนบออกไม่สำเร็จ','error',5000);}};
+s.requestRemovePathologyFile=fileItem=>{if(!s.canRemovePathologyFile())return;const run=()=>s.removePathologyFile(fileItem),message='ยืนยันนำไฟล์ “'+s.attachmentName(fileItem)+'” ออกจากผลตรวจ?\\nไฟล์จะไม่แสดงใน Popup ห้อง MY แต่จะไม่ลบไฟล์ต้นฉบับออกจากระบบจัดเก็บ';if(typeof field.confirm==='function')return field.confirm(message,run,'warning','ยืนยันนำไฟล์ออก');return run();};
+s.pathologyUploadSuccess=async(result,fileItem)=>{const reservationKey=s.resultUploadFileKey(fileItem),reservations={...(s.pathologyUploadReservations||{})};delete reservations[reservationKey];s.pathologyUploadReservations=reservations;const attachment=s.normalizeAttachment(result,fileItem),attachmentKey=s.attachmentKey(attachment),item=s.pathologyAttachmentItem();s.pathology={...s.pathology,attachments:s.uniqueAttachments([...s.pathology.attachments,attachment])};s.pathologyUploadPersistPending+=1;s.pathologyUploadBatchSucceeded+=1;s.syncPathologyUploadState();const task=s.pathologyUploadQueue.then(async()=>{try{await s.persistPathologyAttachments(s.uniqueAttachments(s.pathology.attachments),{operation:'replace',silent:true,keepUploading:true,preserveNewer:true,item:item});}catch(error){s.pathologyUploadBatchSucceeded=Math.max(0,s.pathologyUploadBatchSucceeded-1);s.pathologyUploadBatchFailed+=1;s.pathology={...s.pathology,attachments:s.pathology.attachments.filter(entry=>s.attachmentKey(entry)!==attachmentKey)};field.notify((s.attachmentName(attachment)||'ไฟล์แนบ')+': '+(s.text(error&&error.message)||'บันทึกไฟล์แนบไม่สำเร็จ'),'error',5000);}finally{s.pathologyUploadPersistPending=Math.max(0,s.pathologyUploadPersistPending-1);s.finishPathologyUploadBatch();}});s.pathologyUploadQueue=task.catch(()=>{});return s.pathologyUploadQueue;};
+s.pathologyUploadError=(error,fileItem)=>{const key=s.resultUploadFileKey(fileItem),reservations={...(s.pathologyUploadReservations||{})};delete reservations[key];s.pathologyUploadReservations=reservations;s.pathologyUploadBatchFailed+=1;s.syncPathologyUploadState();field.notify((s.text(fileItem&&fileItem.name)||'ไฟล์แนบ')+': Import ไฟล์ไม่สำเร็จ','error',4500);s.finishPathologyUploadBatch();};
 s.resultGroup=(item,order,data)=>{
   const fallback=s.resultContext(item,order),d=data&&typeof data==='object'?data:{};
   const merged={...fallback,...d,
@@ -1482,6 +1790,7 @@ s.resultGroup=(item,order,data)=>{
     specimen_name:s.text(d.specimen_name)||fallback.specimen_name,
     received_at:s.text(d.received_at)||fallback.received_at,
     reported_at:s.text(d.reported_at)||fallback.reported_at,
+    order_note:s.text(d.order_note),
     results:Array.isArray(d.results)?d.results:[]
   };
   const sensitiveLocked=d.sensitive_locked===true;
@@ -1535,13 +1844,220 @@ s.loadOrderResultGroup=async(item,order)=>{
     return s.resultGroup(item,order,p.data||{});
   }catch(error){return {...fallback,load_failed:true};}
 };
+s.resultActorNames=(data,key)=>{
+  const names=[],seen={};
+  const add=value=>{const name=s.personName(value);if(name&&!seen[name]){seen[name]=true;names.push(name);}};
+  (data&&Array.isArray(data.results)?data.results:[]).forEach(row=>add(row&&row[key]));
+  add(data&&data[key]);
+  return names.join(', ');
+};
+s.resultActorFallback=(item,key)=>{
+  const summary=item&&item.result_summary&&typeof item.result_summary==='object'?item.result_summary:{};
+  return s.personName(item&&item[key])||s.personName(summary&&summary[key]);
+};
+s.resultActorState=item=>s.resultActorMeta[s.text(item&&item.item_id)]||{};
+s.resultReporterFor=item=>s.text(s.resultActorState(item).reported_by_source_name)||s.resultActorFallback(item,'reported_by_source_name');
+s.resultVerifierFor=item=>s.text(s.resultActorState(item).verified_by_source_name)||s.resultActorFallback(item,'verified_by_source_name');
+s.resultActorIsLoading=item=>!!s.resultActorLoading[s.text(item&&item.item_id)];
+s.loadResultActorsForOrder=async order=>{
+  const pending=s.resultItems(order).filter(item=>{const id=s.text(item&&item.item_id),state=s.resultActorMeta[id];return id&&!(state&&state.loaded)&&!s.resultActorLoading[id];});
+  if(!pending.length)return;
+  const loading={...s.resultActorLoading};pending.forEach(item=>{loading[s.text(item.item_id)]=true;});s.resultActorLoading=loading;
+  await Promise.all(pending.map(async item=>{
+    const id=s.text(item.item_id),request={action:'get_manual_result',organization_code:s.unitCode(),item_id:id,result_actor_only:true};
+    if(s.viewMode==='lookup'){request.cross_section=true;request.lookup_mode='results';}
+    let next={loaded:false,reported_by_source_name:'',verified_by_source_name:''};
+    try{
+      const response=await s.processCall(PROCESS_ID,request);
+      if(response&&response.success!==false){const data=response.data||{};next={loaded:true,reported_by_source_name:s.resultActorNames(data,'reported_by_source_name'),verified_by_source_name:s.resultActorNames(data,'verified_by_source_name')};}
+    }catch(error){}
+    s.resultActorMeta={...s.resultActorMeta,[id]:next};
+    const remaining={...s.resultActorLoading};delete remaining[id];s.resultActorLoading=remaining;
+  }));
+};
+s.resetPathology=()=>{s.pathology={visible:false,loading:false,saving:false,finalizing:false,uploading:false,editing:false,order:null,groups:[],attachments:[],removedRows:[],revisions:[],revisionHistoryOpen:false,selectedRevisionId:'',correctionReason:'',reportedAt:'',reportedBy:'',verifiedBy:''};s.pathologyUploadReservations={};s.pathologyUploadPersistPending=0;s.pathologyUploadBatchSucceeded=0;s.pathologyUploadBatchFailed=0;s.pathologyUploadQueue=Promise.resolve();};
+s.pathologyOrderedSpecimens=item=>{
+  const ordered=item&&item.specimen&&item.specimen.ordered||{};
+  const sourceRows=Array.isArray(ordered.rows)?ordered.rows:[];
+  const count=Math.max(s.itemQuantity(item),sourceRows.length,1);
+  const rows=[];
+  for(let index=0;index<count;index++)rows.push(sourceRows[index]||((index===0&&!sourceRows.length)?ordered:{}));
+  return rows;
+};
+s.pathologyNewRowKey=(itemId,specimenIndex)=>s.text(itemId)+'|'+String(specimenIndex)+'|draft-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,9);
+s.pathologyResultValues=value=>s.text(value).split(/\\r?\\n/).map(entry=>s.text(entry).trim()).filter(Boolean);
+s.pathologyBuildGroup=(item,order,data)=>{
+  const d=data&&typeof data==='object'?data:{};
+  const persisted=Array.isArray(d.results)?d.results:[];
+  const specimens=s.pathologyOrderedSpecimens(item).map((ordered,specimenIndex)=>{
+    const specimenName=s.specimenRowName(ordered)||(specimenIndex===0?s.specimenDisplay(item):'ไม่ระบุ specimen');
+    const orderedSiteName=s.specimenRowSite(ordered);
+    const orderedSiteCode=s.text(ordered&&(ordered.spec_site_code||ordered.site_code));
+    const rows=persisted.filter(result=>{
+      const index=Number(result&&result.specimen_index);
+      if(Number.isInteger(index))return index===specimenIndex;
+      return specimenIndex===0;
+    }).map((result,rowIndex)=>({
+      result_item_id:s.text(result&&result.result_item_id),
+      pathology_row_key:s.text(result&&result.pathology_row_key)||s.pathologyNewRowKey(item&&item.item_id,specimenIndex),
+      specimen_index:specimenIndex,
+      pathology_sub_index:Number.isInteger(Number(result&&result.pathology_sub_index))?Number(result.pathology_sub_index):rowIndex,
+      actual_site_code:s.text(result&&result.actual_site_code),
+      actual_site_name:s.text(result&&result.actual_site_name)||s.text(result&&result.ordered_site_name_snapshot)||orderedSiteName,
+      actual_site_detail:s.text(result&&result.actual_site_detail),
+      result_value:s.text(result&&result.result_value),
+      result_choices:s.pathologyResultValues(result&&result.result_value),
+      result_status:s.text(result&&result.result_status).toLowerCase(),
+      correction_history:Array.isArray(result&&result.correction_history)?result.correction_history:[],
+      seeded_from_order:(Number.isInteger(Number(result&&result.pathology_sub_index))?Number(result.pathology_sub_index):rowIndex)===0
+    }));
+    if(!rows.length)rows.push({result_item_id:'',pathology_row_key:s.pathologyNewRowKey(item&&item.item_id,specimenIndex),specimen_index:specimenIndex,pathology_sub_index:0,actual_site_code:orderedSiteCode,actual_site_name:orderedSiteName,actual_site_detail:'',result_value:'',result_choices:[],result_status:'draft',seeded_from_order:true});
+    rows.sort((left,right)=>Number(left.pathology_sub_index||0)-Number(right.pathology_sub_index||0));
+    rows.forEach((row,index)=>{row.pathology_sub_index=index;});
+    return {specimen_index:specimenIndex,specimen_code:s.text(ordered&&(ordered.spec_source_code||ordered.specimen_code||ordered.source_code)),specimen_name:specimenName,ordered_site_code:orderedSiteCode,ordered_site_name:orderedSiteName,rows:rows};
+  });
+  return {item_id:s.text(item&&item.item_id),item:item,test_code:s.text(item&&item.item_code),test_name:s.text(item&&item.item_name),lab_no:s.text(item&&item.lab_no),result_report_id:s.text(d.result_report_id),correction_history_all:Array.isArray(d.pathology_correction_history)?d.pathology_correction_history:[],specimens:specimens};
+};
+s.pathologySiteOptions=(group,specimen,row)=>{
+  const seen={},options=[];
+  const add=(value,code)=>{value=s.text(value);if(!value||seen[value])return;seen[value]=true;options.push({value:value,label:value,code:s.text(code)});};
+  (Array.isArray(s.pathologySiteMasterOptions)?s.pathologySiteMasterOptions:[]).forEach(entry=>add(entry&&entry.value,entry&&entry.code));
+  add(specimen&&specimen.ordered_site_name,specimen&&specimen.ordered_site_code);
+  (group&&Array.isArray(group.specimens)?group.specimens:[]).forEach(entry=>add(entry&&entry.ordered_site_name,entry&&entry.ordered_site_code));
+  add(row&&row.actual_site_name,row&&row.actual_site_code);
+  return options;
+};
+s.pathologySiteChanged=(group,specimen,row,value)=>{
+  if(!row)return;
+  const name=s.text(value),master=(Array.isArray(s.pathologySiteMasterOptions)?s.pathologySiteMasterOptions:[]).find(option=>s.text(option&&option.value)===name);
+  const specimens=group&&Array.isArray(group.specimens)?group.specimens:[];
+  const ordered=(s.text(specimen&&specimen.ordered_site_name)===name?specimen:null)||specimens.find(entry=>s.text(entry&&entry.ordered_site_name)===name);
+  row.actual_site_code=master?s.text(master.code):(ordered?s.text(ordered.ordered_site_code):'');
+};
+s.pathologySiteMasterOption=entry=>({value:s.text(entry&&(entry.name_th||entry.name)),label:s.text(entry&&(entry.name_th||entry.name)),code:s.text(entry&&entry.code)});
+s.pathologyResultSections=entry=>{
+  const raw=entry&&entry.lab_sections;
+  if(Array.isArray(raw))return raw;
+  if(raw&&typeof raw==='object')return[raw];
+  if(typeof raw==='string'&&raw.trim()){
+    try{const parsed=JSON.parse(raw);return Array.isArray(parsed)?parsed:(parsed&&typeof parsed==='object'?[parsed]:[]);}catch(error){}
+  }
+  return[];
+};
+s.isPathologyResultMasterEntry=entry=>s.pathologyResultSections(entry).some(section=>s.text(section&&(section.code||section.value||section.section_code)||section).trim().toUpperCase()==='MY');
+s.pathologyResultMasterOption=entry=>({value:s.text(entry&&entry.detail_rs),label:s.text(entry&&entry.detail_rs),code:s.text(entry&&entry.result_code),display_order:Number(entry&&entry.display_order)||0});
+s.pathologyResultOptions=row=>{
+  const seen={},options=[];
+  const add=option=>{const value=s.text(option&&option.value);if(!value||seen[value])return;seen[value]=true;options.push({value:value,label:s.text(option&&option.label)||value,code:s.text(option&&option.code),display_order:Number(option&&option.display_order)||0});};
+  (Array.isArray(s.pathologyResultMasterOptions)?s.pathologyResultMasterOptions:[]).forEach(add);
+  (row&&Array.isArray(row.result_choices)?row.result_choices:s.pathologyResultValues(row&&row.result_value)).forEach(value=>add({value:value,label:value}));
+  return options;
+};
+s.pathologyResultChanged=(row,values)=>{
+  if(!row)return;
+  const seen={},choices=[];
+  (Array.isArray(values)?values:[]).forEach(value=>{value=s.text(value).trim();if(!value||seen[value])return;seen[value]=true;choices.push(value);});
+  row.result_choices=choices;
+  row.result_value=choices.join('\\n');
+};
+s.addPathologySub=(group,specimen)=>{if(s.viewMode!=='today'||!s.pathology.editing||!group||!specimen)return;const rows=Array.isArray(specimen.rows)?specimen.rows:[];rows.push({result_item_id:'',pathology_row_key:s.pathologyNewRowKey(group.item_id,specimen.specimen_index),specimen_index:specimen.specimen_index,pathology_sub_index:rows.length,actual_site_code:'',actual_site_name:'',actual_site_detail:'',result_value:'',result_choices:[],result_status:'draft',seeded_from_order:false});s.pathology={...s.pathology,groups:s.pathology.groups.slice()};};
+s.canRemovePathologySub=(specimen,row,rowIndex)=>s.viewMode==='today'&&s.pathology.editing&&!s.pathology.saving&&!s.pathology.finalizing&&!!specimen&&Array.isArray(specimen.rows)&&specimen.rows.length>1&&rowIndex>0&&!(row&&row.seeded_from_order);
+s.removePathologySub=(group,specimen,row,rowIndex)=>{if(!s.canRemovePathologySub(specimen,row,rowIndex))return;const removedRows=Array.isArray(s.pathology.removedRows)?s.pathology.removedRows.slice():[],resultItemId=s.text(row&&row.result_item_id);if(/^[a-f0-9]{24}$/i.test(resultItemId)&&!removedRows.some(entry=>s.text(entry&&entry.result_item_id)===resultItemId))removedRows.push({item_id:s.text(group&&group.item_id),result_item_id:resultItemId});specimen.rows.splice(rowIndex,1);specimen.rows.forEach((entry,index)=>{entry.pathology_sub_index=index;});s.pathology={...s.pathology,groups:s.pathology.groups.slice(),removedRows:removedRows};};
+s.pathologyRows=()=>s.pathology.groups.reduce((rows,group)=>rows.concat(group.specimens.reduce((all,specimen)=>all.concat(specimen.rows||[]),[])),[]);
+s.pathologyItems=()=>s.pathology.groups.reduce((items,group)=>items.concat((group.specimens||[]).map(specimen=>({group:group,specimen:specimen}))),[]);
+s.pathologySpecimenCount=()=>s.pathology.groups.reduce((count,group)=>count+group.specimens.length,0);
+s.pathologyTestSummary=()=>{const groups=s.pathology.groups||[];if(!groups.length)return'-';if(groups.length===1){const group=groups[0];return [s.text(group.test_code),s.text(group.test_name)].filter(Boolean).join(' ')+' × '+group.specimens.length;}return groups.length+' tests · '+s.pathologySpecimenCount()+' items';};
+s.pathologySubCount=()=>s.pathologyRows().length;
+s.pathologyDoneCount=()=>s.pathologyRows().filter(row=>s.text(row&&row.result_value)).length;
+s.pathologyLabNo=()=>s.pathology.groups.map(group=>s.text(group&&group.lab_no)).find(Boolean)||'';
+s.buildPathologyRevisions=groups=>{
+  const byId={},revisions=[];
+  (Array.isArray(groups)?groups:[]).forEach(group=>{
+    const historyEntries=[];
+    if(Array.isArray(group&&group.correction_history_all)&&group.correction_history_all.length)group.correction_history_all.forEach(history=>historyEntries.push({history:history,specimen:null,row:null}));
+    else (group.specimens||[]).forEach(specimen=>(specimen.rows||[]).forEach(row=>(row.correction_history||[]).forEach(history=>historyEntries.push({history:history,specimen:specimen,row:row}))));
+    historyEntries.forEach(entry=>{const history=entry.history||{},specimen=entry.specimen,row=entry.row;
+    const eventId=s.text(history&&history.event_id),groupId=s.text(history&&history.correction_group_id)||s.text(history&&history.request_id)||eventId.replace(/:[^:]+$/,'');
+    if(!groupId)return;
+    if(!byId[groupId]){byId[groupId]={revision_id:groupId,corrected_at:s.text(history&&history.corrected_at),corrected_by:s.text(history&&history.corrected_by_name)||s.text(history&&history.corrected_by_username),reason:s.text(history&&history.reason),changes:[]};revisions.push(byId[groupId]);}
+    const revision=byId[groupId];
+    if(s.text(history&&history.corrected_at)>revision.corrected_at)revision.corrected_at=s.text(history.corrected_at);
+    if(!revision.corrected_by)revision.corrected_by=s.text(history&&history.corrected_by_name)||s.text(history&&history.corrected_by_username);
+    if(!revision.reason)revision.reason=s.text(history&&history.reason);
+    revision.changes.push({event_id:eventId,test_code:s.text(history&&history.test_code)||s.text(group&&group.test_code),test_name:s.text(history&&history.test_name)||s.text(group&&group.test_name),specimen_name:s.text(history&&history.specimen_name)||s.text(specimen&&specimen.specimen_name),actual_site_name:s.text(history&&history.actual_site_name)||s.text(row&&row.actual_site_name),before_result_value:s.text(history&&history.before&&history.before.result_value),after_result_value:s.text(history&&history.after&&history.after.result_value),changed_fields:Array.isArray(history&&history.changed_fields)?history.changed_fields:[]});
+    });
+  });
+  revisions.sort((left,right)=>right.corrected_at.localeCompare(left.corrected_at)||right.revision_id.localeCompare(left.revision_id));
+  revisions.forEach((revision,index)=>{revision.no=revisions.length-index;});
+  return revisions;
+};
+s.pathologyRevisions=()=>Array.isArray(s.pathology&&s.pathology.revisions)?s.pathology.revisions:[];
+s.pathologyRevisionCount=()=>s.pathologyRevisions().length;
+s.selectedPathologyRevision=()=>s.pathologyRevisions().find(revision=>s.text(revision&&revision.revision_id)===s.text(s.pathology&&s.pathology.selectedRevisionId))||s.pathologyRevisions()[0]||null;
+s.selectPathologyRevision=revision=>{s.pathology={...s.pathology,selectedRevisionId:s.text(revision&&revision.revision_id)};};
+s.togglePathologyRevisionHistory=()=>{const revisions=s.pathologyRevisions();if(!revisions.length)return;const open=!s.pathology.revisionHistoryOpen;s.pathology={...s.pathology,revisionHistoryOpen:open,selectedRevisionId:open?s.text(revisions[0]&&revisions[0].revision_id):''};};
+s.pathologyRowFinal=row=>['final','corrected','completed'].includes(s.text(row&&row.result_status).toLowerCase());
+s.pathologyIsFinal=()=>{const rows=s.pathologyRows();return !!rows.length&&rows.every(row=>/^[a-f0-9]{24}$/i.test(s.text(row&&row.result_item_id))&&s.pathologyRowFinal(row));};
+s.pathologyHasPersistedResults=()=>s.pathologyRows().some(row=>/^[a-f0-9]{24}$/i.test(s.text(row&&row.result_item_id)));
+s.pathologyCanEdit=()=>s.viewMode==='today'&&!s.pathology.loading&&!s.pathology.saving&&!s.pathology.finalizing&&!s.pathology.uploading&&!!s.pathologyRows().length;
+s.startPathologyEdit=()=>{if(!s.pathologyCanEdit())return;s.pathology={...s.pathology,editing:true,revisionHistoryOpen:false,selectedRevisionId:'',correctionReason:''};};
+s.cancelPathologyEdit=()=>{const order=s.pathology.order;if(!order)return s.resetPathology();s.openPathologyResults(order);};
+s.togglePathologyEdit=()=>{if(s.pathology.editing)return s.cancelPathologyEdit();s.startPathologyEdit();};
+s.pathologyStatusText=()=>{const rows=s.pathologyRows();if(s.pathologyIsFinal())return'ออกผลครบ';if(rows.length&&rows.every(row=>s.text(row&&row.result_value)))return'รอยืนยันออกผลครบ';if(rows.some(row=>s.text(row&&row.result_value)))return'ออกผลบางส่วน';return'รับ specimen แล้ว';};
+s.pathologyReportIds=()=>Array.from(new Set(s.pathology.groups.map(group=>s.text(group&&group.result_report_id)).filter(id=>/^[a-f0-9]{24}$/i.test(id))));
+s.pathologyPdfReady=()=>!!(LAB_RESULT_PDF_REPORT_ID&&s.pathologyReportIds().length===1&&s.pathologyDoneCount());
+s.pathologyPdfParams=()=>({xparentx:s.pathologyReportIds()[0]||''});
+s.openPathologyResults=async order=>{
+  const items=s.resultItems(order).filter(s.isManualPathologyItem);
+  if(!items.length){field.notify('ไม่มีรายการห้อง MY สำหรับลงผล','warning',3000);return;}
+  s.loadPathologySiteMaster();
+  s.loadPathologyResultMaster();
+  s.pathology={visible:true,loading:true,saving:false,finalizing:false,uploading:false,editing:false,order:order,groups:[],attachments:[],removedRows:[],revisions:[],revisionHistoryOpen:false,selectedRevisionId:'',correctionReason:'',reportedAt:'',reportedBy:'',verifiedBy:''};
+  const loaded=await Promise.all(items.map(async item=>{
+    try{const request={action:'get_manual_result',organization_code:s.unitCode(),item_id:s.text(item.item_id)};if(s.viewMode==='lookup'){request.cross_section=true;request.lookup_mode='results';}const response=await s.processCall(PROCESS_ID,request);return response&&response.success!==false?{item:item,data:response.data||{},failed:false}:{item:item,data:{},failed:true};}
+    catch(error){return {item:item,data:{},failed:true};}
+  }));
+  if(!s.pathology.visible||s.pathology.order!==order)return;
+  const groups=loaded.map(entry=>s.pathologyBuildGroup(entry.item,order,entry.data));
+  groups.forEach(group=>{group.specimens.forEach(specimen=>specimen.rows.forEach((row,index)=>{row.pathology_sub_index=index;}));});
+  const meta=loaded.map(entry=>entry.data||{});
+  const attachments=s.uniqueAttachments(meta.reduce((files,data)=>files.concat(Array.isArray(data&&data.result_attachments)?data.result_attachments:[]),[]));
+  s.pathology={...s.pathology,loading:false,groups:groups,attachments:attachments,revisions:s.buildPathologyRevisions(groups),reportedAt:meta.map(data=>s.text(data.reported_at)).filter(Boolean).sort().pop()||'',reportedBy:Array.from(new Set(meta.map(data=>s.text(data.reported_by_source_name)).filter(Boolean))).join(', '),verifiedBy:Array.from(new Set(meta.map(data=>s.text(data.verified_by_source_name)).filter(Boolean))).join(', ')};
+  const failed=loaded.filter(entry=>entry.failed).length;if(failed)field.notify('มี '+failed+' รายการที่อ่านผลไม่สำเร็จ จึงเริ่มจากข้อมูลใบสั่ง','warning',4500);
+};
+s.pathologyPayload=()=>s.pathology.groups.reduce((all,group)=>all.concat(group.specimens.reduce((rows,specimen)=>rows.concat((specimen.rows||[]).map((row,index)=>({result_item_id:s.text(row&&row.result_item_id),pathology_row_key:s.text(row&&row.pathology_row_key),specimen_index:specimen.specimen_index,pathology_sub_index:index,actual_site_code:s.text(row&&row.actual_site_code),actual_site_name:s.text(row&&row.actual_site_name),actual_site_detail:s.text(row&&row.actual_site_detail),result_value:s.text(row&&row.result_value)}))),[]).map(row=>({...row,item_id:group.item_id}))),[]);
+s.savePathologyResults=async()=>{
+  if(s.viewMode!=='today'||!s.pathology.editing||s.pathology.saving)return;
+  const invalid=s.pathologyRows().find(row=>!s.text(row&&row.actual_site_name));
+  if(invalid){field.notify('กรุณาระบุตำแหน่งตรวจจริงให้ครบทุกตำแหน่ง','warning',3500);return;}
+  s.pathology={...s.pathology,saving:true};
+  try{
+    const requestId='my-pathology-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,9);
+    for(const group of s.pathology.groups){
+      const pathologyResults=s.pathologyPayload().filter(row=>row.item_id===group.item_id).map(({item_id,...row})=>row);
+      const removedResultItemIds=(Array.isArray(s.pathology.removedRows)?s.pathology.removedRows:[]).filter(row=>s.text(row&&row.item_id)===s.text(group.item_id)).map(row=>s.text(row&&row.result_item_id)).filter(Boolean);
+      const response=await s.processCall(PROCESS_ID,{action:'save_pathology_results',organization_code:s.unitCode(),item_id:group.item_id,pathology_results:pathologyResults,removed_pathology_result_item_ids:removedResultItemIds,correction_reason:s.text(s.pathology.correctionReason),request_id:requestId});
+      if(!response||response.success===false)throw new Error(s.text(response&&response.message)||'บันทึกผลห้อง MY ไม่สำเร็จ');
+    }
+    field.notify('บันทึกผลห้อง MY แล้ว '+s.pathologySubCount()+' ตำแหน่ง','success',3200);
+    await s.openPathologyResults(s.pathology.order);
+    s.refreshCounts();
+  }catch(error){s.pathology={...s.pathology,saving:false};field.notify(s.text(error&&error.message)||'บันทึกผลห้อง MY ไม่สำเร็จ','error',5000);}
+};
+s.requestSavePathologyResults=()=>{if(typeof field.confirm==='function')return field.confirm('ยืนยันบันทึกผลห้อง MY ตาม specimen และตำแหน่งตรวจจริงที่ระบุ?',()=>s.savePathologyResults(),'warning','ยืนยันการบันทึกผล');return s.savePathologyResults();};
+s.canFinalizePathologyResults=()=>{const rows=s.pathologyRows();return s.viewMode==='today'&&!s.pathology.loading&&!s.pathology.editing&&!s.pathologyIsFinal()&&!!rows.length&&rows.every(row=>/^[a-f0-9]{24}$/i.test(s.text(row&&row.result_item_id))&&!!s.text(row&&row.result_value));};
+s.finalizePathologyResults=async()=>{if(!s.canFinalizePathologyResults()||s.pathology.finalizing)return;const order=s.pathology.order,orderId=s.text(order&&order.order_id);if(!/^[a-f0-9]{24}$/i.test(orderId)){field.notify('ไม่พบ Order ID สำหรับยืนยันออกผลครบ','error',3500);return;}s.pathology={...s.pathology,finalizing:true};try{const response=await s.processCall(PROCESS_ID,{action:'finalize_manual_results',organization_code:s.unitCode(),order_id:orderId,section_code:'MY'});if(!response||response.success===false)throw new Error(s.text(response&&response.message)||'ยืนยันออกผลครบไม่สำเร็จ');const data=response.data||{},ids=Array.isArray(data.item_ids)?data.item_ids.map(s.text):[],idLookup={};ids.forEach(id=>{if(id)idLookup[id]=true;});(Array.isArray(order&&order.items)?order.items:[]).forEach(item=>{if(idLookup[s.text(item&&item.item_id)]){item.current_status='completed';item.work_status='completed';item.completed_at=s.text(data.completed_at)||item.completed_at;}});s.pathology.groups.forEach(group=>{if(idLookup[s.text(group&&group.item_id)])group.specimens.forEach(specimen=>specimen.rows.forEach(row=>{row.result_status='final';}));});s.pathology={...s.pathology,finalizing:false,editing:false,verifiedBy:s.text(data.verified_by_source_name)||s.pathology.verifiedBy};field.notify(s.text(response.message)||'ยืนยันออกผลครบแล้ว','success',3200);s.refreshWorklist();}catch(error){s.pathology={...s.pathology,finalizing:false};field.notify(s.text(error&&error.message)||'ยืนยันออกผลครบไม่สำเร็จ','error',5000);}};
+s.requestFinalizePathologyResults=()=>{if(!s.canFinalizePathologyResults())return;if(typeof field.confirm==='function')return field.confirm('ยืนยันออกผลครบทุก specimen และตำแหน่งตรวจจริงของห้อง MY?\\nหลังยืนยัน ระบบจะบันทึกผู้ยืนยันและเวลา Final',()=>s.finalizePathologyResults(),'warning','ยืนยันออกผลครบ');return s.finalizePathologyResults();};
 s.openOrderResults=async order=>{
+  if(s.isManualPathologyOrder(order))return s.openPathologyResults(order);
   const items=s.resultItems(order);
   if(!items.length){field.notify('ไม่มีรายการผลตรวจใน Order นี้','warning',3000);return;}
   const fallback=s.resultContext(items[0],order);
   s.manual={...s.manual,visible:true,loading:true,saving:false,finalizing:false,uploading:false,editing:false,orderView:true,item:null,order:order,data:fallback,groups:[],editRows:[],editMap:{},attachments:[],pdfParentId:'',correctionReason:'',revisions:[],revisionHistoryOpen:false,selectedRevisionId:''};
   const loadedGroups=await Promise.all(items.map(item=>s.loadOrderResultGroup(item,order)));
   if(!s.manual.visible||!s.manual.orderView||s.manual.order!==order)return;
+  const orderNotes=[],seenOrderNotes={};
+  loadedGroups.forEach(group=>{const note=s.text(group&&group.data&&group.data.order_note);if(note&&!seenOrderNotes[note]){seenOrderNotes[note]=true;orderNotes.push(note);}});
   const groups=s.groupOrderResultGroups(loadedGroups);
   const attachments=s.uniqueAttachments(loadedGroups.reduce((all,group)=>all.concat(Array.isArray(group&&group.attachments)?group.attachments:[]),[]));
   const firstData=groups[0]&&groups[0].data||fallback;
@@ -1555,7 +2071,7 @@ s.openOrderResults=async order=>{
       }
     }catch(error){}
   }
-  s.manual={...s.manual,loading:false,saving:false,data:{...fallback,...firstData,results:[]},groups:groups,attachments:attachments,pdfParentId:pdfParentId,revisions:s.mergeResultRevisions(loadedGroups),revisionHistoryOpen:false,selectedRevisionId:''};
+  s.manual={...s.manual,loading:false,saving:false,data:{...fallback,...firstData,order_note:orderNotes.join('\\n\\n'),results:[]},groups:groups,attachments:attachments,pdfParentId:pdfParentId,revisions:s.mergeResultRevisions(loadedGroups),revisionHistoryOpen:false,selectedRevisionId:''};
   s.initResultGroupOpen();
   const failed=loadedGroups.filter(group=>group.load_failed).length;
   if(failed)field.notify('มี '+failed+' รายการที่อ่านผลไม่สำเร็จ จึงแสดงข้อมูลจาก Order แทน','warning',4500);
@@ -1591,24 +2107,33 @@ s.saveResult=async()=>{
   }catch(error){s.manual={...s.manual,saving:false};field.notify(s.text(error&&error.message)||'บันทึกผลไม่สำเร็จ','error',4500);}
 };
 s.requestSaveResult=()=>{if(s.viewMode==='lookup'){field.notify('โหมดสืบค้นเป็นแบบอ่านอย่างเดียว','warning',3000);return;}if(typeof field.confirm==='function')return field.confirm('ยืนยันบันทึกผลที่แก้ไข?\\nผลเดิมจะถูกเก็บเป็นประวัติแบบ append-only โดยไม่เปลี่ยนค่า Critical ที่ Agent/LIS ส่งมา',()=>s.saveResult(),'warning','ยืนยันการบันทึกผลตรวจ');return s.saveResult();};
-s.setSpecimen=async(item,value)=>{
+s.setSpecimen=async(item,value,rowIndex)=>{
   if(s.viewMode==='lookup'){field.notify('โหมดสืบค้นเป็นแบบอ่านอย่างเดียว','warning',3000);return;}
-  if(s.isImmunologyItem(item)){field.notify('ห้องภูมิคุ้มกันล็อก specimen ตามรายการสั่งตรวจ จึงเปลี่ยนไม่ได้','warning',3000);return;}
+  if(s.isSpecimenLockedItem(item)){field.notify('ห้อง IM และ MI-OUT ล็อก specimen ตามรายการสั่งตรวจ จึงเปลี่ยนไม่ได้','warning',3000);return;}
   const id=s.text(item&&item.item_id);
   const code=s.text(value).toUpperCase();
-  if(!id||!code||s.specimenSaving[id])return;
-  s.specimenSaving={...s.specimenSaving,[id]:true};
-  const done=()=>{const next={...s.specimenSaving};delete next[id];s.specimenSaving=next;};
+  const hasRow=s.specimenHasRows(item)&&Number.isInteger(rowIndex);
+  const selectionKey=s.specimenSelectionKey(item,rowIndex);
+  if(!id||!code||s.specimenSaving[selectionKey])return;
+  s.specimenSaving={...s.specimenSaving,[selectionKey]:true};
+  const done=()=>{const next={...s.specimenSaving};delete next[selectionKey];s.specimenSaving=next;};
   try{
-    const p=await s.processCall(PROCESS_ID,{action:'update_specimen',organization_code:s.unitCode(),item_id:id,specimen_code:code});
+    const request={action:'update_specimen',organization_code:s.unitCode(),item_id:id,specimen_code:code};
+    if(hasRow)request.specimen_index=rowIndex;
+    const p=await s.processCall(PROCESS_ID,request);
     if(!p||p.success===false){done();field.notify((p&&p.message)||'บันทึก specimen ไม่สำเร็จ','error',3500);return;}
     const d=p.data||{};
-    s.specimenEdits={...s.specimenEdits,[id]:s.text(d.specimen_code)||code};
+    s.specimenEdits={...s.specimenEdits,[selectionKey]:s.text(d.specimen_code)||code};
     if(item.specimen){
       item.specimen.complete=true;
       item.specimen.ordered=item.specimen.ordered||{};
-      item.specimen.ordered.source=s.text(d.specimen_name)||code;
-      item.specimen.ordered.source_code=s.text(d.specimen_code)||code;
+      if(hasRow){
+        const row=item.specimen.ordered.rows[rowIndex];
+        if(row){row.spec_source=s.text(d.specimen_name)||code;row.spec_source_code=s.text(d.specimen_code)||code;}
+      }else{
+        item.specimen.ordered.source=s.text(d.specimen_name)||code;
+        item.specimen.ordered.source_code=s.text(d.specimen_code)||code;
+      }
     }
     done();field.notify('อัปเดต specimen แล้ว','success',2200);
   }catch(error){done();field.notify(s.text(error&&error.message)||'บันทึก specimen ไม่สำเร็จ','error',3500);}
@@ -1637,7 +2162,7 @@ s.orderStatus=o=>{
 s.isCancelledOrder=o=>['cancelled','rejected'].includes(s.orderStatus(o));
 s.orderStatusCounts=o=>{
   const items=o&&Array.isArray(o.items)?o.items:[];
-  const statuses=items.length?items.map(item=>s.text(item&&item.current_status).toLowerCase()):[s.orderStatus(o)];
+  const statusRows=items.length?items.map(item=>({status:s.text(item&&item.current_status).toLowerCase(),count:s.isManualPathologyItem(item)?s.displayItems({items:[item]}).length:1})):[{status:s.orderStatus(o),count:1}];
   const groups=[
     {key:'waiting',label:'รอรับ',statuses:s.statusMap.waiting,dot_class:'is-waiting'},
     {key:'received',label:'รับแล้ว',statuses:s.statusMap.received,dot_class:'is-received'},
@@ -1646,7 +2171,7 @@ s.orderStatusCounts=o=>{
     {key:'cancelled',label:'ยกเลิก / ปฏิเสธ',statuses:['cancelled','rejected','returned','reversed'],dot_class:'is-cancelled'}
   ];
   return groups.map(group=>{
-    const count=statuses.filter(status=>group.statuses.includes(status)).length;
+    const count=statusRows.reduce((total,row)=>total+(group.statuses.includes(row.status)?row.count:0),0);
     return {...group,count:count,title:group.label+' · '+count+' รายการ'};
   }).filter(group=>group.count>0);
 };
@@ -1730,10 +2255,19 @@ s.printHnLabel=o=>{
   }else{ok();}
 };
 
+s.isOrderNumberSearch=v=>/^R?\\d{10}$/i.test(s.text(v).trim());
 s.setSearch=v=>{s.filters={...s.filters,hn:v||''};};
 s.setDates=v=>{s.filters={...s.filters,dates:Array.isArray(v)?v:[]};};
 s.scanPatientHn=hn=>{
-  const code=s.text(hn).replace(/\\D/g,'');
+  const raw=s.text(hn).trim(),code=raw.replace(/\\D/g,'');
+  if(s.viewMode==='today'&&(s.isOrderNumberSearch(raw)||s.isOrderNumberSearch(code))){
+    const orderNumber=s.isOrderNumberSearch(raw)?raw.toUpperCase():code;
+    s.scanMode=false;s.scannedHn='';s.scanNoticePending=false;
+    s.todayFilters={hn:orderNumber,dates:[]};
+    s.filters={...s.filters,hn:orderNumber,dates:[]};
+    s.expanded={};s.detailTabs={};s.orders=[];s.page={...s.page,current:1,total:0};
+    s.loadOrders();s.refreshCounts();return;
+  }
   if(code.length<6){field.notify('HN จากการสแกนไม่ถูกต้อง','warning',3000);return;}
   s.scanMode=true;
   s.scannedHn=code;
@@ -1763,7 +2297,7 @@ s.clearScan=()=>{
 };
 s.orderRowKey=o=>{if(o&&typeof o==='object')return s.text(o.row_key)||[s.text(o.order_id),s.reportSectionCode(o)].filter(Boolean).join('|');return s.text(o);};
 s.isExpanded=o=>!!s.expanded[s.orderRowKey(o)];
-s.toggleOrder=o=>{const id=s.orderRowKey(o);if(!id)return;s.expanded={...s.expanded,[id]:!s.expanded[id]};s.selected={};};
+s.toggleOrder=o=>{const id=s.orderRowKey(o);if(!id)return;const opening=!s.expanded[id];s.expanded={...s.expanded,[id]:opening};s.selected={};if(opening&&s.detailTab(o)==='results')s.loadResultActorsForOrder(o);};
 /* Design parity 2026-09-11: กดพื้นที่ว่างทั้งแถว Order เพื่อเปิด/ย่อได้
    control ภายในแถวและการลากเลือกข้อความยังเป็นเจ้าของ interaction ของตัวเอง */
 s.toggleOrderFromRow=(order,event)=>{
@@ -1795,6 +2329,7 @@ s.someSelectableChecked=o=>{const items=s.selectableItems(o);const n=items.filte
 s.toggleAll=o=>{const next={...s.selected};const items=s.selectableItems(o);const off=items.length&&items.every(item=>next[item.item_id]);items.forEach(item=>{if(off)delete next[item.item_id];else next[item.item_id]=true;});s.selected=next;};
 s.selectedItems=order=>(order&&Array.isArray(order.items)?order.items:[]).filter(item=>s.isSelected(s.text(item&&item.item_id)));
 s.selectedCount=order=>s.selectedItems(order).length;
+s.receiveDisplayCount=items=>(Array.isArray(items)?items:[]).reduce((total,item)=>total+(s.isManualPathologyItem(item)?s.itemQuantity(item):1),0);
 s.canReceiveOrder=order=>{if(s.viewMode==='lookup')return false;const items=s.selectedItems(order);return items.length>0&&items.every(s.isFinanceReadyItem);};
 s.receiveDisabledReason=order=>{
   if(s.viewMode==='lookup')return 'โหมดสืบค้นเป็นแบบอ่านอย่างเดียว';
@@ -1879,6 +2414,7 @@ s.performReceive=async(order,items)=>{
   const successItems=[];
   const agentSentGroups=[];
   const agentQueuedGroups=[];
+  const manualGroups=[];
   const agentPendingItems=[];
   const failedItems=[];
   const groups=s.receiveGroups(items);
@@ -1896,18 +2432,24 @@ s.performReceive=async(order,items)=>{
         s.applyReceiveResult(item,itemData);
         successItems.push(item);
       });
-      if(receiveData.agent_dispatch_queued===true){agentQueuedGroups.push(group);s.dispatchAgentInBackground(group,receiveData);}
+      if(group.length&&group.every(s.isManualPathologyItem)){
+        manualGroups.push(group);
+        group.forEach(item=>{item.hl7_status='manual';item.agent_transport_state='manual';});
+      }
+      else if(receiveData.agent_dispatch_queued===true){agentQueuedGroups.push(group);s.dispatchAgentInBackground(group,receiveData);}
       else if(receiveData.agent_send_success===true)agentSentGroups.push(group);
       else group.forEach(item=>agentPendingItems.push({item,message:s.text(receiveData.agent_message)||s.text(p.message)||'ส่ง Agent ไม่สำเร็จ'}));
     }catch(error){group.forEach(item=>failedItems.push({item,message:s.text(error&&error.message)||'เรียก API รับ specimen ไม่สำเร็จ'}));}
   }
   s.receiveLoading=false;
+  const successCount=s.receiveDisplayCount(successItems);
+  const manualCount=manualGroups.reduce((total,group)=>total+s.receiveDisplayCount(group),0);
   if(failedItems.length||agentPendingItems.length){
     const receiveFailedNames=failedItems.map(row=>s.text(row.item&&row.item.item_code)||s.text(row.item&&row.item.item_name)).filter(Boolean);
     const agentPendingNames=agentPendingItems.map(row=>s.text(row.item&&row.item.item_code)||s.text(row.item&&row.item.item_name)).filter(Boolean);
     const agentDetail=agentPendingItems.length?s.text(agentPendingItems[0].message):'';
-    field.notify('รับ specimen สำเร็จ '+successItems.length+' รายการ'+(agentQueuedGroups.length?' · กำลังส่ง Agent เบื้องหลัง '+agentQueuedGroups.length+' ชุด ('+agentQueuedGroups.reduce((total,group)=>total+group.length,0)+' รายการ)':'')+(agentSentGroups.length?' · ส่ง Agent แล้ว '+agentSentGroups.length+' ชุด ('+agentSentGroups.reduce((total,group)=>total+group.length,0)+' รายการ)':'')+(agentPendingItems.length?' · ยังไม่พร้อมส่ง/รอตรวจสอบ '+agentPendingItems.length+' รายการ'+(agentPendingNames.length?' ('+agentPendingNames.join(', ')+')':''):'')+(failedItems.length?' · รับไม่สำเร็จ '+failedItems.length+' รายการ'+(receiveFailedNames.length?' ('+receiveFailedNames.join(', ')+')':''):'')+(agentDetail?' · '+agentDetail:''),'warning',7500);
-  }else field.notify('รับ specimen สำเร็จ '+successItems.length+' รายการ'+(agentQueuedGroups.length?' · กำลังส่ง Agent เบื้องหลัง '+agentQueuedGroups.length+' ชุด ('+agentQueuedGroups.reduce((total,group)=>total+group.length,0)+' รายการ)':'')+(agentSentGroups.length?' · ส่ง Agent แล้ว '+agentSentGroups.length+' ชุด ('+agentSentGroups.reduce((total,group)=>total+group.length,0)+' รายการ)':''),'success',4500);
+    field.notify('รับ specimen สำเร็จ '+successCount+' รายการ'+(manualCount?' · ห้อง MY ลงผล Manual ไม่ส่ง Agent '+manualCount+' รายการ':'')+(agentQueuedGroups.length?' · กำลังส่ง Agent เบื้องหลัง '+agentQueuedGroups.length+' ชุด ('+agentQueuedGroups.reduce((total,group)=>total+group.length,0)+' รายการ)':'')+(agentSentGroups.length?' · ส่ง Agent แล้ว '+agentSentGroups.length+' ชุด ('+agentSentGroups.reduce((total,group)=>total+group.length,0)+' รายการ)':'')+(agentPendingItems.length?' · ยังไม่พร้อมส่ง/รอตรวจสอบ '+agentPendingItems.length+' รายการ'+(agentPendingNames.length?' ('+agentPendingNames.join(', ')+')':''):'')+(failedItems.length?' · รับไม่สำเร็จ '+failedItems.length+' รายการ'+(receiveFailedNames.length?' ('+receiveFailedNames.join(', ')+')':''):'')+(agentDetail?' · '+agentDetail:''),'warning',7500);
+  }else field.notify('รับ specimen สำเร็จ '+successCount+' รายการ'+(manualCount?' · ห้อง MY ลงผล Manual ไม่ส่ง Agent '+manualCount+' รายการ':'')+(agentQueuedGroups.length?' · กำลังส่ง Agent เบื้องหลัง '+agentQueuedGroups.length+' ชุด ('+agentQueuedGroups.reduce((total,group)=>total+group.length,0)+' รายการ)':'')+(agentSentGroups.length?' · ส่ง Agent แล้ว '+agentSentGroups.length+' ชุด ('+agentSentGroups.reduce((total,group)=>total+group.length,0)+' รายการ)':''),'success',4500);
   if(successItems.length){s.loadOrders();s.refreshCounts();}
 };
 // Deployed initCraft v1.6 confirm is callback-based:
@@ -1921,8 +2463,12 @@ s.receiveSelected=order=>{
   if(typeof field.confirm==='function'){
     const labels=items.map(item=>s.text(item.item_code)||s.text(item.item_name)).filter(Boolean);
     const groupCount=s.receiveGroups(items).length;
+    const receiveCount=s.receiveDisplayCount(items);
+    const manualOnly=items.every(s.isManualPathologyItem);
     return field.confirm(
-      'ระบบจะสร้าง LAB NO. '+groupCount+' เลขตาม specimen ที่เลือก และรวมรายการ specimen เดียวกันส่ง Agent เป็นชุดเดียว\\nหน้าจอไม่ต้องรอ Agent ตอบ และหากติดต่อไม่ได้ Outbound จะยังอยู่ให้ตรวจสอบและส่งใหม่\\n\\nยืนยันรับ '+items.length+' รายการ'+(labels.length?'\\n'+labels.join(' · '):'')+'?',
+      manualOnly
+        ? 'รายการห้อง MY นี้ลงผลแบบ Manual และจะไม่ส่ง Agent\\nระบบจะรับ specimen ทั้ง '+receiveCount+' แถวภายใต้ CPOE Item เดียวกัน\\n\\nยืนยันรับ '+receiveCount+' รายการ'+(labels.length?'\\n'+labels.join(' · '):'')+'?'
+        : 'ระบบจะสร้าง LAB NO. '+groupCount+' เลขตาม specimen ที่เลือก และรวมรายการ specimen เดียวกันส่ง Agent เป็นชุดเดียว\\nหน้าจอไม่ต้องรอ Agent ตอบ และหากติดต่อไม่ได้ Outbound จะยังอยู่ให้ตรวจสอบและส่งใหม่\\n\\nยืนยันรับ '+receiveCount+' รายการ'+(labels.length?'\\n'+labels.join(' · '):'')+'?',
       ()=>s.performReceive(order,items),
       'warning',
       'รับ specimen'
@@ -2198,6 +2744,55 @@ s.openEmr=order=>{
 s.extractProcess=out=>{const c=[out,out&&out.data,out&&out.data&&out.data.data,out&&out.reply&&out.reply.data];for(let i=0;i<c.length;i++){const x=c[i];if(x&&typeof x==='object'&&(typeof x.success==='boolean'||(x.data&&Array.isArray(x.data.orders))))return x;}return out||{};};
 s.extractPayload=out=>{const p=s.extractProcess(out);const c=[p&&p.data,p,out&&out.data&&out.data.data,out&&out.data];for(let i=0;i<c.length;i++){if(c[i]&&Array.isArray(c[i].orders))return c[i];}return null;};
 s.api=()=>field.globalUserState||((field.getFormRef&&field.getFormRef())||{}).userState;
+s.extractFormRows=out=>{const c=[out,out&&out.data,out&&out.data&&out.data.data,out&&out.reply&&out.reply.data];for(let i=0;i<c.length;i++)if(Array.isArray(c[i]))return c[i];return[];};
+s.loadSpecimenMaster=()=>{
+  if(s.specimenMasterLoading||s.specimenMasterLoaded)return;
+  const api=s.api();
+  if(!api||typeof api.crudGetAll!=='function')return;
+  s.specimenMasterLoading=true;
+  api.crudGetAll(
+    {sdProvider:{providerId:LAB_SPECIMEN_FORM_ID,providerType:'FORM',params:{},options:{limit:2000,page:1}},totalEnable:false},
+    out=>{s.specimenDropdownOptions=s.extractFormRows(out);s.specimenMasterLoading=false;s.specimenMasterLoaded=true;},
+    ()=>{s.specimenDropdownOptions=[];s.specimenMasterLoading=false;}
+  );
+};
+s.loadPathologySiteMaster=()=>{
+  if(s.pathologySiteMasterLoading||s.pathologySiteMasterLoaded)return;
+  const api=s.api();
+  if(!api||typeof api.crudGetAll!=='function')return;
+  s.pathologySiteMasterLoading=true;
+  api.crudGetAll(
+    {sdProvider:PATHOLOGY_SITE_PROVIDER,totalEnable:false},
+    out=>{
+      s.pathologySiteMasterOptions=s.extractFormRows(out)
+        .map(s.pathologySiteMasterOption)
+        .filter(option=>option.value);
+      s.pathologySiteMasterLoading=false;
+      s.pathologySiteMasterLoaded=true;
+    },
+    ()=>{s.pathologySiteMasterOptions=[];s.pathologySiteMasterLoading=false;field.notify('โหลดรายการตำแหน่งเดียวกับใบสั่งไม่สำเร็จ','warning',4000);}
+  );
+};
+s.loadPathologyResultMaster=()=>{
+  if(s.pathologyResultMasterLoading||s.pathologyResultMasterLoaded)return;
+  const api=s.api();
+  if(!api||typeof api.crudGetAll!=='function')return;
+  s.pathologyResultMasterLoading=true;
+  api.crudGetAll(
+    {sdProvider:PATHOLOGY_RESULT_DETAIL_PROVIDER,totalEnable:false},
+    out=>{
+      const seen={};
+      s.pathologyResultMasterOptions=s.extractFormRows(out)
+        .filter(entry=>entry&&entry.is_active!==false&&s.isPathologyResultMasterEntry(entry))
+        .map(s.pathologyResultMasterOption)
+        .filter(option=>{if(!option.value||seen[option.value])return false;seen[option.value]=true;return true;})
+        .sort((left,right)=>left.display_order-right.display_order||left.code.localeCompare(right.code)||left.label.localeCompare(right.label));
+      s.pathologyResultMasterLoading=false;
+      s.pathologyResultMasterLoaded=true;
+    },
+    ()=>{s.pathologyResultMasterOptions=[];s.pathologyResultMasterLoading=false;field.notify('โหลดรายการผลตรวจสำเร็จรูปของห้อง MY ไม่สำเร็จ แต่ยังพิมพ์ผลแบบ free text ได้','warning',4000);}
+  );
+};
 s.processCall=(id,params)=>new Promise((resolve,reject)=>{
   const api=s.api();
   if(!api||typeof api.runProcess!=='function'){reject(new Error('ไม่พบ API Process connector'));return;}
@@ -2233,8 +2828,8 @@ s.loadReasonOptions=async(reasonType,sectionCode)=>{
 s.params=(statuses,limit,page,lookupModeOverride)=>{
   const scopedStatuses=Array.isArray(statuses)?statuses:[];
   const p={statuses:scopedStatuses,page:page||s.page.current,limit:limit||s.page.size,organization_code:s.unitCode()};
-  const hn=s.scanMode?s.scannedHn:s.text(s.filters.hn);
-  if(hn)p.hn=hn;
+  const search=s.scanMode?s.scannedHn:s.text(s.filters.hn);
+  if(search){if(s.scanMode||s.viewMode==='lookup'||s.viewMode==='cbc_swap')p.hn=search;else p.query=search;}
   if(s.viewMode==='cbc_swap'){
     p.action='list_cbc_swap';
     if(s.filters.dates&&s.filters.dates.length===2){p.date_from=s.filters.dates[0];p.date_to=s.filters.dates[1];}
@@ -2244,21 +2839,21 @@ s.params=(statuses,limit,page,lookupModeOverride)=>{
     p.cross_section=true;
     p.lookup_mode=lookupModeOverride||s.lookupMode;
     if(s.filters.dates&&s.filters.dates.length===2){p.date_from=s.filters.dates[0];p.date_to=s.filters.dates[1];}
-    else if(hn)p.all_dates=true;
+    else if(search)p.all_dates=true;
     return p;
   }
   const allCompletedHistory=s.scanMode&&scopedStatuses.length===1&&scopedStatuses[0]==='completed';
   if(allCompletedHistory)p.all_dates=true;
-  if(!allCompletedHistory&&s.filters.dates&&s.filters.dates.length===2){p.date_from=s.filters.dates[0];p.date_to=s.filters.dates[1];}
+  if(!allCompletedHistory&&!s.isOrderNumberSearch(search)&&s.filters.dates&&s.filters.dates.length===2){p.date_from=s.filters.dates[0];p.date_to=s.filters.dates[1];}
   return p;
 };
 s.call=(params,ok,fail)=>{s.processCall(PROCESS_ID,params).then(p=>{if(p&&p.success===false){fail(new Error(p.message||'API ปฏิเสธคำขอ'));return;}const payload=s.extractPayload(p);if(!payload){fail(new Error('รูปแบบ response ไม่ตรงกับ LAB worklist contract'));return;}ok(payload);}).catch(error=>fail(error||new Error('เรียก API ไม่สำเร็จ')));};
 s.refreshLookupCounts=()=>{if(s.viewMode!=='lookup'||!s.lookupSearched)return;const seq=++s.countSeq;['results','orders'].forEach(mode=>{const p=s.params(s.lookupStatusMap[mode],1,1,mode);p.include_specimens=false;s.call(p,payload=>{if(seq!==s.countSeq)return;s.lookupCounts={...s.lookupCounts,[mode]:Number(payload.total||0)};},()=>{});});};
 s.refreshCbcSwapCount=()=>{if(!s.canUseCbcSwap())return;const seq=++s.cbcCountSeq;const dates=s.todayFilters&&s.todayFilters.dates;const p={action:'list_cbc_swap',organization_code:s.unitCode(),page:1,limit:1};if(dates&&dates.length===2){p.date_from=dates[0];p.date_to=dates[1];}s.call(p,payload=>{if(seq!==s.cbcCountSeq)return;s.cbcSwapCount=Number(payload.total||0);},()=>{});};
 s.refreshCounts=()=>{if(s.viewMode==='lookup'){s.refreshLookupCounts();return;}if(s.viewMode==='cbc_swap'){s.refreshCbcSwapCount();return;}const seq=++s.countSeq;s.statusFilters.forEach(filter=>{const p=s.params(s.statusMap[filter.key],1,1);p.include_specimens=false;s.call(p,payload=>{if(seq!==s.countSeq)return;s.counts={...s.counts,[filter.key]:Number(payload.total||0)};},()=>{});});s.refreshCbcSwapCount();};
-s.loadOrders=(after,includeStatusCounts)=>{if(s.viewMode==='lookup'&&!s.lookupSearched){s.loading=false;s.errorMessage='';s.orders=[];s.page={...s.page,current:1,total:0};if(typeof after==='function')after(null);return;}const seq=++s.loadSeq;if(includeStatusCounts)++s.countSeq;s.loading=true;s.errorMessage='';s.selected={};s.specimenEdits={};const statuses=s.viewMode==='lookup'?s.lookupStatusMap[s.lookupMode]:(s.viewMode==='cbc_swap'?[]:s.statusMap[s.statusKey]);const request=s.params(statuses);if(includeStatusCounts&&s.viewMode==='today')request.include_status_counts=true;s.call(request,payload=>{if(seq!==s.loadSeq)return;s.orders=payload.orders||[];s.specimenMasterOptions=Array.isArray(payload.specimen_options)?payload.specimen_options:[];s.allowedSectionCodes=Array.isArray(payload.section_codes)?payload.section_codes.map(code=>s.text(code).toUpperCase()).filter(Boolean):[];if(s.viewMode==='today')s.allowedSectionCodes.forEach(code=>{s.loadReasonOptions('SPECIMEN_REJECT',code);});s.page={...s.page,current:Number(payload.page||s.page.current),size:Number(payload.limit||s.page.size),total:Number(payload.total||0)};if(s.viewMode==='today')s.counts={...s.counts,[s.statusKey]:Number(payload.total||0)};const batched=payload.status_counts;if(s.viewMode==='today'&&batched&&typeof batched==='object'){const next={...s.counts};s.statusFilters.forEach(filter=>{if(Object.prototype.hasOwnProperty.call(batched,filter.key))next[filter.key]=Number(batched[filter.key]||0);});s.counts=next;}if(s.viewMode==='cbc_swap')s.cbcSwapCount=Number(payload.total||0);s.loading=false;if(s.viewMode==='lookup')s.detailTabs=Object.fromEntries(s.orders.map(order=>[s.orderRowKey(order),s.lookupMode==='results'?'results':'order']));if(s.scanNoticePending){s.scanNoticePending=false;field.notify(s.orders.length?'พบรายการของ HN '+s.scannedHn:'ไม่พบรายการของ HN '+s.scannedHn+' ในสถานะนี้',s.orders.length?'success':'warning',3500);}if(typeof after==='function')after(payload);},()=>{if(seq!==s.loadSeq)return;s.orders=[];s.specimenMasterOptions=[];s.allowedSectionCodes=[];s.page={...s.page,total:0};s.errorMessage='โหลดรายการไม่สำเร็จ';s.scanNoticePending=false;s.loading=false;if(typeof after==='function')after(null);});};
+s.loadOrders=(after,includeStatusCounts)=>{if(s.viewMode==='lookup'&&!s.lookupSearched){s.loading=false;s.errorMessage='';s.orders=[];s.page={...s.page,current:1,total:0};if(typeof after==='function')after(null);return;}const seq=++s.loadSeq;if(includeStatusCounts)++s.countSeq;s.loading=true;s.errorMessage='';s.selected={};s.specimenEdits={};s.resultActorMeta={};s.resultActorLoading={};const statuses=s.viewMode==='lookup'?s.lookupStatusMap[s.lookupMode]:(s.viewMode==='cbc_swap'?[]:s.statusMap[s.statusKey]);const request=s.params(statuses);if(includeStatusCounts&&s.viewMode==='today')request.include_status_counts=true;s.call(request,payload=>{if(seq!==s.loadSeq)return;s.orders=payload.orders||[];s.allowedSectionCodes=Array.isArray(payload.section_codes)?payload.section_codes.map(code=>s.text(code).toUpperCase()).filter(Boolean):[];if(s.viewMode==='today')s.allowedSectionCodes.forEach(code=>{s.loadReasonOptions('SPECIMEN_REJECT',code);});s.page={...s.page,current:Number(payload.page||s.page.current),size:Number(payload.limit||s.page.size),total:Number(payload.total||0)};if(s.viewMode==='today')s.counts={...s.counts,[s.statusKey]:Number(payload.total||0)};const batched=payload.status_counts;if(s.viewMode==='today'&&batched&&typeof batched==='object'){const next={...s.counts};s.statusFilters.forEach(filter=>{if(Object.prototype.hasOwnProperty.call(batched,filter.key))next[filter.key]=Number(batched[filter.key]||0);});s.counts=next;}if(s.viewMode==='cbc_swap')s.cbcSwapCount=Number(payload.total||0);s.loading=false;if(s.viewMode==='lookup')s.detailTabs=Object.fromEntries(s.orders.map(order=>[s.orderRowKey(order),s.lookupMode==='results'?'results':'order']));if(s.scanNoticePending){s.scanNoticePending=false;field.notify(s.orders.length?'พบรายการของ HN '+s.scannedHn:'ไม่พบรายการของ HN '+s.scannedHn+' ในสถานะนี้',s.orders.length?'success':'warning',3500);}if(typeof after==='function')after(payload);},()=>{if(seq!==s.loadSeq)return;s.orders=[];s.allowedSectionCodes=[];s.page={...s.page,total:0};s.errorMessage='โหลดรายการไม่สำเร็จ';s.scanNoticePending=false;s.loading=false;if(typeof after==='function')after(null);});};
 s.refreshWorklist=()=>{s.loadOrders(payload=>{if(payload&&payload.status_counts&&typeof payload.status_counts==='object'){s.refreshCbcSwapCount();return;}s.refreshCounts();},true);};
-s.applyFilters=()=>{s.scanMode=false;s.scannedHn='';s.scanNoticePending=false;s.page={...s.page,current:1};if(s.viewMode==='lookup'){const hn=s.text(s.filters.hn),hasDates=Array.isArray(s.filters.dates)&&s.filters.dates.length===2;if(!hn&&!hasDates){s.lookupSearched=false;s.lookupCounts={results:0,orders:0};s.orders=[];s.errorMessage='';return;}s.lookupSearched=true;s.lookupFilters={hn:hn,dates:hasDates?s.filters.dates.slice():[]};s.filters={...s.lookupFilters};s.loadOrders();s.refreshLookupCounts();return;}s.todayFilters={hn:s.text(s.filters.hn),dates:Array.isArray(s.filters.dates)?s.filters.dates.slice():[]};s.loadOrders();s.refreshCounts();};
+s.applyFilters=()=>{s.scanMode=false;s.scannedHn='';s.scanNoticePending=false;s.page={...s.page,current:1};if(s.viewMode==='lookup'){const hn=s.text(s.filters.hn),hasDates=Array.isArray(s.filters.dates)&&s.filters.dates.length===2;if(!hn&&!hasDates){s.lookupSearched=false;s.lookupCounts={results:0,orders:0};s.orders=[];s.errorMessage='';return;}s.lookupSearched=true;s.lookupFilters={hn:hn,dates:hasDates?s.filters.dates.slice():[]};s.filters={...s.lookupFilters};s.loadOrders();s.refreshLookupCounts();return;}const search=s.text(s.filters.hn),selectedDates=Array.isArray(s.filters.dates)?s.filters.dates.slice():[],dates=s.isOrderNumberSearch(search)?[]:selectedDates;s.todayFilters={hn:search,dates:dates};s.filters={...s.filters,dates:dates};s.loadOrders();s.refreshCounts();};
 s.setViewMode=mode=>{if(!['today','lookup','cbc_swap'].includes(mode)||s.viewMode===mode)return;if(mode==='cbc_swap'&&!s.canUseCbcSwap())return;if(s.viewMode==='today')s.todayFilters={hn:s.text(s.filters.hn),dates:Array.isArray(s.filters.dates)?s.filters.dates.slice():[]};s.viewMode=mode;s.scanMode=false;s.scannedHn='';s.scanNoticePending=false;s.expanded={};s.detailTabs={};s.selected={};s.errorMessage='';s.page={...s.page,current:1,total:0};if(mode==='lookup'){s.lookupMode='results';s.lookupSearched=false;s.lookupCounts={results:0,orders:0};s.lookupFilters={hn:'',dates:[]};s.filters={...s.lookupFilters};s.orders=[];return;}s.filters={...s.todayFilters,dates:Array.isArray(s.todayFilters.dates)?s.todayFilters.dates.slice():[]};s.loadOrders();s.refreshCounts();};
 s.setLookupMode=mode=>{if(!s.lookupStatusMap[mode]||s.lookupMode===mode)return;s.lookupMode=mode;s.expanded={};s.detailTabs={};s.selected={};s.page={...s.page,current:1,total:0};if(s.lookupSearched)s.loadOrders();};
 s.setStatus=key=>{if(!s.statusMap[key]||s.statusKey===key)return;s.statusKey=key;s.page={...s.page,current:1};s.loadOrders();};
@@ -2304,6 +2899,7 @@ if(!s.__crossSectionResultReadWrapped){
 if(!s.__initialLoadStarted){
   s.__initialLoadStarted=true;
   s.currentUnitCode=s.unitCode();
+  s.loadSpecimenMaster();
   s.refreshWorklist();
 }
 if(!s.__unitWatch){
@@ -2351,10 +2947,11 @@ form.formConfig.cssCode = `.lab-cpoe{--primary:var(--el-color-primary,#409eff);-
 .lab-detail-panel{padding:0 10px 14px 42px;border-top:1px solid var(--border-lighter);background:var(--fill-lighter)}.lab-detail-top{display:flex;min-height:42px;align-items:flex-end;gap:16px;border-bottom:1px solid var(--border-light)}.lab-detail-tab{height:42px;padding:0;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:650;cursor:pointer}.lab-detail-tab.is-active{border-bottom-color:var(--primary);color:var(--primary)}.lab-detail-tab:disabled{color:var(--placeholder);cursor:not-allowed}.lab-bulk-actions{display:flex;align-items:center;gap:6px;margin-left:auto;padding-bottom:6px}.lab-bulk-actions .el-button+.el-button{margin-left:0}.lab-receive-tooltip{display:inline-flex}.lab-receive-tooltip .el-button{margin-left:0}
 /* ใช้ pattern เดียวกับ X-ray เฉพาะงานภาพ: header ชิด tab, ครบความกว้าง และ checkbox sticky
    โครงคอลัมน์/การเลือก specimen/LAB NO. ของ LAB ไม่เปลี่ยน */
-.lab-item-grid-wrap{overflow-x:auto;margin-left:-42px;padding-top:0}.lab-item-grid{display:grid;grid-template-columns:42px 52px 100px minmax(190px,1.5fr) minmax(170px,1.1fr) 135px 125px 86px minmax(115px,.9fr) minmax(105px,.8fr) 96px;gap:10px;align-items:center;min-width:1316px;padding:6px 0}.lab-item-head{min-height:44px;color:var(--ink);font-size:11px;font-weight:650;border-top:1px solid var(--el-color-primary-light-7,#c6e2ff);border-bottom:1px solid var(--el-color-primary-light-7,#c6e2ff);background:var(--primary-50)}.lab-item-row{min-height:52px;border-bottom:1px dashed var(--border-lighter);font-size:12px;transition:background-color .12s}.lab-item-row:last-child{border-bottom:0}.lab-item-row.is-selectable{cursor:pointer}.lab-item-row.is-selectable:hover{background:var(--fill-light)}.lab-item-row.is-selected,.lab-item-row.is-selected:hover{background:var(--primary-50)}.lab-item-check-cell{position:sticky;left:0;z-index:2;align-self:stretch;display:flex;align-items:center;padding-left:12px;background:var(--fill-lighter);box-shadow:1px 0 0 var(--border-lighter)}.lab-item-head>.lab-item-check-cell{z-index:3;background:var(--primary-50);box-shadow:1px 0 0 var(--el-color-primary-light-7,#c6e2ff)}.lab-item-row.is-selectable:hover>.lab-item-check-cell{background:var(--fill-light)}.lab-item-row.is-selected>.lab-item-check-cell,.lab-item-row.is-selected:hover>.lab-item-check-cell{background:var(--primary-50)}.lab-test-name{color:var(--ink);font-weight:650}.lab-item-specimen-cell{padding-right:8px;transform:translateX(-8px)}.lab-specimen-select{width:100%}.lab-specimen-select .el-select__wrapper{min-height:30px}.lab-specimen-locked .el-input__wrapper{min-height:30px;background:var(--white);box-shadow:0 0 0 1px var(--border) inset;cursor:default}.lab-specimen-select .el-select__selected-item{color:var(--text);font-weight:700}.lab-specimen-locked .el-input__inner{color:var(--text);font-weight:700;-webkit-text-fill-color:var(--text);cursor:default}.lab-specimen-select.lab-specimen-changed .el-select__selected-item{color:var(--danger);font-weight:700}.lab-item-collected-time span{display:block;font-weight:400;line-height:1.35}.lab-item-row [data-label]:before{display:none}
+.lab-item-grid-wrap{overflow-x:auto;margin-left:-42px;padding-top:0}.lab-item-grid{display:grid;grid-template-columns:42px 52px 100px minmax(190px,1.5fr) minmax(170px,1.1fr) minmax(190px,1.1fr) 125px 86px minmax(115px,.9fr) minmax(105px,.8fr) 96px;gap:10px;align-items:center;min-width:1371px;padding:6px 0}.lab-item-grid.is-microbiology{grid-template-columns:42px 52px 100px minmax(190px,1.5fr) minmax(170px,1.1fr) minmax(190px,1.1fr) 125px 86px minmax(115px,.9fr) minmax(105px,.8fr) 82px 96px;min-width:1463px}.lab-item-head{min-height:44px;color:var(--ink);font-size:11px;font-weight:650;border-top:1px solid var(--el-color-primary-light-7,#c6e2ff);border-bottom:1px solid var(--el-color-primary-light-7,#c6e2ff);background:var(--primary-50)}.lab-item-row{min-height:52px;border-bottom:1px dashed var(--border-lighter);font-size:12px;transition:background-color .12s}.lab-item-row:last-child{border-bottom:0}.lab-item-row.is-selectable{cursor:pointer}.lab-item-row.is-selectable:hover{background:var(--fill-light)}.lab-item-row.is-selected,.lab-item-row.is-selected:hover{background:var(--primary-50)}.lab-item-check-cell{position:sticky;left:0;z-index:2;align-self:stretch;display:flex;align-items:center;padding-left:12px;background:var(--fill-lighter);box-shadow:1px 0 0 var(--border-lighter)}.lab-item-head>.lab-item-check-cell{z-index:3;background:var(--primary-50);box-shadow:1px 0 0 var(--el-color-primary-light-7,#c6e2ff)}.lab-item-row.is-selectable:hover>.lab-item-check-cell{background:var(--fill-light)}.lab-item-row.is-selected>.lab-item-check-cell,.lab-item-row.is-selected:hover>.lab-item-check-cell{background:var(--primary-50)}.lab-test-name{color:var(--ink);font-weight:650}.lab-item-specimen-cell{padding-right:8px;transform:translateX(-8px)}.lab-specimen-select{width:100%}.lab-specimen-select .el-select__wrapper{min-height:30px}.lab-specimen-locked .el-input__wrapper{min-height:30px;background:var(--white);box-shadow:0 0 0 1px var(--border) inset;cursor:default}.lab-specimen-select .el-select__selected-item{color:var(--text);font-weight:700}.lab-specimen-locked .el-input__inner{color:var(--text);font-weight:700;-webkit-text-fill-color:var(--text);cursor:default}.lab-specimen-select.lab-specimen-changed .el-select__selected-item{color:var(--danger);font-weight:700}.lab-item-collected-time,.lab-item-received-time{min-width:0}.lab-collected-date-time span,.lab-received-date-time span{display:block;font-weight:400;line-height:1.35}.lab-specimen-storage{display:inline-flex;max-width:100%;min-height:19px;align-items:center;margin-top:4px;padding:1px 7px;border:1px solid var(--border);border-radius:999px;background:var(--fill-light);color:var(--text);font-size:10px;font-weight:700;line-height:1.4;white-space:nowrap}.lab-specimen-storage.is-immediate{border-color:var(--el-color-success-light-5,#b3e19d);background:var(--success-50);color:var(--el-color-success-dark-2,#529b2e)}.lab-specimen-storage.is-refrigerated{border-color:var(--el-color-primary-light-5,#a0cfff);background:var(--primary-50);color:var(--primary)}.lab-specimen-storage.is-room-temperature{border-color:var(--el-color-warning-light-5,#f3d19e);background:var(--warning-50);color:var(--el-color-warning-dark-2,#b88230)}.lab-specimen-source-line{display:grid;min-width:0;grid-template-columns:max-content minmax(0,1fr);gap:4px;align-items:center;margin-top:4px;color:var(--muted);font-family:"Leelawadee UI","Noto Sans Thai",Tahoma,"Segoe UI",sans-serif;font-size:10px}.lab-specimen-source-label{white-space:nowrap}.lab-specimen-source{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:help}.lab-specimen-source.is-empty{color:var(--placeholder);font-style:italic;cursor:default}.lab-cpoe-source-popper{max-width:420px;overflow-wrap:anywhere;white-space:normal}.lab-item-row [data-label]:before{display:none}
 /* แท็บออกผลใช้ขนาด/สีเดียวกับ tab order แต่เว้น gutter 42px โดยไม่มี checkbox */
-.lab-result-list{padding-top:0;overflow-x:auto;margin-left:-42px}.lab-result-list-head,.lab-result-list-row{display:grid;grid-template-columns:52px minmax(260px,1.8fr) 130px 120px minmax(120px,.8fr);gap:12px;align-items:center;min-width:772px;padding:6px 0 6px 42px}.lab-result-list-head{min-height:44px;border-top:1px solid var(--el-color-primary-light-7,#c6e2ff);border-bottom:1px solid var(--el-color-primary-light-7,#c6e2ff);background:var(--primary-50);color:var(--ink);font-size:11px;font-weight:650}.lab-result-list-row{min-height:52px;border-bottom:1px dashed var(--border-lighter)}.lab-result-list-status{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.lab-critical-status{display:inline-flex;min-height:26px;align-items:center;padding:2px 8px;border:1px solid;border-radius:4px;font-size:11px;font-weight:650;white-space:nowrap}.lab-critical-status.is-critical{border-color:var(--el-color-danger-light-5,#fab6b6);background:var(--danger-50);color:var(--danger)}.lab-critical-status.is-normal,.lab-critical-status.is-resulted{border-color:var(--el-color-success-light-5,#b3e19d);background:var(--success-50);color:var(--success)}.lab-critical-status.is-pending{border-color:var(--el-border-color-darker,#c8c9cc);background:var(--fill);color:var(--muted)}.lab-result-hidden-tag{display:inline-flex;min-height:22px;align-items:center;padding:1px 7px;border:1px solid var(--el-color-warning-light-5,#f3d19e);border-radius:999px;background:var(--warning-50);color:var(--warning);font-size:10px;font-weight:700;white-space:nowrap}
-.lab-result-list.is-lookup .lab-result-list-head,.lab-result-list.is-lookup .lab-result-list-row{grid-template-columns:52px minmax(300px,2fr) 130px minmax(140px,.9fr);min-width:650px}
+.lab-result-list{padding-top:0;overflow-x:auto;margin-left:-42px}.lab-result-list-head,.lab-result-list-row{display:grid;grid-template-columns:52px minmax(260px,1.8fr) 130px 120px minmax(120px,.8fr) minmax(140px,.85fr) minmax(140px,.85fr);gap:12px;align-items:center;min-width:1060px;padding:6px 0 6px 42px}.lab-result-list-head{min-height:44px;border-top:1px solid var(--el-color-primary-light-7,#c6e2ff);border-bottom:1px solid var(--el-color-primary-light-7,#c6e2ff);background:var(--primary-50);color:var(--ink);font-size:11px;font-weight:650}.lab-result-list-row{min-height:52px;border-bottom:1px dashed var(--border-lighter)}.lab-result-list-status{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.lab-result-actor{min-width:0;overflow:hidden;color:var(--text);text-overflow:ellipsis;white-space:nowrap}.lab-critical-status{display:inline-flex;min-height:26px;align-items:center;padding:2px 8px;border:1px solid;border-radius:4px;font-size:11px;font-weight:650;white-space:nowrap}.lab-critical-status.is-critical{border-color:var(--el-color-danger-light-5,#fab6b6);background:var(--danger-50);color:var(--danger)}.lab-critical-status.is-normal,.lab-critical-status.is-resulted{border-color:var(--el-color-success-light-5,#b3e19d);background:var(--success-50);color:var(--success)}.lab-critical-status.is-pending{border-color:var(--el-border-color-darker,#c8c9cc);background:var(--fill);color:var(--muted)}.lab-result-hidden-tag{display:inline-flex;min-height:22px;align-items:center;padding:1px 7px;border:1px solid var(--el-color-warning-light-5,#f3d19e);border-radius:999px;background:var(--warning-50);color:var(--warning);font-size:10px;font-weight:700;white-space:nowrap}
+.lab-result-list.is-lookup .lab-result-list-head,.lab-result-list.is-lookup .lab-result-list-row{grid-template-columns:52px minmax(300px,2fr) 130px minmax(140px,.9fr) minmax(140px,.85fr) minmax(140px,.85fr);min-width:970px}
+.lab-result-list.is-microbiology .lab-result-list-head,.lab-result-list.is-microbiology .lab-result-list-row{grid-template-columns:52px minmax(240px,1.6fr) 120px 120px minmax(120px,.8fr) minmax(130px,.8fr) minmax(130px,.8fr) 82px;min-width:1122px}.lab-result-list.is-microbiology.is-lookup .lab-result-list-head,.lab-result-list.is-microbiology.is-lookup .lab-result-list-row{grid-template-columns:52px minmax(280px,1.8fr) 120px minmax(140px,.9fr) minmax(130px,.8fr) minmax(130px,.8fr) 82px;min-width:1032px}.lab-result-test-action{display:flex;align-items:center;justify-content:flex-start}.lab-mb-order-result-entry{display:flex;align-items:center;justify-content:flex-start}.lab-result-test-action .el-button,.lab-mb-order-result-entry .el-button{min-width:70px;margin:0}.lab-mb-order-result-entry>div{display:block;width:70px}.lab-mb-order-result-entry>div .el-button{width:100%}
 .lab-cancel-summary{display:grid;gap:6px;margin-bottom:12px;padding:13px 14px;border:1px solid #fab6b6;border-radius:6px;background:#fef0f0;color:#c45656}.lab-cancel-summary strong{color:var(--ink)}.lab-cancel-summary span{font-size:12px;line-height:1.5}.lab-cancel-finance{display:grid;gap:6px;margin-bottom:14px;padding:12px 14px;border:1px solid var(--border-light);border-radius:6px;background:var(--fill-lighter);color:var(--text)}.lab-cancel-finance strong{color:var(--ink)}.lab-cancel-finance span{font-size:12px;line-height:1.5}.lab-cancel-finance.is-checking{border-color:var(--el-color-primary-light-5,#a0cfff);background:var(--primary-50);color:var(--primary)}.lab-cancel-finance.is-ready{border-color:var(--el-color-success-light-5,#b3e19d);background:var(--success-50);color:var(--el-color-success-dark-2,#529b2e)}.lab-cancel-finance.is-blocked{border-color:var(--el-color-warning-light-5,#f3d19e);background:var(--warning-50);color:#b88230}.lab-cancel-finance .el-button{justify-self:start;margin:4px 0 0}.lab-cancel-reason{display:block}.lab-cancel-reason>span{display:block;margin-bottom:6px;color:var(--ink);font-weight:650}.lab-cancel-reason b{color:var(--danger)}.lab-cancel-reason .el-select{width:100%}
 .lab-result-comment{grid-column:3/-1;display:grid;gap:3px;align-self:stretch;padding:0 10px 10px!important}.lab-result-comment>span{display:block;margin:0;color:var(--muted);font-size:10px;font-weight:700}.lab-result-comment>p{margin:0;padding:8px 10px;border-left:3px solid var(--primary);border-radius:4px;background:var(--primary-50);color:var(--text);font-size:12px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere}
 .lab-result-revision-view{display:grid;grid-template-columns:260px minmax(0,1fr);min-height:420px;overflow:hidden;border:1px solid var(--border);border-radius:8px;background:var(--fill-lighter)}.lab-result-revision-rail{display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--fill-light)}.lab-result-revision-rail>strong{padding:14px 16px 10px;color:var(--muted);font-size:10px;letter-spacing:.04em}.lab-result-revision-rail>button{display:grid;gap:3px;padding:12px 16px;border:0;border-top:1px solid var(--border);background:transparent;color:var(--text);font:inherit;text-align:left;cursor:pointer}.lab-result-revision-rail>button.is-active{background:var(--primary-50);box-shadow:inset 3px 0 var(--primary)}.lab-result-revision-rail>button span{color:var(--ink);font-size:12px;font-weight:750}.lab-result-revision-rail>button small{color:var(--muted);font-size:10px}.lab-result-revision-rail>button i{justify-self:start;padding:1px 6px;border:1px solid var(--border);border-radius:999px;color:var(--muted);font-size:9px;font-style:normal}.lab-result-revision-rail>button.is-active i{border-color:#b3e19d;background:#f0f9eb;color:#529b2e}.lab-result-revision-sheet{display:grid;align-content:start;min-width:0;padding:16px}.lab-result-revision-sheet>header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.lab-result-revision-sheet>header>div{display:grid;gap:3px}.lab-result-revision-sheet>header strong{color:var(--ink);font-size:15px}.lab-result-revision-sheet>header small{color:var(--muted);font-size:10px}.lab-result-revision-sheet>header>span{padding:3px 8px;border:1px solid var(--border);border-radius:999px;color:var(--text);font-size:10px;font-weight:750}.lab-result-revision-warning{margin-top:12px;padding:9px 11px;border:1px solid #f3d19e;border-radius:6px;background:#fdf6ec;color:#b88230;font-size:11px;font-weight:650}.lab-result-revision-table{margin-top:12px;overflow-x:auto;border:1px solid var(--border);border-radius:7px}.lab-result-revision-head,.lab-result-revision-row{display:grid;grid-template-columns:42px minmax(220px,1fr) minmax(130px,.75fr) minmax(110px,.65fr) 80px;min-width:720px;align-items:center}.lab-result-revision-head{min-height:38px;background:var(--fill-light);color:var(--muted);font-size:10px;font-weight:700}.lab-result-revision-head>span,.lab-result-revision-row>span,.lab-result-revision-row>strong{padding:9px 10px}.lab-result-revision-row{min-height:48px;border-top:1px solid var(--border);background:#fff;color:var(--text);font-size:11px}.lab-result-revision-row.is-changed{background:#fffaf0}.lab-result-revision-row>span:nth-child(2){display:grid;gap:2px}.lab-result-revision-row>span:nth-child(2)>strong{color:var(--ink);font-size:12px}.lab-result-revision-row small{color:var(--muted);font-size:9px}.lab-result-revision-row.is-changed>span:last-child,.lab-result-revision-row.is-changed>strong{color:#b88230}.lab-result-revision-sheet>footer{display:grid;grid-template-columns:auto minmax(0,1fr) auto minmax(0,1fr);gap:5px 9px;margin-top:12px;padding:10px;border-radius:6px;background:var(--fill-light);font-size:9px}.lab-result-revision-sheet>footer span{color:var(--muted)}.lab-result-revision-sheet>footer strong{overflow:hidden;color:var(--text);text-overflow:ellipsis;white-space:nowrap}.lab-correction-reason{display:grid;gap:6px;margin-top:12px;padding:12px;border:1px solid #f3d19e;border-radius:7px;background:#fdf6ec}.lab-correction-reason>span{color:var(--ink);font-size:12px;font-weight:700}.lab-correction-reason>span b{color:var(--danger)}.lab-correction-reason>small{color:var(--muted);font-size:10px}
@@ -2363,10 +2960,11 @@ form.formConfig.cssCode = `.lab-cpoe{--primary:var(--el-color-primary,#409eff);-
 .lab-sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}.lab-result-dialog .el-dialog__header{margin:0;padding:15px 18px;border-bottom:1px solid var(--border-lighter)}.lab-result-dialog .el-dialog__headerbtn{top:9px;right:10px}.lab-result-dialog .el-dialog__body{max-height:calc(100vh - 160px);padding:18px;overflow:auto;overscroll-behavior:contain}.lab-result-dialog .el-dialog__footer{padding:12px 18px;border-top:1px solid var(--border-lighter)}.lab-result-dialog-head{display:block;padding-right:32px}.lab-result-dialog-head>div:first-child{display:grid;gap:2px}.lab-result-title-row{display:flex;align-items:center;gap:8px}.lab-result-dialog-head strong{font-size:17px}.lab-result-dialog-head small{font-size:11px}.lab-result-edit-button{display:grid;width:28px;height:28px;place-items:center;padding:0;border:1px solid transparent;border-radius:5px;background:transparent;color:var(--muted);cursor:pointer}.lab-result-edit-button:hover:not(:disabled){border-color:#a0cfff;background:#ecf5ff;color:var(--primary)}.lab-result-edit-button[aria-pressed=true]{border-color:var(--primary);background:#ecf5ff;color:var(--primary)}.lab-result-edit-button:disabled{cursor:not-allowed;opacity:.45}.lab-result-edit-button svg{width:15px;height:15px}.lab-result-mode{min-height:20px;margin-left:4px;padding:0 7px;background:var(--fill-lighter);font-size:10px}.lab-result-values{border-color:var(--border);border-radius:7px}.lab-result-value-head,.lab-result-value-row{grid-template-columns:56px 48px minmax(180px,1fr) 132px 132px 94px 104px 188px;gap:0;min-width:940px;padding:0}.lab-result-value-head{min-height:42px;align-items:center;background:var(--fill-soft)}.lab-result-value-head>span,.lab-result-value-row>div{box-sizing:border-box;padding:10px}.lab-result-value-row{min-height:46px;align-items:start}.lab-result-profile-row{display:flex;min-width:940px;min-height:40px;align-items:center;padding:5px 10px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--fill-light)}.lab-result-value-head+.lab-result-profile-row{border-top:0}.lab-result-profile-row strong{color:var(--ink);font-size:13px}.lab-result-test-name{color:var(--ink);font-weight:650}.lab-result-previous{padding:10px!important;border-radius:0;background:transparent;color:var(--muted)}.lab-result-measured{color:var(--ink);font-size:inherit;font-weight:700}.lab-result-value-row .el-input,.lab-result-value-row .el-select{width:100%}
 .lab-micro-source-tag{display:inline-flex;min-height:22px;align-items:center;padding:1px 8px;border:1px solid var(--el-color-primary-light-5,#a0cfff);border-radius:999px;background:var(--primary-50);color:var(--primary);font-size:10px;font-weight:700}.lab-result-dialog.is-microbiology .lab-result-dialog-head small{margin-top:2px}.lab-micro-patient-strip{display:grid;grid-template-columns:minmax(270px,1.45fr) repeat(3,minmax(130px,1fr));gap:12px;padding:13px 15px;border:1px solid var(--border-light);border-radius:8px;background:var(--fill-lighter)}.lab-micro-patient-main{display:flex;min-width:0;align-items:center;gap:11px}.lab-micro-avatar{display:grid;width:40px;height:40px;flex:0 0 40px;place-items:center;border-radius:50%;background:var(--primary);color:#fff;font-size:12px;font-weight:800}.lab-micro-patient-main>div{min-width:0}.lab-micro-patient-main strong{display:block;overflow:hidden;color:var(--ink);text-overflow:ellipsis;white-space:nowrap}.lab-micro-patient-main small{display:block;margin-top:3px;color:var(--muted);font-size:10px}.lab-micro-meta{min-width:0}.lab-micro-meta>span,.lab-micro-timeline span,.lab-micro-summary-grid span{display:block;margin-bottom:4px;color:var(--muted);font-size:10px}.lab-micro-meta>strong,.lab-micro-timeline strong,.lab-micro-summary-grid strong{display:block;overflow:hidden;color:var(--ink);font-size:12px;text-overflow:ellipsis;white-space:nowrap}.lab-micro-status{display:inline-flex;min-height:22px;align-items:center;padding:1px 8px;border:1px solid var(--border);border-radius:999px;background:var(--fill);color:var(--muted);font-size:10px;font-style:normal;font-weight:750;white-space:nowrap}.lab-micro-status.is-final{border-color:var(--el-color-success-light-5,#b3e19d);background:var(--success-50);color:var(--success)}.lab-micro-status.is-partial{border-color:var(--el-color-warning-light-5,#f3d19e);background:var(--warning-50);color:var(--warning)}.lab-micro-status.is-pending{border-color:var(--el-border-color-darker,#c8c9cc);background:var(--fill);color:var(--muted)}.lab-micro-timeline{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px}.lab-micro-timeline>div,.lab-micro-summary-grid>div{min-width:0;padding:10px 12px;border:1px solid var(--border-light);border-radius:7px;background:var(--white)}.lab-micro-notice{display:flex;align-items:flex-start;gap:10px;margin-top:12px;padding:9px 11px;border:1px solid var(--el-color-primary-light-5,#a0cfff);border-radius:7px;background:var(--primary-50);color:var(--primary);font-size:11px;line-height:1.5}.lab-micro-notice strong{white-space:nowrap}.lab-micro-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:15px;padding-bottom:8px}.lab-micro-section-head strong{color:var(--ink);font-size:14px}.lab-micro-section-head span{color:var(--muted);font-size:11px}.lab-micro-results{display:grid;gap:10px}.lab-micro-result-card{overflow:hidden;border:1px solid var(--border);border-radius:9px;background:var(--white)}.lab-micro-result-card.is-open{border-color:var(--el-color-primary-light-5,#a0cfff)}.lab-micro-result-head{width:100%;display:grid;grid-template-columns:32px minmax(220px,1.4fr) minmax(175px,.9fr) auto 24px;gap:12px;align-items:center;padding:11px 13px;border:0;background:var(--white);color:var(--text);text-align:left;cursor:pointer}.lab-micro-result-card.is-open .lab-micro-result-head{background:var(--primary-50)}.lab-micro-result-head>span:nth-child(2){min-width:0}.lab-micro-result-head>span:nth-child(2)>strong{display:block;overflow:hidden;color:var(--ink);font-size:13px;text-overflow:ellipsis;white-space:nowrap}.lab-micro-result-head small{display:block;color:var(--muted);font-size:10px}.lab-micro-chevron{color:var(--muted);font-size:16px;transition:transform .15s}.lab-micro-result-card.is-open .lab-micro-chevron{transform:rotate(180deg)}.lab-micro-result-body{padding:0 13px 13px 57px;background:var(--primary-50)}.lab-micro-summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.lab-micro-organism{margin-top:10px;overflow:hidden;border:1px solid var(--border-light);border-radius:8px;background:var(--white)}.lab-micro-organism>header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border-bottom:1px solid var(--border-lighter)}.lab-micro-organism>header small{display:block;margin-bottom:2px;color:var(--muted);font-size:10px}.lab-micro-organism>header strong{display:block;color:var(--ink);font-size:13px;overflow-wrap:anywhere}.lab-micro-count{display:inline-flex;min-height:22px;align-items:center;padding:1px 7px;border:1px solid var(--el-color-danger-light-5,#fab6b6);border-radius:999px;background:var(--danger-50);color:var(--danger);font-size:10px;font-weight:700;white-space:nowrap}.lab-micro-sir-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 12px;background:var(--fill-lighter);color:var(--muted);font-size:10px}.lab-micro-sir-toolbar>div{display:flex;gap:4px}.lab-micro-sir-toolbar button{min-width:29px;height:25px;padding:0 7px;border:1px solid var(--border);border-radius:5px;background:var(--white);color:var(--muted);font:inherit;font-weight:700;cursor:pointer}.lab-micro-sir-toolbar button.is-active{border-color:var(--primary);background:var(--primary);color:#fff}.lab-micro-table-wrap{overflow-x:auto}.lab-micro-table-head,.lab-micro-table-row{display:grid;grid-template-columns:minmax(220px,1fr) 150px 70px;align-items:center;min-width:500px}.lab-micro-table-head{background:var(--fill-light);color:var(--muted);font-size:10px;font-weight:700}.lab-micro-table-head>span,.lab-micro-table-row>*{padding:8px 11px}.lab-micro-table-row{border-top:1px solid var(--border-lighter);font-size:11px}.lab-micro-table-row strong{color:var(--ink)}.lab-micro-sir{display:grid;width:27px;height:23px;margin-left:11px;place-items:center;border-radius:5px;font-style:normal;font-weight:800}.lab-micro-sir.is-s{background:var(--success-50);color:var(--success)}.lab-micro-sir.is-i{background:var(--warning-50);color:var(--warning)}.lab-micro-sir.is-r{background:var(--danger-50);color:var(--danger)}.lab-micro-empty-filter{padding:13px;text-align:center;color:var(--muted);font-size:11px}.lab-micro-raw{margin-top:10px}.lab-micro-raw>button{width:100%;display:flex;align-items:center;justify-content:space-between;padding:9px 11px;border:1px solid var(--border-light);border-radius:7px;background:var(--white);color:var(--ink);font:inherit;font-size:11px;font-weight:650;cursor:pointer}.lab-micro-raw.is-open>button{border-radius:7px 7px 0 0}.lab-micro-raw pre{max-height:260px;margin:0;padding:12px;overflow:auto;border:1px solid var(--border-light);border-top:0;border-radius:0 0 7px 7px;background:var(--fill-lighter);color:var(--text);font:11px/1.6 var(--mono);white-space:pre-wrap}.lab-micro-pending{display:flex;align-items:center;gap:11px;padding:14px;border:1px dashed var(--border);border-radius:7px;background:var(--white);color:var(--muted)}.lab-micro-pending>span{font-size:18px}.lab-micro-pending strong,.lab-micro-pending small{display:block}.lab-micro-pending strong{color:var(--ink);font-size:12px}.lab-micro-pending small{margin-top:3px;font-size:10px}
 .lab-micro-organism-list{display:grid;gap:3px;margin:0;padding-left:20px;color:var(--ink);font-size:13px;font-weight:700}.lab-micro-organism-list li{padding-left:2px;overflow-wrap:anywhere}
-.lab-micro-timeline{grid-template-columns:repeat(3,1fr)}.lab-micro-wire-results{display:grid;gap:10px}.lab-micro-wire-result{overflow:hidden;border:1px solid var(--border-light);border-radius:8px;background:var(--white)}.lab-micro-wire-meta{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:0;border-bottom:1px solid var(--border-lighter);background:var(--fill-lighter)}.lab-micro-wire-meta>div{min-width:0;padding:9px 11px;border-right:1px solid var(--border-lighter)}.lab-micro-wire-meta>div:last-child{border-right:0}.lab-micro-wire-meta span{display:block;margin-bottom:3px;color:var(--muted);font-size:10px}.lab-micro-wire-meta strong{display:block;overflow:hidden;color:var(--ink);font-size:11px;text-overflow:ellipsis;white-space:nowrap}.lab-micro-wire-value>strong{display:block;padding:9px 11px 0;color:var(--ink);font-size:11px}.lab-micro-wire-value pre{max-height:360px;margin:0;padding:10px 11px 12px;overflow:auto;color:var(--text);font:11px/1.6 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere}
+.lab-micro-timeline{grid-template-columns:repeat(3,1fr)}.lab-micro-critical-tag{display:inline-flex;width:max-content;min-height:22px;align-items:center;margin-top:4px;padding:1px 8px;border:1px solid var(--el-color-danger-light-5,#fab6b6);border-radius:999px;background:var(--danger-50);color:var(--danger);font-size:10px;font-style:normal;font-weight:750;white-space:nowrap}.lab-result-title-row>.lab-micro-critical-tag{margin-top:0}.lab-result-dialog.is-microbiology .lab-result-critical-banner{margin-top:12px;margin-bottom:0}.lab-micro-wire-results{display:grid;gap:10px}.lab-micro-wire-result{overflow:hidden;border:1px solid var(--border-light);border-radius:8px;background:var(--white)}.lab-micro-wire-meta{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:0;border-bottom:1px solid var(--border-lighter);background:var(--fill-lighter)}.lab-micro-wire-meta>div{min-width:0;padding:9px 11px;border-right:1px solid var(--border-lighter)}.lab-micro-wire-meta>div:last-child{border-right:0}.lab-micro-wire-meta span{display:block;margin-bottom:3px;color:var(--muted);font-size:10px}.lab-micro-wire-meta strong{display:block;overflow:hidden;color:var(--ink);font-size:11px;text-overflow:ellipsis;white-space:nowrap}.lab-micro-wire-value>strong{display:block;padding:9px 11px 0;color:var(--ink);font-size:11px}.lab-micro-wire-value pre{max-height:360px;margin:0;padding:10px 11px 12px;overflow:auto;color:var(--text);font:11px/1.6 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere}
 .lab-micro-unmatched{margin-top:14px;overflow:hidden;border:1px solid var(--border-light);border-radius:8px;background:var(--white)}.lab-micro-unmatched-head{display:flex;width:100%;align-items:center;justify-content:space-between;gap:12px;padding:11px 13px;border:0;border-bottom:1px solid var(--border-light);background:transparent;color:var(--ink);cursor:pointer;text-align:left}.lab-micro-unmatched-head strong{font-size:13px}.lab-micro-unmatched-head span{color:var(--muted);font-size:11px}.lab-micro-unmatched pre{max-height:480px;margin:0;padding:14px;overflow:auto;background:var(--fill-lighter);color:var(--text);font:12px/1.65 var(--mono);white-space:pre;tab-size:4}
 .lab-result-dialog-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.lab-result-dialog-head>div:first-child{min-width:0}.lab-result-report-slot{display:flex;width:94px;min-width:94px;max-width:94px;flex:0 0 94px;align-items:flex-start;justify-content:flex-end}.lab-result-report-action{flex:none;margin-right:4px}.lab-result-report-action .el-button,.el-button.lab-result-report-action{min-width:94px;margin:0!important}.lab-result-report-action .el-button:not(.is-disabled){border-color:var(--danger)!important;background:var(--danger)!important;color:#fff!important}
 .lab-result-byline{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:4px;color:var(--muted);font-size:11px}.lab-result-byline b{font-weight:500}.lab-result-byline strong{color:var(--ink);font-size:11px}.lab-result-profile-row{display:grid;width:100%;grid-template-columns:56px 48px minmax(180px,1fr) 132px 132px 94px 104px 188px;gap:0;min-width:940px;min-height:44px;align-items:center;padding:0;border:0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--fill-light);color:var(--ink);font:inherit;text-align:left;cursor:pointer}.lab-result-value-head+.lab-result-profile-row{border-top:0}.lab-result-profile-index{grid-column:1;padding:10px}.lab-result-profile-main{display:grid;grid-column:3/8;gap:1px;padding:10px}.lab-result-profile-row strong{color:var(--ink);font-size:13px}.lab-result-profile-row small{color:var(--muted);font-size:10px}.lab-result-profile-row i{grid-column:8;justify-self:end;margin-right:10px;color:var(--muted);font-size:16px;font-style:normal;transition:transform .15s}.lab-result-profile-row.is-open i{transform:rotate(180deg)}.lab-result-profile-row:hover{background:var(--primary-50)}
+.lab-result-order-note{display:grid;grid-template-columns:26px minmax(0,1fr) auto;gap:10px;align-items:start;margin:12px 0;padding:11px 13px;border:1px solid var(--el-color-warning-light-5,#f3d19e);border-radius:8px;background:var(--el-color-warning-light-9,#fdf6ec);color:var(--el-text-color-regular,#606266)}.lab-result-order-note-icon{display:grid;width:24px;height:24px;place-items:center;border-radius:50%;background:var(--el-color-warning,#e6a23c);color:#fff;font:700 13px/1 Arial,sans-serif}.lab-result-order-note>div{min-width:0}.lab-result-order-note strong{display:block;color:var(--el-text-color-primary,#303133);font-size:12px}.lab-result-order-note p{margin:3px 0 0;color:var(--el-text-color-regular,#606266);font-size:12px;line-height:1.6;overflow-wrap:anywhere;white-space:pre-wrap}.lab-result-order-note-key{align-self:center;padding:2px 7px;border:1px solid var(--el-color-warning-light-5,#f3d19e);border-radius:999px;background:var(--el-bg-color,#fff);color:var(--el-text-color-secondary,#909399);font:10px/1.5 var(--mono)}
 .lab-result-profile-toolbar{display:flex;align-items:center;gap:10px;margin:0 0 9px}.lab-result-profile-toolbar>div:first-child{display:flex;min-width:0;align-items:baseline;gap:10px}.lab-result-profile-toolbar>div:first-child>strong{color:var(--ink);font-size:15px}.lab-result-profile-toolbar>div:first-child>small{color:var(--muted);font-size:11px}.lab-result-section-actions{display:flex;align-items:center;gap:2px;margin-left:auto}.lab-result-section-actions .el-button+.el-button{margin-left:0}.lab-result-value-row.is-profile-child{padding-left:16px}
 .lab-result-dialog:not(.is-microbiology){--lab-result-surface:var(--el-bg-color,#fff);--lab-result-surface-soft:#f7f9fc;--lab-result-surface-blue:#f2f7ff;--lab-result-ink:var(--el-text-color-primary,#303133);--lab-result-text:var(--el-text-color-regular,#606266);--lab-result-muted:var(--el-text-color-secondary,#909399);--lab-result-border:var(--el-border-color,#dcdfe6);--lab-result-border-light:var(--el-border-color-light,#e4e7ed);--lab-result-primary-dark:#337ecc;max-height:calc(100vh - 48px);overflow:hidden;border:1px solid rgba(255,255,255,.65);border-radius:12px;background:var(--lab-result-surface);color:var(--lab-result-text);box-shadow:0 24px 72px rgba(31,45,61,.22);font-family:"Noto Sans Thai","Leelawadee UI",Tahoma,Arial,sans-serif;font-size:13px}.lab-result-dialog:not(.is-microbiology) .el-dialog__header{margin:0;padding:16px 20px 14px;border-bottom:1px solid var(--lab-result-border-light)}.lab-result-dialog:not(.is-microbiology) .el-dialog__headerbtn{top:10px;right:10px;width:34px;height:34px}.lab-result-dialog:not(.is-microbiology) .el-dialog__body{max-height:calc(100vh - 160px);padding:16px 20px 20px;overflow:auto}.lab-result-dialog:not(.is-microbiology) .el-dialog__footer{padding:11px 20px;border-top:1px solid var(--lab-result-border-light);background:var(--lab-result-surface-soft)}.lab-result-dialog:not(.is-microbiology) .lab-result-dialog-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding-right:42px}.lab-result-dialog:not(.is-microbiology) .lab-result-title-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.lab-result-dialog:not(.is-microbiology) .lab-result-dialog-head>div:first-child{display:block;min-width:0}.lab-result-dialog:not(.is-microbiology) .lab-result-dialog-head>div:first-child>.lab-result-title-row>strong{color:var(--lab-result-ink);font-size:20px;line-height:1.25}.lab-result-dialog:not(.is-microbiology) .lab-result-dialog-head>div:first-child>small{display:block;margin-top:5px;color:var(--lab-result-muted);font-size:12px}.lab-result-dialog:not(.is-microbiology) .lab-result-mode{min-height:23px;margin-left:0;padding:2px 8px;border:1px solid #a0cfff;border-radius:999px;background:#ecf5ff;color:var(--lab-result-primary-dark);font-size:10px;font-weight:700}.lab-result-dialog:not(.is-microbiology) .lab-result-byline{gap:6px 14px;margin-top:7px;color:var(--lab-result-text);font-size:11px}.lab-result-dialog:not(.is-microbiology) .lab-result-byline span{display:inline-flex;align-items:baseline;gap:4px}.lab-result-dialog:not(.is-microbiology) .lab-result-byline b{color:var(--lab-result-muted);font-size:10px;font-weight:650}.lab-result-dialog:not(.is-microbiology) .lab-result-byline strong{color:var(--lab-result-ink);font-size:11px}.lab-result-dialog:not(.is-microbiology) .lab-result-report-action{flex:none;margin:0 42px 0 0!important}.lab-result-dialog:not(.is-microbiology) .lab-result-report-action .el-button,.lab-result-dialog:not(.is-microbiology) .el-button.lab-result-report-action{min-width:94px;min-height:34px;margin:0!important;padding:6px 14px;border-radius:6px}.lab-result-dialog:not(.is-microbiology) .lab-result-report-action .el-button:not(.is-disabled),.lab-result-dialog:not(.is-microbiology) .el-button.lab-result-report-action:not(.is-disabled){border-color:var(--lab-result-border)!important;background:var(--lab-result-surface)!important;color:var(--lab-result-text)!important}.lab-result-dialog:not(.is-microbiology) .lab-result-report-action .el-button:not(.is-disabled):hover,.lab-result-dialog:not(.is-microbiology) .el-button.lab-result-report-action:not(.is-disabled):hover{border-color:#a0cfff!important;color:var(--lab-result-primary-dark)!important}.lab-result-dialog:not(.is-microbiology) .lab-result-profile-toolbar{margin:18px 0 9px}.lab-result-dialog:not(.is-microbiology) .lab-result-profile-toolbar>div:first-child>strong{color:var(--lab-result-ink);font-size:15px}.lab-result-dialog:not(.is-microbiology) .lab-result-profile-toolbar>div:first-child>small{color:var(--lab-result-muted);font-size:11px}.lab-result-dialog:not(.is-microbiology) .lab-result-section-actions{gap:6px}.lab-result-dialog:not(.is-microbiology) .lab-result-section-actions .el-button{min-height:auto;padding:4px 7px;border:0;border-radius:4px;background:transparent;color:var(--lab-result-primary-dark);font-size:11px}.lab-result-dialog:not(.is-microbiology) .lab-result-section-actions .el-button:hover{background:#ecf5ff}.lab-result-dialog:not(.is-microbiology) .lab-result-values{overflow-x:auto;border:1px solid var(--lab-result-border);border-radius:8px}.lab-result-dialog:not(.is-microbiology) .lab-result-value-head,.lab-result-dialog:not(.is-microbiology) .lab-result-value-row{grid-template-columns:44px 34px minmax(230px,1.5fr) 125px 130px 92px 115px 145px;min-width:920px}.lab-result-dialog:not(.is-microbiology) .lab-result-value-head{min-height:42px;border-bottom:0;background:#f5f7fa;color:var(--lab-result-muted);font-size:11px;font-weight:700}.lab-result-dialog:not(.is-microbiology) .lab-result-value-head>span,.lab-result-dialog:not(.is-microbiology) .lab-result-value-row>div{min-width:0;padding:10px}.lab-result-dialog:not(.is-microbiology) .lab-result-value-row{min-height:52px;align-items:center;border-top:1px solid var(--lab-result-border-light);border-bottom:0;background:var(--lab-result-surface)}.lab-result-dialog:not(.is-microbiology) .lab-result-value-row:hover{background:#fbfcfe}.lab-result-dialog:not(.is-microbiology) .lab-result-value-row.is-critical{background:#fff8f8}.lab-result-dialog:not(.is-microbiology) .lab-result-value-row.is-profile-child{padding-left:16px}.lab-result-dialog:not(.is-microbiology) .lab-result-value-row.is-profile-child>div:first-child{color:var(--lab-result-muted)}.lab-result-dialog:not(.is-microbiology) .lab-result-signal{margin:auto}.lab-result-dialog:not(.is-microbiology) .lab-result-signal.is-abnormal{border-color:#cf8f2b;background:#e6a23c;box-shadow:0 0 0 3px rgba(230,162,60,.11)}.lab-result-dialog:not(.is-microbiology) .lab-result-test-name{color:var(--lab-result-ink);font-size:13px;font-weight:700}.lab-result-dialog:not(.is-microbiology) .lab-result-previous{padding:10px!important;background:transparent;color:var(--lab-result-muted)}.lab-result-dialog:not(.is-microbiology) .lab-result-measured{color:var(--lab-result-ink);font-size:15px;font-weight:800}.lab-result-dialog:not(.is-microbiology) .lab-result-measured.is-abnormal{color:#b88230}.lab-result-dialog:not(.is-microbiology) .lab-result-measured.is-critical{color:#c45656}.lab-result-dialog:not(.is-microbiology) .lab-result-interpretation{display:inline-flex;min-height:23px;align-items:center;padding:2px 8px;border:1px solid var(--lab-result-border);border-radius:999px;background:var(--lab-result-surface-soft);color:var(--lab-result-muted);font-size:10px;font-weight:700;white-space:nowrap}.lab-result-dialog:not(.is-microbiology) .lab-result-interpretation.is-normal{border-color:#b3e19d;background:#f0f9eb;color:#529b2e}.lab-result-dialog:not(.is-microbiology) .lab-result-interpretation.is-abnormal{border-color:#f3d19e;background:#fdf6ec;color:#b88230}.lab-result-dialog:not(.is-microbiology) .lab-result-interpretation.is-critical{border-color:#fab6b6;background:#fef0f0;color:#c45656}.lab-result-dialog:not(.is-microbiology) .lab-result-profile-row{display:grid;width:100%;grid-template-columns:32px minmax(260px,1fr) 28px;gap:10px;min-width:920px;min-height:54px;align-items:center;padding:10px 13px;border:0;border-top:1px solid var(--lab-result-border);border-bottom:0;background:var(--lab-result-surface-soft);color:var(--lab-result-text)}.lab-result-dialog:not(.is-microbiology) .lab-result-value-head+.lab-result-profile-row{border-top:0}.lab-result-dialog:not(.is-microbiology) .lab-result-profile-row:hover{background:#edf4ff}.lab-result-dialog:not(.is-microbiology) .lab-result-profile-row.is-open{background:var(--lab-result-surface-blue)}.lab-result-dialog:not(.is-microbiology) .lab-result-profile-index{grid-column:1;padding:0;color:var(--lab-result-muted)}.lab-result-dialog:not(.is-microbiology) .lab-result-profile-main{display:block;min-width:0;grid-column:2;padding:0}.lab-result-dialog:not(.is-microbiology) .lab-result-profile-main strong{display:block;overflow:hidden;color:var(--lab-result-ink);font-size:13px;text-overflow:ellipsis;white-space:nowrap}.lab-result-dialog:not(.is-microbiology) .lab-result-profile-main small{display:block;margin-top:2px;color:var(--lab-result-muted);font-size:10px}.lab-result-dialog:not(.is-microbiology) .lab-result-profile-row i{grid-column:3;justify-self:end;margin:0;color:var(--lab-result-muted);font-size:17px;transition:transform .16s ease}.lab-result-dialog:not(.is-microbiology) .lab-result-profile-row.is-open i{transform:rotate(180deg)}.lab-result-dialog:not(.is-microbiology) .lab-result-attachments{gap:10px;margin-top:12px;padding:10px 12px;border:1px solid var(--lab-result-border-light);border-radius:7px;background:var(--lab-result-surface-soft)}.lab-result-dialog:not(.is-microbiology) .lab-result-attachments-head strong{font-size:13px}.lab-result-dialog:not(.is-microbiology) .lab-result-attachments-head small,.lab-result-dialog:not(.is-microbiology) .lab-result-upload-note{font-size:10px}
 .lab-sensitive-result-locked{display:flex;min-width:920px;align-items:center;justify-content:space-between;gap:16px;padding:13px 16px;border-top:1px solid var(--el-color-danger-light-5,#fab6b6);background:var(--el-color-danger-light-9,#fef0f0)}.lab-sensitive-result-locked>div{display:grid;gap:3px}.lab-sensitive-result-locked>div>strong{color:var(--el-text-color-primary,#303133)}.lab-sensitive-result-locked small{color:var(--el-text-color-secondary,#909399);font-size:11px}.lab-sensitive-result-label{display:inline-flex;min-height:26px;align-items:center;padding:3px 10px;border:1px solid var(--el-color-danger-light-5,#fab6b6);border-radius:999px;background:var(--el-bg-color,#fff);color:var(--el-color-danger,#f56c6c);font-size:12px;white-space:nowrap}
@@ -2377,11 +2975,23 @@ form.formConfig.cssCode = `.lab-cpoe{--primary:var(--el-color-primary,#409eff);-
 .lab-result-dialog:not(.is-microbiology){display:flex;max-height:calc(100vh - 48px);flex-direction:column;margin:24px auto!important}.lab-result-dialog:not(.is-microbiology) .el-dialog__header,.lab-result-dialog:not(.is-microbiology) .el-dialog__footer{flex:none}.lab-result-dialog:not(.is-microbiology) .el-dialog__body{flex:1;min-height:0;max-height:none;overflow:auto;overscroll-behavior:contain}.lab-result-dialog:not(.is-microbiology) .lab-result-index,.lab-result-dialog:not(.is-microbiology) .lab-result-profile-index{white-space:nowrap}.lab-result-dialog:not(.is-microbiology) .lab-result-value-row>.lab-result-index{padding-right:6px;padding-left:6px}
 .lab-empty{padding:34px 20px;text-align:center;color:var(--muted);line-height:1.7}.lab-empty strong{color:var(--ink)}.lab-pagination{display:flex;justify-content:flex-end;padding-top:10px}.lab-mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
 @media(max-width:1100px){.lab-list-head{display:none}.lab-patient-row{grid-template-columns:32px minmax(160px,1.25fr) minmax(120px,1fr) minmax(125px,1fr) 72px 78px 64px;gap:6px 10px}.lab-expand-button{grid-column:1;grid-row:1/3}.lab-patient-summary{grid-column:2;grid-row:1}.lab-context-tags{grid-column:3;grid-row:1}.lab-row-status-check{grid-column:4;grid-row:1}.lab-patient-row>.lab-plain-action:nth-last-child(3){grid-column:5;grid-row:1}.lab-patient-row>.lab-plain-action:nth-last-child(2){grid-column:6;grid-row:1}.lab-patient-row>.lab-plain-action:last-child{grid-column:7;grid-row:1}.lab-items-cell{grid-column:2;grid-row:2}.lab-specimen-cell{grid-column:3;grid-row:2}.lab-order-cell{grid-column:4;grid-row:2}.lab-doctor-cell{grid-column:2/8;grid-row:3}.lab-patient-row.is-lookup .lab-section-cell{grid-column:4;grid-row:2}.lab-patient-row.is-lookup .lab-order-cell{grid-column:2;grid-row:3}.lab-patient-row.is-lookup .lab-doctor-cell{grid-column:3/8;grid-row:3}.lab-metric:before,.lab-doctor-cell:before{display:block;content:attr(data-label);margin-bottom:3px;color:var(--muted);font-size:10px;font-weight:650}}
-@media(max-width:900px){.lab-search-control{width:calc(50% - 5px)}.lab-date-control{width:calc(50% - 5px)}.lab-create-button{margin-left:0}.lab-item-grid-wrap{overflow:visible;margin-left:0}.lab-item-head{display:none}.lab-item-grid.lab-item-row{display:grid;grid-template-columns:1fr 1fr;gap:0 14px;min-width:0;padding:10px 0}.lab-item-grid.lab-item-row>.lab-item-check-cell{position:static;z-index:auto;padding-left:0;background:transparent;box-shadow:none}.lab-item-row>div{display:grid;grid-template-columns:minmax(92px,.42fr) minmax(0,1fr);align-items:center;gap:8px;min-height:34px;padding:3px 0;border-bottom:1px dashed var(--border-lighter)}.lab-item-row>div:before{display:block;content:attr(data-label);color:var(--muted);font-size:10px;font-weight:650}.lab-item-row>div:last-child{border-bottom:0}.lab-item-specimen-cell{padding-right:0;transform:none}.lab-item-collected-time span:last-child{grid-column:2}.lab-specimen-select{max-width:none}.lab-result-list{margin-left:0}.lab-result-list-head,.lab-result-list-row{grid-template-columns:44px minmax(180px,1fr) 110px 120px 82px;min-width:584px;padding:6px 0}}
+.lab-order-condition{display:grid;gap:2px;margin-top:5px;padding:5px 7px;border-left:2px solid var(--primary);border-radius:0 5px 5px 0;background:var(--primary-50);font-size:10px;font-weight:500;line-height:1.4}
+.lab-order-condition span{color:var(--muted);font-weight:700}.lab-order-condition strong{color:var(--text);font-weight:650;white-space:pre-wrap;overflow-wrap:anywhere}.lab-order-condition.is-missing{border-left-color:var(--danger);background:var(--danger-50)}.lab-order-condition.is-missing strong{color:var(--danger)}
+.lab-multi-specimen-list,.lab-multi-specimen-entry,.lab-multi-collection-entry{display:grid;min-width:0}.lab-multi-specimen-list{gap:10px}.lab-multi-specimen-entry{gap:5px}.lab-specimen-site{display:inline-flex;width:max-content;max-width:100%;min-height:20px;align-items:center;padding:2px 8px;border:1px solid var(--el-color-primary-light-5,#a0cfff);border-radius:999px;background:var(--primary-50);color:var(--primary);font-size:10px;font-weight:700;line-height:1.4;overflow-wrap:anywhere}.lab-multi-collection-entry{gap:0}.lab-multi-collection-entry+.lab-multi-collection-entry{margin-top:10px}.lab-specimen-condition-line{display:flex;min-width:0;align-items:center;gap:5px;flex-wrap:wrap}.lab-specimen-temperature{display:inline-flex;min-height:19px;align-items:center;margin-top:4px;padding:1px 7px;border:1px solid var(--border);border-radius:999px;background:var(--fill-light);color:var(--text);font-size:10px;font-weight:700;line-height:1.4;white-space:nowrap}.lab-specimen-temperature.is-immediate{border-color:var(--el-color-success-light-5,#b3e19d);background:var(--success-50);color:var(--el-color-success-dark-2,#529b2e)}.lab-specimen-temperature.is-refrigerated{border-color:var(--el-color-primary-light-5,#a0cfff);background:var(--primary-50);color:var(--primary)}.lab-specimen-temperature.is-room-temperature{border-color:var(--el-color-warning-light-5,#f3d19e);background:var(--warning-50);color:var(--el-color-warning-dark-2,#b88230)}.lab-multi-specimen-empty{padding:6px 7px;border:1px dashed var(--danger);border-radius:6px;background:var(--danger-50);color:var(--danger);font-size:10px;font-weight:700}
+@media(max-width:900px){.lab-search-control{width:calc(50% - 5px)}.lab-date-control{width:calc(50% - 5px)}.lab-create-button{margin-left:0}.lab-item-grid-wrap{overflow:visible;margin-left:0}.lab-item-head{display:none}.lab-item-grid.lab-item-row{display:grid;grid-template-columns:1fr 1fr;gap:0 14px;min-width:0;padding:10px 0}.lab-item-grid.lab-item-row>.lab-item-check-cell{position:static;z-index:auto;padding-left:0;background:transparent;box-shadow:none}.lab-item-row>div{display:grid;grid-template-columns:minmax(92px,.42fr) minmax(0,1fr);align-items:center;gap:8px;min-height:34px;padding:3px 0;border-bottom:1px dashed var(--border-lighter)}.lab-item-row>div:before{display:block;content:attr(data-label);color:var(--muted);font-size:10px;font-weight:650}.lab-item-row>div:last-child{border-bottom:0}.lab-item-specimen-cell{padding-right:0;transform:none}.lab-item-collected-time{align-items:start}.lab-item-collected-time>.lab-collected-date-time,.lab-item-collected-time>.lab-specimen-storage,.lab-item-collected-time>.lab-specimen-source-line,.lab-item-collected-time>.lab-multi-collection-entry{grid-column:2}.lab-specimen-select{max-width:none}.lab-result-list{margin-left:0}.lab-result-list-head,.lab-result-list-row{grid-template-columns:44px minmax(180px,1fr) 110px 120px 100px 140px 140px;min-width:900px;padding:6px 0}.lab-result-list.is-lookup .lab-result-list-head,.lab-result-list.is-lookup .lab-result-list-row{grid-template-columns:44px minmax(220px,1fr) 110px 120px 140px 140px;min-width:824px}.lab-result-list.is-microbiology .lab-result-list-head,.lab-result-list.is-microbiology .lab-result-list-row{grid-template-columns:44px minmax(180px,1fr) 100px 110px 100px 130px 130px 70px 76px;min-width:980px}.lab-result-list.is-microbiology.is-lookup .lab-result-list-head,.lab-result-list.is-microbiology.is-lookup .lab-result-list-row{grid-template-columns:44px minmax(210px,1fr) 100px 110px 130px 130px 70px 76px;min-width:870px}}
 @media(max-width:720px){.lab-toolbar{display:grid;grid-template-columns:1fr 1fr;gap:8px}.lab-search-control,.lab-toolbar .lab-date-control{width:100%!important;max-width:none;flex:auto;grid-column:1/-1}.lab-toolbar>.el-button,.lab-toolbar>.el-dropdown{width:100%}.lab-toolbar>.el-dropdown .el-button{width:100%}.lab-create-button{grid-column:1/-1}.lab-scan-context .el-button{width:100%;margin-left:0}.lab-status-strip{flex-wrap:nowrap;overflow-x:auto;padding-bottom:3px}.lab-status-chip,.lab-status-legend{flex:0 0 auto}.lab-lookup-strip>small{width:100%;margin-left:0}.lab-patient-row{grid-template-columns:28px minmax(0,1fr) 58px 58px 58px;padding:9px 8px}.lab-expand-button{grid-column:1;grid-row:1}.lab-patient-summary{grid-column:2;grid-row:1}.lab-row-status-check{grid-column:3/6;grid-row:1;justify-self:end}.lab-context-tags{grid-column:2/6;grid-row:2}.lab-items-cell{grid-column:2;grid-row:3}.lab-specimen-cell{grid-column:3/6;grid-row:3}.lab-order-cell{grid-column:2/6;grid-row:4}.lab-doctor-cell{grid-column:2/6;grid-row:5}.lab-patient-row.is-lookup .lab-section-cell{grid-column:2;grid-row:4}.lab-patient-row.is-lookup .lab-order-cell{grid-column:3/6;grid-row:4}.lab-patient-row>.lab-plain-action:nth-last-child(3){grid-column:2/6;grid-row:6}.lab-patient-row>.lab-plain-action:nth-last-child(2){grid-column:2/6;grid-row:7}.lab-patient-row>.lab-plain-action:last-child{grid-column:2/6;grid-row:8}.lab-detail-panel{padding:0 8px 12px}.lab-detail-top{align-items:flex-start;flex-wrap:wrap}.lab-bulk-actions{width:100%;margin:0;padding-bottom:7px;flex-wrap:wrap}.lab-item-grid.lab-item-row{grid-template-columns:1fr}.lab-pagination{justify-content:flex-start;overflow-x:auto}.lab-result-patient-card{grid-template-columns:44px 1fr}.lab-result-avatar{grid-row:auto}.lab-result-patient-main{grid-column:2}.lab-result-meta{grid-column:1/-1}.lab-manual-fields{grid-template-columns:1fr}.lab-result-list-head{display:none}.lab-result-list-row{grid-template-columns:1fr 1fr;min-width:0;padding:8px 0}.lab-result-list-row>div:nth-child(2){grid-column:1/-1;grid-row:1}.lab-micro-patient-strip{grid-template-columns:1fr 1fr}.lab-micro-patient-main{grid-column:1/-1}.lab-micro-timeline{grid-template-columns:1fr 1fr}.lab-micro-result-head{grid-template-columns:28px minmax(0,1fr) auto 22px}.lab-micro-result-head>span:nth-child(3){display:none}.lab-micro-result-body{padding-left:13px}.lab-micro-wire-meta{grid-template-columns:1fr 1fr}.lab-micro-wire-meta>div:nth-child(2){border-right:0}}
 @media(max-width:820px){.lab-result-revision-view{grid-template-columns:1fr}.lab-result-revision-rail{max-height:190px;overflow:auto;border-right:0;border-bottom:1px solid var(--border)}.lab-result-revision-sheet>footer{grid-template-columns:1fr}.lab-result-revision-sheet>footer span{margin-top:4px}}
-@media(max-width:520px){.lab-cbc-patient-card{grid-template-columns:38px minmax(0,1fr)}.lab-cbc-avatar{width:38px;height:38px}.lab-cbc-patient-card>.lab-source-pill{grid-column:1/-1;justify-self:start}.lab-cbc-swap-summary{grid-template-columns:1fr}.lab-cbc-swap-summary>i{transform:rotate(90deg)}.lab-cbc-swap-cell{min-height:auto}.lab-micro-patient-strip,.lab-micro-timeline,.lab-micro-summary-grid,.lab-micro-wire-meta{grid-template-columns:1fr}.lab-micro-wire-meta>div{border-right:0}.lab-micro-notice{flex-direction:column;gap:3px}.lab-micro-result-head{grid-template-columns:24px minmax(0,1fr) auto 20px;gap:7px}.lab-micro-section-head{align-items:flex-start;flex-direction:column;gap:2px}}
+@media(max-width:520px){.lab-cbc-patient-card{grid-template-columns:38px minmax(0,1fr)}.lab-cbc-avatar{width:38px;height:38px}.lab-cbc-patient-card>.lab-source-pill{grid-column:1/-1;justify-self:start}.lab-cbc-swap-summary{grid-template-columns:1fr}.lab-cbc-swap-summary>i{transform:rotate(90deg)}.lab-cbc-swap-cell{min-height:auto}.lab-micro-patient-strip,.lab-micro-timeline,.lab-micro-summary-grid,.lab-micro-wire-meta{grid-template-columns:1fr}.lab-micro-wire-meta>div{border-right:0}.lab-micro-notice{flex-direction:column;gap:3px}.lab-micro-result-head{grid-template-columns:24px minmax(0,1fr) auto 20px;gap:7px}.lab-micro-section-head{align-items:flex-start;flex-direction:column;gap:2px}.lab-result-order-note{grid-template-columns:26px minmax(0,1fr)}.lab-result-order-note-key{grid-column:2;justify-self:start}}
 .lab-result-value-row.is-redacted{background:var(--danger-50)}.lab-result-redacted-value{color:var(--danger);font-weight:800}
+/* MY/pathology manual-result dialog. Keep every selector under lab-pathology-*
+   so the shared Standard LAB and Microbiology result viewers remain unchanged. */
+.lab-pathology-dialog{display:flex;max-height:calc(100vh - 72px);flex-direction:column;margin:36px auto!important;color:var(--text)}.lab-pathology-dialog .el-dialog__header,.lab-pathology-dialog .el-dialog__footer{flex:none;margin:0}.lab-pathology-dialog .el-dialog__header{padding:14px 20px 12px;border-bottom:1px solid var(--border-lighter)}.lab-pathology-dialog .el-dialog__body{flex:1;min-height:0;padding:0;overflow:hidden}.lab-pathology-dialog .el-dialog__footer{padding:10px 20px;border-top:1px solid var(--border-lighter);background:var(--fill-lighter)}
+.lab-pathology-head{display:flex;min-width:0;align-items:flex-start;justify-content:space-between;gap:16px;padding-right:34px}.lab-pathology-head>div:first-child{display:grid;min-width:0;gap:4px}.lab-pathology-head small{color:var(--muted);font-size:11px}.lab-pathology-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.lab-pathology-title>strong{color:var(--ink);font-size:19px}.lab-pathology-title>span{display:inline-flex;min-height:24px;align-items:center;padding:2px 9px;border:1px solid var(--el-color-primary-light-5,#a0cfff);border-radius:999px;background:var(--primary-50);color:var(--primary);font-size:10px;font-weight:800}.lab-pathology-title>span.is-manual{border-color:var(--el-color-warning-light-5,#f3d19e);background:var(--warning-50);color:var(--el-color-warning-dark-2,#b88230)}
+.lab-pathology-body{max-height:calc(100vh - 210px);overflow:auto;overscroll-behavior:contain}.lab-pathology-patient-strip{display:grid;grid-template-columns:minmax(220px,1.6fr) minmax(150px,.8fr) minmax(210px,1.15fr) minmax(120px,.65fr) minmax(150px,.8fr);border-bottom:1px solid var(--border-lighter);background:var(--white)}.lab-pathology-patient-strip>div{display:grid;min-width:0;gap:3px;padding:10px 13px;border-right:1px solid var(--border-lighter)}.lab-pathology-patient-strip>div:last-child{border-right:0}.lab-pathology-patient-strip span{color:var(--muted);font-size:10px;font-weight:650}.lab-pathology-patient-strip strong{overflow:hidden;color:var(--ink);font-size:12px;text-overflow:ellipsis;white-space:nowrap}
+.lab-pathology-summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 18px;color:var(--muted);font-size:11px}.lab-pathology-summary strong{color:var(--ink);font-size:12px}.lab-pathology-summary-actions{display:flex;align-items:center;gap:10px}.lab-pathology-summary-actions>.el-button{margin:0}.lab-pathology-table{min-width:1120px;margin:0 18px 14px;border:1px solid var(--border-light);border-radius:8px;overflow:hidden}.lab-pathology-table-head,.lab-pathology-item-row{display:grid;grid-template-columns:52px minmax(180px,.72fr) minmax(220px,.92fr) minmax(570px,2.25fr)}.lab-pathology-table-head{min-height:38px;align-items:center;background:var(--fill-light);color:var(--muted);font-size:11px;font-weight:750}.lab-pathology-table-head>div{height:100%;padding:10px 12px;border-right:1px solid var(--border-light)}.lab-pathology-table-head>div:last-child{border-right:0}
+.lab-pathology-item-row{min-height:154px;border-top:1px solid var(--border-light);background:var(--white)}.lab-pathology-item-row:first-of-type{border-top:0}.lab-pathology-item-index,.lab-pathology-test-cell,.lab-pathology-specimen-cell{border-right:1px solid var(--border-light);background:var(--fill-lighter)}.lab-pathology-item-index{padding:16px 9px;color:var(--muted);font-size:11px;text-align:center}.lab-pathology-test-cell,.lab-pathology-specimen-cell{display:grid;min-width:0;align-content:start;gap:5px;padding:14px 13px}.lab-pathology-test-cell>strong,.lab-pathology-specimen-cell>strong{color:var(--ink);font-size:13px;overflow-wrap:anywhere}.lab-pathology-test-cell>strong>span{margin-right:4px;color:var(--primary);font-size:10px;font-weight:800}.lab-pathology-test-cell>small{color:var(--muted);font-size:10px;line-height:1.5}.lab-pathology-ordered-site{display:inline-flex;width:max-content;max-width:100%;min-height:22px;align-items:center;margin-top:7px;padding:2px 8px;border:1px solid var(--el-color-primary-light-5,#a0cfff);border-radius:999px;background:var(--primary-50);color:var(--primary);font-size:10px;font-weight:700;line-height:1.4;overflow-wrap:anywhere}.lab-pathology-ordered-site>b{font-weight:800}
+.lab-pathology-subresults{min-width:0}.lab-pathology-addbar{display:flex;min-height:36px;align-items:center;justify-content:flex-end;gap:10px;padding:4px 9px;border-bottom:1px dashed var(--border-lighter);background:var(--fill-lighter)}.lab-pathology-addbar .el-button{margin:0}.lab-pathology-subrow{display:grid;grid-template-columns:minmax(265px,.92fr) minmax(290px,1.08fr) 40px;min-height:98px;align-items:stretch;border-bottom:1px dashed var(--border-lighter);background:var(--white)}.lab-pathology-subrow:last-child{border-bottom:0}.lab-pathology-subrow>div,.lab-pathology-subrow>label{min-width:0;padding:9px;border-right:1px solid var(--border-lighter)}.lab-pathology-subrow>div:last-child{border-right:0}.lab-pathology-site-entry,.lab-pathology-result-entry{display:grid;align-content:start;gap:6px}.lab-pathology-site-entry>span,.lab-pathology-result-entry>span{color:var(--text);font-size:11px;font-weight:750}.lab-pathology-site-entry>span b{color:var(--danger)}.lab-pathology-site-entry>.el-select,.lab-pathology-result-entry>.el-select{width:100%}.lab-pathology-site-entry>small,.lab-pathology-result-entry>small{color:var(--muted);font-size:9px;line-height:1.4}.lab-pathology-remove{display:flex;align-items:flex-start;justify-content:center}.lab-pathology-remove .el-button{width:28px;height:28px;margin:0;padding:0;border-radius:50%;font-size:20px;font-weight:700}.lab-pathology-revisions{display:grid;grid-template-columns:250px minmax(0,1fr);min-height:260px;margin:0 18px 14px;overflow:hidden;border:1px solid var(--border-light);border-radius:8px;background:var(--white)}.lab-pathology-revisions>aside{display:grid;align-content:start;border-right:1px solid var(--border-light);background:var(--fill-lighter)}.lab-pathology-revisions>aside>strong{padding:11px 12px;color:var(--ink);font-size:11px}.lab-pathology-revisions>aside>button{display:grid;gap:2px;padding:9px 12px;border:0;border-top:1px solid var(--border-lighter);background:transparent;color:var(--text);font:inherit;text-align:left;cursor:pointer}.lab-pathology-revisions>aside>button.is-active{background:var(--primary-50);color:var(--primary)}.lab-pathology-revisions>aside span{font-size:10px;font-weight:750}.lab-pathology-revisions>aside small{color:var(--muted);font-size:9px}.lab-pathology-revision-sheet{min-width:0}.lab-pathology-revision-sheet>header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border-bottom:1px solid var(--border-light)}.lab-pathology-revision-sheet>header>div{display:grid;gap:2px}.lab-pathology-revision-sheet>header strong{color:var(--ink);font-size:12px}.lab-pathology-revision-sheet>header small,.lab-pathology-revision-sheet>header>span{color:var(--muted);font-size:9px}.lab-pathology-revision-head,.lab-pathology-revision-row{display:grid;grid-template-columns:minmax(180px,1.2fr) minmax(120px,.75fr) minmax(150px,1fr) minmax(150px,1fr);gap:0}.lab-pathology-revision-head{background:var(--fill-light);color:var(--muted);font-size:9px;font-weight:750}.lab-pathology-revision-head>span,.lab-pathology-revision-row>span,.lab-pathology-revision-row>strong{padding:8px 10px;border-right:1px solid var(--border-lighter)}.lab-pathology-revision-row{border-top:1px solid var(--border-lighter);color:var(--text);font-size:10px}.lab-pathology-revision-row span>strong,.lab-pathology-revision-row span>small{display:block}.lab-pathology-revision-row span>small{margin-top:2px;color:var(--muted);font-size:9px}.lab-pathology-correction-reason,.lab-pathology-attachments{margin:0 18px 14px}.lab-pathology-attachments{padding:11px}.lab-pathology-footer{display:flex;align-items:center;justify-content:flex-end;gap:8px}.lab-pathology-footer>span{margin-right:auto;color:var(--muted);font-size:11px}.lab-pathology-empty{padding:30px;text-align:center;color:var(--muted)}
+@media(max-width:900px){.lab-pathology-patient-strip{grid-template-columns:1fr 1fr}.lab-pathology-patient-strip>div{border-bottom:1px solid var(--border-lighter)}.lab-pathology-patient-strip>div:last-child{grid-column:1/-1}.lab-pathology-summary{align-items:flex-start;flex-direction:column}.lab-pathology-dialog{width:calc(100vw - 16px)!important;margin:8px auto!important;max-height:calc(100vh - 16px)}.lab-pathology-body{max-height:calc(100vh - 154px)}}
 @media(prefers-reduced-motion:reduce){.lab-cpoe *{scroll-behavior:auto!important;transition-duration:.001ms!important}}`
 
 fs.writeFileSync(outputPath, JSON.stringify(form, null, 2) + '\n')

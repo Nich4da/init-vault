@@ -8,7 +8,9 @@
  * }
  * Output LAB NO.: SSYYMMDDNNNN
  *
- * CPOE is read-only. The LAB NO. is owned by zdata_lab_work_item. A retry for
+ * CPOE is read-only. IM/MI-OUT/MB/MY LAB NO. is issued by CPOE and this process
+ * fails closed for those rooms; Receive copies that number into the Work Item.
+ * For every other room the LAB NO. is owned by zdata_lab_work_item. A retry for
  * the same CPOE Item returns the same Work Item/LAB NO. without consuming a
  * second counter. Daily counters are isolated by section and stop at 9999.
  * A legacy interrupted receipt may leave CPOE accepted/prepared without any
@@ -32,6 +34,7 @@ const SECTION_PREFIX = {
   BC: '10', HM: '20', ML: '21', HH: '22', IM: '30', 'MI-OUT': '31',
   MB: '40', MY: '41', BB: '50', BG: '70'
 }
+const SOURCE_MANAGED_SECTION_PREFIX = { IM: '30', 'MI-OUT': '31', MB: '40', MY: '41' }
 const ORGANIZATION_SECTION_CODES = {
   // M1000 is the dedicated MY/manual-result Organization (verified 2026-09-21).
   M1000: ['MY'],
@@ -181,6 +184,7 @@ const assignBatchLabNo = async session => {
     }
     const sectionCode = text(section.code).toUpperCase()
     if (!allowedSections.includes(sectionCode)) throw new Error('SECTION_FORBIDDEN')
+    if (SOURCE_MANAGED_SECTION_PREFIX[sectionCode]) throw new Error('SOURCE_LAB_NO_OWNED_BY_CPOE')
     if (!SECTION_PREFIX[sectionCode]) throw new Error('SECTION_PREFIX_MISSING')
     if (existing && !retestPending && !cbcSwapPending && !text(existing.lab_no)) throw new Error('WORK_ITEM_WITHOUT_LAB_NO')
 
@@ -453,6 +457,9 @@ const assignLabNo = async session => {
       !text(existing.lab_no) && text(existing.work_status).toLowerCase() === 'waiting_receive' &&
       itemStatus === 'ready' && ['HM1', 'MS1'].includes(text(existing.effective_item_code).toUpperCase())
     )
+    if (existing && SOURCE_MANAGED_SECTION_PREFIX[text(existing.section_code).toUpperCase()]) {
+      throw new Error('SOURCE_LAB_NO_OWNED_BY_CPOE')
+    }
     if (existing && !retestPending && !cbcSwapPending) {
       const existingLabNo = text(existing.lab_no)
       if (!existingLabNo) throw new Error('WORK_ITEM_WITHOUT_LAB_NO')
@@ -493,6 +500,7 @@ const assignLabNo = async session => {
 
     const sectionCode = text(section.code).toUpperCase()
     if (!allowedSections.includes(sectionCode)) throw new Error('SECTION_FORBIDDEN')
+    if (SOURCE_MANAGED_SECTION_PREFIX[sectionCode]) throw new Error('SOURCE_LAB_NO_OWNED_BY_CPOE')
     const sectionPrefix = SECTION_PREFIX[sectionCode]
     if (!sectionPrefix) throw new Error('SECTION_PREFIX_MISSING')
     const sectionName = text(section.name_th || section.name || section.label || sectionCode)
@@ -754,6 +762,7 @@ try {
     ORDER_NOT_FOUND: 'ไม่พบ CPOE Order ของ Item นี้',
     PATIENT_HN_MISSING: 'ไม่พบ HN จึงยังสร้าง Lab Work Item ไม่ได้',
     SECTION_FORBIDDEN: 'Item นี้ไม่ได้อยู่ใน Section ของ Organization ปัจจุบัน',
+    SOURCE_LAB_NO_OWNED_BY_CPOE: 'ห้อง IM, MI-OUT, MY และ MB ต้องใช้ LAB NO. ที่ส่งมาจาก CPOE เท่านั้น ระบบ LAB จะไม่สร้างเลขให้',
     SECTION_PREFIX_MISSING: 'Section นี้ยังไม่มีรหัส 2 หลักสำหรับสร้าง LAB NO.',
     COUNTER_INVALID: 'ลำดับ LAB NO. ไม่ถูกต้อง',
     DAILY_LIMIT_REACHED: 'LAB NO. ของ Section นี้ครบ 9999 รายการสำหรับวันนี้แล้ว กรุณาแจ้งผู้ดูแลระบบ',

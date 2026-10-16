@@ -143,6 +143,12 @@ assert(byName(forms.report, 'result_attachments'))
 assert(byName(forms.report, 'confirmed_by'))
 assert(byName(forms.report, 'confirmed_at'))
 assert(byName(forms.report, 'result_mode'))
+for (const formName of ['receipt', 'report']) {
+  const orderNote = byName(forms[formName], 'order_note')
+  assert(orderNote, `${formName} missing order_note`)
+  assert.strictEqual(orderNote.component, 'textarea-input')
+  assert.strictEqual(orderNote.options.hidden, true, 'order_note is stored by the technical form and displayed by the Worklist popup')
+}
 assert(byName(forms.item, 'lab_section'))
 assert.strictEqual(byName(forms.receipt, 'raw_payload_json').options.hidden, true)
 assert.strictEqual(byName(forms.receipt, 'items_json').options.hidden, true)

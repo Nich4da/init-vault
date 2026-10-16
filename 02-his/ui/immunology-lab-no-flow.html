@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <title>Immunology LAB NO — Order-time issuance flow</title>
+  <title>Protected LAB NO — Order-source issuance flow</title>
   <style>
     :root {
       --primary: #409eff;
@@ -176,7 +176,7 @@
       box-shadow: inset 0 0 0 1px var(--line);
     }
     .step-card {
-      width: 100%;
+      width: calc(100% - 14px);
       min-height: 150px;
       margin: 0 7px;
       padding: 13px 12px 12px;
@@ -194,6 +194,7 @@
     .step.issue { --step-color: var(--warning); --step-bg: var(--warning-50); }
     .step.label { --step-color: #7b61a8; --step-bg: #f4f0fb; }
     .step.receive { --step-color: var(--success); --step-bg: var(--success-50); }
+    .step.gate { --step-color: var(--danger); --step-bg: var(--danger-50); }
 
     .flow-foot {
       display: grid;
@@ -283,6 +284,22 @@
     .label-item b { color: #111; font-size: 6.4px; }
     .label-note { margin-top: 10px; color: var(--muted); font-size: 11px; }
 
+    .receive-gates { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .receive-gate { padding: 15px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+    .receive-gate.valid { border-top: 3px solid var(--success); }
+    .receive-gate.blocked { border-top: 3px solid var(--danger); }
+    .receive-gate-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+    .receive-gate h3 { margin: 0; color: var(--ink); font-size: 14px; }
+    .receive-gate p { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
+    .receive-gate dl { display: grid; grid-template-columns: 120px 1fr; gap: 6px 12px; margin: 14px 0; font-size: 12px; }
+    .receive-gate dt { color: var(--muted); }
+    .receive-gate dd { margin: 0; color: var(--ink); font-weight: 700; }
+    .receive-button { width: 100%; min-height: 38px; border: 1px solid var(--success); border-radius: 5px; background: var(--success); color: #fff; font-weight: 750; }
+    .receive-button:disabled { border-color: var(--line); background: var(--fill); color: var(--muted); cursor: not-allowed; }
+    .gate-message { margin-top: 8px; padding: 8px 10px; border-radius: 5px; font-size: 11px; }
+    .gate-message.ok { background: var(--success-50); color: #529b2e; }
+    .gate-message.stop { background: var(--danger-50); color: #c45656; }
+
     .contract-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
     .code-panel { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #20242a; color: #e8edf2; }
     .code-head { display: flex; justify-content: space-between; gap: 10px; padding: 9px 12px; border-bottom: 1px solid #343a42; color: #aeb8c2; font-size: 11px; }
@@ -313,7 +330,7 @@
       .decision:nth-child(even) { border-right: 0; }
       .decision:not(:nth-last-child(-n+2)) { border-bottom: 1px solid var(--line-light); }
       .mapping, .contract-grid { grid-template-columns: 1fr; }
-      .guardrails, .source-grid { grid-template-columns: 1fr; }
+      .guardrails, .source-grid, .receive-gates { grid-template-columns: 1fr; }
     }
     @media (max-width: 680px) {
       .page { width: min(100% - 20px, 1460px); padding-top: 10px; }
@@ -345,14 +362,14 @@
   <main class="page">
     <div class="notice" role="note">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v5"></path><path d="M12 17h.01"></path></svg>
-      <div><strong>แนวคิดยืนยันแล้ว — รอทีมคอนเฟิร์มก่อน Implement</strong> หน้า HTML นี้ใช้สรุป Flow และขอบเขตการพัฒนา ไม่มีข้อมูลผู้ป่วยจริง ยังไม่ Deploy และไม่ใช่หน้าจอ Production</div>
+      <div><strong>Contract ใหม่จากการคุยกับทีมใบสั่งตรวจ — รอยืนยันก่อน Implement</strong> หน้า HTML นี้สรุป Flow ที่ต้นทางเป็นผู้ออก LAB NO. และฝั่ง LAB รับเลขมาใช้เท่านั้น ไม่มีข้อมูลผู้ป่วยจริง ยังไม่ Deploy และไม่ใช่หน้าจอ Production</div>
     </div>
 
     <header class="hero">
       <div>
         <div class="eyebrow">LAB workflow decision</div>
-        <h1>ออก LAB NO ตอน Order<br>เฉพาะงานภูมิคุ้มกัน</h1>
-        <p>ข้อยกเว้นด้านเวลาออกเลข: <strong>1 CPOE Item : 1 LAB NO</strong> หลังบันทึกและส่ง Order สำเร็จเมื่อ Item เป็น <span class="mono">ready</span> ใช้ได้ทั้ง Order จาก CPOE และ Order ที่ห้อง LAB สร้างเอง แล้วรวมทุกคู่ของ Order ลงในสติ๊กเกอร์เดียว สูงสุด 5 คู่</p>
+        <h1>รับ Order พร้อม LAB NO<br>ก่อนกดรับ Specimen</h1>
+        <p>ทีมใบสั่งตรวจเป็นผู้ Generate เลขด้วยรูปแบบ <strong class="mono">SSYYMMDDNNNN</strong> แล้วส่ง Order พร้อม LAB NO. เข้าคิวตามปกติ ฝั่ง LAB มีหน้าที่ตรวจเลขและรอรับ Specimen เท่านั้น โดย <strong>ห้าม Generate หรือเขียนทับเลข</strong> สำหรับ <span class="mono">IM/30</span>, <span class="mono">MI-OUT/31</span> และ <span class="mono">MB/40</span></p>
       </div>
       <div class="hero-actions">
         <button class="button" type="button" onclick="window.print()">พิมพ์สรุป</button>
@@ -360,30 +377,30 @@
     </header>
 
     <section class="decision-strip" aria-label="ข้อสรุปหลัก">
-      <div class="decision"><span>ขอบเขต</span><strong>IM / MI-OUT เท่านั้น</strong><small>Server เป็นผู้ตรวจ Section จริง</small></div>
-      <div class="decision"><span>ต้นทาง Order</span><strong>CPOE / LAB Worklist</strong><small>ใช้ Issuance API เส้นเดียวกัน</small></div>
-      <div class="decision"><span>ความสัมพันธ์</span><strong>1 Item = 1 LAB NO</strong><small>แม้ Specimen ชนิดเดียวกัน</small></div>
-      <div class="decision"><span>แหล่งข้อมูลหลัก</span><strong>Work Item.lab_no</strong><small>CPOE ไม่สร้าง Counter เอง</small></div>
-      <div class="decision"><span>ตอนรับ Specimen</span><strong>ใช้เลขเดิมเท่านั้น</strong><small>ไม่ Generate และไม่ Fallback</small></div>
+      <div class="decision"><span>Protected Sections</span><strong>IM 30 · MI-OUT 31 · MB 40</strong><small>ตรวจจาก Section ของ Item</small></div>
+      <div class="decision"><span>เจ้าของเลข</span><strong>ระบบใบสั่งตรวจ</strong><small>Generate ก่อนส่ง Order เข้า LAB</small></div>
+      <div class="decision"><span>รูปแบบเลข</span><strong class="mono">SSYYMMDDNNNN</strong><small>Section + พ.ศ. + เดือน + วัน + Running</small></div>
+      <div class="decision"><span>ข้อมูลที่ LAB รับ</span><strong>Order + LAB NO.</strong><small>เข้า waiting queue ตามปกติ</small></div>
+      <div class="decision"><span>ตอนรับ Specimen</span><strong>Validate แล้วใช้เลขเดิม</strong><small>ไม่ Generate · ไม่เขียนทับ</small></div>
     </section>
 
     <section class="workspace" aria-labelledby="flow-title">
       <div class="workspace-head">
-        <div><h2 id="flow-title">Flow ตั้งแต่ Order ถึง LIS</h2><p id="flow-subtitle">ภูมิคุ้มกัน — ออกเลขก่อนรับ Specimen</p></div>
+        <div><h2 id="flow-title">Flow ตั้งแต่ใบสั่งตรวจถึง LIS</h2><p id="flow-subtitle">Protected Sections — ต้นทางส่ง Order พร้อม LAB NO.</p></div>
         <div class="switcher" role="tablist" aria-label="เปรียบเทียบ Flow">
-          <button id="tab-im" role="tab" aria-selected="true" type="button" data-mode="immunology">ภูมิคุ้มกัน</button>
+          <button id="tab-protected" role="tab" aria-selected="true" type="button" data-mode="protected">IM / MI-OUT / MB</button>
           <button id="tab-other" role="tab" aria-selected="false" type="button" data-mode="other">LAB อื่น</button>
         </div>
       </div>
 
       <div class="flow-wrap">
-        <div class="flow" id="flow-immunology">
-          <div class="step system"><div class="step-card"><span class="step-n">01</span><h3>Create Order</h3><p>แพทย์สั่งจาก CPOE หรือห้อง LAB สร้างจาก LAB Worklist</p><code>order_id + item_id</code></div></div>
-          <div class="step system"><div class="step-card"><span class="step-n">02</span><h3>Save / Send / Ready</h3><p>เรียก Trusted Trigger หลังส่งสำเร็จและ Item พร้อมรับบริการ</p><code>current_status = ready</code></div></div>
-          <div class="step issue"><div class="step-card"><span class="step-n">03</span><h3>Issue per Item</h3><p>Resolve Section แล้วออกเลขแยกทีละ CPOE Item</p><code>item_id → lab_no</code></div></div>
-          <div class="step label"><div class="step-card"><span class="step-n">04</span><h3>Print Sticker</h3><p>พิมพ์ชื่อ/HN และทุก Item/LAB NO ของ Order ในใบเดียว สูงสุด 5 คู่</p><code>patient + items[0..4]</code></div></div>
-          <div class="step receive"><div class="step-card"><span class="step-n">05</span><h3>Receive Specimen</h3><p>Require LAB NO เดิม เปลี่ยนสถานะเป็น received</p><code>no generation</code></div></div>
-          <div class="step receive"><div class="step-card"><span class="step-n">06</span><h3>Outbound → LIS</h3><p>หนึ่ง Item ต่อหนึ่ง Outbound ใช้เลขจากสติ๊กเกอร์</p><code>labno = existing</code></div></div>
+        <div class="flow" id="flow-protected">
+          <div class="step system"><div class="step-card"><span class="step-n">01</span><h3>Create Order</h3><p>ทีมใบสั่งตรวจบันทึก Order และ Item ตาม Flow ต้นทาง</p><code>order_id + item_id + section</code></div></div>
+          <div class="step issue"><div class="step-card"><span class="step-n">02</span><h3>Generate ที่ต้นทาง</h3><p>ต้นทางจอง Running และสร้างเลขตาม Section ก่อนส่ง Order</p><code>SSYYMMDDNNNN</code></div></div>
+          <div class="step label"><div class="step-card"><span class="step-n">03</span><h3>Attach LAB NO.</h3><p>แนบเลขกับ Item ใน payload เดียวกับ Order ห้ามส่งเลขว่าง</p><code>item.lab_no = issued</code></div></div>
+          <div class="step system"><div class="step-card"><span class="step-n">04</span><h3>LAB Waiting Queue</h3><p>LAB รับ Order พร้อมเลขและเตรียมรอรับ Specimen ตามปกติ</p><code>waiting_receive</code></div></div>
+          <div class="step gate"><div class="step-card"><span class="step-n">05</span><h3>Receive Gate</h3><p>มีเลขและ Prefix ตรง Section จึงเปิดปุ่มรับ; ถ้าไม่ผ่านให้ล็อกปุ่ม</p><code>generate_lab_no = false</code></div></div>
+          <div class="step receive"><div class="step-card"><span class="step-n">06</span><h3>Receive → Outbound</h3><p>บันทึกการรับและใช้ LAB NO. จากต้นทางโดยไม่แก้ไข</p><code>labno = incoming_lab_no</code></div></div>
         </div>
 
         <div class="flow" id="flow-other" hidden>
@@ -396,162 +413,174 @@
         </div>
       </div>
 
-      <div class="flow-foot" id="im-rules">
-        <div class="rule"><span class="mark">✓</span><div><b>1 สติ๊กเกอร์ต่อ 1 Order</b><br>รวมทุกคู่ Item/LAB NO สูงสุด 5 คู่ โดยยังไม่ถือว่ารับ Specimen หรือส่ง LIS แล้ว</div></div>
-        <div class="rule danger"><span class="mark">!</span><div><b>Fail closed เมื่อเลขหาย</b><br>ตอน Receive ห้ามสร้างชดเชย ต้องแจ้งปัญหาจากขั้น Order</div></div>
+      <div class="flow-foot" id="protected-rules">
+        <div class="rule"><span class="mark">✓</span><div><b>LAB รับเลขมาใช้เท่านั้น</b><br>ไม่เรียก LAB NO. Generator และไม่ขยับ Counter ของฝั่ง LAB สำหรับ 30/31/40</div></div>
+        <div class="rule danger"><span class="mark">!</span><div><b>Fail closed เมื่อเลขหายหรือ Prefix ผิด</b><br>ปุ่มรับ Specimen ต้อง disabled และส่งกลับให้ทีมใบสั่งตรวจแก้ไข</div></div>
       </div>
       <div class="flow-foot" id="other-rules" hidden>
-        <div class="rule"><span class="mark">✓</span><div><b>Flow เดิมไม่เปลี่ยน</b><br>LAB อื่นยัง Generate เมื่อกดรับ Specimen</div></div>
+        <div class="rule"><span class="mark">✓</span><div><b>Flow เดิมไม่เปลี่ยน</b><br>Section อื่นที่ไม่ใช่ 30/31/40 ยัง Generate เมื่อกดรับ Specimen</div></div>
         <div class="rule"><span class="mark">✓</span><div><b>Specimen เดียวกันใช้เลขร่วมกัน</b><br>ลดจำนวน Outbound โดยรวมหลาย Item ในชุดเดียว</div></div>
       </div>
     </section>
 
     <section class="section" aria-labelledby="source-title">
-      <div class="section-title"><div><h2 id="source-title">ต้นทาง Order ที่ใช้ Issuance API</h2><p>ไม่สร้าง Generator หรือ Counter แยกตามหน้าที่สั่ง — ต่างกันเฉพาะค่า Audit</p></div><span class="badge">1 API · 2 ต้นทาง</span></div>
+      <div class="section-title"><div><h2 id="source-title">ขอบเขตเจ้าของ LAB NO.</h2><p>มี Generator เพียงฝั่งใบสั่งตรวจ; ฝั่ง LAB ไม่จอง Running ซ้ำ</p></div><span class="badge">Single owner · Order source</span></div>
       <div class="source-grid">
         <article class="source-card primary">
-          <div class="source-kicker">ต้นทางที่ 1</div>
-          <h3>แพทย์สั่งจาก CPOE</h3>
-          <p>หลัง Save/Send สำเร็จและ Item เป็น ready ให้เรียก Issuance API ด้วย Order เดียวกัน</p>
-          <code>trigger_source: "cpoe"</code>
+          <div class="source-kicker">เจ้าของ Counter</div>
+          <h3>ทีมระบบใบสั่งตรวจ</h3>
+          <p>Generate เลขแบบ idempotent ก่อนส่ง Order โดยแยก Running ตาม Section และวัน</p>
+          <code>30 / 31 / 40 → SSYYMMDDNNNN</code>
         </article>
         <article class="source-card primary">
-          <div class="source-kicker">ต้นทางที่ 2</div>
-          <h3>ห้อง LAB สร้างรายการเอง</h3>
-          <p>หน้าสร้างรายการของ LAB ยังบันทึกผ่าน CPOE Order App แล้วเรียก API เดียวกันเมื่อ Item เป็น ready</p>
-          <code>trigger_source: "lab-worklist"</code>
+          <div class="source-kicker">ผู้รับข้อมูล</div>
+          <h3>LAB Worklist</h3>
+          <p>รับ Order และ LAB NO. เข้าคิวตามปกติ จากนั้น Validate และเปิดปุ่มรับเมื่อข้อมูลครบ</p>
+          <code>consume_only: true</code>
         </article>
         <article class="source-card existing">
-          <div class="source-kicker">ขอบเขตเดิม</div>
-          <h3>รายการของ LAB อื่น</h3>
-          <p>ไม่เรียก Issuance API และยังออก LAB NO เมื่อกดรับ Specimen ตาม Flow เดิม</p>
+          <div class="source-kicker">Non-regression</div>
+          <h3>Section อื่น</h3>
+          <p>คง Generator ตอน Receive ตาม Flow เดิม และไม่ใช้กติกา protected-section นี้</p>
           <code>generate_on_receive: true</code>
         </article>
       </div>
-      <div class="source-note"><strong>กติกา Server:</strong> <span class="mono">trigger_source</span> ใช้บันทึก Audit เท่านั้น ไม่ใช้ตัดสินสิทธิหรือ Section; Server ต้อง Resolve Section จาก Item/Master และอนุญาตเฉพาะ IM/MI-OUT ก่อนเขียน Work Item หรือขยับ Counter</div>
+      <div class="source-note"><strong>กติกาฝั่ง LAB:</strong> ถ้า Section เป็น <span class="mono">IM</span>, <span class="mono">MI-OUT</span> หรือ <span class="mono">MB</span> ให้ใช้ <span class="mono">incoming lab_no</span> เท่านั้น ตรวจรูปแบบ 12 หลักและ Prefix ให้ตรง <span class="mono">30/31/40</span>; ห้ามเรียก Generator ของ LAB ไม่ว่ากรณีใด</div>
     </section>
 
     <section class="section" aria-labelledby="mapping-title">
-      <div class="section-title"><div><h2 id="mapping-title">ตัวอย่าง 1:1 และสติ๊กเกอร์รวมทั้ง Order</h2><p>แสดงชื่อผู้ป่วย, HN และ LAB NO ของแต่ละ Item ในสติ๊กเกอร์เดียว</p></div><span class="badge">1 Sticker · 3/5 คู่</span></div>
+      <div class="section-title"><div><h2 id="mapping-title">ตัวอย่าง Order ที่ต้นทางส่งพร้อม LAB NO.</h2><p>ตัวอย่างใช้ข้อมูลสมมติและแสดง 3 Protected Sections ใน Order เดียว</p></div><span class="badge">30 · 31 · 40</span></div>
       <div class="mapping">
         <div class="panel">
-          <div class="panel-head"><strong>Order ตัวอย่าง</strong><small class="mono">ORDER-DEMO-001 · Section IM · Serum</small></div>
+          <div class="panel-head"><strong>Order ตัวอย่าง</strong><small class="mono">ORDER-DEMO-001 · LAB NO. issued upstream</small></div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>CPOE Item ID</th><th>รายการตรวจ</th><th>Specimen</th><th>LAB NO</th><th>สถานะ</th></tr></thead>
+              <thead><tr><th>Item ID</th><th>Section</th><th>Specimen</th><th>Incoming LAB NO.</th><th>สถานะ</th></tr></thead>
               <tbody>
-                <tr><td class="mono">ITEM-DEMO-A</td><td><strong>Immunology Test A</strong></td><td>Serum</td><td class="labno">306909280001</td><td><span class="state">waiting_receive</span></td></tr>
-                <tr><td class="mono">ITEM-DEMO-B</td><td><strong>Immunology Test B</strong></td><td>Serum</td><td class="labno">306909280002</td><td><span class="state">waiting_receive</span></td></tr>
-                <tr><td class="mono">ITEM-DEMO-C</td><td><strong>Immunology Test C</strong></td><td>Serum</td><td class="labno">306909280003</td><td><span class="state">waiting_receive</span></td></tr>
+                <tr><td class="mono">ITEM-DEMO-A</td><td><strong>IM · 30</strong></td><td>Serum</td><td class="labno">306910020001</td><td><span class="state">waiting_receive</span></td></tr>
+                <tr><td class="mono">ITEM-DEMO-B</td><td><strong>MI-OUT · 31</strong></td><td>Serum</td><td class="labno">316910020001</td><td><span class="state">waiting_receive</span></td></tr>
+                <tr><td class="mono">ITEM-DEMO-C</td><td><strong>MB · 40</strong></td><td>Sample</td><td class="labno">406910020001</td><td><span class="state">waiting_receive</span></td></tr>
               </tbody>
             </table>
           </div>
         </div>
         <div class="panel">
-          <div class="panel-head"><strong>ตัวอย่างสติ๊กเกอร์รวม</strong><small>ขนาดเดียวกับ HN · 247 × 67 pt</small></div>
+          <div class="panel-head"><strong>ตัวอย่างสติ๊กเกอร์จากต้นทาง</strong><small>LAB ไม่ออกเลขซ้ำจากใบนี้</small></div>
           <div class="label-sheet">
             <div class="label-preview" aria-label="ตัวอย่างฉลาก LAB หนึ่งใบที่รวมสาม Item และสาม LAB NO">
               <div class="label-summary">
                 <div>
-                  <div class="label-dept">IMMUNOLOGY · IM</div>
+                  <div class="label-dept">ORDER SOURCE · PROTECTED LAB</div>
                   <div class="label-patient"><strong>ด.ช.ผู้ป่วย ตัวอย่าง</strong><span>HN DEMO0001</span></div>
                   <div class="label-order"><span>ORDER</span><b>ORDER-DEMO-001</b></div>
                 </div>
                 <div>
-                  <div class="label-meta"><span>SERUM</span><span>3/5</span></div>
+                  <div class="label-meta"><span>30 / 31 / 40</span><span>3/5</span></div>
                   <div class="label-status">WAITING RECEIVE</div>
                 </div>
               </div>
               <div class="label-list">
                 <div class="label-count"><span>ITEM</span><span>LAB NO</span></div>
                 <div class="label-items" role="list" aria-label="รายการ Item และ LAB NO บนสติ๊กเกอร์">
-                  <div class="label-item" role="listitem"><span class="label-index">01</span><span>ITEM-DEMO-A</span><b>306909280001</b></div>
-                  <div class="label-item" role="listitem"><span class="label-index">02</span><span>ITEM-DEMO-B</span><b>306909280002</b></div>
-                  <div class="label-item" role="listitem"><span class="label-index">03</span><span>ITEM-DEMO-C</span><b>306909280003</b></div>
+                  <div class="label-item" role="listitem"><span class="label-index">30</span><span>ITEM-DEMO-A</span><b>306910020001</b></div>
+                  <div class="label-item" role="listitem"><span class="label-index">31</span><span>ITEM-DEMO-B</span><b>316910020001</b></div>
+                  <div class="label-item" role="listitem"><span class="label-index">40</span><span>ITEM-DEMO-C</span><b>406910020001</b></div>
                 </div>
               </div>
             </div>
-            <div class="label-note"><strong>Custom landscape 247 × 67 pt</strong> เท่ากับสติ๊กเกอร์ HN ที่ใช้อยู่ · ชื่อผู้ป่วยและ HN อ่านจาก Patient ของ Order · รองรับสูงสุด 5 คู่ Item/LAB NO ต่อใบ</div>
+            <div class="label-note"><strong>ขอบเขต LAB:</strong> อ่าน LAB NO. จาก Order/Item ที่เข้ามาเพื่อแสดงและรับ Specimen เท่านั้น การพิมพ์หรือออกเลขเป็นความรับผิดชอบของต้นทาง</div>
           </div>
         </div>
       </div>
     </section>
 
     <section class="section" aria-labelledby="api-title">
-      <div class="section-title"><div><h2 id="api-title">API contract ที่เสนอ</h2><p>CPOE และ LAB Worklist ส่ง Order identity เข้า Issuance API เดียวกัน; Logic และ Counter อยู่ฝั่ง LAB</p></div><span class="badge">Process ID: TBD</span></div>
+      <div class="section-title"><div><h2 id="api-title">Inbound Order contract ที่ LAB ต้องใช้</h2><p>ตัวอย่างโครงข้อมูลขั้นต่ำเพื่อยืนยัน ownership; ชื่อ field จริงต้องตรงกับ contract ของทีมใบสั่งตรวจ</p></div><span class="badge">No LAB-side issuance API</span></div>
       <div class="contract-grid">
         <div class="code-panel">
-          <div class="code-head"><span>Request — หลัง Save/Send สำเร็จและ Item ready</span><span>POST /v1/process/{PID}</span></div>
+          <div class="code-head"><span>Inbound — Order source → LAB</span><span>ตัวอย่าง field</span></div>
           <pre>{
-  <span class="key">"action"</span>: <span class="str">"issue_immunology_lab_no"</span>,
   <span class="key">"order_id"</span>: <span class="str">"CPOE_ORDER_ID"</span>,
-  <span class="key">"request_id"</span>: <span class="str">"immunology-labno:CPOE_ORDER_ID"</span>,
-  <span class="key">"trigger_source"</span>: <span class="str">"cpoe | lab-worklist"</span>
+  <span class="key">"items"</span>: [
+    { <span class="key">"item_id"</span>: <span class="str">"ITEM_ID_1"</span>,
+      <span class="key">"section_code"</span>: <span class="str">"IM"</span>,
+      <span class="key">"lab_no"</span>: <span class="str">"306910020001"</span> },
+    { <span class="key">"item_id"</span>: <span class="str">"ITEM_ID_2"</span>,
+      <span class="key">"section_code"</span>: <span class="str">"MB"</span>,
+      <span class="key">"lab_no"</span>: <span class="str">"406910020001"</span> }
+  ]
 }</pre>
         </div>
         <div class="code-panel">
-          <div class="code-head"><span>Response — รวม items ทั้ง Order เพื่อพิมพ์ใบเดียว</span><span>สูงสุด 5 คู่</span></div>
+          <div class="code-head"><span>LAB receive gate — อ่านอย่างเดียว</span><span>ห้าม Generate</span></div>
           <pre>{
-  <span class="key">"success"</span>: <span class="bool">true</span>,
-  <span class="key">"data"</span>: {
-    <span class="key">"state"</span>: <span class="str">"ready"</span>,
-    <span class="key">"patient"</span>: {
-      <span class="key">"hn"</span>: <span class="str">"HN_PLACEHOLDER"</span>,
-      <span class="key">"display_name"</span>: <span class="str">"PATIENT_DISPLAY_NAME"</span>
-    },
-    <span class="key">"items"</span>: [
-      { <span class="key">"item_id"</span>: <span class="str">"ITEM_ID_1"</span>,
-        <span class="key">"lab_no"</span>: <span class="str">"306909280001"</span> },
-      { <span class="key">"item_id"</span>: <span class="str">"ITEM_ID_2"</span>,
-        <span class="key">"lab_no"</span>: <span class="str">"306909280002"</span> },
-      { <span class="key">"item_id"</span>: <span class="str">"ITEM_ID_3"</span>,
-        <span class="key">"lab_no"</span>: <span class="str">"306909280003"</span> }
-    ]
-  }
+  <span class="key">"protected_section"</span>: <span class="bool">true</span>,
+  <span class="key">"incoming_lab_no_valid"</span>: <span class="bool">true</span>,
+  <span class="key">"receive_enabled"</span>: <span class="bool">true</span>,
+  <span class="key">"generate_lab_no"</span>: <span class="bool">false</span>,
+  <span class="key">"lab_no_source"</span>: <span class="str">"order_item"</span>
 }</pre>
         </div>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="gate-title">
+      <div class="section-title"><div><h2 id="gate-title">ตัวอย่างสถานะปุ่มรับ Specimen</h2><p>พฤติกรรมที่ต้อง Implement ใน Worklist สำหรับ 30/31/40</p></div><span class="badge">Fail closed</span></div>
+      <div class="receive-gates">
+        <article class="receive-gate valid">
+          <div class="receive-gate-head"><div><h3>เลขครบและ Prefix ตรง</h3><p>Item Section IM รับเลขที่ขึ้นต้นด้วย 30</p></div><span class="state">พร้อมรับ</span></div>
+          <dl><dt>Section</dt><dd class="mono">IM / 30</dd><dt>Incoming LAB NO.</dt><dd class="mono">306910020001</dd><dt>LAB Generator</dt><dd>ไม่เรียก</dd></dl>
+          <button class="receive-button" type="button">รับ Specimen</button>
+          <div class="gate-message ok">เมื่อกดรับ ให้ใช้เลขเดิมและบันทึก receipt เท่านั้น</div>
+        </article>
+        <article class="receive-gate blocked">
+          <div class="receive-gate-head"><div><h3>เลขหายหรือ Prefix ไม่ตรง</h3><p>ห้ามแก้ด้วยการ Generate เลขใหม่ฝั่ง LAB</p></div><span class="state">ถูกบล็อก</span></div>
+          <dl><dt>Section</dt><dd class="mono">MB / 40</dd><dt>Incoming LAB NO.</dt><dd>ไม่พบข้อมูล</dd><dt>LAB Generator</dt><dd>ไม่เรียก</dd></dl>
+          <button class="receive-button" type="button" disabled aria-describedby="blocked-reason">รับ Specimen</button>
+          <div class="gate-message stop" id="blocked-reason">ไม่พบ LAB NO. จากต้นทาง — กรุณาให้ทีมใบสั่งตรวจแก้ Order แล้วส่งใหม่</div>
+        </article>
       </div>
     </section>
 
     <section class="section" aria-labelledby="guard-title">
-      <div class="section-title"><div><h2 id="guard-title">Guardrails ที่ห้ามขาด</h2><p>ป้องกันเลขซ้ำ, Flow ข้ามขั้น และการกระทบ LAB อื่น</p></div></div>
+      <div class="section-title"><div><h2 id="guard-title">Guardrails ที่ห้ามขาด</h2><p>ป้องกันเลขซ้ำจากคนละระบบ, การ Generate ทับ และการกระทบ Section อื่น</p></div></div>
       <div class="guardrails">
-        <article class="guard ok"><span class="guard-icon">1:1</span><h3>Idempotent ต่อ Item</h3><p>เรียกซ้ำ Item เดิมต้องคืน LAB NO เดิม และไม่เพิ่ม Counter</p><code>already_assigned: true</code></article>
-        <article class="guard stop"><span class="guard-icon">!</span><h3>Receive ห้าม Generate</h3><p>ถ้า IM/MI-OUT ไม่มี LAB NO ให้หยุดก่อนเขียน receipt หรือสร้าง Outbound</p><code>immunology_lab_no_missing</code></article>
-        <article class="guard keep"><span class="guard-icon">≠</span><h3>LAB อื่นไม่เปลี่ยน</h3><p>API ปฏิเสธ Section อื่นก่อนเขียนข้อมูล และ Flow เดิมยัง Generate ตอน Receive</p><code>SECTION_NOT_IMMUNOLOGY</code></article>
+        <article class="guard ok"><span class="guard-icon">SS</span><h3>ต้นทางเป็นเจ้าของเลขเดียว</h3><p>ต้นทางต้องออกเลขแบบ idempotent และส่งเลขเดิมเมื่อ retry Order</p><code>SSYYMMDDNNNN</code></article>
+        <article class="guard stop"><span class="guard-icon">!</span><h3>Receive ห้าม Generate</h3><p>ถ้า IM/MI-OUT/MB ไม่มีเลขหรือ Prefix ผิด ให้ล็อกปุ่มก่อนเขียน receipt/Outbound</p><code>source_lab_no_required</code></article>
+        <article class="guard keep"><span class="guard-icon">≠</span><h3>Section อื่นไม่เปลี่ยน</h3><p>กติกานี้ใช้เฉพาะ 30/31/40; Section อื่นยัง Generate ตอน Receive ตาม Flow เดิม</p><code>protected_prefixes: [30,31,40]</code></article>
       </div>
     </section>
 
     <section class="section" aria-labelledby="compare-title">
-      <div class="section-title"><div><h2 id="compare-title">สรุปความต่าง</h2><p>สิ่งที่เปลี่ยนเฉพาะภูมิคุ้มกัน และสิ่งที่ต้องคงเดิม</p></div></div>
+      <div class="section-title"><div><h2 id="compare-title">สรุปความต่าง</h2><p>สิ่งที่เปลี่ยนสำหรับ Protected Sections และสิ่งที่ต้องคงเดิม</p></div></div>
       <div class="panel table-wrap">
         <table class="compare">
-          <thead><tr><th>หัวข้อ</th><th class="im">IM / MI-OUT</th><th class="other">LAB อื่น</th></tr></thead>
+          <thead><tr><th>หัวข้อ</th><th class="im">IM/30 · MI-OUT/31 · MB/40</th><th class="other">Section อื่น</th></tr></thead>
           <tbody>
-            <tr><td><strong>ต้นทาง Order</strong></td><td class="im">CPOE หรือ LAB Worklist ใช้ API เดียวกัน</td><td class="other">รับ Order ตาม Flow เดิม</td></tr>
-            <tr><td><strong>เวลาออก LAB NO</strong></td><td class="im">หลัง Save/Send สำเร็จและ Item เป็น ready</td><td class="other">ตอนกดรับ Specimen</td></tr>
-            <tr><td><strong>การรวมรายการ</strong></td><td class="im">1 CPOE Item ต่อ 1 LAB NO</td><td class="other">รวมตาม Order + Section + Specimen</td></tr>
-            <tr><td><strong>สติ๊กเกอร์</strong></td><td class="im">1 ใบต่อ Order รวมสูงสุด 5 คู่ Item/LAB NO</td><td class="other">คง Flow การพิมพ์เดิม</td></tr>
+            <tr><td><strong>เจ้าของ Generator</strong></td><td class="im">ทีมระบบใบสั่งตรวจ</td><td class="other">LAB Generate ตอน Receive ตาม Flow เดิม</td></tr>
+            <tr><td><strong>ข้อมูลตอนเข้า LAB</strong></td><td class="im">Order/Item ต้องมี LAB NO. แล้ว</td><td class="other">Order อาจยังไม่มี LAB NO.</td></tr>
+            <tr><td><strong>รูปแบบเลข</strong></td><td class="im"><span class="mono">SSYYMMDDNNNN</span> และ Prefix 30/31/40</td><td class="other">ใช้รูปแบบที่อนุมัติใน Generator เดิม</td></tr>
             <tr><td><strong>Receive เรียก Generator</strong></td><td class="im"><strong>ไม่เรียก</strong> และไม่ Fallback</td><td class="other">เรียกตาม Flow เดิม</td></tr>
-            <tr><td><strong>Outbound ไป LIS</strong></td><td class="im">แยกหนึ่ง Item ต่อหนึ่ง LAB NO</td><td class="other">หนึ่งชุดมีหลาย Item ได้</td></tr>
-            <tr><td><strong>เลขยกเลิก</strong></td><td class="im">เก็บ Audit และห้ามนำกลับมาใช้</td><td class="other">เก็บ Audit และห้ามนำกลับมาใช้</td></tr>
+            <tr><td><strong>เลขหาย/ผิด Prefix</strong></td><td class="im">Disable ปุ่มรับและส่งกลับให้ต้นทางแก้</td><td class="other">เดินตาม validation เดิม</td></tr>
+            <tr><td><strong>LAB เขียนทับเลข</strong></td><td class="im"><strong>ห้าม</strong></td><td class="other">Generator เดิมเป็นผู้กำหนดเลข</td></tr>
+            <tr><td><strong>Receive สำเร็จ</strong></td><td class="im">บันทึก receipt และใช้ incoming LAB NO.</td><td class="other">บันทึก receipt พร้อมเลขจาก Generator เดิม</td></tr>
           </tbody>
         </table>
       </div>
     </section>
 
     <footer class="footer">
-      <span>Immunology LAB NO flow · Design artifact · 28 ก.ย. 2569</span>
+      <span>Protected LAB NO flow · Design artifact · 2 ต.ค. 2569</span>
       <span>ไม่มีข้อมูลผู้ป่วยจริง · ยังไม่ใช่หลักฐาน Production readiness</span>
     </footer>
   </main>
 
   <script>
     const modes = {
-      immunology: {
-        flow: document.getElementById('flow-immunology'),
-        rules: document.getElementById('im-rules'),
-        title: 'ภูมิคุ้มกัน — ออกเลขก่อนรับ Specimen'
+      protected: {
+        flow: document.getElementById('flow-protected'),
+        rules: document.getElementById('protected-rules'),
+        title: 'Protected Sections — ต้นทางส่ง Order พร้อม LAB NO.'
       },
       other: {
         flow: document.getElementById('flow-other'),

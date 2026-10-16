@@ -1,0 +1,848 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LAB Result Popup · Previous 5 Results</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --primary: #409eff;
+      --primary-dark: #337ecc;
+      --primary-soft: #ecf5ff;
+      --success: #529b2e;
+      --success-soft: #f0f9eb;
+      --warning: #b88230;
+      --warning-soft: #fdf6ec;
+      --danger: #c45656;
+      --danger-soft: #fef0f0;
+      --ink: #303133;
+      --text: #606266;
+      --muted: #909399;
+      --border: #dcdfe6;
+      --border-light: #e4e7ed;
+      --border-lighter: #ebeef5;
+      --fill: #f5f7fa;
+      --fill-soft: #fafafa;
+      --surface: #fff;
+      --mono: "SFMono-Regular", "Roboto Mono", Consolas, monospace;
+      --font: "Noto Sans Thai", "Leelawadee UI", Tahoma, "Segoe UI", sans-serif;
+      --shadow: 0 24px 72px rgba(31, 45, 61, .24);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { min-width: 320px; min-height: 100%; }
+    body {
+      margin: 0;
+      background: #edf1f6;
+      color: var(--text);
+      font: 13px/1.45 var(--font);
+    }
+    button, select { font: inherit; }
+    button { cursor: pointer; }
+    button:focus-visible, select:focus-visible, summary:focus-visible {
+      outline: 3px solid rgba(64, 158, 255, .22);
+      outline-offset: 2px;
+    }
+
+    .stage {
+      min-height: 100vh;
+      padding: 22px;
+      background:
+        linear-gradient(rgba(237, 241, 246, .94), rgba(237, 241, 246, .94)),
+        repeating-linear-gradient(90deg, transparent 0 79px, rgba(144, 147, 153, .1) 80px);
+    }
+    .review-bar {
+      display: flex;
+      max-width: 1540px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin: 0 auto;
+      padding: 11px 14px;
+      border: 1px solid var(--border-light);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, .92);
+    }
+    .review-bar strong { display: block; color: var(--ink); font-size: 14px; }
+    .review-bar small { display: block; margin-top: 2px; color: var(--muted); }
+    .button {
+      min-height: 34px;
+      padding: 6px 13px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--text);
+      font-weight: 650;
+      transition: border-color .15s, color .15s, background-color .15s;
+    }
+    .button:hover { border-color: #a0cfff; color: var(--primary-dark); }
+    .button.primary { border-color: var(--primary); background: var(--primary); color: #fff; }
+    .button.primary:hover { background: #66b1ff; }
+    .button.text { min-height: 28px; padding: 4px 7px; border-color: transparent; background: transparent; color: var(--primary-dark); }
+    .button.text:hover { background: var(--primary-soft); }
+
+    .veil {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+      background: rgba(31, 35, 41, .58);
+    }
+    .veil[hidden] { display: none; }
+    .dialog {
+      position: relative;
+      display: grid;
+      width: min(1580px, calc(100vw - 36px));
+      max-height: calc(100vh - 36px);
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, .72);
+      border-radius: 11px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    .dialog-header {
+      padding: 16px 22px 14px;
+      border-bottom: 1px solid var(--border-lighter);
+    }
+    .header-main { display: flex; align-items: flex-start; gap: 16px; }
+    .header-copy { min-width: 0; flex: 1; }
+    .title-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    h1 { margin: 0; color: var(--ink); font-size: 20px; line-height: 1.25; }
+    .subtitle { margin: 5px 0 0; color: var(--muted); font-size: 11px; }
+    .header-actions { display: flex; align-items: center; gap: 8px; }
+    .icon-button {
+      display: grid;
+      width: 34px;
+      height: 34px;
+      place-items: center;
+      padding: 0;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 20px;
+    }
+    .icon-button:hover { border-color: var(--border); background: var(--fill); color: var(--ink); }
+    .tag {
+      display: inline-flex;
+      min-height: 23px;
+      align-items: center;
+      padding: 2px 8px;
+      border: 1px solid #a0cfff;
+      border-radius: 999px;
+      background: var(--primary-soft);
+      color: var(--primary-dark);
+      font-size: 10px;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+    .tag.success { border-color: #b3e19d; background: var(--success-soft); color: var(--success); }
+    .tag.warning { border-color: #f3d19e; background: var(--warning-soft); color: var(--warning); }
+
+    .patient-strip {
+      display: grid;
+      grid-template-columns: minmax(220px, 1.2fr) repeat(4, minmax(135px, .72fr));
+      margin-top: 13px;
+      overflow: hidden;
+      border: 1px solid var(--border-light);
+      border-radius: 7px;
+      background: var(--fill-soft);
+    }
+    .patient-cell { min-width: 0; padding: 8px 11px; border-right: 1px solid var(--border-light); }
+    .patient-cell:last-child { border-right: 0; }
+    .patient-cell span { display: block; color: var(--muted); font-size: 9px; font-weight: 700; }
+    .patient-cell strong { display: block; margin-top: 2px; overflow: hidden; color: var(--ink); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+
+    .dialog-body { min-height: 0; overflow: auto; padding: 15px 22px 20px; }
+    .history-rule {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+      padding: 9px 11px;
+      border: 1px solid #a0cfff;
+      border-radius: 7px;
+      background: #f5f9ff;
+    }
+    .history-icon {
+      display: grid;
+      width: 30px;
+      height: 30px;
+      flex: 0 0 30px;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--primary-soft);
+      color: var(--primary-dark);
+      font-size: 16px;
+    }
+    .history-rule-copy { min-width: 0; flex: 1; }
+    .history-rule-copy strong { display: block; color: var(--ink); font-size: 12px; }
+    .history-rule-copy span { display: block; margin-top: 2px; color: var(--text); font-size: 10px; }
+    .rule-chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .rule-chip { padding: 3px 7px; border: 1px solid var(--border-light); border-radius: 4px; background: var(--surface); color: var(--muted); font-size: 9px; font-weight: 700; }
+
+    .section-head { display: flex; align-items: flex-end; gap: 14px; margin-bottom: 9px; }
+    .section-head h2 { margin: 0; color: var(--ink); font-size: 16px; }
+    .section-head p { margin: 2px 0 0; color: var(--muted); font-size: 10px; }
+    .view-control { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+    .view-control label { color: var(--muted); font-size: 10px; font-weight: 700; }
+    .select {
+      min-height: 33px;
+      min-width: 220px;
+      padding: 5px 30px 5px 9px;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      background: var(--surface);
+      color: var(--text);
+    }
+
+    .result-table {
+      min-width: 1320px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .table-row {
+      display: grid;
+      grid-template-columns: 44px 34px minmax(210px, .9fr) minmax(145px, .62fr) 76px 92px minmax(560px, 2.2fr);
+      align-items: stretch;
+    }
+    .table-head {
+      min-height: 44px;
+      align-items: center;
+      background: var(--fill);
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 750;
+    }
+    .table-head > div, .result-row > div { min-width: 0; padding: 10px; border-right: 1px solid var(--border-lighter); }
+    .table-head > div:last-child, .result-row > div:last-child { border-right: 0; }
+    .result-row { min-height: 94px; border-top: 1px solid var(--border-light); background: var(--surface); }
+    .result-row:hover { background: #fbfcfe; }
+    .result-row.is-critical { background: #fffafa; }
+    .result-group { border-top: 1px solid var(--border); }
+    .result-group:first-child { border-top: 0; }
+    .result-group > summary { list-style: none; }
+    .result-group > summary::-webkit-details-marker { display: none; }
+    .group-row {
+      display: grid;
+      min-height: 56px;
+      grid-template-columns: 44px minmax(260px, 1fr) auto 28px;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 12px;
+      background: #f7f9fc;
+      color: var(--text);
+      cursor: pointer;
+    }
+    .group-row:hover { background: #edf4ff; }
+    .result-group[open] > .group-row { background: #f2f7ff; }
+    .group-index { color: var(--muted); font-family: var(--mono); text-align: center; }
+    .group-main { min-width: 0; }
+    .group-main strong { display: block; color: var(--ink); font-size: 13px; }
+    .group-main small { display: block; margin-top: 2px; color: var(--muted); font-size: 9px; }
+    .group-badge { padding: 3px 8px; border: 1px solid #a0cfff; border-radius: 999px; background: var(--surface); color: var(--primary-dark); font-size: 9px; font-weight: 750; }
+    .group-chevron { color: var(--muted); font-size: 17px; transition: transform .16s ease; }
+    .result-group[open] .group-chevron { transform: rotate(180deg); }
+    .result-group .result-row { padding-left: 12px; }
+    .index-cell { display: grid; place-items: center; color: var(--muted); font-family: var(--mono); }
+    .signal-cell { display: grid; place-items: center; }
+    .signal { width: 11px; height: 11px; border: 1px solid; border-radius: 50%; }
+    .signal.normal { border-color: #4e9631; background: #2f761e; box-shadow: 0 0 0 4px rgba(103, 194, 58, .1); }
+    .signal.abnormal { border-color: #cf8f2b; background: #e6a23c; box-shadow: 0 0 0 4px rgba(230, 162, 60, .1); }
+    .signal.critical { border-color: #d46a6a; background: #b84d4d; box-shadow: 0 0 0 4px rgba(245, 108, 108, .12); }
+    .test-cell, .current-cell, .unit-cell, .interpret-cell { display: grid; align-content: center; }
+    .test-cell strong { color: var(--ink); font-size: 13px; }
+    .test-cell small { display: block; margin-top: 3px; color: var(--muted); font-size: 9px; overflow-wrap: anywhere; }
+    .current-cell { background: #f8fbff; }
+    .current-label { color: var(--primary-dark); font-size: 9px; font-weight: 750; }
+    .current-value { display: block; margin-top: 3px; color: var(--ink); font-size: 16px; font-weight: 800; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .current-value.abnormal { color: var(--warning); }
+    .current-value.critical { color: var(--danger); }
+    .unit-cell, .interpret-cell { color: var(--text); font-size: 11px; }
+    .interpretation {
+      display: inline-flex;
+      width: max-content;
+      max-width: 100%;
+      min-height: 23px;
+      align-items: center;
+      padding: 2px 7px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--fill-soft);
+      color: var(--muted);
+      font-size: 9px;
+      font-weight: 750;
+    }
+    .interpretation.normal { border-color: #b3e19d; background: var(--success-soft); color: var(--success); }
+    .interpretation.abnormal { border-color: #f3d19e; background: var(--warning-soft); color: var(--warning); }
+    .interpretation.critical { border-color: #fab6b6; background: var(--danger-soft); color: var(--danger); }
+
+    .history-cell { padding: 8px !important; }
+    .history-rail {
+      display: grid;
+      grid-auto-columns: minmax(102px, 1fr);
+      grid-auto-flow: column;
+      gap: 6px;
+      min-height: 76px;
+      overflow-x: auto;
+      overscroll-behavior-inline: contain;
+      scrollbar-width: thin;
+    }
+    .history-card {
+      display: grid;
+      min-width: 102px;
+      align-content: start;
+      gap: 2px;
+      padding: 7px 8px;
+      border: 1px solid var(--border-light);
+      border-radius: 6px;
+      background: var(--fill-soft);
+    }
+    .history-card:first-child { border-color: #a0cfff; background: #f5f9ff; }
+    .history-rank { display: flex; align-items: center; justify-content: space-between; gap: 6px; color: var(--muted); font-size: 8px; font-weight: 750; }
+    .history-rank b { color: var(--primary-dark); font-weight: 800; }
+    .history-value {
+      display: -webkit-box;
+      margin-top: 2px;
+      overflow: hidden;
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+    }
+    .history-meta { display: block; color: var(--muted); font: 8px/1.35 var(--mono); }
+    .history-snapshot { display: block; color: var(--text); font-size: 8px; font-weight: 650; }
+    .history-empty, .history-loading, .history-error {
+      display: grid;
+      min-height: 76px;
+      place-items: center;
+      border: 1px dashed var(--border);
+      border-radius: 6px;
+      background: var(--fill-soft);
+      color: var(--muted);
+      font-size: 10px;
+      text-align: center;
+    }
+    .history-error { border-color: #fab6b6; background: var(--danger-soft); color: var(--danger); }
+    .history-dialog-entry {
+      display: flex;
+      min-height: 76px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px;
+      border: 1px solid #a0cfff;
+      border-radius: 6px;
+      background: #f5f9ff;
+    }
+    .history-dialog-entry div { min-width: 0; }
+    .history-dialog-entry strong { display: block; color: var(--ink); font-size: 11px; }
+    .history-dialog-entry small { display: block; margin-top: 2px; color: var(--muted); font-size: 9px; }
+    .history-dialog-entry .button { flex: none; border-color: var(--primary); color: var(--primary-dark); }
+    .loading-lines { width: min(300px, 80%); }
+    .loading-lines i { display: block; height: 8px; margin: 6px 0; border-radius: 999px; background: #e9edf2; animation: pulse 1.2s ease-in-out infinite; }
+    .loading-lines i:last-child { width: 68%; }
+    @keyframes pulse { 50% { opacity: .45; } }
+
+    .dialog-footer {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 22px;
+      border-top: 1px solid var(--border-lighter);
+      background: var(--fill-soft);
+    }
+    .footer-note { min-width: 0; flex: 1; color: var(--muted); font-size: 9px; }
+    .footer-note strong { color: var(--text); }
+
+    .child-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 40;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: rgba(31, 35, 41, .54);
+    }
+    .child-overlay[hidden] { display: none; }
+    .child-dialog {
+      display: grid;
+      width: min(980px, 100%);
+      max-height: calc(100% - 20px);
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, .72);
+      border-radius: 9px;
+      background: var(--surface);
+      box-shadow: 0 20px 60px rgba(31, 45, 61, .32);
+    }
+    .child-head {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 15px 18px 13px;
+      border-bottom: 1px solid var(--border-light);
+    }
+    .child-head > div { min-width: 0; flex: 1; }
+    .child-head h2 { margin: 0; color: var(--ink); font-size: 17px; }
+    .child-head p { margin: 3px 0 0; color: var(--muted); font-size: 10px; }
+    .child-body { min-height: 0; overflow: auto; padding: 14px 18px 18px; }
+    .agent-history-list { display: grid; gap: 10px; }
+    .agent-history-item { overflow: hidden; border: 1px solid var(--border-light); border-radius: 7px; background: var(--surface); }
+    .agent-history-meta {
+      display: grid;
+      grid-template-columns: 86px minmax(145px, .8fr) minmax(170px, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border-light);
+      background: var(--fill-soft);
+      color: var(--muted);
+      font-size: 9px;
+    }
+    .agent-history-meta b { color: var(--primary-dark); }
+    .agent-history-meta strong { color: var(--ink); font: 650 9px var(--mono); }
+    .agent-raw-result {
+      margin: 0;
+      padding: 12px;
+      overflow: auto;
+      background: #fbfcfe;
+      color: var(--ink);
+      font: 11px/1.55 var(--mono);
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .child-foot { display: flex; justify-content: flex-end; padding: 10px 18px; border-top: 1px solid var(--border-light); background: var(--fill-soft); }
+
+    .rule-drawer {
+      position: absolute;
+      top: 0;
+      right: 0;
+      z-index: 30;
+      width: min(470px, 100%);
+      height: 100%;
+      padding: 18px 18px 24px;
+      overflow: auto;
+      border-left: 1px solid var(--border);
+      background: var(--surface);
+      box-shadow: -16px 0 42px rgba(31, 45, 61, .2);
+      transform: translateX(100%);
+      transition: transform .18s ease;
+    }
+    .rule-drawer.open { transform: translateX(0); }
+    .drawer-head { display: flex; align-items: flex-start; gap: 12px; padding-bottom: 13px; border-bottom: 1px solid var(--border-light); }
+    .drawer-head div { min-width: 0; flex: 1; }
+    .drawer-head h2 { margin: 0; color: var(--ink); font-size: 17px; }
+    .drawer-head p { margin: 3px 0 0; color: var(--muted); font-size: 10px; }
+    .rule-list { margin: 15px 0 0; padding: 0; list-style: none; counter-reset: rule; }
+    .rule-list li { position: relative; padding: 0 0 14px 34px; color: var(--text); font-size: 11px; }
+    .rule-list li::before {
+      position: absolute;
+      top: -2px;
+      left: 0;
+      display: grid;
+      width: 24px;
+      height: 24px;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--primary-soft);
+      color: var(--primary-dark);
+      content: counter(rule);
+      counter-increment: rule;
+      font: 750 10px var(--mono);
+    }
+    .rule-list strong { display: block; margin-bottom: 2px; color: var(--ink); }
+    .drawer-callout { margin-top: 5px; padding: 9px 10px; border: 1px solid #f3d19e; border-radius: 6px; background: var(--warning-soft); color: var(--warning); font-size: 10px; }
+    .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+    @media (max-width: 980px) {
+      .veil { padding: 8px; }
+      .dialog { width: calc(100vw - 16px); max-height: calc(100vh - 16px); }
+      .patient-strip { grid-template-columns: 1fr 1fr; }
+      .patient-cell { border-bottom: 1px solid var(--border-light); }
+      .history-rule { align-items: flex-start; flex-wrap: wrap; }
+      .rule-chips { width: 100%; padding-left: 42px; }
+    }
+    @media (max-width: 620px) {
+      .stage { padding: 10px; }
+      .review-bar { align-items: flex-start; flex-direction: column; }
+      .dialog-header, .dialog-body, .dialog-footer { padding-left: 12px; padding-right: 12px; }
+      .header-actions .button { display: none; }
+      h1 { font-size: 17px; }
+      .patient-strip { grid-template-columns: 1fr; }
+      .patient-cell { border-right: 0; }
+      .section-head { align-items: flex-start; flex-direction: column; }
+      .view-control { width: 100%; margin-left: 0; }
+      .select { min-width: 0; flex: 1; }
+      .dialog-footer { align-items: flex-end; }
+    }
+  </style>
+</head>
+<body>
+  <main class="stage">
+    <div class="review-bar">
+      <div>
+        <strong>LAB Popup · ค่าก่อนหน้า 5 ครั้ง · HTML Prototype</strong>
+        <small>ข้อมูลทั้งหมดเป็นข้อมูลจำลองสำหรับยืนยันหน้าตาและเงื่อนไข ยังไม่ได้แก้ Form/API จริง</small>
+      </div>
+      <button class="button primary" id="openDialog" type="button">เปิด Popup ตัวอย่าง</button>
+    </div>
+  </main>
+
+  <div class="veil" id="veil">
+    <section class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
+      <header class="dialog-header">
+        <div class="header-main">
+          <div class="header-copy">
+            <div class="title-line">
+              <h1 id="dialogTitle">ผลตรวจทางห้องปฏิบัติการ</h1>
+              <span class="tag" id="roomTag">BC</span>
+              <span class="tag success">Final</span>
+              <span class="tag warning">อ่านอย่างเดียว</span>
+            </div>
+            <p class="subtitle">แสดงค่าปัจจุบันคู่กับผลของรายการเดียวกันในอดีตสูงสุด 5 ครั้ง โดยไม่เปลี่ยนหน้า EMR</p>
+          </div>
+          <div class="header-actions">
+            <button class="button" id="showRules" type="button">เงื่อนไขที่เพิ่ม</button>
+            <button class="icon-button" id="closeDialog" type="button" aria-label="ปิด Popup">×</button>
+          </div>
+        </div>
+
+        <div class="patient-strip" aria-label="ข้อมูลตัวอย่างของ Order ปัจจุบัน">
+          <div class="patient-cell"><span>ผู้ป่วยตัวอย่าง</span><strong>HN DEMO-0001 · เด็กหญิง ตัวอย่าง</strong></div>
+          <div class="patient-cell"><span>Order No.</span><strong class="mono">R-DEMO-0008</strong></div>
+          <div class="patient-cell"><span>LAB No.</span><strong class="mono">LAB-261012-08</strong></div>
+          <div class="patient-cell"><span>ออกผลปัจจุบัน</span><strong class="mono">12/10/2569 10:35</strong></div>
+          <div class="patient-cell"><span>แหล่งผล</span><strong id="sourceLabel">LIS / Agent</strong></div>
+        </div>
+      </header>
+
+      <div class="dialog-body">
+        <aside class="history-rule" aria-label="สรุปเงื่อนไขประวัติ">
+          <span class="history-icon" aria-hidden="true">↶</span>
+          <div class="history-rule-copy">
+            <strong>ประวัติค่าก่อนหน้า 1–5 ครั้งล่าสุด</strong>
+            <span>ครั้งที่ 1 คือผลก่อนหน้าที่ใกล้ค่าปัจจุบันที่สุด · ไม่นับการแก้ผลซ้ำใน Order เดียวกันเป็นคนละการตรวจ</span>
+          </div>
+          <div class="rule-chips" aria-label="คีย์ที่ใช้เทียบ">
+            <span class="rule-chip">ผู้ป่วยเดียวกัน</span>
+            <span class="rule-chip">รหัสรายการเดียวกัน</span>
+            <span class="rule-chip">ก่อนเวลาผลปัจจุบัน</span>
+            <span class="rule-chip">สูงสุด 5 ครั้ง</span>
+          </div>
+        </aside>
+
+        <div class="section-head">
+          <div>
+            <h2 id="sectionTitle">รายการผลตรวจ</h2>
+            <p id="sectionNote">ตัวอย่างค่าตัวเลขและ Profile — ค่าประวัติใช้หน่วย/แปลผล snapshot ของครั้งนั้น</p>
+          </div>
+          <div class="view-control">
+            <label for="dataset">ตัวอย่าง Popup</label>
+            <select class="select" id="dataset">
+              <option value="general">รายการเดี่ยว · ค่าตัวเลข</option>
+              <option value="profile">Profile / Panel · แตกผลย่อย</option>
+              <option value="my">ห้อง MY · Manual แยก specimen/ตำแหน่ง</option>
+              <option value="mb">ห้อง MB · ผลข้อความหลายบรรทัด</option>
+              <option value="attachment">MI-OUT · ผลเป็นเอกสาร ไม่มีค่าระบบ</option>
+              <option value="loading">สถานะกำลังโหลดประวัติ</option>
+              <option value="error">สถานะโหลดประวัติไม่สำเร็จ</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="result-table" role="table" aria-label="ผลตรวจและประวัติย้อนหลัง">
+          <div class="table-row table-head" role="row">
+            <div>#</div>
+            <div><span class="sr-only">สถานะ</span></div>
+            <div>รายการตรวจ</div>
+            <div>ค่าปัจจุบัน</div>
+            <div>หน่วย</div>
+            <div>แปลผล</div>
+            <div>ค่าก่อนหน้า 1–5 ครั้ง <span style="font-weight:400">(ล่าสุด → เก่าสุด)</span></div>
+          </div>
+          <div id="resultRows"></div>
+        </div>
+      </div>
+
+      <footer class="dialog-footer">
+        <div class="footer-note">
+          <strong>ขอบเขต Prototype:</strong> เปลี่ยนเฉพาะ Popup ดู/ลงผล LAB ของทุกห้อง · หน้า EMR และข้อมูลผลปัจจุบันยังเหมือนเดิม
+        </div>
+        <button class="button" id="footerClose" type="button">ปิด</button>
+      </footer>
+
+      <div class="child-overlay" id="mbHistoryOverlay" hidden>
+        <section class="child-dialog" role="dialog" aria-modal="true" aria-labelledby="mbHistoryTitle">
+          <header class="child-head">
+            <div>
+              <h2 id="mbHistoryTitle">ผลย้อนหลังจาก Agent</h2>
+              <p id="mbHistorySubtitle">แสดงข้อความ raw เต็มก้อนของแต่ละการตรวจ โดยไม่ตัดหรือแปลงโครงสร้าง</p>
+            </div>
+            <button class="icon-button" id="closeMbHistoryTop" type="button" aria-label="ปิดผลย้อนหลัง MB">×</button>
+          </header>
+          <div class="child-body"><div class="agent-history-list" id="mbHistoryList"></div></div>
+          <footer class="child-foot"><button class="button" id="closeMbHistory" type="button">ปิดผลย้อนหลัง</button></footer>
+        </section>
+      </div>
+
+      <aside class="rule-drawer" id="ruleDrawer" aria-hidden="true" aria-labelledby="ruleTitle">
+        <div class="drawer-head">
+          <div>
+            <h2 id="ruleTitle">เงื่อนไขการดึงค่าก่อนหน้า</h2>
+            <p>ข้อเสนอสำหรับยืนยันก่อนแก้ Form/API จริง</p>
+          </div>
+          <button class="icon-button" id="closeRules" type="button" aria-label="ปิดเงื่อนไข">×</button>
+        </div>
+        <ol class="rule-list">
+          <li><strong>ผู้ป่วยเดียวกัน</strong>ค้นจาก Patient/HN เดียวกับ Order ปัจจุบันเท่านั้น</li>
+          <li><strong>รายการเดียวกันจากรหัส ไม่เทียบจากชื่อ</strong>ใช้รหัส Result Item/Test ที่ระบบบันทึกจริง เพื่อไม่รวมรายการชื่อคล้ายกันโดยบังเอิญ</li>
+          <li><strong>กรณีมี specimen/ตำแหน่งซ้ำ</strong>MY และรายการที่รหัสเดียวกันเกิดหลาย specimen ต้องตรงทั้งรหัสรายการ + specimen + ตำแหน่งตรวจจริงก่อนนำมาเทียบ</li>
+          <li><strong>Profile / Panel เปรียบเทียบระดับผลย่อย</strong>หัว Profile ใช้จัดกลุ่มเท่านั้น แต่ละ child result ดึงประวัติจากรหัสผลย่อยของตัวเอง จึงไม่จับทั้ง Profile เป็นค่าเดียว</li>
+          <li><strong>MB เปิด Popup รายละเอียดย้อนหลัง</strong>หน้าหลักแสดงปุ่มและจำนวนครั้ง เพราะผลจาก Agent เป็นข้อความ raw ก้อนยาว; Popup ซ้อนแสดงข้อความเต็ม 1–5 ครั้งโดยไม่ตัดหรือ parse ใหม่</li>
+          <li><strong>ย้อนหลังจากเวลาผลปัจจุบันเท่านั้น</strong>ใช้ผลที่มี effective result time น้อยกว่าผลปัจจุบัน และตัด Order ปัจจุบันออกเสมอ</li>
+          <li><strong>สูงสุด 5 การตรวจในอดีต</strong>เรียงใหม่ไปเก่า ครั้งที่ 1–5; ถ้ามีเพียง 1–4 ครั้งแสดงเท่าที่มี ถ้าไม่มีแสดง “ยังไม่มีประวัติ”</li>
+          <li><strong>Partial / Final / Corrected</strong>นับได้เมื่อมีผลที่เผยแพร่แล้ว โดย Corrected ใช้ค่าล่าสุดที่มีผลจริงของการตรวจครั้งนั้น ไม่แยกทุก revision เป็นคนละการตรวจ</li>
+          <li><strong>ไม่นำสถานะที่ยังไม่ใช่ผลมาแสดง</strong>Draft, Pending, Order ที่ปฏิเสธ/ยกเลิก และรายการที่ถูกลบจะไม่เป็นค่าก่อนหน้า</li>
+          <li><strong>แสดง snapshot ของแต่ละครั้ง</strong>ค่า หน่วย การแปลผล วันเวลา และ LAB No. ต้องมาจากผลครั้งนั้น ห้ามใช้หน่วยหรือ Reference Range ปัจจุบันทับย้อนหลัง</li>
+          <li><strong>สิทธิ์และผลปกปิดยังใช้กติกาเดิม</strong>ถ้าผู้ใช้ไม่มีสิทธิ์ดูผลนั้น ประวัติต้องไม่เปิดเผยค่าผ่านคอลัมน์ใหม่นี้</li>
+          <li><strong>โหลดแบบ Batch ต่อ Popup</strong>ส่งรายการ matching keys ทั้งหมดครั้งเดียวและจำกัด 5 ค่า/รายการ เพื่อไม่ยิง API แยกทีละแถว</li>
+          <li><strong>ผลที่มีเฉพาะเอกสาร</strong>ถ้าไม่มี structured result จะแสดงประวัติเป็นการ์ดเอกสารของการตรวจครั้งนั้น ไม่สร้างค่าผลตรวจปลอมขึ้นมา</li>
+        </ol>
+        <div class="drawer-callout">จุดที่ควรยืนยันเป็นพิเศษ: MY จะเทียบเฉพาะ specimen + ตำแหน่งตรวจจริงเดียวกัน เพื่อไม่เอาผลคนละตำแหน่งมาปนกัน</div>
+      </aside>
+    </section>
+  </div>
+
+  <style>.sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}</style>
+  <script>
+    const datasets = {
+      general: {
+        room: 'BC', source: 'LIS / Agent',
+        title: 'รายการผลตรวจ · รายการเดี่ยว',
+        note: 'หนึ่งรายการผลต่อหนึ่ง matching key — ค่าประวัติใช้หน่วย/แปลผล snapshot ของครั้งนั้น',
+        rows: [
+          { name: 'Glucose', code: 'C23', detail: 'Serum · รายการเดี่ยว', value: '98', unit: 'mg/dL', interpretation: 'ปกติ', tone: 'normal', history: [
+            ['96', '03/10/69 09:15', 'LAB-261003-11'], ['101', '24/09/69 08:42', 'LAB-260924-07'], ['92', '11/09/69 10:03', 'LAB-260911-18'], ['90', '27/08/69 09:31', 'LAB-260827-04'], ['94', '09/08/69 11:20', 'LAB-260809-15']
+          ]},
+          { name: 'Potassium', code: 'C25.2', detail: 'Clotted blood · Electrolyte', value: '4.2', unit: 'mmol/L', interpretation: 'ปกติ', tone: 'normal', history: [
+            ['4.0', '03/10/69 09:15', 'LAB-261003-11'], ['4.4', '24/09/69 08:42', 'LAB-260924-07']
+          ]},
+          { name: 'C-Reactive Protein', code: 'IM-DEMO', detail: 'Serum · ไม่มีประวัติรายการเดียวกัน', value: '12.4', unit: 'mg/L', interpretation: 'ผิดปกติ', tone: 'abnormal', history: [] }
+        ]
+      },
+      profile: {
+        room: 'BC', source: 'LIS / Agent',
+        title: 'รายการผลตรวจ · Profile / Panel',
+        note: 'หัว Profile ใช้จัดกลุ่ม; ค่าปัจจุบันและประวัติ 1–5 ครั้งอยู่ที่ child result แต่ละรหัส',
+        rows: [{
+          type: 'group', name: 'Liver Function Test', code: 'C1', detail: 'Profile 4 ผลย่อย · กดหัวข้อเพื่อย่อ/ขยาย', badge: 'Profile · 4 ผลย่อย', children: [
+            { name: 'Protein', code: 'C2', detail: 'ผลย่อยของ C1 · Serum', value: '7.1', unit: 'g/dL', interpretation: 'ปกติ', tone: 'normal', history: [
+              ['6.9', '03/10/69 09:15', 'LAB-261003-11', 'g/dL · ปกติ'], ['7.0', '24/09/69 08:42', 'LAB-260924-07', 'g/dL · ปกติ'], ['6.8', '11/09/69 10:03', 'LAB-260911-18', 'g/dL · ปกติ']
+            ]},
+            { name: 'Albumin', code: 'C3', detail: 'ผลย่อยของ C1 · Serum', value: '4.2', unit: 'g/dL', interpretation: 'ปกติ', tone: 'normal', history: [
+              ['4.0', '03/10/69 09:15', 'LAB-261003-11', 'g/dL · ปกติ'], ['4.1', '24/09/69 08:42', 'LAB-260924-07', 'g/dL · ปกติ']
+            ]},
+            { name: 'Bilirubin Total', code: 'C5.1', detail: 'ผลย่อยของ C1 · Serum', value: '0.8', unit: 'mg/dL', interpretation: 'ปกติ', tone: 'normal', history: [
+              ['0.7', '03/10/69 09:15', 'LAB-261003-11', 'mg/dL · ปกติ']
+            ]},
+            { name: 'AST (SGOT)', code: 'C6', detail: 'ผลย่อยของ C1 · Serum', value: '48', unit: 'U/L', interpretation: 'ผิดปกติ', tone: 'abnormal', history: [
+              ['39', '03/10/69 09:15', 'LAB-261003-11', 'U/L · ปกติ'], ['42', '24/09/69 08:42', 'LAB-260924-07', 'U/L · ผิดปกติ'], ['37', '11/09/69 10:03', 'LAB-260911-18', 'U/L · ปกติ'], ['35', '27/08/69 09:31', 'LAB-260827-04', 'U/L · ปกติ'], ['40', '09/08/69 11:20', 'LAB-260809-15', 'U/L · ผิดปกติ']
+            ]}
+          ]
+        }]
+      },
+      my: {
+        room: 'MY', source: 'Manual',
+        title: 'รายการผลตรวจ · พยาธิ / MY',
+        note: 'คง hierarchy Test → Specimen → ตำแหน่งตรวจจริง; แต่ละตำแหน่งมีประวัติของตัวเอง',
+        rows: [{
+          type: 'group', name: 'Wood light', code: 'M14', detail: '2 specimens · 3 ตำแหน่งตรวจจริง', badge: 'MY · Manual', children: [
+            { name: 'ตำแหน่ง: ช่องท้อง', code: 'M14', detail: 'Specimen Stool · actual site code/name เดียวกัน', value: 'พบเชื้อ\nเรืองแสงสีเขียว', unit: '—', interpretation: 'พบเชื้อ', tone: 'abnormal', history: [
+              ['ไม่พบเชื้อ', '01/08/69 13:10', 'LAB-260801-03', 'Stool · ช่องท้อง'], ['พบเชื้อ', '14/06/69 09:45', 'LAB-260614-09', 'Stool · ช่องท้อง'], ['ไม่พบเชื้อ', '02/04/69 10:22', 'LAB-260402-06', 'Stool · ช่องท้อง']
+            ]},
+            { name: 'ตำแหน่ง: เปลือกตา', code: 'M14', detail: 'Specimen Stool · actual site code/name เดียวกัน', value: 'ไม่พบเชื้อ', unit: '—', interpretation: 'ปกติ', tone: 'normal', history: [
+              ['ไม่พบเชื้อ', '16/07/69 14:02', 'LAB-260716-12', 'Stool · เปลือกตา']
+            ]},
+            { name: 'ตำแหน่ง: ทรวงอก', code: 'M14', detail: 'Specimen Heart blood · ตำแหน่งนี้ยังไม่มีอดีต', value: 'รอยืนยันผล', unit: '—', interpretation: 'รอผล', tone: 'normal', history: [] }
+          ]
+        }]
+      },
+      mb: {
+        room: 'MB', source: 'MLab',
+        title: 'รายการผลตรวจ · Microbiology',
+        note: 'ผลข้อความยาวแสดงแบบย่อ 2 บรรทัด; วันเวลาและ LAB No. ยังเห็นในแต่ละการตรวจ',
+        rows: [
+          { key: 'mb-aerobic', historyMode: 'dialog', name: 'Aerobic culture', code: '400199', detail: 'Blood culture · ผลข้อความ raw จาก Agent', value: 'Acinetobacter baumannii\nResistant pattern detected', unit: '—', interpretation: 'พบเชื้อ', tone: 'critical', history: [
+            ['* Aerobic Culture *\nNo growth after 5 days\nFinal report', '19/09/69 15:30', 'LAB-260919-20'],
+            ['* Aerobic Culture *\nStaphylococcus epidermidis\nComment: probable contaminant\nFinal report', '08/08/69 16:10', 'LAB-260808-14'],
+            ['* Aerobic Culture *\nNo growth after 5 days\nFinal report', '12/06/69 15:44', 'LAB-260612-05'],
+            ['* Aerobic Culture *\nNo growth after 5 days\nFinal report', '03/04/69 14:21', 'LAB-260403-09'],
+            ['* Aerobic Culture *\nCoagulase-negative Staphylococcus\nFinal report', '18/02/69 17:02', 'LAB-260218-16']
+          ]},
+          { key: 'mb-gram', historyMode: 'dialog', name: 'Gram stain', code: 'MB-GRAM', detail: 'Blood culture · Item แยกภายใน Order', value: 'Gram negative bacilli', unit: '—', interpretation: 'ผิดปกติ', tone: 'abnormal', history: [
+            ['* Gram Stain *\nNo organism seen\nFinal report', '19/09/69 10:10', 'LAB-260919-20']
+          ]}
+        ]
+      },
+      attachment: {
+        room: 'MI-OUT', source: 'External document',
+        title: 'รายการผลตรวจ · ผลจากเอกสารภายนอก',
+        note: 'กรณีไม่มี structured value จะไม่สร้างค่าปลอม แต่แสดงการตรวจย้อนหลังเป็นเอกสารที่เปิดดูได้',
+        rows: [
+          { name: 'Out Lab document result', code: 'MI-OUT-DEMO', detail: 'ตัวอย่างผลที่รับเป็น PDF/ภาพเท่านั้น', value: 'เอกสารผล 1 ไฟล์', unit: 'เอกสาร', interpretation: 'มีผล', tone: 'normal', history: [
+            ['PDF 1 ไฟล์', '10/09/69 15:22', 'LAB-260910-02', 'เปิดดูเอกสาร'], ['PDF 2 ไฟล์', '18/07/69 11:48', 'LAB-260718-08', 'เปิดดูเอกสาร']
+          ]}
+        ]
+      }
+    };
+
+    const rowsNode = document.getElementById('resultRows');
+    const roomTag = document.getElementById('roomTag');
+    const sourceLabel = document.getElementById('sourceLabel');
+    const sectionTitle = document.getElementById('sectionTitle');
+    const sectionNote = document.getElementById('sectionNote');
+    const datasetSelect = document.getElementById('dataset');
+    const veil = document.getElementById('veil');
+    const drawer = document.getElementById('ruleDrawer');
+    const mbHistoryOverlay = document.getElementById('mbHistoryOverlay');
+    const mbHistoryTitle = document.getElementById('mbHistoryTitle');
+    const mbHistorySubtitle = document.getElementById('mbHistorySubtitle');
+    const mbHistoryList = document.getElementById('mbHistoryList');
+    let activeDataset = 'general';
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    function historyMarkup(row, state) {
+      const history = Array.isArray(row.history) ? row.history : [];
+      if (state === 'loading') {
+        return '<div class="history-loading"><div class="loading-lines"><i></i><i></i></div></div>';
+      }
+      if (state === 'error') {
+        return '<div class="history-error"><span>โหลดประวัติไม่สำเร็จ</span><button class="button text" type="button">ลองใหม่</button></div>';
+      }
+      if (!history.length) return '<div class="history-empty">ยังไม่มีประวัติของรายการนี้</div>';
+      if (row.historyMode === 'dialog') {
+        const historyCount = Math.min(history.length, 5);
+        return `<div class="history-dialog-entry"><div><strong>มีผลย้อนหลัง ${historyCount} ครั้ง</strong><small>ผล Agent เป็นข้อความยาว เปิดดู raw result แบบเต็ม</small></div><button class="button" type="button" data-mb-history="${escapeHtml(row.key)}">ดูผลย้อนหลัง</button></div>`;
+      }
+      return '<div class="history-rail">' + history.slice(0, 5).map((item, index) => `
+        <article class="history-card" title="ครั้งก่อนหน้า ${index + 1} · ${escapeHtml(item[1])} · ${escapeHtml(item[2])}">
+          <div class="history-rank"><b>ครั้งที่ ${index + 1}</b><span>${index === 0 ? 'ล่าสุด' : ''}</span></div>
+          <strong class="history-value">${escapeHtml(item[0])}</strong>
+          ${item[3] ? `<span class="history-snapshot">${escapeHtml(item[3])}</span>` : ''}
+          <span class="history-meta">${escapeHtml(item[1])}</span>
+          <span class="history-meta">${escapeHtml(item[2])}</span>
+        </article>`).join('') + '</div>';
+    }
+
+    function rowMarkup(row, index, state) {
+      const tone = ['normal', 'abnormal', 'critical'].includes(row.tone) ? row.tone : 'normal';
+      return `
+        <div class="table-row result-row ${tone === 'critical' ? 'is-critical' : ''}" role="row">
+          <div class="index-cell">${escapeHtml(index)}</div>
+          <div class="signal-cell"><span class="signal ${tone}" aria-label="${escapeHtml(row.interpretation)}"></span></div>
+          <div class="test-cell"><strong>${escapeHtml(row.name)}</strong><small><span class="mono">${escapeHtml(row.code)}</span> · ${escapeHtml(row.detail)}</small></div>
+          <div class="current-cell"><span class="current-label">ผลครั้งปัจจุบัน</span><strong class="current-value ${tone}">${escapeHtml(row.value)}</strong></div>
+          <div class="unit-cell">${escapeHtml(row.unit)}</div>
+          <div class="interpret-cell"><span class="interpretation ${tone}">${escapeHtml(row.interpretation)}</span></div>
+          <div class="history-cell">${historyMarkup(row, state)}</div>
+        </div>`;
+    }
+
+    function groupMarkup(group, index, state) {
+      const children = Array.isArray(group.children) ? group.children : [];
+      return `
+        <details class="result-group" open>
+          <summary class="group-row">
+            <span class="group-index">${index + 1}</span>
+            <span class="group-main"><strong><span class="mono">${escapeHtml(group.code)}</span> · ${escapeHtml(group.name)}</strong><small>${escapeHtml(group.detail)}</small></span>
+            <span class="group-badge">${escapeHtml(group.badge || (children.length + ' ผลย่อย'))}</span>
+            <span class="group-chevron" aria-hidden="true">⌃</span>
+          </summary>
+          <div>${children.map((row, childIndex) => rowMarkup(row, `${index + 1}.${childIndex + 1}`, state)).join('')}</div>
+        </details>`;
+    }
+
+    function renderDataset(value) {
+      activeDataset = value;
+      const state = value === 'loading' ? 'loading' : value === 'error' ? 'error' : '';
+      const data = datasets[state ? 'general' : value] || datasets.general;
+      roomTag.textContent = data.room;
+      sourceLabel.textContent = data.source;
+      sectionTitle.textContent = data.title;
+      sectionNote.textContent = state === 'loading'
+        ? 'ค่าปัจจุบันแสดงได้ทันที ขณะรอ Batch history'
+        : state === 'error'
+          ? 'ความล้มเหลวของประวัติไม่ทำให้ค่าปัจจุบันหายหรือ Popup ใช้งานไม่ได้'
+          : data.note;
+      rowsNode.innerHTML = data.rows.map((row, index) => row.type === 'group'
+        ? groupMarkup(row, index, state)
+        : rowMarkup(row, String(index + 1), state)).join('');
+    }
+
+    function allDatasetRows(data) {
+      return (Array.isArray(data.rows) ? data.rows : []).flatMap(row => row.type === 'group' ? (row.children || []) : [row]);
+    }
+
+    function closeMbHistory() {
+      mbHistoryOverlay.hidden = true;
+      mbHistoryList.innerHTML = '';
+    }
+
+    function openMbHistory(key) {
+      const data = datasets[activeDataset] || datasets.general;
+      const row = allDatasetRows(data).find(item => item.key === key);
+      if (!row) return;
+      const history = Array.isArray(row.history) ? row.history.slice(0, 5) : [];
+      mbHistoryTitle.textContent = `ผลย้อนหลัง · ${row.code} ${row.name}`;
+      mbHistorySubtitle.textContent = `${history.length} ครั้งล่าสุดก่อนผลปัจจุบัน · ข้อความ raw จาก Agent`;
+      mbHistoryList.innerHTML = history.map((item, index) => `
+        <article class="agent-history-item">
+          <header class="agent-history-meta"><b>ครั้งที่ ${index + 1}${index === 0 ? ' · ล่าสุด' : ''}</b><strong>${escapeHtml(item[1])}</strong><strong>${escapeHtml(item[2])}</strong><span class="tag">ข้อความจาก Agent</span></header>
+          <pre class="agent-raw-result">${escapeHtml(item[0])}</pre>
+        </article>`).join('');
+      mbHistoryOverlay.hidden = false;
+    }
+
+    function setDrawer(open) {
+      drawer.classList.toggle('open', open);
+      drawer.setAttribute('aria-hidden', open ? 'false' : 'true');
+    }
+
+    datasetSelect.addEventListener('change', event => renderDataset(event.target.value));
+    rowsNode.addEventListener('click', event => {
+      const button = event.target.closest('[data-mb-history]');
+      if (button) openMbHistory(button.getAttribute('data-mb-history'));
+    });
+    document.getElementById('closeMbHistoryTop').addEventListener('click', closeMbHistory);
+    document.getElementById('closeMbHistory').addEventListener('click', closeMbHistory);
+    document.getElementById('showRules').addEventListener('click', () => setDrawer(true));
+    document.getElementById('closeRules').addEventListener('click', () => setDrawer(false));
+    document.getElementById('openDialog').addEventListener('click', () => { veil.hidden = false; });
+    document.getElementById('closeDialog').addEventListener('click', () => { veil.hidden = true; setDrawer(false); });
+    document.getElementById('footerClose').addEventListener('click', () => { veil.hidden = true; setDrawer(false); });
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && !mbHistoryOverlay.hidden) closeMbHistory();
+      else if (event.key === 'Escape' && drawer.classList.contains('open')) setDrawer(false);
+      else if (event.key === 'Escape') veil.hidden = true;
+    });
+    renderDataset('general');
+  </script>
+</body>
+</html>

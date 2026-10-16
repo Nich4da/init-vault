@@ -136,6 +136,7 @@ Result Items                     หลายรายการต่อ Report
 | `reported_by_source_id`, `reported_by_source_name` | รหัส/ชื่อผู้ลงผลจากต้นทาง |
 | `verified_at` | เวลารับรองผล ถ้ามี |
 | `verified_by_source_id`, `verified_by_source_name` | รหัส/ชื่อผู้รับรองผล ถ้ามี |
+| `order_note` | หมายเหตุหลายบรรทัดระดับ Order/Report จาก Agent แยกจาก comment รายผลย่อย |
 
 #### D. สรุปการแตกและจับคู่ items
 
@@ -203,6 +204,7 @@ Receipt.result_report_id → Result_Report_Manual_Entry._id
 | `reported_by_source_id`, `reported_by_source_name` | ผู้ลงผลจาก Agent/Manual |
 | `verified_at` | เวลารับรองผล ถ้ามี |
 | `verified_by_source_id`, `verified_by_source_name` | ผู้รับรองผล ถ้ามี |
+| `order_note` | หมายเหตุระดับ Order/Report; popup แสดงหนึ่งครั้งก่อนรายการผลเมื่อมีค่า |
 
 #### C. ตัวระบุ logical report และแหล่งข้อมูล
 
@@ -446,6 +448,7 @@ Viewer มี widget `result_attachments` สำหรับไฟล์ผล L
   "report_seq": "1",
   "stage": "resulted",
   "reported_at": "ISO-8601",
+  "order_note": "หมายเหตุระดับ Order จาก Agent",
   "items": [
     {
       "obs_code": "OBS-1",

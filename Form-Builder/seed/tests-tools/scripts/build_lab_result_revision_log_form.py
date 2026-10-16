@@ -123,6 +123,7 @@ field_specs = [
     ("text-input", "schema_version", "Schema Version", 8, False, True),
     ("text-input", "payload_hash", "Payload Hash", 16, True, True),
 ]
+order_note_spec = ("textarea-input", "order_note", "หมายเหตุระดับ Order", 24, False, False)
 
 root = deepcopy(grid_source)
 root["key"] = next_number()
@@ -134,6 +135,7 @@ root["options"].update({
     "customClass": "",
 })
 root["cols"] = [make_col(spec) for spec in field_specs]
+root["cols"].append(make_col(order_note_spec))
 
 output = {
     "fields": [root],

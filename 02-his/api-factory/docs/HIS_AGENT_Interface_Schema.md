@@ -49,6 +49,10 @@ technical trace สำหรับทีม API
 9. `critical_low_rule` หรือ `critical_high_rule` จะมีค่าเมื่อ Result นั้นเป็น
    Critical; HIS เก็บและแจ้งเตือน แต่ไม่คำนวณ threshold ซ้ำ
 10. ขาส่ง Order กันซ้ำด้วย `order_no`; ขารับ Result กันซ้ำด้วย `result_uid`
+11. Result callback อาจส่ง `order_note` เป็นข้อความหลายบรรทัดระดับ Order/Report;
+    ไม่ใช้แทน `items[].comment` ซึ่งเป็นหมายเหตุระดับผลย่อย
+12. ขาส่ง Order ใช้ `visit_type = OPD|IPD`: AN มีค่าเป็น `IPD`, ไม่มี AN เป็น `OPD`;
+    `encounter.class` ส่งค่าเดียวกันไว้เพื่อ compatibility ระหว่างการเปลี่ยน contract
 
 ## Boundary
 
@@ -104,6 +108,7 @@ Content-Type: application/json
 |---|---|---|
 | `order_no` | HIS order id และ idempotency key | Center order/source order; ต้องยืนยันชื่อ live field ก่อน implement |
 | `labno` | LAB NO. ที่ HIS ออก | `lab_no`/`order_number` ตาม record จริง |
+| `visit_type` | ประเภท encounter ที่ Agent ใช้ (`OPD`/`IPD`) | มี AN = `IPD`; ไม่มี AN = `OPD` |
 | `items[].test_code` | `his_code_id` | CPOE ordered item |
 | `items[].collected_at` | เวลาเก็บ specimen จริง | Specimen collection record |
 | `items[].received_at` | เวลา Lab กดรับ specimen | `received_at` |
@@ -202,6 +207,7 @@ Lab Work Item
 ```
 
 - Result callback header map เข้า Result Report
+- `order_note` map เข้า Result Report header และแสดงหนึ่งครั้งใน popup ผลทั้ง Order
 - `items[]` map เข้า Lab Result Item
 - `obs_code` ใช้ค้น Result Definition และ Result Item เดิม
 - Unit/reference range ต้อง snapshot ที่ Result Item

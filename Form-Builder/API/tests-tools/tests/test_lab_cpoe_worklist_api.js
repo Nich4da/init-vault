@@ -133,10 +133,13 @@ const makeApp = (captures, {
   manualWorkPatch = {},
   manualMasterLabPatch = {},
   manualMasterPatch = {},
+  manualLabData = { spec_source: 'Skin scraping', spec_source_code: 'SKIN' },
+  manualQuantity = 1,
   doctorAccount = null,
   sensitiveGrantRows = [],
   canonicalCurrent = [],
   canonicalReports = [],
+  canonicalReportOrderLookup = canonicalReports,
   canonicalPrevious = [],
   correctionLogRows = [],
   revisionRows = [],
@@ -148,6 +151,7 @@ const makeApp = (captures, {
   writeStatus = 'sent',
   writeReceivedAt = '',
   writeLabNo = '',
+  writeLabData = { specimen_at: '2026-08-30T09:00' },
   writeWorkStatus = '',
   writeCancellation = null,
   writeSectionCode = 'HH',
@@ -204,7 +208,7 @@ const makeApp = (captures, {
             source_specimen_record_id: manualItemId,
             lab_no: 'MY2608310001',
             section_code: manualSectionCode,
-            work_status: manualStatus === 'sent' ? 'waiting_receive' : manualStatus === 'resulted' ? 'resulted' : 'received',
+            work_status: manualStatus === 'sent' ? 'waiting_receive' : manualStatus === 'resulted' ? 'resulted' : manualStatus === 'completed' ? 'completed' : 'received',
             ...manualWorkPatch,
           }
         },
@@ -225,7 +229,7 @@ const makeApp = (captures, {
             order_id: { value: 'ffffffffffffffffffffffff' },
             received_at: writeReceivedAt,
             lab_no: writeLabNo,
-            lab_data: { specimen_at: '2026-08-30T09:00' },
+            lab_data: writeLabData,
           },
         },
       }
@@ -250,8 +254,9 @@ const makeApp = (captures, {
             item_code: 'MY-CULTURE',
             item_name: 'Fungal culture',
             item_no: 2,
+            quantity: manualQuantity,
             lab_no: 'MY2608310001',
-            lab_data: { spec_source: 'Skin scraping', spec_source_code: 'SKIN' },
+            lab_data: manualLabData,
             ...manualVisibility,
           },
         },
@@ -302,30 +307,21 @@ const makeApp = (captures, {
     if (provider.from === 'zdata_zdata_lab_reject_cancel_reason') {
       return { success: true, reply: { data: reasonRows } }
     }
-    if (provider.from === 'zdata_specimen_code') {
+    if (provider.from === 'zdata_lab_spec') {
+      const rows = [
+        { code: 'BL', name: 'Blood', sort: 40 },
+        { code: 'CD', name: 'Clotted blood', sort: 46 },
+        { code: 'IC', name: 'Ionized Calcium Blood', sort: 50 },
+      ]
+      const requestedCode = provider.nosql && provider.nosql.query && provider.nosql.query.code
       return {
         success: true,
         reply: {
-          data: [
-            { specimen_code: 'BL', specimen_name: 'Blood' },
-            { specimen_code: 'CD', specimen_name: 'Clotted blood' },
-            { specimen_code: 'OLD', specimen_name: 'Inactive specimen', is_active: false },
-          ],
+          data: requestedCode ? rows.filter(row => row.code === requestedCode) : rows,
         },
       }
     }
     if (provider.from === 'zdata_master_item_order') {
-      if (provider.nosql.type === 'aggregate') {
-        return {
-          success: true,
-          reply: {
-            data: [
-              { specimen_code: 'CD', specimen_name: 'Clotted blood' },
-              { specimen_code: 'IC', specimen_name: 'Ionized Calcium Blood' },
-            ],
-          },
-        }
-      }
       return {
         success: true,
         reply: {
@@ -368,6 +364,9 @@ const makeApp = (captures, {
     if (provider.from === 'zdata_lab_result_item') {
       return { success: true, reply: { data: canonicalCurrent.map(row => ({ result_report_id: row.result_report_id, xparentx: row.xparentx })) } }
     }
+    if (provider.from === 'zdata_lab_report_manual_entry') {
+      return { success: true, reply: { data: canonicalReports } }
+    }
     if (provider.from === 'zdata_cpoe_order_item') {
       const facetStage = provider.nosql && Array.isArray(provider.nosql.pipeline)
         ? provider.nosql.pipeline.find(stage => stage.$facet)
@@ -385,6 +384,7 @@ const makeApp = (captures, {
               { _id: 'rejected', total: 7 },
               { _id: 'draft', total: 99 },
             ],
+            terminal_status_count: [{ total: 13 }],
           }
         : facetResult
       return { success: true, reply: { data: [result] } }
@@ -417,7 +417,7 @@ const makeApp = (captures, {
       return { success: true, data: attachmentReport ? [attachmentReport] : [] }
     }
     if (provider.providerId === RESULT_REPORT_FORM_ID && provider.options.where.includes('order_no = :workItemId')) {
-      return { success: true, data: canonicalReports }
+      return { success: true, data: canonicalReportOrderLookup }
     }
     if (provider.providerId === RESULT_ITEM_FORM_ID && provider.options.where.includes('order_no = :workItemId')) {
       return { success: true, data: canonicalCurrent }
@@ -566,6 +566,7 @@ const makeFinalizeApp = (captures, {
       reason_type: 'SPECIMEN_REJECT',
     }, userAt('10'), makeApp(captures, {
       reasonRows: [
+        { xrstatx: 1, reason_type: 'BOTH', section_code: 'ALL', reason_code: 'LABR-BOTH', reason_text: 'เหตุผลกลาง', display_order: 0, is_active: true },
         { xrstatx: 1, reason_type: 'SPECIMEN_REJECT', section_code: 'ALL', reason_code: 'LABR-00002', reason_text: 'เหตุผลลำดับสอง', display_order: 2, is_active: true },
         { xrstatx: 1, reason_type: 'SPECIMEN_REJECT', section_code: 'BC', reason_code: 'LABR-00001', reason_text: 'เหตุผลเฉพาะห้อง', display_order: 1, is_active: true },
         { xrstatx: 1, reason_type: 'SPECIMEN_REJECT', section_code: 'IM', reason_code: 'LABR-IGNORE-ROOM', reason_text: 'ห้องอื่น', display_order: 0, is_active: true },
@@ -575,12 +576,13 @@ const makeFinalizeApp = (captures, {
     assert.strictEqual(result.success, true)
     assert.strictEqual(result.data.source, 'lab_reason_settings')
     assert.deepStrictEqual(result.data.options, [
+      { value: 'LABR-BOTH', label: 'เหตุผลกลาง', display_order: 0, section_code: 'ALL' },
       { value: 'LABR-00001', label: 'เหตุผลเฉพาะห้อง', display_order: 1, section_code: 'BC' },
       { value: 'LABR-00002', label: 'เหตุผลลำดับสอง', display_order: 2, section_code: 'ALL' },
     ])
     const reasonProvider = captures.find(provider => provider.from === 'zdata_zdata_lab_reject_cancel_reason')
     assert(reasonProvider, 'reason options must read the imported LAB Reason Settings collection')
-    assert.strictEqual(reasonProvider.nosql.query.reason_type, 'SPECIMEN_REJECT')
+    assert.deepStrictEqual(reasonProvider.nosql.query.reason_type, { $in: ['SPECIMEN_REJECT', 'BOTH'] })
     assert.deepStrictEqual(reasonProvider.nosql.query.xrstatx, { $nin: [0, 3] })
   }
 
@@ -602,23 +604,12 @@ const makeFinalizeApp = (captures, {
     assert.strictEqual(result.data.orders[0].prior_medication, '2')
     assert.strictEqual(result.data.orders[0].prior_specify, 'abacavir')
     assert.strictEqual(result.data.orders[0].diagnosis.label, 'C4102 Maxilla malignant neoplasm')
-    assert.deepStrictEqual(result.data.specimen_options, [
-      { value: 'BL', label: 'Blood' },
-      { value: 'CD', label: 'Clotted blood' },
-      { value: 'IC', label: 'Ionized Calcium Blood' },
-    ])
-    const specimenProvider = captures.find(provider => provider.from === 'zdata_specimen_code')
-    assert(specimenProvider, 'list must read the Specimen master')
-    assert.strictEqual(Object.prototype.hasOwnProperty.call(specimenProvider.nosql.query, 'is_active'), false,
-      'query must not discard legacy rows whose is_active field is missing')
-    assert.strictEqual(specimenProvider.nosql.limit, 2000, 'dropdown must request the complete Specimen master page')
-    assert.strictEqual(specimenProvider.nosql.projection.is_active, 1,
-      'runtime must filter only rows explicitly marked inactive')
-    const configuredSpecimenProvider = captures.find(provider =>
-      provider.from === 'zdata_master_item_order' && provider.nosql.type === 'aggregate'
-    )
-    assert(configuredSpecimenProvider, 'list must merge specimen codes configured on active CPOE LAB items')
-    assert.deepStrictEqual(configuredSpecimenProvider.nosql.collections, ['zdata_master_item_order'])
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(result.data, 'specimen_options'), false,
+      'Worklist API must not rebuild the Form-backed specimen dropdown')
+    assert(!captures.some(provider => provider.from === 'zdata_specimen_code'),
+      'the obsolete zdata_specimen_code source must not be used')
+    assert(!captures.some(provider => provider.from === 'zdata_lab_spec'),
+      'list must leave the dropdown connected directly to the Lab Specimen Form')
 
     const aggregateProvider = captures.find(provider => provider.from === 'zdata_cpoe_order_item')
     assert(aggregateProvider, 'must query CPOE Order Item as the worklist source')
@@ -664,6 +655,19 @@ const makeFinalizeApp = (captures, {
     assert(pipelineText.includes('received_at'), 'accepted CPOE status without an actual receipt must fall back to waiting')
     assert(pipelineText.includes('lab_no'), 'legacy receipt evidence must remain supported')
     assert(pipelineText.includes('work_item_id'))
+    assert(pipelineText.includes('source_managed'), 'four source-managed rooms must be explicit in each Item row')
+    assert(
+      apiBody.includes("source_lab_no: { $ifNull: ['$item_no', ''] }"),
+      'Worklist must read the order-side LAB NO. from CPOE Order Item.item_no'
+    )
+    assert(
+      apiBody.includes('{ $in: [sectionCodeExpression, SOURCE_MANAGED_SECTION_CODES] }'),
+      'item_no fallback must remain limited to the four source-managed rooms'
+    )
+    assert(pipelineText.includes('req_commt'), 'Item rows must expose the CPOE required-comment condition')
+    assert(pipelineText.includes('multi_specimen'), 'Item rows must expose the CPOE multi-specimen condition')
+    assert(pipelineText.includes('item_comment'), 'Item rows must expose the persisted CPOE comment for source-managed rooms')
+    assert(pipelineText.includes('lab_data.specimens'), 'multi-specimen rows must come from the CPOE payload')
     assert(pipelineText.includes('reject_reason_code'))
     assert(pipelineText.includes('reject_reason_detail'))
     assert(pipelineText.includes('cancel_reason'))
@@ -700,14 +704,22 @@ const makeFinalizeApp = (captures, {
       stage.$addFields && stage.$addFields.row_filter_status
     )
     const rowStatusFilterIndex = aggregateProvider.nosql.pipeline.findIndex(stage =>
-      stage.$match && stage.$match.row_filter_status
+      stage.$match && stage.$match.row_filter_statuses
     )
     assert(rowStatusStageIndex > orderGroupIndex, 'row status must be derived only after every sibling Item is grouped')
     assert(rowStatusFilterIndex > rowStatusStageIndex, 'tab status must filter the complete Order+Section row')
     assert.deepStrictEqual(
-      aggregateProvider.nosql.pipeline[rowStatusFilterIndex].$match.row_filter_status,
+      aggregateProvider.nosql.pipeline[rowStatusFilterIndex].$match.row_filter_statuses,
       { $in: ['sent'] },
     )
+    const rowStatusesStage = aggregateProvider.nosql.pipeline.find(stage =>
+      stage.$addFields && stage.$addFields.row_filter_statuses
+    )
+    assert(rowStatusesStage, 'mixed rows must retain terminal sibling states for tab filtering')
+    const rowStatusesText = JSON.stringify(rowStatusesStage.$addFields.row_filter_statuses)
+    assert(rowStatusesText.includes('rejected'))
+    assert(rowStatusesText.includes('cancelled'))
+    assert(rowStatusesText.includes('$$item.current_status'))
     const rowStatusExpression = aggregateProvider.nosql.pipeline[rowStatusStageIndex].$addFields.row_filter_status.$let
     assert.deepStrictEqual(
       rowStatusExpression.in.$switch.branches[0].then.$cond.slice(1),
@@ -742,6 +754,25 @@ const makeFinalizeApp = (captures, {
     assert(dailyScopeText.includes('work_item.rejected_at'))
     assert(dailyScopeText.includes('work_item.cancelled_at'))
     assert(dailyScopeText.includes('sent_stage.stage_at'))
+    const dailyStatusBranches = dailyScopeStage.$addFields.daily_scope_at.$switch.branches
+    const completedDateBranch = dailyStatusBranches.find(branch =>
+      branch.case && branch.case.$eq && branch.case.$eq[1] === 'completed'
+    )
+    const partialDateBranch = dailyStatusBranches.find(branch =>
+      branch.case && branch.case.$eq && branch.case.$eq[1] === 'resulted'
+    )
+    assert(completedDateBranch, 'Final rows must have their own stable result-date branch')
+    assert(partialDateBranch, 'Partial rows must keep their latest-result date branch')
+    assert.strictEqual(
+      completedDateBranch.then.$ifNull[0],
+      '$work_item.resulted_at',
+      'Final rows must remain on the original final-result day after a later note or correction',
+    )
+    assert.strictEqual(
+      partialDateBranch.then.$ifNull[0],
+      '$work_item.latest_result_at',
+      'Partial rows must continue to follow their latest result update',
+    )
     const dailyDateMatch = aggregateProvider.nosql.pipeline.find(stage =>
       stage.$match && stage.$match.daily_scope_day
     )
@@ -765,6 +796,74 @@ const makeFinalizeApp = (captures, {
       from: '2026-08-31',
       to: '2026-08-31',
       defaulted: true,
+      all_dates: false,
+      axis: 'status_time',
+    })
+  }
+
+  // A partially rejected Order must be discoverable from the combined
+  // Cancelled / Rejected tab even when an active sibling keeps its primary
+  // operational bucket as sent/ready.
+  {
+    const captures = []
+    const result = await Process(
+      { statuses: ['cancelled', 'rejected'] },
+      userAt('10'),
+      makeApp(captures),
+    )
+    assert.strictEqual(result.success, true)
+    const aggregateProvider = captures.find(provider => provider.from === 'zdata_cpoe_order_item')
+    const mixedTerminalFilter = aggregateProvider.nosql.pipeline.find(stage =>
+      stage.$match && stage.$match.row_filter_statuses
+    )
+    assert(mixedTerminalFilter, 'cancelled/rejected tab must filter the multi-bucket row status')
+    assert.deepStrictEqual(mixedTerminalFilter.$match.row_filter_statuses, {
+      $in: ['cancelled', 'rejected'],
+    })
+  }
+
+  // The Today toolbar promises HN / VN / LN / Order No. / patient-name search.
+  // Keep scanner/history HN exact, but route typed text through a safe literal
+  // multi-field match after Work Item and CPOE Order have both been joined.
+  {
+    const captures = []
+    const result = await Process({
+      query: '2610010001',
+      date_from: '2026-10-03',
+      date_to: '2026-10-03',
+    }, userAt('10'), makeApp(captures))
+    assert.strictEqual(result.success, true)
+    const aggregateProvider = captures.find(provider => provider.from === 'zdata_cpoe_order_item')
+    assert(aggregateProvider, 'typed Today search must keep the proven Item-root pipeline')
+    const searchStage = aggregateProvider.nosql.pipeline.find(stage =>
+      stage.$match && Array.isArray(stage.$match.$or)
+    )
+    assert(searchStage, 'typed Today search must add a multi-field match')
+    const searchText = JSON.stringify(searchStage.$match.$or)
+    for (const field of [
+      'order.order_number',
+      'order.vid.pid.hn',
+      'order.vid.vn',
+      'work_item.lab_no',
+      'lab_no',
+      'item_no',
+      'p_fname',
+      'p_lname',
+    ]) {
+      assert(searchText.includes(field), 'typed Today search must include ' + field)
+    }
+    assert(searchText.includes('^R?2610010001$'), 'Order No. must accept the value with or without its R prefix')
+    assert.strictEqual(
+      searchStage.$match['order.vid.pid.hn'],
+      undefined,
+      'typed Today search must not be misrouted as exact HN',
+    )
+    assert(!aggregateProvider.nosql.pipeline.some(stage => stage.$match && stage.$match.daily_scope_day),
+      'Order No. search must not be restricted by the selected date')
+    assert.deepStrictEqual(result.data.date_scope, {
+      from: '',
+      to: '',
+      defaulted: false,
       all_dates: false,
       axis: 'status_time',
     })
@@ -804,14 +903,18 @@ const makeFinalizeApp = (captures, {
     const facetStage = pipeline.find(stage => stage.$facet)
     assert(facetStage && facetStage.$facet.status_counts, 'batched list must expose the status-count facet')
     assert.deepStrictEqual(facetStage.$facet.rows[0], {
-      $match: { _row_filter_status: { $in: ['sent', 'ready'] } },
+      $match: { _row_filter_statuses: { $in: ['sent', 'ready'] } },
     })
     assert.deepStrictEqual(facetStage.$facet.meta[0], {
-      $match: { _row_filter_status: { $in: ['sent', 'ready'] } },
+      $match: { _row_filter_statuses: { $in: ['sent', 'ready'] } },
     })
     assert.deepStrictEqual(facetStage.$facet.status_counts.at(-1), {
       $group: { _id: '$_row_filter_status', total: { $sum: 1 } },
     })
+    assert.deepStrictEqual(facetStage.$facet.terminal_status_count, [
+      { $match: { _row_filter_statuses: { $in: ['cancelled', 'rejected'] } } },
+      { $count: 'total' },
+    ], 'cancelled/rejected count must include a terminal Item inside a mixed Order')
     const globalSort = pipeline.find(stage => stage.$sort && stage.$sort.requested_at)
     assert.strictEqual(globalSort, undefined, 'batched counts must not sort rows that are used only for counters')
     assert.deepStrictEqual(facetStage.$facet.rows[1], {
@@ -972,6 +1075,7 @@ const makeFinalizeApp = (captures, {
   {
     const writeActions = [
       ['save_manual_result', { manual_result: { result_value: 'must-not-save' } }],
+      ['save_pathology_results', { pathology_results: [{ specimen_index: 0, pathology_sub_index: 0, actual_site_name: 'หนังศีรษะ', result_value: 'must-not-save' }] }],
       ['save_result_edits', { results: [{ result_item_id: 'aaaaaaaaaaaaaaaaaaaaaaaa', result_value: 'must-not-save' }] }],
       ['save_result_attachments', { result_attachments: [{ name: 'must-not-save.pdf' }] }],
       ['set_result_visibility', { hidden: true, reason: 'must not save cross room' }],
@@ -1305,11 +1409,11 @@ const makeFinalizeApp = (captures, {
     )
     assert.strictEqual(result.success, true)
     assert.strictEqual(result.data.specimen_name, 'Blood')
-    const specimenLookup = captures.find(entry => entry.from === 'zdata_specimen_code')
-    assert(specimenLookup, 'specimen correction must validate against the same master list')
-    assert.strictEqual(Object.prototype.hasOwnProperty.call(specimenLookup.nosql.query, 'is_active'), false)
-    assert.strictEqual(specimenLookup.nosql.limit, 2000)
-    assert.strictEqual(specimenLookup.nosql.projection.is_active, 1)
+    const specimenLookup = captures.find(entry => entry.from === 'zdata_lab_spec')
+    assert(specimenLookup, 'specimen correction must validate against the CPOE Order dropdown source')
+    assert.deepStrictEqual(specimenLookup.nosql.query, { xrstatx: 1, code: 'BL' })
+    assert.strictEqual(specimenLookup.nosql.limit, 1)
+    assert(!captures.some(entry => entry.from === 'zdata_specimen_code'))
     const update = captures.find(entry => entry.type === 'update')
     assert(update, 'must persist specimen selection')
     assert.strictEqual(update.from, 'zdata_cpoe_order_item')
@@ -1321,27 +1425,79 @@ const makeFinalizeApp = (captures, {
     assert.deepStrictEqual(update.filter.lab_no.$in, [null, ''])
   }
 
-  for (const writeSectionCode of ['IM', 'MI-OUT']) {
+  // 2026-10-03: only IM/MI-OUT keep the immutable order-time specimen.
+  for (const [writeSectionCode, organizationCode] of [['IM', 'm1006'], ['MI-OUT', 'm1006']]) {
     const captures = []
     const result = await Process(
       {
         action: 'update_specimen',
-        organization_code: 'm1006',
+        organization_code: organizationCode,
         item_id: writeItemId,
         specimen_code: 'BL',
       },
-      userAt('m1006'),
+      userAt(organizationCode),
       makeApp(captures, { writeSectionCode }),
     )
     assert.strictEqual(result.success, false)
-    assert(result.message.includes('ภูมิคุ้มกัน'), writeSectionCode + ': ' + result.message)
+    assert(result.message.includes('IM และ MI-OUT'), writeSectionCode + ': ' + result.message)
     assert(!captures.some(entry => entry.type === 'update'), writeSectionCode + ' must not update specimen')
-    assert(!captures.some(entry => entry.from === 'zdata_specimen_code'), writeSectionCode + ' must stop before specimen lookup')
+    assert(!captures.some(entry => entry.from === 'zdata_lab_spec'), writeSectionCode + ' must stop before specimen option lookup')
+  }
+
+  for (const [writeSectionCode, organizationCode] of [['MY', 'm1000'], ['MB', 'm1005']]) {
+    const captures = []
+    const result = await Process(
+      {
+        action: 'update_specimen',
+        organization_code: organizationCode,
+        item_id: writeItemId,
+        specimen_code: 'BL',
+      },
+      userAt(organizationCode),
+      makeApp(captures, { writeSectionCode, writeLabNo: writeSectionCode + '2610030001' }),
+    )
+    assert.strictEqual(result.success, true, writeSectionCode + ': ' + result.message)
+    const update = captures.find(entry => entry.type === 'update')
+    assert(update, writeSectionCode + ' must update specimen')
+    assert.strictEqual(update.data.lab_data.spec_source_code, 'BL')
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(update.filter, 'lab_no'), false, writeSectionCode + ' order-issued LAB NO. must not block pre-receipt specimen correction')
   }
 
   {
-    // Site ที่ Specimen master กลางยังไม่มี code แต่ CPOE LAB item ใช้งาน code นี้อยู่
-    // ต้องเลือกและบันทึกได้ โดยยังคงปฏิเสธ code ที่ไม่อยู่ใน master ใดเลย.
+    const captures = []
+    const originalRows = [
+      { spec_source: 'Hemoculture ขวดที่1', spec_source_code: 'BC1', spec_site_name: 'ข้อพับแขน', spec_note: 'ห้ามเปลี่ยนตำแหน่ง' },
+      { spec_source: 'Stool', spec_source_code: 'ST', spec_site_name: 'หลัง / ก้นเอว' },
+    ]
+    const result = await Process(
+      {
+        action: 'update_specimen',
+        organization_code: 'm1005',
+        item_id: writeItemId,
+        specimen_code: 'BL',
+        specimen_index: 0,
+      },
+      userAt('m1005'),
+      makeApp(captures, {
+        writeSectionCode: 'MB',
+        writeLabNo: '402610030001',
+        writeLabData: { specimens: originalRows },
+      }),
+    )
+    assert.strictEqual(result.success, true)
+    assert.strictEqual(result.data.specimen_index, 0)
+    const update = captures.find(entry => entry.type === 'update')
+    assert.strictEqual(update.data.lab_data.specimens[0].spec_source, 'Blood')
+    assert.strictEqual(update.data.lab_data.specimens[0].spec_source_code, 'BL')
+    assert.strictEqual(update.data.lab_data.specimens[0].spec_site_name, 'ข้อพับแขน', 'location must remain read-only')
+    assert.strictEqual(update.data.lab_data.specimens[0].spec_note, 'ห้ามเปลี่ยนตำแหน่ง')
+    assert.deepStrictEqual(update.data.lab_data.specimens[1], originalRows[1], 'other specimen rows must remain unchanged')
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(update.data.lab_data, 'spec_source'), false, 'row edit must not overwrite the top-level specimen')
+  }
+
+  {
+    // Worklist ต้องยอมรับ code จาก Lab Specimen dropdown ชุดเดียวกับ CPOE Order
+    // โดยไม่จำกัดเฉพาะค่าเริ่มต้นที่ผูกบน test นั้น.
     const captures = []
     const result = await Process(
       {
@@ -1356,10 +1512,8 @@ const makeFinalizeApp = (captures, {
     assert.strictEqual(result.success, true)
     assert.strictEqual(result.data.specimen_code, 'IC')
     assert.strictEqual(result.data.specimen_name, 'Ionized Calcium Blood')
-    const configuredLookup = captures.find(entry =>
-      entry.from === 'zdata_master_item_order' && entry.nosql.type === 'query'
-    )
-    assert(configuredLookup, 'specimen correction must fall back to active CPOE item configuration')
+    const configuredLookup = captures.find(entry => entry.from === 'zdata_lab_spec')
+    assert(configuredLookup, 'specimen correction must use the active Lab Specimen master')
     const update = captures.find(entry => entry.type === 'update')
     assert.strictEqual(update.data.lab_data.spec_source_code, 'IC')
     assert.strictEqual(update.data.lab_data.spec_source, 'Ionized Calcium Blood')
@@ -1661,17 +1815,79 @@ const makeFinalizeApp = (captures, {
           verified_at: '2026-08-31 09:29:00',
           verified_by_source_id: 'APPROVER001',
           verified_by_source_name: 'ผู้ยืนยันจาก Result Report',
+          order_note: 'หมายเหตุระดับ Order\nจาก Agent',
         }],
       }),
     )
     assert.strictEqual(result.success, true)
     assert.strictEqual(result.data.reported_by_source_name, 'ผู้รายงานจาก Result Report')
     assert.strictEqual(result.data.verified_by_source_name, 'ผู้ยืนยันจาก Result Report')
+    assert.strictEqual(result.data.order_note, 'หมายเหตุระดับ Order\nจาก Agent')
+    assert.strictEqual(result.data.results[0].order_note, undefined, 'order note must remain separate from analyte results')
     assert.strictEqual(result.data.results[0].reported_by_source_name, 'ผู้รายงานจาก Result Report')
     assert.strictEqual(result.data.results[0].verified_by_source_id, 'APPROVER001')
     assert.strictEqual(result.data.results[0].verified_by_source_name, 'ผู้ยืนยันจาก Result Report')
     const reportLookup = captures.find(entry => entry.type === 'sdformGetAll' && entry.provider.providerId === RESULT_REPORT_FORM_ID && entry.provider.options.where.includes('order_no = :workItemId'))
     assert(reportLookup, 'result viewer must load parent Result Report metadata')
+  }
+
+  {
+    // A later Agent callback can update Result Item.result_uid while leaving
+    // result_report_id on an older report revision. The read-only popup must
+    // resolve the exact result_uid first so the latest order_note survives.
+    const captures = []
+    const staleReportId = 'acacacacacacacacacacacac'
+    const latestReportId = 'adadadadadadadadadadadad'
+    const latestResultUid = 'RESULT-LATEST-NOTE'
+    const result = await Process(
+      { action: 'get_manual_result', organization_code: 'm1000', item_id: manualItemId },
+      userAt('m1000'),
+      makeApp(captures, {
+        canonicalCurrent: [{
+          _id: 'ACTOR-ONLY-CHILD',
+          result_report_id: staleReportId,
+          xparentx: staleReportId,
+          result_uid: latestResultUid,
+          order_no: '999999999999999999999999',
+          obs_code: 'HGB',
+          obs_name: 'Hemoglobin',
+          result_value: '12.4',
+          result_status: 'final',
+          result_version: '1',
+          entered_at: '2026-08-31 09:30:00',
+          result_source: 'agent',
+        }],
+        canonicalReportOrderLookup: [{
+          _id: staleReportId,
+          order_no: '999999999999999999999999',
+          result_uid: 'RESULT-OLD-REVISION',
+          reported_at: '2026-08-31 08:00:00',
+          reported_by_source_name: 'ผู้รายงาน revision เก่า',
+          verified_at: '2026-08-31 08:01:00',
+          verified_by_source_name: 'ผู้ยืนยัน revision เก่า',
+          order_note: '',
+        }],
+        canonicalReports: [{
+          _id: latestReportId,
+          order_no: 'ORDER-NOT-MATCHED-BY-LEGACY-LOOKUP',
+          result_uid: latestResultUid,
+          reported_at: '2026-08-31 09:28:00',
+          reported_by_source_name: 'ผู้รายงานจาก Agent',
+          verified_at: '2026-08-31 09:29:00',
+          verified_by_source_name: 'ผู้ยืนยันจาก Agent',
+          order_note: 'หมายเหตุจาก revision ล่าสุด',
+        }],
+      }),
+    )
+    assert.strictEqual(result.success, true)
+    assert.strictEqual(result.data.reported_by_source_name, 'ผู้รายงานจาก Agent')
+    assert.strictEqual(result.data.verified_by_source_name, 'ผู้ยืนยันจาก Agent')
+    assert.strictEqual(result.data.order_note, 'หมายเหตุจาก revision ล่าสุด')
+    const resultParentLookup = captures.find(entry => entry.from === 'zdata_lab_report_manual_entry')
+    assert(resultParentLookup, 'normal result read must fall back to the exact Result Report revision')
+    const resultUidLookup = resultParentLookup.nosql.query.$or.find(clause => clause.result_uid)
+    assert(resultUidLookup, 'fallback must query Result Report by result_uid')
+    assert.deepStrictEqual(resultUidLookup.result_uid.$in, [latestResultUid])
   }
 
   {
@@ -1959,6 +2175,414 @@ const makeFinalizeApp = (captures, {
     )
     assert.strictEqual(result.success, true, 'waiting Item must allow read-only result lookup')
     assert.strictEqual(result.data.result_value, '')
+  }
+
+  {
+    const captures = []
+    const result = await Process(
+      {
+        action: 'save_pathology_results',
+        organization_code: 'm1000',
+        item_id: manualItemId,
+        request_id: 'my-pathology-save-1',
+        pathology_results: [
+          { pathology_row_key: manualItemId + '|0|hair', specimen_index: 0, pathology_sub_index: 0, actual_site_code: 'HEAD', actual_site_name: 'ศีรษะ', actual_site_detail: 'เส้นผม', result_value: 'พบเชื้อ A' },
+          { pathology_row_key: manualItemId + '|0|scalp', specimen_index: 0, pathology_sub_index: 1, actual_site_code: 'HEAD', actual_site_name: 'ศีรษะ', actual_site_detail: 'หนังศีรษะ', result_value: 'ไม่พบเชื้อ' },
+          { pathology_row_key: manualItemId + '|1|arm', specimen_index: 1, pathology_sub_index: 0, actual_site_code: 'ARM', actual_site_name: 'แขน', actual_site_detail: 'ขวา', result_value: 'พบเชื้อ B' },
+          { pathology_row_key: manualItemId + '|2|leg', specimen_index: 2, pathology_sub_index: 0, actual_site_code: 'LEG', actual_site_name: 'ขา', actual_site_detail: 'ซ้าย', result_value: '' },
+        ],
+      },
+      userAt('m1000'),
+      makeApp(captures, {
+        manualQuantity: 3,
+        manualLabData: {
+          specimens: [
+            { spec_source_code: 'HAIR', spec_source: 'Hair', spec_site_code: 'HEAD', spec_site_name: 'ศีรษะ' },
+            { spec_source_code: 'SKIN', spec_source: 'Skin scraping', spec_site_code: 'ARM', spec_site_name: 'แขน' },
+            { spec_source_code: 'NAIL', spec_source: 'Nail clipping', spec_site_code: 'LEG', spec_site_name: 'ขา' },
+          ],
+        },
+      }),
+    )
+    assert.strictEqual(result.success, true, result.message)
+    assert(result.message.includes('4 ตำแหน่ง'))
+    const reportSave = captures.find(entry => entry.type === 'sdformSetOne' && entry.formId === RESULT_REPORT_FORM_ID)
+    assert(reportSave, 'MY sub-results must reuse the existing Result Report form')
+    assert.strictEqual(reportSave.data.item_count, 4)
+    const itemSaves = captures.filter(entry => entry.type === 'sdformSetOne' && entry.formId === RESULT_ITEM_FORM_ID)
+    assert.strictEqual(itemSaves.length, 4, 'each MY actual site must persist as one existing Result Item row')
+    assert.deepStrictEqual(itemSaves.map(entry => entry.data.specimen_index), [0, 0, 1, 2])
+    assert.deepStrictEqual(itemSaves.map(entry => entry.data.specimen_name_snapshot), ['Hair', 'Hair', 'Skin scraping', 'Nail clipping'])
+    assert.deepStrictEqual(itemSaves.map(entry => entry.data.ordered_site_name_snapshot), ['ศีรษะ', 'ศีรษะ', 'แขน', 'ขา'])
+    assert.strictEqual(new Set(itemSaves.map(entry => entry.data.pathology_row_key)).size, 4)
+    assert(itemSaves.every(entry => entry.data.source_item_id === manualItemId))
+    const metadataWrites = captures.filter(entry => entry.type === 'update' && entry.from === 'zdata_lab_result_item')
+    assert.strictEqual(metadataWrites.length, 4, 'optional MY specimen/site metadata must be persisted on Result Item rows')
+    assert(captures.some(entry => entry.type === 'update' && entry.from === 'zdata_lab_work_item' && entry.data.work_status === 'resulted'))
+  }
+
+  {
+    const captures = []
+    const result = await Process(
+      {
+        action: 'save_pathology_results',
+        organization_code: 'm1000',
+        item_id: manualItemId,
+        request_id: 'my-pathology-final-correction-1',
+        pathology_results: [{
+          result_item_id: 'adadadadadadadadadadadad',
+          pathology_row_key: manualItemId + '|0|ordered',
+          specimen_index: 0,
+          pathology_sub_index: 0,
+          actual_site_code: 'HEAD',
+          actual_site_name: 'ศีรษะ',
+          result_value: 'แก้ไขผลหลังยืนยัน',
+        }],
+      },
+      userAt('m1000'),
+      makeApp(captures, {
+        manualStatus: 'completed',
+        canonicalReports: [{
+          _id: '111111111111111111111111',
+          report_key: 'manual-order|' + manualOrderId + '|MY',
+        }],
+        canonicalCurrent: [{
+          _id: 'adadadadadadadadadadadad',
+          result_report_id: '111111111111111111111111',
+          order_no: '999999999999999999999999',
+          source_item_id: manualItemId,
+          pathology_row_key: manualItemId + '|0|ordered',
+          result_definition_id: 'MY-PATH|' + manualItemId + '|0|ordered',
+          obs_code: 'MY-CULTURE',
+          specimen_index: 0,
+          actual_site_code: 'HEAD',
+          actual_site_name: 'ศีรษะ',
+          pathology_sub_index: 0,
+          result_value: 'ผลเดิม',
+          result_source: 'manual',
+          result_status: 'final',
+        }],
+      }),
+    )
+    assert.strictEqual(result.success, true, result.message)
+    const reportSave = captures.find(entry => entry.type === 'sdformSetOne' && entry.formId === RESULT_REPORT_FORM_ID)
+    assert(reportSave, 'MY completed correction must retain its Result Report')
+    assert.strictEqual(reportSave.data.internal_overall_status, 'completed', 'pencil correction must not downgrade Final report status')
+    const correctionLog = captures.find(entry => entry.type === 'correctionLog')
+    assert(correctionLog, 'MY completed correction must keep the append-only edit audit')
+    assert.strictEqual(correctionLog.document.request_id, 'my-pathology-final-correction-1')
+    assert.strictEqual(correctionLog.document.correction_group_id, 'my-pathology-final-correction-1', 'all changes from one MY Save click must share one revision group')
+    assert(!captures.some(entry => entry.type === 'update' && entry.from === 'zdata_lab_work_item'), 'MY completed correction must not move the Work Item back to resulted')
+  }
+
+  {
+    const captures = []
+    const baseResultItemId = 'babababababababababababa'
+    const addedResultItemId = 'cdcdcdcdcdcdcdcdcdcdcdcd'
+    const result = await Process(
+      {
+        action: 'save_pathology_results',
+        organization_code: 'm1000',
+        item_id: manualItemId,
+        request_id: 'my-pathology-remove-added-1',
+        correction_reason: 'ลบตำแหน่งที่เพิ่มเกิน',
+        removed_pathology_result_item_ids: [addedResultItemId],
+        pathology_results: [{
+          result_item_id: baseResultItemId,
+          pathology_row_key: manualItemId + '|0|ordered',
+          specimen_index: 0,
+          pathology_sub_index: 0,
+          actual_site_code: 'HEAD',
+          actual_site_name: 'ศีรษะ',
+          result_value: 'ไม่พบเชื้อ',
+        }],
+      },
+      userAt('m1000'),
+      makeApp(captures, {
+        manualStatus: 'completed',
+        canonicalReports: [{
+          _id: '121212121212121212121212',
+          report_key: 'manual-order|' + manualOrderId + '|MY',
+        }],
+        canonicalCurrent: [{
+          _id: baseResultItemId,
+          result_report_id: '121212121212121212121212',
+          source_item_id: manualItemId,
+          pathology_row_key: manualItemId + '|0|ordered',
+          result_definition_id: 'MY-PATH|' + manualItemId + '|0|ordered',
+          obs_code: 'MY-CULTURE',
+          specimen_index: 0,
+          pathology_sub_index: 0,
+          actual_site_name: 'ศีรษะ',
+          result_value: 'ไม่พบเชื้อ',
+          result_source: 'manual',
+          result_status: 'final',
+        }, {
+          _id: addedResultItemId,
+          result_report_id: '121212121212121212121212',
+          source_item_id: manualItemId,
+          pathology_row_key: manualItemId + '|0|added-scalp',
+          result_definition_id: 'MY-PATH|' + manualItemId + '|0|added-scalp',
+          obs_code: 'MY-CULTURE',
+          specimen_index: 0,
+          specimen_name_snapshot: 'Hair',
+          pathology_sub_index: 1,
+          actual_site_name: 'หนังศีรษะ',
+          result_value: 'พบเชื้อ',
+          result_source: 'manual',
+          result_status: 'final',
+        }],
+      }),
+    )
+    assert.strictEqual(result.success, true, result.message)
+    assert(result.message.includes('ลบ 1 ตำแหน่งที่เพิ่ม'))
+    const deletionLog = captures.find(entry => entry.type === 'correctionLog' && entry.document.source_result_item_id === addedResultItemId)
+    assert(deletionLog, 'deleting a saved MY added location must append a correction log before hiding the current row')
+    assert.strictEqual(deletionLog.document.correction_group_id, 'my-pathology-remove-added-1')
+    assert.strictEqual(deletionLog.document.actual_site_name, 'หนังศีรษะ')
+    assert(captures.some(entry => entry.type === 'update' && entry.from === 'zdata_lab_result_item' && entry.data.xrstatx === 3 && String(entry.filter._id) === addedResultItemId), 'saved added location must be soft-deleted from current Result Items')
+    assert(!captures.some(entry => entry.type === 'update' && entry.from === 'zdata_lab_work_item'), 'removing an added MY location after Final must not downgrade the Work Item')
+  }
+
+  {
+    const captures = []
+    const baseResultItemId = 'acacacacacacacacacacacac'
+    const result = await Process(
+      {
+        action: 'save_pathology_results',
+        organization_code: 'm1000',
+        item_id: manualItemId,
+        request_id: 'my-pathology-add-after-final-1',
+        correction_reason: 'เพิ่มตำแหน่งตรวจจริง',
+        pathology_results: [{
+          result_item_id: baseResultItemId,
+          pathology_row_key: manualItemId + '|0|ordered',
+          specimen_index: 0,
+          pathology_sub_index: 0,
+          actual_site_code: 'HEAD',
+          actual_site_name: 'ศีรษะ',
+          result_value: 'ไม่พบเชื้อ',
+        }, {
+          pathology_row_key: manualItemId + '|0|added-eyelid',
+          specimen_index: 0,
+          pathology_sub_index: 1,
+          actual_site_code: 'EYELID',
+          actual_site_name: 'เปลือกตา',
+          result_value: 'พบเชื้อ',
+        }],
+      },
+      userAt('m1000'),
+      makeApp(captures, {
+        manualStatus: 'completed',
+        canonicalReports: [{
+          _id: '151515151515151515151515',
+          report_key: 'manual-order|' + manualOrderId + '|MY',
+        }],
+        canonicalCurrent: [{
+          _id: baseResultItemId,
+          result_report_id: '151515151515151515151515',
+          order_no: '999999999999999999999999',
+          source_item_id: manualItemId,
+          pathology_row_key: manualItemId + '|0|ordered',
+          result_definition_id: 'MY-PATH|' + manualItemId + '|0|ordered',
+          obs_code: 'MY-CULTURE',
+          specimen_index: 0,
+          specimen_name_snapshot: 'Skin scraping',
+          pathology_sub_index: 0,
+          actual_site_code: 'HEAD',
+          actual_site_name: 'ศีรษะ',
+          result_value: 'ไม่พบเชื้อ',
+          result_source: 'manual',
+          result_status: 'final',
+        }],
+      }),
+    )
+    assert.strictEqual(result.success, true, result.message)
+    const additionLog = captures.find(entry =>
+      entry.type === 'correctionLog' && entry.document.change_operation === 'add_pathology_row'
+    )
+    assert(additionLog, 'adding a new MY location after Final must append a correction revision')
+    assert.strictEqual(additionLog.document.correction_group_id, 'my-pathology-add-after-final-1')
+    assert.strictEqual(additionLog.document.source_cpoe_item_id, manualItemId)
+    assert.strictEqual(additionLog.document.pathology_row_key, manualItemId + '|0|added-eyelid')
+    assert.strictEqual(additionLog.document.actual_site_name, 'เปลือกตา')
+    assert.strictEqual(additionLog.document.before_result_value, '')
+    assert.strictEqual(additionLog.document.after_result_value, 'พบเชื้อ')
+    const addedSave = captures.find(entry =>
+      entry.type === 'sdformSetOne' && entry.formId === RESULT_ITEM_FORM_ID &&
+      entry.data.pathology_row_key === manualItemId + '|0|added-eyelid'
+    )
+    assert(addedSave, 'the added MY location must still persist as a current Result Item')
+    assert.strictEqual(addedSave.data.result_status, 'corrected')
+    assert(!captures.some(entry => entry.type === 'update' && entry.from === 'zdata_lab_work_item'), 'adding a MY location after Final must not downgrade the Work Item')
+  }
+
+  {
+    const captures = []
+    const baseResultItemId = 'dededededededededededede'
+    const result = await Process(
+      {
+        action: 'save_pathology_results',
+        organization_code: 'm1000',
+        item_id: manualItemId,
+        request_id: 'my-pathology-protect-ordered-1',
+        removed_pathology_result_item_ids: [baseResultItemId],
+        pathology_results: [{
+          pathology_row_key: manualItemId + '|0|replacement',
+          specimen_index: 0,
+          pathology_sub_index: 0,
+          actual_site_name: 'ศีรษะ',
+          result_value: 'ไม่พบเชื้อ',
+        }],
+      },
+      userAt('m1000'),
+      makeApp(captures, {
+        canonicalCurrent: [{
+          _id: baseResultItemId,
+          source_item_id: manualItemId,
+          pathology_row_key: manualItemId + '|0|ordered',
+          result_definition_id: 'MY-PATH|' + manualItemId + '|0|ordered',
+          obs_code: 'MY-CULTURE',
+          specimen_index: 0,
+          pathology_sub_index: 0,
+          actual_site_name: 'ศีรษะ',
+          result_value: 'ไม่พบเชื้อ',
+        }],
+      }),
+    )
+    assert.strictEqual(result.success, false)
+    assert(result.message.includes('ตำแหน่งหลักจากใบสั่งแพทย์'))
+    assert(!captures.some(entry => entry.type === 'update' && entry.from === 'zdata_lab_result_item' && entry.data.xrstatx === 3), 'the ordered base location must never be removed')
+  }
+
+  {
+    const captures = []
+    const result = await Process(
+      {
+        action: 'save_pathology_results',
+        organization_code: '10',
+        item_id: manualItemId,
+        pathology_results: [{ specimen_index: 0, pathology_sub_index: 0, actual_site_name: 'ศีรษะ', result_value: 'must-not-save' }],
+      },
+      userAt('10'),
+      makeApp(captures, { manualSectionCode: 'BC' }),
+    )
+    assert.strictEqual(result.success, false)
+    assert.strictEqual(result.error, 'pathology_section_required')
+    assert(!captures.some(entry => ['insertData', 'sdformSetOne', 'update'].includes(entry.type)), 'non-MY rooms must not be changed by the MY popup save action')
+  }
+
+  {
+    const captures = []
+    const result = await Process(
+      {
+        action: 'save_pathology_results',
+        organization_code: 'm1000',
+        item_id: manualItemId,
+        pathology_results: [{ specimen_index: 0, pathology_sub_index: 0, actual_site_name: 'ศีรษะ', result_value: 'must-not-save' }],
+      },
+      userAt('m1000'),
+      makeApp(captures, { manualStatus: 'sent' }),
+    )
+    assert.strictEqual(result.success, false)
+    assert(result.message.includes('รับ specimen'))
+    assert(!captures.some(entry => ['insertData', 'sdformSetOne', 'update'].includes(entry.type)))
+  }
+
+  {
+    const result = await Process(
+      { action: 'get_manual_result', organization_code: 'm1000', item_id: manualItemId },
+      userAt('m1000'),
+      makeApp([], {
+        correctionLogRows: [{
+          event_id: 'my-history-set-1:adadadadadadadadadadadad',
+          request_id: 'my-history-set-1',
+          correction_group_id: 'my-history-set-1',
+          source_cpoe_item_id: manualItemId,
+          source_result_item_id: 'adadadadadadadadadadadad',
+          test_code: 'MY-CULTURE',
+          test_name: 'Fungal culture',
+          pathology_row_key: manualItemId + '|1|arm',
+          specimen_index: 1,
+          specimen_name_snapshot: 'Skin scraping',
+          actual_site_name: 'แขน',
+          correction_reason: 'แก้ผลตำแหน่งแขน',
+          changed_fields_json: '["result_value"]',
+          before_result_value: 'ไม่พบเชื้อ',
+          after_result_value: 'พบเชื้อ B',
+          corrected_by_name: 'LAB Editor',
+          corrected_at: '2026-10-05 12:00:00',
+          outcome: 'success',
+          xrstatx: 1,
+        }],
+        canonicalCurrent: [{
+          _id: 'adadadadadadadadadadadad',
+          order_no: '999999999999999999999999',
+          source_item_id: manualItemId,
+          pathology_row_key: manualItemId + '|1|arm',
+          result_definition_id: 'MY-PATH|' + manualItemId + '|1|arm',
+          obs_code: 'MY-CULTURE',
+          specimen_index: 1,
+          specimen_code_snapshot: 'SKIN',
+          specimen_name_snapshot: 'Skin scraping',
+          ordered_site_code_snapshot: 'ARM',
+          ordered_site_name_snapshot: 'แขน',
+          actual_site_code: 'ARM',
+          actual_site_name: 'แขน',
+          actual_site_detail: 'ขวา',
+          pathology_sub_index: 0,
+          result_value: 'พบเชื้อ B',
+          result_source: 'manual',
+          result_status: 'final',
+        }, {
+          _id: 'bcbcbcbcbcbcbcbcbcbcbcbc',
+          order_no: '999999999999999999999999',
+          source_item_id: manualItemId,
+          pathology_row_key: manualItemId + '|0|eyelid',
+          result_definition_id: 'MY-PATH|' + manualItemId + '|0|eyelid',
+          obs_code: 'MY-CULTURE',
+          specimen_index: 0,
+          specimen_name_snapshot: 'Hair',
+          actual_site_name: 'เปลือกตา',
+          pathology_sub_index: 1,
+          result_value: 'พบเชื้อ C',
+          result_source: 'manual',
+          result_status: 'corrected',
+          entered_at: '2026-10-08 17:12:35',
+          entered_by: 'LAB Legacy Editor',
+        }, {
+          _id: 'bdbdbdbdbdbdbdbdbdbdbdbd',
+          order_no: '999999999999999999999999',
+          source_item_id: manualItemId,
+          pathology_row_key: manualItemId + '|0|vision',
+          result_definition_id: 'MY-PATH|' + manualItemId + '|0|vision',
+          obs_code: 'MY-CULTURE',
+          specimen_index: 0,
+          specimen_name_snapshot: 'Hair',
+          actual_site_name: 'การมองเห็น',
+          pathology_sub_index: 2,
+          result_value: 'พบเชื้อ D',
+          result_source: 'manual',
+          result_status: 'corrected',
+          entered_at: '2026-10-08 17:12:35',
+          entered_by: 'LAB Legacy Editor',
+        }],
+      }),
+    )
+    assert.strictEqual(result.success, true, result.message)
+    const armResult = result.data.results.find(row => row.pathology_row_key === manualItemId + '|1|arm')
+    assert(armResult)
+    assert.strictEqual(armResult.specimen_index, 1)
+    assert.strictEqual(armResult.actual_site_detail, 'ขวา')
+    assert.strictEqual(result.data.pathology_correction_history.length, 3)
+    const loggedHistory = result.data.pathology_correction_history.find(row => row.correction_group_id === 'my-history-set-1')
+    assert(loggedHistory)
+    assert.strictEqual(loggedHistory.specimen_name, 'Skin scraping')
+    const revisionGroups = new Set(result.data.pathology_correction_history.map(row => row.correction_group_id))
+    assert.strictEqual(revisionGroups.size, 2, 'one logged edit plus one legacy MY Save must render as two revisions')
+    const legacyRows = result.data.pathology_correction_history.filter(row => row.correction_group_id.startsWith('legacy-my-add|'))
+    assert.strictEqual(legacyRows.length, 2)
+    assert(legacyRows.every(row => row.reason.includes('ประวัติเดิมก่อนเปิดใช้ correction log')))
   }
 
   {
@@ -2363,6 +2987,8 @@ const makeFinalizeApp = (captures, {
     const resultItemId = '787878787878787878787878'
     const correctionLogRows = [{
       event_id: 'history-event-1',
+      request_id: 'revision-set-1',
+      correction_group_id: 'revision-set-1',
       source_result_item_id: resultItemId,
       correction_reason: 'แก้ไขตามใบงาน',
       changed_fields_json: '["result_value"]',
@@ -2384,6 +3010,8 @@ const makeFinalizeApp = (captures, {
     )
     assert.strictEqual(result.success, true)
     assert.strictEqual(result.data.results[0].correction_history.length, 1)
+    assert.strictEqual(result.data.results[0].correction_history[0].request_id, 'revision-set-1')
+    assert.strictEqual(result.data.results[0].correction_history[0].correction_group_id, 'revision-set-1')
     assert.strictEqual(result.data.results[0].correction_history[0].reason, 'แก้ไขตามใบงาน')
     assert.strictEqual(result.data.results[0].correction_history[0].before.result_value, '98')
     assert.strictEqual(result.data.results[0].correction_history[0].after.result_value, '101')
@@ -2720,8 +3348,9 @@ const makeFinalizeApp = (captures, {
     )
     assert.strictEqual(result.success, true)
     assert.deepStrictEqual(result.data.section_codes, ['BC'])
-    assert.deepStrictEqual(result.data.specimen_options, [])
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(result.data, 'specimen_options'), false)
     assert(!captures.some(provider => provider.from === 'zdata_specimen_code'))
+    assert(!captures.some(provider => provider.from === 'zdata_lab_spec'))
   }
 
   {
@@ -2836,6 +3465,7 @@ const makeFinalizeApp = (captures, {
     )
     assert.strictEqual(locked.success, true)
     assert.strictEqual(locked.data.sensitive_locked, true)
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(locked.data, 'order_note'), false, 'locked Sensitive response must not expose the order note')
     assert.strictEqual(locked.data.test_name, 'Fungal culture', 'ordered test name remains visible')
     assert.strictEqual(locked.data.result_report_id, '343434343434343434343434', 'redacted PDF parent remains available before re-auth')
     assert.deepStrictEqual(locked.data.result_report_ids, ['343434343434343434343434'])
@@ -2901,6 +3531,7 @@ const makeFinalizeApp = (captures, {
     )
     assert.strictEqual(local.success, true)
     assert.strictEqual(local.data.sensitive_locked, true)
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(local.data, 'order_note'), false, 'locked local Sensitive response must not expose the order note')
     assert.strictEqual(local.data.test_name, 'Fungal culture', 'Immunology still sees the ordered test name')
     assert.strictEqual(JSON.stringify(local).includes('IMMUNOLOGY-VISIBLE'), false, 'Immunology must not receive the Sensitive value without a doctor grant')
     assert.strictEqual(Object.prototype.hasOwnProperty.call(local.data, 'sensitive_local_immunology'), false)

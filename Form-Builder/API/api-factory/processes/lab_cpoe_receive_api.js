@@ -22,12 +22,17 @@
  * writes. A new receipt is allowed only while the source CPOE Item is `ready`
  * (Finance cleared); an already-persisted `received` Work Item may retry
  * idempotently after the CPOE projection has advanced to `accepted` or later.
+ * IM/MI-OUT/MB/MY are source-managed: Receive validates and copies the source
+ * LAB NO. from Item.lab_no or the current CPOE Item.item_no compatibility field,
+ * required Item comments, and optional multi-specimen rows without calling the
+ * LAB counter/Generator. Other rooms retain the legacy generation path.
  */
 
 const ITEM_COLLECTION = 'zdata_cpoe_order_item'
 const ORDER_COLLECTION = 'zdata_cpoe_order'
 const VISIT_COLLECTION = 'zdata_visit'
 const ITEM_MASTER_COLLECTION = 'zdata_master_item_order'
+const SECTION_COLLECTION = 'zdata_section'
 const WORK_ITEM_COLLECTION = 'zdata_lab_work_item'
 const OUTBOUND_COLLECTION = 'zdata_lab_outband_order'
 const ORDER_CANCELLATION_COLLECTION = 'zdata_lab_order_cancellation'
@@ -38,6 +43,11 @@ const PRIORITY_MAP = {
   R: 'R', ROUTINE: 'R', '1': 'R',
   A: 'A', URGENT: 'A', '2': 'A',
   S: 'S', STAT: 'S', '3': 'S', '4': 'S', '5': 'S'
+}
+const SOURCE_MANAGED_SECTION_PREFIX = { IM: '30', 'MI-OUT': '31', MB: '40', MY: '41' }
+const ORGANIZATION_SECTION_CODES = {
+  M1000: ['MY'], M1005: ['MB'], M1006: ['IM', 'MI-OUT'],
+  '30': ['IM'], '31': ['MI-OUT'], '40': ['MB'], '41': ['MY']
 }
 
 const valueText = value => {
@@ -110,11 +120,7 @@ const agentSexFromCode = value => {
   return code === '1' || code === 'M' ? 'M' : code === '2' || code === 'F' ? 'F' : ''
 }
 const encounterClassFromVisit = visit => {
-  if (text(visit && visit.an)) return 'IPD'
-  const explicitClass = text(
-    visit && (visit.encounter_class || visit.encounter && visit.encounter.class)
-  ).toUpperCase()
-  return ['OPD', 'IPD'].includes(explicitClass) ? explicitClass : 'OPD'
+  return text(visit && visit.an) ? 'IPD' : 'OPD'
 }
 const agentVisitContextForOrder = async order => {
   const snapshot = order && order.vid || {}
@@ -186,6 +192,133 @@ const orderCollection = app.db.collection(ORDER_COLLECTION)
 const masterCollection = app.db.collection(ITEM_MASTER_COLLECTION)
 const workCollection = app.db.collection(WORK_ITEM_COLLECTION)
 const cancellationCollection = app.db.collection(ORDER_CANCELLATION_COLLECTION)
+const sectionCollection = app.db.collection(SECTION_COLLECTION)
+
+const sourceSectionContext = async (item, master, existingWork) => {
+  let section = existingWork && SOURCE_MANAGED_SECTION_PREFIX[text(existingWork.section_code).toUpperCase()]
+    ? { code: text(existingWork.section_code), name: text(existingWork.section_name) }
+    : item.section_snapshot || (item.lab_context_snapshot && item.lab_context_snapshot.section) || (master && master.section) || {}
+  if (!text(section.code) && section.value) {
+    const sectionId = typeof section.value === 'string' ? app.dbObjectId(section.value) : section.value
+    const found = await sectionCollection.findOne({ _id: sectionId, xrstatx: active, enable: { $ne: false } })
+    if (found) section = found
+  }
+  const code = text(section.code).toUpperCase()
+  if (!SOURCE_MANAGED_SECTION_PREFIX[code]) return null
+  const allowedSections = ORGANIZATION_SECTION_CODES[organizationCode] || []
+  if (!allowedSections.includes(code)) throw new Error('SOURCE_SECTION_FORBIDDEN')
+  const labNo = text(item.lab_no) || text(item.item_no)
+  if (!labNo) throw new Error('SOURCE_LAB_NO_MISSING')
+  if (!/^\d{12}$/.test(labNo) || !labNo.startsWith(SOURCE_MANAGED_SECTION_PREFIX[code])) {
+    throw new Error('SOURCE_LAB_NO_INVALID')
+  }
+  if (master && master.req_commt === true && !text(item.comment)) throw new Error('REQUIRED_ITEM_COMMENT_MISSING')
+  return {
+    code,
+    name: text(section.name_th || section.name || section.label || code),
+    prefix: SOURCE_MANAGED_SECTION_PREFIX[code],
+    labNo,
+    reqComment: Boolean(master && master.req_commt === true),
+    multiSpecimen: Boolean(master && master.multi_specimen === true)
+  }
+}
+const sourceErrorResponse = error => {
+  const code = text(error && error.message || error)
+  const messages = {
+    SOURCE_SECTION_FORBIDDEN: 'Item นี้ไม่ได้อยู่ใน Section ของ Organization ปัจจุบัน',
+    SOURCE_LAB_NO_MISSING: 'ยังไม่ได้รับ LAB NO. จาก CPOE สำหรับห้อง IM, MI-OUT, MY หรือ MB',
+    SOURCE_LAB_NO_INVALID: 'LAB NO. จาก CPOE ต้องเป็นตัวเลข 12 หลักและขึ้นต้นให้ตรงกับห้อง (IM=30, MI-OUT=31, MB=40, MY=41)',
+    REQUIRED_ITEM_COMMENT_MISSING: 'รายการตรวจนี้กำหนดให้ระบุหมายเหตุจาก CPOE ก่อนรับ specimen',
+    SOURCE_BATCH_LAB_NO_MISMATCH: 'รายการในชุดต้องมี LAB NO. จาก CPOE เลขเดียวกัน',
+    SOURCE_BATCH_SECTION_MISMATCH: 'รายการในชุดต้องอยู่ในห้องเดียวกัน',
+    SOURCE_LAB_NO_CONFLICT: 'LAB NO. จาก CPOE ไม่ตรงกับ Lab Work Item เดิม กรุณาให้ผู้ดูแลตรวจสอบ',
+    SOURCE_LAB_NO_COLLISION: 'LAB NO. จาก CPOE ถูกใช้กับ CPOE Order อื่นแล้ว จึงหยุดเพื่อป้องกันการจับคู่ผิดรายการ',
+    SOURCE_WORK_ITEM_CONFLICT: 'Lab Work Item เปลี่ยนแปลงระหว่างรับ LAB NO. จาก CPOE กรุณาโหลดใหม่'
+  }
+  return { success: false, error: lower(code), message: messages[code] || 'รับ LAB NO. จาก CPOE ไม่สำเร็จ' }
+}
+const outboundSpecimens = labData => {
+  const rows = Array.isArray(labData && labData.specimens) ? labData.specimens : []
+  return rows.map(row => ({
+    spec_site_code: text(row && row.spec_site_code),
+    spec_site_name: text(row && row.spec_site_name),
+    spec_source_code: text(row && row.spec_source_code),
+    spec_source: text(row && row.spec_source),
+    specimen_at: toThaiIso(row && row.specimen_at),
+    ship_storage: text(row && row.ship_storage),
+    ship_temp: row && typeof row.ship_temp === 'number' ? row.ship_temp : null,
+    spec_note: text(row && row.spec_note)
+  }))
+}
+const reserveSourceManagedWorkItems = async (contexts, order) => {
+  const sourceContexts = []
+  for (const row of contexts) {
+    const source = await sourceSectionContext(row.item, row.master, row.existingWork)
+    sourceContexts.push({ ...row, source })
+  }
+  if (!sourceContexts.some(row => row.source)) return null
+  if (sourceContexts.some(row => !row.source)) throw new Error('SOURCE_BATCH_SECTION_MISMATCH')
+  if (new Set(sourceContexts.map(row => row.source.code)).size !== 1) throw new Error('SOURCE_BATCH_SECTION_MISMATCH')
+  if (new Set(sourceContexts.map(row => row.source.labNo)).size !== 1) throw new Error('SOURCE_BATCH_LAB_NO_MISMATCH')
+
+  const labNo = sourceContexts[0].source.labNo
+  const duplicate = await workCollection.findOne({ lab_no: labNo, xrstatx: active })
+  if (duplicate && text(duplicate.source_order_id) && text(duplicate.source_order_id) !== text(order._id)) {
+    throw new Error('SOURCE_LAB_NO_COLLISION')
+  }
+  const receiptBatchId = text(sourceContexts.find(row => row.existingWork && row.existingWork.receipt_batch_id)?.existingWork.receipt_batch_id) ||
+    sourceContexts.map(row => row.itemId).sort()[0]
+  const selectedItems = sourceContexts.map(row => ({
+    seq: Number(row.item.item_no || 1), source_item_id: row.itemId,
+    item_code: text(row.item.item_code), item_name: text(row.item.item_name || row.master && row.master.item_name),
+    test_code: text(row.masterLab && row.masterLab.his_lab_code), specimen_code: row.specimenCode
+  }))
+  const patient = order.vid && order.vid.pid || {}
+  const patientHn = text(patient.hn)
+  const patientName = [patientPrefixText(patient.prename), text(patient.p_fname || patient.first_name), text(patient.p_lname || patient.last_name)].filter(Boolean).join(' ') || patientHn
+  const results = []
+  for (const row of sourceContexts) {
+    const source = row.source
+    const base = {
+      xsitex: userInfo.site || {}, xunitx: { code: source.code, name: source.name }, xrstatx: 1, xversionx: 'v1', xerrorx: null,
+      updated_by: { id: userInfo._id || userInfo.id || '', name: actorName || actorCode }, updated_at: now,
+      source_order_id: text(order._id), source_order_number: text(order.order_number), source_specimen_record_id: row.itemId,
+      receipt_batch_id: receiptBatchId, batch_item_count: sourceContexts.length, lab_no: labNo,
+      section_code: source.code, section_name: source.name, work_status: 'waiting_receive', patient_hn: patientHn,
+      visit_id: text(order.vid && (order.vid.vn || order.vid.value) || order.xparentx), patient_name: patientName,
+      ward_clinic: text(order.vid && (order.vid.ward || order.vid.visit_clinic)), ordered_at: text(order.created_at),
+      specimen_json: JSON.stringify({ code: row.specimenCode, name: row.specimenName, collected_at: text(row.labData.specimen_at || row.labData.at), collected_by: text(row.labData.specimen_by || row.labData.by) }),
+      selected_items_json: JSON.stringify(selectedItems), lab_no_source: 'cpoe_order', lab_no_section_prefix: source.prefix,
+      lab_no_received_at: now, lab_no_received_by: actorCode, retest_pending_lab_no: false, cbc_swap_pending_lab_no: false
+    }
+    let current = row.existingWork
+    if (current && text(current.lab_no) && text(current.lab_no) !== labNo) throw new Error('SOURCE_LAB_NO_CONFLICT')
+    if (current && !['waiting_receive', 'received'].includes(lower(current.work_status))) throw new Error('SOURCE_WORK_ITEM_CONFLICT')
+    if (current && !text(current.lab_no)) {
+      const update = await workCollection.updateOne(
+        { _id: current._id, xrstatx: active, is_current_attempt: { $ne: false }, lab_no: { $in: [null, ''] } },
+        { $set: base }
+      )
+      if (!update || update.matchedCount !== 1) throw new Error('SOURCE_WORK_ITEM_CONFLICT')
+      current = { ...current, ...base }
+    } else if (!current) {
+      const document = {
+        _id: row.objectId, xparentx: row.objectId, dataid: row.itemId,
+        created_by: { id: userInfo._id || userInfo.id || '', name: actorName || actorCode }, created_at: now,
+        ...base
+      }
+      try {
+        await workCollection.insertOne(document)
+        current = document
+      } catch (error) {
+        current = await workCollection.findOne({ xrstatx: active, is_current_attempt: { $ne: false }, $or: [{ _id: row.objectId }, { source_specimen_record_id: row.itemId }] })
+        if (!current || text(current.lab_no) !== labNo) throw new Error('SOURCE_WORK_ITEM_CONFLICT')
+      }
+    }
+    results.push(current)
+  }
+  return { lab_no: labNo, receipt_batch_id: receiptBatchId, workItems: results }
+}
 
 /*
  * 2026-09-09 LIS batch contract. Keep the legacy one-Item path below intact:
@@ -250,13 +383,17 @@ if (requestedItemIds.length > 1) {
 
   let generatedBatch
   try {
-    generatedBatch = processResult(await app.subProcess(
-      LAB_NO_PROCESS_ID,
-      { item_id: requestedItemIds[0], item_ids: requestedItemIds },
-      userInfo
-    ))
+    const sourceReservation = await reserveSourceManagedWorkItems(itemContexts, batchOrder)
+    generatedBatch = sourceReservation
+      ? { success: true, data: sourceReservation }
+      : processResult(await app.subProcess(
+        LAB_NO_PROCESS_ID,
+        { item_id: requestedItemIds[0], item_ids: requestedItemIds },
+        userInfo
+      ))
   } catch (error) {
-    return { success: false, error: 'lab_no_process_failed', message: 'เรียก API สร้าง LAB NO. แบบชุดไม่สำเร็จ' }
+    if (/^(SOURCE_|REQUIRED_)/.test(text(error && error.message || error))) return sourceErrorResponse(error)
+    return { success: false, error: 'lab_no_process_failed', message: 'เรียก API จัดเตรียม LAB NO. แบบชุดไม่สำเร็จ' }
   }
   if (!generatedBatch || generatedBatch.success !== true || !text(generatedBatch.data && generatedBatch.data.lab_no)) {
     return { success: false, error: 'lab_no_failed', message: text(generatedBatch && generatedBatch.message) || 'สร้าง LAB NO. แบบชุดไม่สำเร็จ' }
@@ -315,6 +452,12 @@ if (requestedItemIds.length > 1) {
       receiver: actorCode
     }
     if (collectedAt) result.collected_at = collectedAt
+    if (SOURCE_MANAGED_SECTION_PREFIX[batchSectionCode] && row.master && row.master.req_commt === true) {
+      result.comment = text(row.item.comment)
+    }
+    if (SOURCE_MANAGED_SECTION_PREFIX[batchSectionCode] && row.master && row.master.multi_specimen === true) {
+      result.specimens = outboundSpecimens(row.labData)
+    }
     return result
   })
   const batchPayload = {
@@ -330,7 +473,7 @@ if (requestedItemIds.length > 1) {
     patient_last_name: text(batchPatient.p_lname || batchPatient.last_name),
     birth_date: birthDate(batchPatient.birth_date || batchVisit.birth_date),
     sex: batchVisitContext.sex,
-    visit_type: text(batchVisit.visit_type),
+    visit_type: batchVisitContext.encounterClass,
     encounter: { class: batchVisitContext.encounterClass },
     doctor_code: text(batchVisit.visit_doctor && (batchVisit.visit_doctor.code || batchVisit.visit_doctor.value)),
     doctor_title: text(batchVisit.visit_doctor && batchVisit.visit_doctor.title),
@@ -753,10 +896,35 @@ const alreadyReceivedWorkItem = workItem && lower(workItem.work_status) === 'rec
 if (lower(item.current_status) !== 'ready' && !alreadyReceivedWorkItem) {
   return { success: false, error: 'payment_not_ready', message: 'ยังไม่ผ่านการเงิน' }
 }
+let master = null
+if (item.item_data_id) master = await masterCollection.findOne({ _id: item.item_data_id, xrstatx: active })
+const initialLabData = item.lab_data && typeof item.lab_data === 'object' ? item.lab_data : {}
+const initialMasterLab = master && master.lab_item && typeof master.lab_item === 'object' ? master.lab_item : {}
+const initialMasterSpecimen = initialMasterLab.specimen && !Array.isArray(initialMasterLab.specimen) ? initialMasterLab.specimen : {}
+let sourceContext = null
+try {
+  sourceContext = await sourceSectionContext(item, master, workItem)
+  if (sourceContext) {
+    await reserveSourceManagedWorkItems([{
+      itemId, objectId: itemObjectId, item, orderRef: text(orderRef), master,
+      masterLab: initialMasterLab, labData: initialLabData,
+      specimenCode: text(initialLabData.spec_source_code || initialMasterSpecimen.code),
+      specimenName: text(initialLabData.spec_source || initialLabData.source || initialMasterSpecimen.name),
+      existingWork: workItem
+    }], order)
+    workItem = await workCollection.findOne({
+      xrstatx: active,
+      is_current_attempt: { $ne: false },
+      $or: [{ _id: itemObjectId }, { source_specimen_record_id: itemId }]
+    }, { sort: { attempt_no: -1, updated_at: -1, created_at: -1 } })
+  }
+} catch (error) {
+  return sourceErrorResponse(error)
+}
 /* ตรวจใหม่ 2026-09-04: Work Item เดิมถูก reset ไว้โดยตั้ง marker และล้าง LAB NO.
    ให้ใช้ Lab No. Generator ตัวเดิมออกเลขใหม่ตอนกดรับ specimen เท่านั้น
    Work Item ที่ไม่มีเลขแต่ไม่มี marker ยัง fail closed เหมือนเดิม */
-if (!workItem || ((workItem.retest_pending_lab_no === true || workItem.cbc_swap_pending_lab_no === true) && !text(workItem.lab_no))) {
+if (!sourceContext && (!workItem || ((workItem.retest_pending_lab_no === true || workItem.cbc_swap_pending_lab_no === true) && !text(workItem.lab_no)))) {
   let generated
   try {
     generated = processResult(await app.subProcess(LAB_NO_PROCESS_ID, { item_id: itemId }, userInfo))
@@ -783,11 +951,12 @@ if (!['waiting_receive', 'received'].includes(workStatus)) {
 const labNo = text(workItem.lab_no)
 if (!labNo) return { success: false, error: 'lab_no_missing', message: 'Lab Work Item ไม่มี LAB NO.' }
 
-let master = null
 const effectiveMasterId = workItem.cbc_swap_active === true && text(workItem.effective_item_master_id)
   ? text(workItem.effective_item_master_id)
   : item.item_data_id
-if (effectiveMasterId) master = await masterCollection.findOne({ _id: typeof effectiveMasterId === 'string' ? app.dbObjectId(effectiveMasterId) : effectiveMasterId, xrstatx: active })
+if (effectiveMasterId && (!master || text(master._id) !== text(effectiveMasterId))) {
+  master = await masterCollection.findOne({ _id: typeof effectiveMasterId === 'string' ? app.dbObjectId(effectiveMasterId) : effectiveMasterId, xrstatx: active })
+}
 if (workItem.cbc_swap_active === true && !master) {
   return { success: false, error: 'cbc_swap_master_missing', message: 'ไม่พบ Master ปลายทางของรายการ CBC ที่สลับ' }
 }
@@ -819,7 +988,7 @@ const buildPayload = stableReceivedIso => {
     patient_last_name: text(patient.p_lname || patient.last_name),
     birth_date: birthDate(patient.birth_date || visit.birth_date),
     sex: agentVisitContext.sex,
-    visit_type: text(visit.visit_type),
+    visit_type: agentVisitContext.encounterClass,
     encounter: { class: agentVisitContext.encounterClass },
     doctor_code: text(visit.visit_doctor && (visit.visit_doctor.code || visit.visit_doctor.value)),
     doctor_title: text(visit.visit_doctor && visit.visit_doctor.title),
@@ -830,7 +999,7 @@ const buildPayload = stableReceivedIso => {
     mongo_form_id: WORK_ITEM_FORM_ID,
     mongo_data_id: workItemId,
     items: [{
-      seq: Number(item.item_no || 1),
+      seq: 1,
       test_code: testCode,
       test_name: text(workItem.cbc_swap_active === true && workItem.effective_item_name || item.item_name || master && master.item_name || item.item_code),
       specimen_code: specimenCode,
@@ -845,6 +1014,8 @@ const buildPayload = stableReceivedIso => {
   }
   if (!payload.birth_date) delete payload.birth_date
   if (!collectedAt) delete payload.items[0].collected_at
+  if (sourceContext && master && master.req_commt === true) payload.items[0].comment = text(item.comment)
+  if (sourceContext && master && master.multi_specimen === true) payload.items[0].specimens = outboundSpecimens(labData)
   return payload
 }
 

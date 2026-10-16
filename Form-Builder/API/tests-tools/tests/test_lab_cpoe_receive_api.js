@@ -20,7 +20,10 @@ const clone = value => value == null ? value : JSON.parse(JSON.stringify(value))
 
 const makeHarness = ({
   itemPatch = {},
+  item2Patch = {},
   orderPatch = {},
+  masterPatch = {},
+  master2Patch = {},
   workPatch = null,
   generatorFailure = false,
   generatorEnvelope = true,
@@ -33,7 +36,8 @@ const makeHarness = ({
   visitBirthDate = null,
   visitGenderCode = '1',
   orderVisitAn = '',
-  visitAn = ''
+  visitAn = '',
+  userUnitCode = 'M1001'
 } = {}) => {
   const item = {
     _id: ids.item,
@@ -57,7 +61,8 @@ const makeHarness = ({
     item_data_id: ids.master2,
     item_code: 'CHEM-CRE',
     item_name: 'Creatinine',
-    item_no: 2
+    item_no: 2,
+    ...clone(item2Patch)
   }
   const items = new Map([[ids.item, item], [ids.item2, item2]])
   const order = {
@@ -88,13 +93,15 @@ const makeHarness = ({
     _id: ids.master,
     xrstatx: 1,
     item_name: 'Glucose',
-    lab_item: { his_lab_code: '1087CD', specimen: { code: 'CD', name: 'Clotted blood' } }
+    lab_item: { his_lab_code: '1087CD', specimen: { code: 'CD', name: 'Clotted blood' } },
+    ...clone(masterPatch)
   }
   const master2 = {
     _id: ids.master2,
     xrstatx: 1,
     item_name: 'Creatinine',
-    lab_item: { his_lab_code: '1088CD', specimen: { code: 'CD', name: 'Clotted blood' } }
+    lab_item: { his_lab_code: '1088CD', specimen: { code: 'CD', name: 'Clotted blood' } },
+    ...clone(master2Patch)
   }
   const masters = new Map([[ids.master, master], [ids.master2, master2]])
   const workItems = new Map()
@@ -131,7 +138,11 @@ const makeHarness = ({
     if (typeof query.hl7_status === 'string' && row.hl7_status !== query.hl7_status) return false
     if (query.attempt_count != null && Number(row.attempt_count || 0) !== Number(query.attempt_count)) return false
     if (query.current_status && query.current_status.$nin && query.current_status.$nin.includes(row.current_status)) return false
-    if (query.lab_no != null && row.lab_no !== query.lab_no) return false
+    if (query.lab_no != null) {
+      if (query.lab_no && query.lab_no.$in) {
+        if (!query.lab_no.$in.includes(row.lab_no)) return false
+      } else if (row.lab_no !== query.lab_no) return false
+    }
     if (query.$or && !query.$or.some(part => matches(row, { ...part, xrstatx: query.xrstatx }))) return false
     return true
   }
@@ -279,7 +290,7 @@ const makeHarness = ({
         return fn({ id: 'mock-session' })
       }
     },
-    userInfo: { roles: ['lab'], username: '120170', fullname: 'Receiver One', unit: { code: 'M1001' } },
+    userInfo: { roles: ['lab'], username: '120170', fullname: 'Receiver One', unit: { code: userUnitCode } },
     item,
     items,
     originalItem,
@@ -296,6 +307,98 @@ const makeHarness = ({
     const result = await Process({ cross_section: true }, {}, {})
     assert.strictEqual(result.success, false)
     assert.strictEqual(result.error, 'cross_section_read_only')
+  }
+
+  for (const sourceRoom of [
+    { code: 'IM', prefix: '30', organization: 'M1006' },
+    { code: 'MI-OUT', prefix: '31', organization: 'M1006' },
+    { code: 'MY', prefix: '41', organization: 'M1000' },
+    { code: 'MB', prefix: '40', organization: 'M1005' }
+  ]) {
+    const labNo = sourceRoom.prefix + '6910020001'
+    const specimens = [{
+      spec_site_code: 'L', spec_site_name: 'Left arm', spec_source_code: 'CD',
+      spec_source: 'Clotted blood', specimen_at: '2026-10-02T08:10:00+07:00',
+      ship_storage: 'RT', ship_temp: 24, spec_note: 'tube 1'
+    }]
+    const harness = makeHarness({
+      userUnitCode: sourceRoom.organization,
+      itemPatch: {
+        section_snapshot: { code: sourceRoom.code, name: sourceRoom.code + ' Lab' },
+        item_no: labNo,
+        comment: 'หมายเหตุจาก CPOE',
+        lab_data: { spec_source: 'Clotted blood', spec_source_code: 'CD', specimens }
+      },
+      masterPatch: { req_commt: true, multi_specimen: true }
+    })
+    const result = await Process.call(harness.context, { item_id: ids.item }, harness.userInfo, harness.app)
+    assert.strictEqual(result.success, true, sourceRoom.code + ': ' + result.message)
+    assert.strictEqual(result.data.lab_no, labNo)
+    assert.strictEqual(harness.calls().generatorCalls, 0, sourceRoom.code + ' must not call the LAB NO. generator')
+    assert.strictEqual(harness.workItems.get(ids.item).lab_no_source, 'cpoe_order')
+    assert.strictEqual(harness.workItems.get(ids.item).section_code, sourceRoom.code)
+    const payload = JSON.parse(harness.outboundRows.get(ids.item).request_payload_json)
+    assert.strictEqual(payload.items[0].seq, 1, sourceRoom.code + ' must not reuse the source LAB NO. as item seq')
+    assert.strictEqual(payload.items[0].comment, 'หมายเหตุจาก CPOE')
+    assert.deepStrictEqual(payload.items[0].specimens, specimens)
+    const contract = await AgentProcess({ payload }, harness.userInfo, { isAuth: () => true })
+    assert.strictEqual(contract.error, 'not_configured', sourceRoom.code + ' payload must pass Agent validation')
+  }
+
+  {
+    const labNo = '416910020001'
+    const harness = makeHarness({
+      userUnitCode: 'M1000',
+      itemPatch: { section_snapshot: { code: 'MY', name: 'Mycology' }, item_no: labNo },
+      item2Patch: { section_snapshot: { code: 'MY', name: 'Mycology' }, item_no: labNo }
+    })
+    const result = await Process.call(
+      harness.context,
+      { item_id: ids.item, item_ids: [ids.item, ids.item2], dispatch_mode: 'deferred' },
+      harness.userInfo,
+      harness.app
+    )
+    assert.strictEqual(result.success, true, result.message)
+    assert.strictEqual(result.data.lab_no, labNo)
+    assert.strictEqual(result.data.batch_item_count, 2)
+    assert.strictEqual(harness.calls().generatorCalls, 0, 'source-managed batch must not call the LAB NO. generator')
+    assert.strictEqual(harness.workItems.get(ids.item).lab_no_source, 'cpoe_order')
+    assert.strictEqual(harness.workItems.get(ids.item2).lab_no_source, 'cpoe_order')
+  }
+
+  {
+    const harness = makeHarness({
+      userUnitCode: 'M1006',
+      itemPatch: { section_snapshot: { code: 'IM', name: 'Immunology' }, item_no: '' }
+    })
+    const result = await Process.call(harness.context, { item_id: ids.item }, harness.userInfo, harness.app)
+    assert.strictEqual(result.success, false)
+    assert.strictEqual(result.error, 'source_lab_no_missing')
+    assert.strictEqual(harness.calls().generatorCalls, 0)
+    assert.strictEqual(harness.workItems.size, 0)
+  }
+
+  {
+    const harness = makeHarness({
+      userUnitCode: 'M1005',
+      itemPatch: { section_snapshot: { code: 'MB', name: 'Microbiology' }, item_no: '416910020001' }
+    })
+    const result = await Process.call(harness.context, { item_id: ids.item }, harness.userInfo, harness.app)
+    assert.strictEqual(result.success, false)
+    assert.strictEqual(result.error, 'source_lab_no_invalid')
+    assert.strictEqual(harness.calls().generatorCalls, 0)
+  }
+
+  {
+    const harness = makeHarness({
+      userUnitCode: 'M1006',
+      itemPatch: { section_snapshot: { code: 'MI-OUT', name: 'MI-OUT Lab' }, item_no: '316910020001', comment: '' },
+      masterPatch: { req_commt: true }
+    })
+    const result = await Process.call(harness.context, { item_id: ids.item }, harness.userInfo, harness.app)
+    assert.strictEqual(result.success, false)
+    assert.strictEqual(result.error, 'required_item_comment_missing')
+    assert.strictEqual(harness.calls().generatorCalls, 0)
   }
 
   {
@@ -351,6 +454,7 @@ const makeHarness = ({
     const noCollectionPayload = JSON.parse(outbound.request_payload_json)
     assert.strictEqual(noCollectionPayload.labno, '106908310001')
     assert.strictEqual(noCollectionPayload.sex, 'M', 'coded Visit gender 1 must be sent as M')
+    assert.strictEqual(noCollectionPayload.visit_type, 'OPD', 'visit without AN must send OPD in visit_type')
     assert.deepStrictEqual(noCollectionPayload.encounter, { class: 'OPD' }, 'visit without AN must be sent as OPD')
     assert.strictEqual(noCollectionPayload.patient_prefix, 'ด.ช.', 'plain-text prefix must remain supported')
     assert.strictEqual(noCollectionPayload.birth_date, '20200102', 'existing vid.pid.birth_date mapping must remain supported')
@@ -393,7 +497,9 @@ const makeHarness = ({
     const result = await Process.call(harness.context, { item_id: ids.item }, harness.userInfo, harness.app)
     assert.strictEqual(result.success, true)
     const payload = JSON.parse(harness.outboundRows.get(ids.item).request_payload_json)
+    assert.strictEqual(payload.visit_type, 'IPD', 'non-empty live Visit AN must send IPD in visit_type')
     assert.deepStrictEqual(payload.encounter, { class: 'IPD' }, 'non-empty live Visit AN must be sent as IPD')
+    assert.strictEqual(harness.calls().agentPayloads[0].visit_type, 'IPD')
     assert.deepStrictEqual(harness.calls().agentPayloads[0].encounter, { class: 'IPD' })
   }
 
@@ -402,6 +508,7 @@ const makeHarness = ({
     const result = await Process.call(harness.context, { item_id: ids.item }, harness.userInfo, harness.app)
     assert.strictEqual(result.success, true)
     const payload = JSON.parse(harness.outboundRows.get(ids.item).request_payload_json)
+    assert.strictEqual(payload.visit_type, 'IPD', 'CPOE AN snapshot must send IPD in visit_type')
     assert.deepStrictEqual(payload.encounter, { class: 'IPD' }, 'CPOE AN snapshot must remain the IPD fallback')
   }
 
@@ -501,6 +608,7 @@ const makeHarness = ({
     assert.strictEqual(payload.birth_date, '20200304')
     assert.strictEqual(payload.sex, 'F', 'batch payload must use coded Visit gender 2')
     assert.strictEqual(payload.patient_prefix, 'ด.ช.', 'batch payload must use prefix text, not the stored code')
+    assert.strictEqual(payload.visit_type, 'OPD', 'batch payload without AN must send OPD in visit_type')
     assert.deepStrictEqual(payload.encounter, { class: 'OPD' })
     assert.deepStrictEqual(payload.items.map(row => row.test_code), ['1087CD', '1088CD'])
     assert.strictEqual(harness.calls().agentCalls, 0)
@@ -814,6 +922,308 @@ const makeHarness = ({
     assert.strictEqual(second.success, true)
     assert.strictEqual(harness.workItems.get(ids.item).work_status, 'received')
     assert.strictEqual(harness.outboundRows.size, 1, 'concurrent receive must keep one Outbound row')
+  }
+
+  /* 2026-10-04 source-managed LAB NO. matrix requested by the user.
+     500 deterministic cases = IM/MI-OUT/MB/MY 125 cases each. This exercises
+     the real Receive process entirely in memory. Both successful receipts and
+     expected safety rejections count as passing cases when the exact contract
+     below is met. No live HIS records are created. */
+  {
+    const sourceRooms = [
+      { code: 'IM', prefix: '30', organization: 'M1006' },
+      { code: 'MI-OUT', prefix: '31', organization: 'M1006' },
+      { code: 'MB', prefix: '40', organization: 'M1005' },
+      { code: 'MY', prefix: '41', organization: 'M1000' }
+    ]
+    const scenarioNames = [
+      'sync_single_opd', 'sync_single_ipd', 'deferred_single',
+      'duplicate_same_test_batch', 'multi_test_batch', 'multi_specimen',
+      'non_multi_specimens_omitted', 'required_comment_present',
+      'required_comment_missing', 'lab_no_field_precedence', 'missing_lab_no',
+      'wrong_prefix', 'malformed_lab_no', 'batch_lab_no_mismatch',
+      'batch_section_mismatch', 'section_forbidden', 'lab_no_collision',
+      'existing_work_conflict', 'idempotent_retry', 'agent_duplicate',
+      'agent_failure', 'payment_not_ready', 'cancelled', 'existing_blank_work'
+    ]
+    const summary = {
+      cases: 0,
+      successful_receipts: 0,
+      expected_rejections: 0,
+      generator_calls: 0,
+      by_room: Object.fromEntries(sourceRooms.map(room => [room.code, 0])),
+      by_scenario: Object.fromEntries(scenarioNames.map(name => [name, 0]))
+    }
+    const specimensFor = (room, caseNo) => [
+      {
+        spec_site_code: 'SITE-1', spec_site_name: 'ตำแหน่ง 1',
+        spec_source_code: room.code + '-SP1', spec_source: 'Specimen 1',
+        specimen_at: '2026-10-04T08:10:00+07:00', ship_storage: 'RF',
+        ship_temp: 4, spec_note: 'case ' + caseNo + ' tube 1'
+      },
+      {
+        spec_site_code: 'SITE-2', spec_site_name: 'ตำแหน่ง 2',
+        spec_source_code: room.code + '-SP2', spec_source: 'Specimen 2',
+        specimen_at: '2026-10-04T08:12:00+07:00', ship_storage: 'RT',
+        ship_temp: 25, spec_note: 'case ' + caseNo + ' tube 2'
+      }
+    ]
+    const validLabNo = (room, localCase) => room.prefix + '691004' + String(localCase + 1).padStart(4, '0')
+    const otherPrefix = room => ({ IM: '31', 'MI-OUT': '40', MB: '41', MY: '30' })[room.code]
+
+    for (const room of sourceRooms) {
+      for (let localCase = 0; localCase < 125; localCase += 1) {
+        const caseNo = summary.cases + 1
+        const scenario = scenarioNames[localCase % scenarioNames.length]
+        const labNo = validLabNo(room, localCase)
+        const specimens = specimensFor(room, caseNo)
+        const itemPatch = {
+          section_snapshot: { code: room.code, name: room.code + ' Lab' },
+          item_no: labNo,
+          comment: 'comment ' + room.code + ' case ' + caseNo,
+          lab_data: {
+            spec_source: 'Specimen 1',
+            spec_source_code: room.code + '-SP1',
+            specimen_at: '2026-10-04T08:10:00+07:00',
+            specimen_by: 'COLLECTOR-' + caseNo,
+            specimens
+          }
+        }
+        const item2Patch = {
+          section_snapshot: { code: room.code, name: room.code + ' Lab' },
+          item_no: labNo,
+          comment: 'comment second ' + room.code + ' case ' + caseNo,
+          lab_data: clone(itemPatch.lab_data)
+        }
+        const options = {
+          userUnitCode: room.organization,
+          itemPatch,
+          item2Patch,
+          masterPatch: { req_commt: false, multi_specimen: false },
+          master2Patch: { req_commt: false, multi_specimen: false }
+        }
+        const params = { item_id: ids.item }
+        let expectedError = ''
+        let expectAgentCalls = 1
+        let assertSuccess = null
+        let repeatAfterSuccess = false
+
+        if (scenario === 'sync_single_ipd') options.visitAn = 'AN-' + caseNo
+        if (scenario === 'deferred_single') {
+          params.dispatch_mode = 'deferred'
+          expectAgentCalls = 0
+        }
+        if (scenario === 'duplicate_same_test_batch') {
+          params.item_ids = [ids.item, ids.item2]
+          options.item2Patch.item_data_id = ids.master
+          options.item2Patch.item_code = itemPatch.item_code || 'CHEM-GLU'
+          options.item2Patch.item_name = itemPatch.item_name || 'Glucose'
+          assertSuccess = (result, harness, payload) => {
+            assert.strictEqual(result.data.batch_item_count, 2)
+            assert.strictEqual(payload.items.length, 2, 'duplicate test must remain two ordered lines')
+            assert.deepStrictEqual(payload.items.map(row => row.seq), [1, 2])
+            assert.strictEqual(payload.items[0].test_code, payload.items[1].test_code)
+          }
+        }
+        if (scenario === 'multi_test_batch') {
+          params.item_ids = [ids.item, ids.item2]
+          assertSuccess = (result, harness, payload) => {
+            assert.strictEqual(result.data.batch_item_count, 2)
+            assert.deepStrictEqual(payload.items.map(row => row.seq), [1, 2])
+            assert.deepStrictEqual(payload.items.map(row => row.test_code), ['1087CD', '1088CD'])
+          }
+        }
+        if (scenario === 'multi_specimen') {
+          options.masterPatch.multi_specimen = true
+          assertSuccess = (result, harness, payload) => {
+            assert.deepStrictEqual(payload.items[0].specimens, specimens)
+            assert.strictEqual(payload.items[0].specimens[0].ship_temp, 4)
+            assert.strictEqual(payload.items[0].specimens[1].ship_temp, 25)
+          }
+        }
+        if (scenario === 'non_multi_specimens_omitted') {
+          assertSuccess = (result, harness, payload) => {
+            assert.strictEqual(Object.prototype.hasOwnProperty.call(payload.items[0], 'specimens'), false)
+          }
+        }
+        if (scenario === 'required_comment_present') {
+          options.masterPatch.req_commt = true
+          assertSuccess = (result, harness, payload) => {
+            assert.strictEqual(payload.items[0].comment, itemPatch.comment)
+          }
+        }
+        if (scenario === 'required_comment_missing') {
+          options.masterPatch.req_commt = true
+          options.itemPatch.comment = ''
+          expectedError = 'required_item_comment_missing'
+          expectAgentCalls = 0
+        }
+        if (scenario === 'lab_no_field_precedence') {
+          options.itemPatch.lab_no = labNo
+          options.itemPatch.item_no = 'WRONG-ITEM-NO'
+        }
+        if (scenario === 'missing_lab_no') {
+          options.itemPatch.item_no = ''
+          options.itemPatch.lab_no = ''
+          expectedError = 'source_lab_no_missing'
+          expectAgentCalls = 0
+        }
+        if (scenario === 'wrong_prefix') {
+          options.itemPatch.item_no = otherPrefix(room) + labNo.slice(2)
+          expectedError = 'source_lab_no_invalid'
+          expectAgentCalls = 0
+        }
+        if (scenario === 'malformed_lab_no') {
+          options.itemPatch.item_no = room.prefix + '69ABCD0001'
+          expectedError = 'source_lab_no_invalid'
+          expectAgentCalls = 0
+        }
+        if (scenario === 'batch_lab_no_mismatch') {
+          params.item_ids = [ids.item, ids.item2]
+          options.item2Patch.item_no = room.prefix + '6910049999'
+          expectedError = 'source_batch_lab_no_mismatch'
+          expectAgentCalls = 0
+        }
+        if (scenario === 'batch_section_mismatch') {
+          params.item_ids = [ids.item, ids.item2]
+          options.item2Patch.section_snapshot = { code: 'BC', name: 'Biochemistry' }
+          expectedError = 'source_batch_section_mismatch'
+          expectAgentCalls = 0
+        }
+        if (scenario === 'section_forbidden') {
+          options.userUnitCode = 'M1001'
+          expectedError = 'source_section_forbidden'
+          expectAgentCalls = 0
+        }
+        if (scenario === 'existing_work_conflict') {
+          options.workPatch = {
+            section_code: room.code,
+            section_name: room.code + ' Lab',
+            lab_no: room.prefix + '6910049998'
+          }
+          expectedError = 'source_lab_no_conflict'
+          expectAgentCalls = 0
+        }
+        if (scenario === 'idempotent_retry') repeatAfterSuccess = true
+        if (scenario === 'agent_duplicate') {
+          options.agentResult = {
+            success: true,
+            data: { http_status: 200, hl7_status: 'queued', order_no: ids.item, labno: labNo, duplicate: true },
+            message: 'Agent มี Order นี้แล้ว; ถือว่าส่งสำเร็จ'
+          }
+          assertSuccess = result => {
+            assert.strictEqual(result.data.agent_transport_state, 'duplicate')
+            assert.strictEqual(result.data.agent_duplicate, true)
+          }
+        }
+        if (scenario === 'agent_failure') {
+          options.agentResult = {
+            success: false, error: 'agent_unreachable', retryable: true,
+            hl7_status: 'new', message: 'เชื่อมต่อ Agent ไม่สำเร็จ'
+          }
+          assertSuccess = result => {
+            assert.strictEqual(result.data.agent_transport_state, 'failed')
+            assert.strictEqual(result.data.agent_retryable, true)
+          }
+        }
+        if (scenario === 'payment_not_ready') {
+          options.itemPatch.current_status = 'sent'
+          expectedError = 'payment_not_ready'
+          expectAgentCalls = 0
+        }
+        if (scenario === 'cancelled') {
+          options.cancellation = { cancel_reason: 'ยกเลิกสำหรับ test ' + caseNo }
+          expectedError = 'order_cancelled'
+          expectAgentCalls = 0
+        }
+        if (scenario === 'existing_blank_work') {
+          options.workPatch = {
+            section_code: room.code,
+            section_name: room.code + ' Lab',
+            lab_no: '',
+            work_status: 'waiting_receive'
+          }
+        }
+
+        const harness = makeHarness(options)
+        if (scenario === 'lab_no_collision') {
+          harness.workItems.set('collision-' + caseNo, {
+            _id: 'collision-' + caseNo,
+            xrstatx: 1,
+            source_specimen_record_id: 'other-item-' + caseNo,
+            source_order_id: 'other-order-' + caseNo,
+            lab_no: labNo,
+            section_code: room.code,
+            work_status: 'waiting_receive'
+          })
+          expectedError = 'source_lab_no_collision'
+          expectAgentCalls = 0
+        }
+
+        const result = await Process.call(harness.context, params, harness.userInfo, harness.app)
+        const calls = harness.calls()
+        assert.strictEqual(calls.generatorCalls, 0, room.code + '/' + scenario + ' must never generate a replacement LAB NO.')
+        assert.strictEqual(calls.unexpectedSubprocessCalls, 0)
+
+        if (expectedError) {
+          assert.strictEqual(result.success, false, room.code + '/' + scenario + ' must be rejected')
+          assert.strictEqual(result.error, expectedError, room.code + '/' + scenario)
+          assert.strictEqual(calls.agentCalls, 0)
+          summary.expected_rejections += 1
+        } else {
+          assert.strictEqual(result.success, true, room.code + '/' + scenario + ': ' + result.message)
+          assert.strictEqual(result.data.lab_no, labNo)
+          assert.strictEqual(harness.workItems.get(ids.item).lab_no, labNo)
+          assert.strictEqual(harness.workItems.get(ids.item).lab_no_source, 'cpoe_order')
+          assert.strictEqual(harness.workItems.get(ids.item).section_code, room.code)
+          assert.strictEqual(harness.items.get(ids.item).current_status, 'accepted')
+          if (scenario === 'lab_no_field_precedence') {
+            assert.strictEqual(harness.items.get(ids.item).lab_no, labNo)
+            assert.strictEqual(harness.items.get(ids.item).item_no, 'WRONG-ITEM-NO')
+          } else {
+            assert.strictEqual(harness.items.get(ids.item).item_no, labNo, 'Receive must preserve the source CPOE LAB NO.')
+          }
+          const outbound = harness.outboundRows.get(ids.item)
+          assert(outbound, room.code + '/' + scenario + ' must persist Outbound snapshot')
+          const payload = JSON.parse(outbound.request_payload_json)
+          assert.strictEqual(payload.labno, labNo)
+          assert(payload.items.every((row, index) => row.seq === index + 1))
+          assert(payload.items.every(row => row.lab_code === room.code))
+          if (scenario === 'sync_single_ipd') {
+            assert.strictEqual(payload.visit_type, 'IPD')
+            assert.deepStrictEqual(payload.encounter, { class: 'IPD' })
+          } else {
+            assert.strictEqual(payload.visit_type, 'OPD')
+            assert.deepStrictEqual(payload.encounter, { class: 'OPD' })
+          }
+          if (assertSuccess) assertSuccess(result, harness, payload)
+          const contract = await AgentProcess({ payload }, harness.userInfo, { isAuth: () => true })
+          assert.strictEqual(contract.error, 'not_configured', room.code + '/' + scenario + ' Agent payload schema')
+
+          if (repeatAfterSuccess) {
+            const repeated = await Process.call(harness.context, params, harness.userInfo, harness.app)
+            assert.strictEqual(repeated.success, true)
+            assert.strictEqual(repeated.data.already_received, true)
+            assert.strictEqual(harness.outboundRows.size, 1)
+            assert.strictEqual(harness.calls().agentCalls, 1, 'idempotent retry must not resend Agent')
+          } else {
+            assert.strictEqual(harness.calls().agentCalls, expectAgentCalls, room.code + '/' + scenario + ' Agent call count')
+          }
+          summary.successful_receipts += 1
+        }
+
+        summary.cases += 1
+        summary.by_room[room.code] += 1
+        summary.by_scenario[scenario] += 1
+        summary.generator_calls += harness.calls().generatorCalls
+      }
+    }
+
+    assert.strictEqual(summary.cases, 500)
+    sourceRooms.forEach(room => assert.strictEqual(summary.by_room[room.code], 125))
+    assert.strictEqual(summary.generator_calls, 0)
+    assert.strictEqual(summary.successful_receipts + summary.expected_rejections, 500)
+    console.log(JSON.stringify({ suite: 'Source-managed LAB NO. 500-case matrix', ...summary }, null, 2))
   }
 
   assert(apiBody.includes("const OUTBOUND_COLLECTION = 'zdata_lab_outband_order'"))

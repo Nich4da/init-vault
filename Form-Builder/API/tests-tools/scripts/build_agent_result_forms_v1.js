@@ -369,6 +369,7 @@ const receiptFields = [
   { name: 'error_message', label: 'รายละเอียดข้อผิดพลาด', type: 'textarea', span: 24, rows: 4 },
   { name: 'raw_payload_json', label: 'Raw Payload JSON', type: 'textarea', span: 24, rows: 10 },
 ]
+const orderNoteSpec = { name: 'order_note', label: 'หมายเหตุระดับ Order', type: 'textarea', span: 24, rows: 4, hidden: true }
 
 function buildReceiptForm() {
   const visibleNames = new Set([
@@ -385,7 +386,9 @@ function buildReceiptForm() {
     else cols.push(makeCol(`receipt_${spec.name}_col`, spec.span, [widget]))
   }
   cols.push(makeCol('receipt_internal_storage_col', 24, hidden))
-  return makeForm(makeRoot('lab_result_inbound_receive_agent_v1_root', cols))
+  const root = makeRoot('lab_result_inbound_receive_agent_v1_root', cols)
+  root.cols.push(makeCol('receipt_order_note_storage_col', 24, [fieldFromSpec(orderNoteSpec)]))
+  return makeForm(root)
 }
 
 const itemHiddenSpecs = [
@@ -639,7 +642,9 @@ function buildReportForm() {
   hidden.push(makeUpload({ name: 'result_attachments', label: 'ไฟล์แนบผลตรวจ', span: 24, hidden: true }))
   cols.push(makeCol('report_internal_storage_col', 24, hidden))
   cols.push(makeCol('report_result_items_col', 24, [makeResultList()]))
-  const form = makeForm(makeRoot('result_report_manual_entry_agent_v1_root', cols))
+  const root = makeRoot('result_report_manual_entry_agent_v1_root', cols)
+  root.cols.push(makeCol('report_order_note_storage_col', 24, [fieldFromSpec(orderNoteSpec)]))
+  const form = makeForm(root)
   return form
 }
 
@@ -658,6 +663,7 @@ for (const [name, outputPath] of Object.entries(OUTPUTS)) {
   const json = `${JSON.stringify(generated[name], null, 2)}\n`
   fs.writeFileSync(outputPath, json)
   if (name === 'report') fs.writeFileSync(path.join(LAB_DIR, 'Result_Report_Manual_Entry.json'), json)
+  if (name === 'receipt') fs.writeFileSync(path.join(LAB_DIR, 'Lab_Result_Inbound_Receive.json'), json)
   JSON.parse(fs.readFileSync(outputPath, 'utf8'))
   console.log(`WROTE ${path.basename(outputPath)}`)
 }

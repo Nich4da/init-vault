@@ -226,7 +226,7 @@ const criticalDecision = item => {
 const allowedTopFields = new Set([
   'order_no', 'filler_order_no', 'hn', 'visit_id', 'result_uid',
   'report_seq', 'stage', 'overall_status', 'reported_at', 'reported_by',
-  'verified_at', 'verified_by', 'items', 'labno', 'lab_no',
+  'verified_at', 'verified_by', 'order_note', 'items', 'labno', 'lab_no',
 ])
 const transportMetadataFields = new Set(['xpartnerx'])
 const allowedIdentityFields = new Set(['source_id', 'source_name'])
@@ -315,6 +315,9 @@ const validatePayload = payload => {
     errors.push('verified_at ต้องเป็น ISO 8601 +07:00')
   }
   if (payload.verified_by != null) validateIdentity(payload.verified_by, 'verified_by', errors)
+  if (Object.prototype.hasOwnProperty.call(payload, 'order_note') && typeof payload.order_note !== 'string') {
+    errors.push('order_note ต้องเป็น string')
+  }
   if (payload.overall_status === 'resulted') {
     if (!payload.verified_at) errors.push('resulted ต้องมี verified_at')
     if (!payload.verified_by) errors.push('resulted ต้องมี verified_by')
@@ -829,6 +832,7 @@ const receiptData = {
   verified_at: payload.verified_at || '',
   verified_by_source_id: payload.verified_by ? payload.verified_by.source_id : '',
   verified_by_source_name: payload.verified_by ? payload.verified_by.source_name : '',
+  order_note: payload.order_note || '',
   item_count: payload.items.length,
   critical_count: criticalCount,
   matched_item_count: 0,
@@ -1303,6 +1307,7 @@ const reportData = {
   reported_by_source_id: payload.reported_by.source_id,
   verified_at: payload.verified_at || '',
   verified_by_source_id: payload.verified_by ? payload.verified_by.source_id : '',
+  order_note: payload.order_note || '',
   item_count: matchedItems.length,
   critical_count: matchedItems.filter(item => criticalDecision(item).isCritical).length,
   matched_item_count: matchedItems.length,
@@ -1421,6 +1426,7 @@ const revisionData = {
   stage: payload.stage,
   receipt_seq: highestReceiptSeq,
   source_reported_at: payload.reported_at,
+  order_note: payload.order_note || '',
   received_at: receivedAt,
   receipt_id: receipt.id,
   report_id: report.id,
@@ -1498,6 +1504,7 @@ if (payload.overall_status !== 'cancelled') {
         reported_at: payload.reported_at,
         reported_by_source_name: payload.reported_by.source_name,
         verified_by_source_name: payload.verified_by ? payload.verified_by.source_name : '',
+        order_note: payload.order_note || '',
       },
       result_report_id: report.id,
       result_definition_id: previous ? trimmed(previous.result_definition_id) : '',

@@ -76,6 +76,7 @@ Body ภายนอก:
       "source_id": "...",
       "source_name": "..."
     },
+    "order_note": "หมายเหตุระดับ Order จาก Agent\nรองรับหลายบรรทัด",
     "items": [
       {
         "obs_code": "...",
@@ -100,6 +101,11 @@ Body ภายนอก:
 ถ้ามีหลาย NTE ให้ Agent รวมเป็นข้อความเดียวคั่นด้วย `\n`; ถ้ารายการนั้นไม่มีหมายเหตุ
 ไม่ต้องส่ง field นี้. Receiver เก็บค่าลง `LAB_result_item.result_comment` และเก็บข้อความ
 เดิมไว้ใน Receipt `raw_payload_json` ด้วย
+
+`order_note` เป็น string แบบ optional สำหรับหมายเหตุที่ใช้กับผลทั้ง Order/Report
+และแยกจาก `items[].comment` อย่างชัดเจน. Receiver เก็บไว้ที่ Receipt, Result Report,
+Revision Log และ parent snapshot ของ Result Item; Worklist แสดงก่อนรายการผลและซ่อนส่วนนี้
+เมื่อไม่มีค่า
 
 Agent corrected resend ใช้ `stage=corrected`, `overall_status=corrected` และ item version
 ใหม่โดยไม่ส่ง `corrected_by`/`corrected_at`. สอง field นี้เป็น audit ของผู้ใช้ที่กดดินสอ

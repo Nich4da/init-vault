@@ -225,6 +225,8 @@ const status = () => rows(WORK_ITEM_FORM_ID)[0]
     },
   )
   assert(!resultSchema.$defs.resultItem.required.includes('comment'), 'items[].comment must remain optional')
+  assert.strictEqual(resultSchema.properties.order_note.type, 'string')
+  assert(!resultSchema.required.includes('order_note'), 'order_note must remain optional')
 
   const guestInvalidPayload = clone(partial)
   guestInvalidPayload.report_seq = 1
@@ -299,6 +301,15 @@ const status = () => rows(WORK_ITEM_FORM_ID)[0]
   assert.ok(invalidCommentResult.errors.some(message => message.includes('items[0].comment')))
   assert.strictEqual(rows(RECEIPT_FORM_ID).length, 0, 'non-string comment must not create a receipt')
 
+  const invalidOrderNote = clone(partial)
+  invalidOrderNote.result_uid = 'RESULT-TEST-INVALID-ORDER-NOTE'
+  invalidOrderNote.order_note = ['order note must be a string']
+  const invalidOrderNoteResult = await Process(invalidOrderNote, userInfo, mockApp)
+  assert.strictEqual(invalidOrderNoteResult.success, false)
+  assert.strictEqual(invalidOrderNoteResult.code, 'INVALID_PAYLOAD')
+  assert.ok(invalidOrderNoteResult.errors.some(message => message.includes('order_note')))
+  assert.strictEqual(rows(RECEIPT_FORM_ID).length, 0, 'non-string order_note must not create a receipt')
+
   const legacyCorrectionIdentity = clone(finalResult)
   legacyCorrectionIdentity.corrected_at = '2026-08-25T10:20:00+07:00'
   legacyCorrectionIdentity.corrected_by = { source_id: 'LIS-OLD', source_name: 'Old contract' }
@@ -321,7 +332,9 @@ const status = () => rows(WORK_ITEM_FORM_ID)[0]
   assert.strictEqual(rows(RESULT_ITEM_FORM_ID).length, 1)
   assert.strictEqual(rows(RESULT_REVISION_LOG_FORM_ID).length, 1)
   assert.strictEqual(receiptByUid(partial.result_uid).receipt_status, 'processed')
+  assert.strictEqual(receiptByUid(partial.result_uid).order_note, partial.order_note)
   assert(!receiptByUid(partial.result_uid).raw_payload_json.includes('xpartnerx'), 'transport metadata must not be stored in the clinical raw payload')
+  assert.strictEqual(JSON.parse(receiptByUid(partial.result_uid).raw_payload_json).order_note, partial.order_note)
   assert.strictEqual(
     JSON.parse(receiptByUid(partial.result_uid).raw_payload_json).items[0].comment,
     'hemolyzed sample\nrepeat confirmed',
@@ -330,6 +343,7 @@ const status = () => rows(WORK_ITEM_FORM_ID)[0]
   const partialReport = reportBySeq('1')
   const partialNa = itemByReportAndCode(partialReport._id, 'NA')
   assert.strictEqual(partialReport.internal_overall_status, 'partial')
+  assert.strictEqual(partialReport.order_note, partial.order_note)
   assert.strictEqual(partialReport.result_report_id, partialReport._id)
   assert.strictEqual(partialReport.xparentx, status()._id, 'Report must be a child of Lab Order Item Status')
   assert.strictEqual(partialNa.result_value, '128')
@@ -338,11 +352,14 @@ const status = () => rows(WORK_ITEM_FORM_ID)[0]
   assert.strictEqual(partialNa.is_critical, true)
   assert.strictEqual(partialNa.xparentx, partialReport._id)
   assert.strictEqual(partialNa.parent_id.value, partialReport._id)
+  assert.strictEqual(partialNa.parent_id.order_note, partial.order_note)
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(partialNa, 'order_note'), false, 'order note must not be stored as an analyte-level field')
   assert.strictEqual(partialNa.result_report_id, partialReport._id)
   const partialRevision = rows(RESULT_REVISION_LOG_FORM_ID)[0]
   assert.strictEqual(partialRevision.result_uid, partial.result_uid)
   assert.strictEqual(partialRevision.report_id, partialReport._id)
   assert.strictEqual(partialRevision.receipt_id, receiptByUid(partial.result_uid)._id)
+  assert.strictEqual(partialRevision.order_note, partial.order_note)
   assert.strictEqual(partialRevision.item_count, 1)
   assert.strictEqual(partialRevision.changed_item_count, 0)
   assert.deepStrictEqual(JSON.parse(partialRevision.items_snapshot_json).map(item => item.obs_code), ['NA'])
@@ -407,6 +424,7 @@ const status = () => rows(WORK_ITEM_FORM_ID)[0]
   const finalNa = canonicalItemByCode('NA')
   const finalK = itemByReportAndCode(finalReport._id, 'K')
   assert.strictEqual(finalReport.internal_overall_status, 'completed')
+  assert.strictEqual(finalReport.order_note, finalResult.order_note)
   assert.strictEqual(finalReport.xparentx, status()._id)
   assert.strictEqual(finalReport.item_count, 2)
   assert.strictEqual(finalReport.critical_count, 0)
