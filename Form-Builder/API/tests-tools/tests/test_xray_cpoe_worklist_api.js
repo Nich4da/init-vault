@@ -12,6 +12,11 @@ const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
    Configured = ตามต้นฉบับ · Process = จำลองกรณีที่ยังไม่ได้ตั้งค่า เพื่อทดสอบ diagnostic */
 const CONFIGURED = "const XRAY_ORGANIZATION_CODES = ['m0900', 'm0901', 'CT']"
 assert(apiBody.includes(CONFIGURED), 'the three radiology organizations must stay wired')
+const ROOTS_CONFIGURED = "const XRAY_ORGANIZATION_ROOT_CODES = ['m0900']"
+assert(apiBody.includes(ROOTS_CONFIGURED), 'the radiology organization tree must stay rooted at m0900')
+assert(apiBody.includes("if (action === 'queue_tracking')"), 'the tracking tab has an additive read action')
+assert(apiBody.includes("then: 'resulted'"), 'tracking can distinguish a real resulted state')
+assert(apiBody.includes("'$_tracking_latest_result.ResultText'"), 'resulted state is derived from RIS ResultText')
 
 /* ── สถานะที่ RIS แจ้งกลับ (เพิ่ม 2026-09-09 · ผู้ใช้เลือกตัวเลือก A) ────────
    xray_order_status_change เป็นขา **เข้า**: RIS เรียกมาอัปเดต zdata_xray_order เอง
@@ -51,7 +56,9 @@ assert(
 const Configured = new AsyncFunction('params', 'userInfo', 'app', apiBody)
 const Process = new AsyncFunction(
   'params', 'userInfo', 'app',
-  apiBody.replace(CONFIGURED, 'const XRAY_ORGANIZATION_CODES = []'),
+  apiBody
+    .replace(CONFIGURED, 'const XRAY_ORGANIZATION_CODES = []')
+    .replace(ROOTS_CONFIGURED, 'const XRAY_ORGANIZATION_ROOT_CODES = []'),
 )
 
 /* visit_id ต้องเป็น 24-hex ของจริง — API คัดค่าที่ผิดรูปแบบทิ้งก่อนไปถาม Diagnosis */
@@ -135,7 +142,7 @@ const makeApp = (captures, options = {}) => ({
       return { success: true, reply: { data: {
         _id: reportMasterId,
         item_name: 'Chest PA',
-        xray_item: { modality: 'cr', body_path: 'Chest' },
+        xray_item: { value: 'D-CHEST', label: 'Chest PA', modality: 'cr', body_path: 'Chest' },
       } } }
     }
     if (from === 'zdata_cpoe_order' && String(id) === reportOrderId) {
@@ -155,6 +162,13 @@ const makeApp = (captures, options = {}) => ({
       if (options.organizations === null) throw new Error('ORG_LOOKUP_FAILED')
       return { success: true, reply: { data: options.organizations || organizations } }
     }
+    if (provider.from === 'zdata_room') {
+      if (options.rooms === null) throw new Error('ROOM_LOOKUP_FAILED')
+      return { success: true, reply: { data: options.rooms || rooms } }
+    }
+    if (provider.from === 'zdata_visit_tran' && provider.nosql && provider.nosql.type === 'aggregate') {
+      return { success: true, reply: { data: options.trackingRows || [] } }
+    }
     throw new Error('Unexpected collection ' + provider.from)
   },
   sdformGetAll: async provider => {
@@ -165,6 +179,16 @@ const makeApp = (captures, options = {}) => ({
      mock เก็บ query/sort ไว้ให้เทสตรวจว่า join ด้วยเลขที่ถูกต้องและเรียงถูกทาง */
   db: {
     collection: name => ({
+      findOne: async query => {
+        captures.push({ type: 'findOne', collection: name, query })
+        if (name === 'zdata_zdata_xray_result_log') return options.existingLog || null
+        if (name === 'zdata_xray_order') return options.risOrder || null
+        return null
+      },
+      findOneAndUpdate: async (query, update, settings) => {
+        captures.push({ type: 'findOneAndUpdate', collection: name, query, update, settings })
+        return { seq: options.nextResultId || 21 }
+      },
       find: query => {
         captures.push({ type: 'resultFind', collection: name, query })
         /* ประวัติผลอ่านย้ายไปอ่านตาราง log 2026-09-16 (ทีมแยกสองชั้นตั้งแต่ 09-09)
@@ -182,22 +206,45 @@ const makeApp = (captures, options = {}) => ({
       },
     }),
   },
+  dbInsert: async (data, collection) => {
+    captures.push({ type: 'dbInsert', collection, data })
+    if (options.insertFailureCollection === collection) return { success: false, message: 'insert failed' }
+    return { success: true, reply: { data: { _id: 'inserted-id', ...data } } }
+  },
+  dbUpdate: async (data, collection, actor, where) => {
+    captures.push({ type: 'dbUpdate', collection, data, actor, where })
+    if (options.updateFailureCollection === collection) return { success: false, message: 'update failed' }
+    return { success: true, reply: { data: { ...data } } }
+  },
+  wsSend: (...args) => captures.push({ type: 'wsSend', args }),
   curDate: () => '2026-08-31 10:20:30',
 })
 
 /* Organization master — ค่าจริงที่ผู้ใช้อ่านมาจากหน้าจอ 2026-08-31 */
 const organizations = [
-  { unit_code: '19.P', unit_name: 'คลินิกวัคซีน', unit_parent: { unit_code: 'OPD', unit_name: 'ผู้ป่วยนอก' } },
-  { unit_code: 'm0900', unit_name: 'กลุ่มงานรังสีวิทยา', unit_parent: { unit_code: '', unit_name: '' } },
-  { unit_code: 'm0901', unit_name: 'งานรังสีวิทยา', unit_parent: { unit_code: 'm0900', unit_name: 'กลุ่มงานรังสีวิทยา' } },
-  { unit_code: 'CT', unit_name: 'CT scan / CT-MRI SCAN', unit_parent: { unit_code: 'm0900', unit_name: 'กลุ่มงานรังสีวิทยา' } },
-  /* ชื่อสื่อถึงรังสีแต่ไม่ได้อยู่ใน XRAY_ORGANIZATION_CODES — ต้องยังถูกปฏิเสธ */
-  { unit_code: 'm0950', unit_name: 'งานรังสีรักษา', unit_parent: { unit_code: '', unit_name: '' } },
+  { _id: 'ORG-OPD19P', unit_code: '19.P', unit_name: 'คลินิกวัคซีน', unit_parent: { unit_code: 'OPD', unit_name: 'ผู้ป่วยนอก' } },
+  { _id: 'ORG-RAD', unit_code: 'm0900', unit_name: 'กลุ่มงานรังสีวิทยา', unit_parent: null },
+  { _id: 'ORG-M0901', unit_code: 'm0901', unit_name: 'งานรังสีวิทยา', unit_parent: { value: 'ORG-RAD', label: 'm0900' } },
+  { _id: 'ORG-CT', unit_code: 'CT', unit_name: 'CT scan / CT-MRI SCAN', unit_parent: { value: 'ORG-RAD', label: 'm0900' } },
+  { _id: 'ORG-RA11', unit_code: 'RA-11', unit_name: 'งานรังสีวิทยาทั่วไป อาคารเฉลิมฯ ชั้น 11', unit_parent: { value: 'ORG-RAD', label: 'm0900' } },
+  { _id: 'ORG-RA1206', unit_code: 'RA-1206', unit_name: 'งานรังสีวิทยาทั่วไป อาคารสยามฯ ชั้น 2', unit_parent: { value: 'ORG-RAD', label: 'm0900' } },
+  { _id: 'ORG-RA301', unit_code: 'RA-301', unit_name: 'งานรังสีวิทยาทั่วไป อาคารสยามฯ ชั้น 3', unit_parent: { value: 'ORG-RAD', label: 'm0900' } },
+  /* ชื่อสื่อถึงรังสีแต่ไม่ได้อยู่ใต้ root — ต้องยังถูกปฏิเสธ */
+  { _id: 'ORG-M0950', unit_code: 'm0950', unit_name: 'งานรังสีรักษา', unit_parent: null },
+]
+const rooms = [
+  { code: 'RF', name: 'ห้องตรวจฟลูออโรสโคปี', unit_id: { value: 'ORG-RA301', label: 'RA-301 งานรังสีวิทยาทั่วไป อาคารสยาม ฯ ชั้น 3' }, enable: true },
+  { code: 'Serv', name: 'Other Service', unit_id: { value: 'ORG-RA301', label: 'RA-301 งานรังสีวิทยาทั่วไป อาคารสยาม ฯ ชั้น 3' }, enable: true },
+  { code: 'US1', name: 'ห้องอัลตร้าซาวด์1', unit_id: { value: 'ORG-RA301', label: 'RA-301 งานรังสีวิทยาทั่วไป อาคารสยาม ฯ ชั้น 3' }, enable: true },
+  { code: 'US2', name: 'ห้องอัลตร้าซาวด์2', unit_id: { value: 'ORG-RA301', label: 'RA-301 งานรังสีวิทยาทั่วไป อาคารสยาม ฯ ชั้น 3' }, enable: true },
+  { code: 'X11', name: 'ห้องเอกซเรย์', unit_id: { value: 'ORG-RA11', label: 'RA-11 งานรังสีวิทยาทั่วไป อาคารเฉลิม ฯ ชั้น 11' }, enable: true },
 ]
 
 const userInfo = { roles: ['user'], unit: { code: 'm0901' } }
 const groupUser = { roles: ['user'], unit: { code: 'm0900' } }
 const ctUser = { roles: ['user'], unit: { code: 'CT' } }
+const raUsers = ['RA-11', 'RA-1206', 'RA-301'].map(code => ({ roles: ['user'], unit: { code } }))
+const roomUsers = ['RF', 'Serv', 'US1', 'US2', 'X11'].map(code => ({ roles: ['user'], unit: { code } }))
 const lookalikeUser = { roles: ['user'], unit: { code: 'm0950' } }
 const labUser = { roles: ['user'], unit: { code: '19.P' } }
 const stage = (pipeline, key) => pipeline.filter(step => Object.prototype.hasOwnProperty.call(step, key))
@@ -236,6 +283,31 @@ const lastPipeline = captures => captures.filter(c => c.from === 'zdata_cpoe_ord
     )
   }
 
+  /* ห้องที่เพิ่มใน Organization master ใต้ m0900 ต้องเข้าใช้คิว/Worklist ได้อัตโนมัติ
+     โดยไม่ต้องแก้ hard-code ทุกครั้ง */
+  for (const allowed of raUsers.concat(roomUsers)) {
+    captures = []
+    out = await Configured({}, allowed, makeApp(captures))
+    assert.strictEqual(out.success, true, allowed.unit.code + ' must inherit radiology access through Organization/Room')
+    assert(out.data.orders.length > 0, allowed.unit.code + ' must see the shared worklist')
+  }
+  const roomCall = captures.find(c => c.from === 'zdata_room')
+  assert(roomCall, 'the process reads active Rooms after resolving radiology Organizations')
+  assert.deepStrictEqual(roomCall.nosql.query.xrstatx, { $nin: [0, 3] })
+  assert.deepStrictEqual(roomCall.nosql.query.enable, { $ne: false })
+  assert(roomCall.nosql.query['unit_id.value'].$in.length >= 4,
+    'the Room query is limited to resolved radiology Organization ids')
+
+  out = await Configured({}, { roles: ['user'], unit: { code: 'DISABLED-X' } }, makeApp([], {
+    rooms: rooms.concat([{ code: 'DISABLED-X', name: 'ห้องปิดใช้งาน', unit_id: { value: 'ORG-RA301' }, enable: false }]),
+  }))
+  assert.strictEqual(out.data.orders.length, 0, 'a disabled Room never inherits access')
+
+  out = await Configured({}, { roles: ['user'], unit: { code: 'OUTSIDE-X' } }, makeApp([], {
+    rooms: rooms.concat([{ code: 'OUTSIDE-X', name: 'ห้องนอกกลุ่ม', unit_id: { value: 'ORG-M0950' }, enable: true }]),
+  }))
+  assert.strictEqual(out.data.orders.length, 0, 'a Room under a non-radiology Organization stays blocked')
+
   /* หน่วยที่ "ชื่อ" สื่อถึงรังสีแต่ไม่ได้อยู่ในรายการ ต้องยังถูกปฏิเสธ
      คำใบ้จากชื่อไม่ใช่เกณฑ์ให้สิทธิ์ */
   captures = []
@@ -255,6 +327,30 @@ const lastPipeline = captures => captures.filter(c => c.from === 'zdata_cpoe_ord
 
   out = await Configured({}, { roles: ['user'], unit: {} }, makeApp([]))
   assert.strictEqual(out.success, false, 'a user without an organization must be refused')
+
+  /* แท็บติดตามคิวอ่านอย่างเดียวและแยกสถานะผลจาก queue done */
+  captures = []
+  out = await Configured({ action: 'queue_tracking' }, userInfo, makeApp(captures, {
+    trackingRows: [{
+      tran_id: 'TRAN-1', visit_id: VISIT_1, queue_label: 'QX001',
+      checkin_at: '2026-08-31 09:00:00', work_state: 'resulted',
+      unit_from: { label: 'ห้องการเงิน' },
+      unit_to: { label: 'RA-11 ชั้น 11' }, room_to: { label: 'ห้องเอกซเรย์' },
+      items: [{ item_name: 'Chest PA', current_status: 'dispatched', has_result: true }],
+    }],
+  }))
+  assert.strictEqual(out.success, true)
+  assert.strictEqual(out.data.read_only, true)
+  assert.strictEqual(out.data.rows[0].location_label, 'RA-11 ชั้น 11 · ห้องเอกซเรย์')
+  assert.strictEqual(out.data.rows[0].work_state, 'resulted')
+  assert.strictEqual(out.data.counts.resulted, 1)
+  assert.deepStrictEqual(out.data.rows[0].route.map(step => step.label), ['ห้องการเงิน', 'RA-11 ชั้น 11 · ห้องเอกซเรย์'])
+  const trackingCall = captures.find(call => call.from === 'zdata_visit_tran' && call.nosql.type === 'aggregate')
+  assert(trackingCall, 'tracking reads Visit Tran through one aggregate')
+  const trackingJson = JSON.stringify(trackingCall.nosql.pipeline)
+  assert(trackingJson.includes('zdata_xray_result'), 'tracking reads the RIS result table')
+  assert(trackingJson.includes('ResultText'), 'tracking requires real result text')
+  assert(!trackingJson.includes('$out') && !trackingJson.includes('$merge'), 'tracking aggregation cannot write data')
 
   /* สร้างรายการใหม่: ค้น Visit วันนี้ด้วย HN หรือเลขบัตรโดยไม่แตะรายการเดิม */
   {
@@ -405,7 +501,7 @@ const lastPipeline = captures => captures.filter(c => c.from === 'zdata_cpoe_ord
   assert.strictEqual(out.success, true)
   const orgCall = captures.find(c => c.from === 'zdata_organization')
   assert(orgCall, 'the process reads the Organization master itself')
-  assert.deepStrictEqual(orgCall.nosql.query, { xrstatx: { $nin: [0, 3] } })
+  assert.deepStrictEqual(orgCall.nosql.query, { xrstatx: { $nin: [0, 3] }, enable: { $ne: false } })
   assert.deepStrictEqual(Object.keys(orgCall.nosql.projection).sort(), ['_id', 'enable', 'unit_code', 'unit_name', 'unit_parent'])
   assert.strictEqual(out.data.orders.length, 0)
   assert(out.message.includes('XRAY_ORGANIZATION_CODES'), 'an unset list must say how to fix it')
@@ -423,7 +519,7 @@ const lastPipeline = captures => captures.filter(c => c.from === 'zdata_cpoe_ord
   })
   assert.deepStrictEqual(
     out.data.organization_candidates.map(row => row.code),
-    ['m0900', 'm0901', 'CT', 'm0950'],
+    ['m0900', 'm0901', 'CT', 'RA-11', 'RA-1206', 'RA-301', 'm0950'],
     'the hint lists every radiology-looking unit, granted or not',
   )
 
@@ -976,12 +1072,80 @@ const lastPipeline = captures => captures.filter(c => c.from === 'zdata_cpoe_ord
   assert.strictEqual(out.data.has_report, false)
   assert(out.message.includes('ยังไม่ได้ส่งเข้าเครื่อง'), out.message)
 
-  /* ── read-only ────────────────────────────────────────────────────── */
+  /* ── save_manual_report (เพิ่ม 2026-10-15 ตามคำสั่งผู้ใช้) ────────────
+     เพิ่มเฉพาะผล Manual ใน popup เดิม: current result + immutable log
+     ห้ามแก้ current_status ของ CPOE item หรือแตะ dispatch/cancel flow */
+  const manualUser = { ...userInfo, employee_code: 'XR-RAD-01', fullname: 'รังสีแพทย์ ทดสอบ' }
+  captures = []
+  out = await Configured({
+    action: 'save_manual_report', item_id: reportItemId,
+    manual_request_id: 'xray-test-request-001',
+    result_text: 'Manual chest result.', radiologist_uid: 'RAD-MANUAL-01',
+    result_datetime: '2026-10-15 13:45:00', result_status: 'F', severity_uid: 'N',
+  }, manualUser, makeApp(captures, {
+    resultRows: [{ _id: 'current-result-id', AccessionNo: '20260831CR001', ResultText: 'old result' }],
+    nextResultId: 42,
+    risOrder: { AccessionNo: '20260831CR001', ExamUid: 'D-CHEST', ExamName: 'Chest PA', xrstatx: 1 },
+  }))
+  assert.strictEqual(out.success, true)
+  assert.strictEqual(out.data.item_id, reportItemId)
+  assert.strictEqual(out.data.accession_no, '20260831CR001')
+  assert.strictEqual(out.data.result_id, 42)
+  assert.strictEqual(out.data.source, 'manual')
+  const counterWrite = captures.find(c => c.type === 'findOneAndUpdate')
+  assert(counterWrite, 'manual result ต้องออก ResultId ด้วย counter เดิม')
+  assert.strictEqual(counterWrite.collection, 'xray_api_counters')
+  const logInsert = captures.find(c => c.type === 'dbInsert' && c.collection === 'zdata_zdata_xray_result_log')
+  assert(logInsert, 'ต้อง append immutable result log')
+  assert.strictEqual(logInsert.data.ResultId, 42)
+  assert.strictEqual(logInsert.data.ResultText, 'Manual chest result.')
+  assert.strictEqual(logInsert.data.RadiologistUid, 'RAD-MANUAL-01')
+  assert.strictEqual(logInsert.data.ExamUid, 'D-CHEST', 'manual result reuses the ExamUid actually sent for this Accession')
+  assert.strictEqual(logInsert.data.ExamName, 'Chest PA')
+  assert(logInsert.data.MessageControlId.startsWith('HIS-MANUAL-'))
+  const currentUpdate = captures.find(c => c.type === 'dbUpdate' && c.collection === 'zdata_xray_result')
+  assert(currentUpdate, 'มี current result อยู่แล้วต้อง update แถวเดิม')
+  assert.strictEqual(currentUpdate.data.ResultText, 'Manual chest result.')
+  assert(!captures.some(c => c.type === 'dbUpdate' && c.collection === 'zdata_cpoe_order_item'),
+    'ห้ามเปลี่ยน CPOE item status — list เดิมคำนวณจาก ResultText')
+  assert(
+    captures.findIndex(c => c === logInsert) < captures.findIndex(c => c === currentUpdate),
+    'ต้องเก็บ log ก่อนเปลี่ยน current result',
+  )
+
+  /* retry request เดิมใช้ MessageControlId เดิม: ไม่เพิ่ม log ซ้ำ แต่ซ่อม current ได้ */
+  captures = []
+  out = await Configured({
+    action: 'save_manual_report', item_id: reportItemId,
+    manual_request_id: 'xray-test-request-001',
+    result_text: 'Manual chest result.', radiologist_uid: 'RAD-MANUAL-01',
+    result_datetime: '2026-10-15 13:45:00', result_status: 'F', severity_uid: 'N',
+  }, manualUser, makeApp(captures, {
+    existingLog: { ResultId: 42, MessageControlId: 'HIS-MANUAL-xray-test-request-001' },
+  }))
+  assert.strictEqual(out.success, true)
+  assert.strictEqual(out.data.duplicate_request, true)
+  assert(!captures.some(c => c.type === 'findOneAndUpdate'), 'retry ห้ามออก ResultId ใหม่')
+  assert(!captures.some(c => c.type === 'dbInsert' && c.collection === 'zdata_zdata_xray_result_log'),
+    'retry ห้ามเพิ่ม log ซ้ำ')
+  assert(captures.some(c => c.type === 'dbInsert' && c.collection === 'zdata_xray_result'),
+    'retry ยังต้องซ่อม current result ได้เมื่อแถวปัจจุบันไม่มี')
+
+  captures = []
+  out = await Configured({
+    action: 'save_manual_report', item_id: noAccessionItemId,
+    manual_request_id: 'xray-test-request-002', result_text: 'must not save',
+    radiologist_uid: 'RAD-MANUAL-01', result_datetime: '2026-10-15 13:45:00', result_status: 'F',
+  }, manualUser, makeApp(captures))
+  assert.strictEqual(out.success, false)
+  assert.strictEqual(out.error, 'accession_required')
+  assert(!captures.some(c => c.type === 'dbInsert' || c.type === 'dbUpdate'),
+    'ยังไม่ส่งเข้าเครื่องต้องไม่เขียนผล')
+
+  /* action อื่นที่ไม่รองรับยัง fail เหมือนเดิม */
   out = await Configured({ action: 'dispatch', item_id: reportItemId }, userInfo, makeApp([]))
   assert.strictEqual(out.success, false)
   assert(out.message.includes('ไม่รองรับ action'))
-  assert(!apiBody.includes('dbUpdate'), 'this process is read-only')
-  assert(!apiBody.includes('dbInsert'), 'this process is read-only')
 
   /* ── ผู้ใช้เลือกลำดับการจัดเรียงเองได้ (เพิ่ม 2026-09-25 · TOR §3.4.3.1) ──────
      🔴 สัญญาที่ห้ามพัง: "ไม่ส่ง sort" ต้องได้คีย์เดิมเป๊ะทุกตัวทุกทิศทาง

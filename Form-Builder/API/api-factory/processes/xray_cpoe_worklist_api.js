@@ -1,6 +1,6 @@
 /*
  * initCraft API Factory Process
- * Name: X-ray CPOE Worklist (read-only)
+ * Name: X-ray CPOE Worklist
  * Deployed Process ID: 6a957009422c1ca959829e45
  * ผู้ใช้แจ้ง ID เมื่อ 2026-08-31; ยังไม่ได้ยืนยัน deployed runtime กับข้อมูลจริง
  *
@@ -11,7 +11,7 @@
  *
  * Input:
  * {
- *   action?: 'list' | 'resolve_open_visit' | 'get_report' | 'set_staff' | 'cancel_order' | 'queue' | 'queue_call' | 'queue_done',
+ *   action?: 'list' | 'queue_tracking' | 'resolve_open_visit' | 'get_report' | 'save_manual_report' | 'set_staff' | 'cancel_order',
  *   // get_report อ่านจาก zdata_xray_result ด้วย AccessionNo (RIS เขียนเข้ามา)
  *   organization_code?: string,       // App Organization; ต้องตรงกับ unit ของผู้ใช้
  *   modality?: string | string[],     // code ของเครื่อง (array/CSV/ค่าเดี่ยว) — ตัวกรองการแสดงผลเท่านั้น
@@ -25,20 +25,22 @@
  *   limit?: number,                   // default 30, max 100
  *   item_id?: string                  // get_report เท่านั้น
  *   // get_report คืน data.versions[] = ผลอ่านทุกฉบับจาก zdata_zdata_xray_result_log (ใหม่→เก่า)
+ *   // save_manual_report รับ manual_request_id, result_text, radiologist_uid,
+ *   // result_datetime, result_status และ severity_uid แล้วเขียน result/current + immutable log
  * }
  *
  * Output (list):
  * { success, data: { orders[], total, page, limit, modalities[], counts{}, statuses,
  *                    date_scope{}, organization_code }, message }
  *
- * action ที่เขียนข้อมูลใน Process นี้มีเฉพาะ `cancel_order` และ `set_staff` ระดับ item
- * — การรับ/ออกเลข/ส่งเข้าเครื่องยังอยู่ที่ xray-cpoe-dispatch และการปฏิเสธรายเดียว
- * อยู่ที่ xray-cpoe-reject ตามเดิม จึงไม่เปลี่ยน flow เหล่านั้น
+ * Unit Queue / My Room / Completed ไม่ผ่าน Process นี้: ฟอร์ม X-ray clone List View
+ * ของ EMR และอ่าน zdata_visit_tran โดยตรง จึงไม่มี queue adapter หรือ lifecycle ซ้ำ.
  * - ไม่แตะ Agent submit ของ LAB ซึ่งบังคับ labno/specimen_code (decision X3)
  *
  * การตัดสินใจของผู้ใช้ 2026-08-31 (แทนสมมติฐานเดิมที่ผูกกับ Section รังสี):
- * - ขอบเขตคุมด้วย **Organization ของหน่วยรังสี** ที่ระบุใน XRAY_ORGANIZATION_CODES ด้านล่าง
- *   ไม่ได้แบ่งย่อยด้วย zdata_section เหมือน LAB
+ * - ขอบเขตคุมด้วย **Organization/Room ของหน่วยรังสี**: รหัสตั้งต้นใน
+ *   XRAY_ORGANIZATION_CODES, ทุกหน่วยลูกใต้ XRAY_ORGANIZATION_ROOT_CODES และทุก Room
+ *   ที่ผูกกับหน่วยเหล่านั้น; ไม่ได้แบ่งย่อยด้วย zdata_section เหมือน LAB
  * - ค่า modality อ่านจาก **master.xray_item.modality** เป็นทางหลัก
  *   (ref field `xray_item` ยืนยันแล้วใน CPOE Order Item.json) และมีทางสำรองไล่หาเผื่อ schema ต่าง
  */
@@ -51,8 +53,8 @@ const ITEM_MASTER_COLLECTION = 'zdata_master_item_order'
 const XRAY_MEMBER_COLLECTION = 'zdata_xray_member_master'
 const SECTION_COLLECTION = 'zdata_section'
 /* Organization master — collection zdata_organization (Form ID 6a3790c04cfbfdbe257f86fb)
-   ผู้ใช้ยืนยัน 2026-08-31 · ฟิลด์: unit_code, unit_name, unit_parent.unit_code, unit_parent.unit_name
-   (ตรงกับ formId/valueField/refField ที่ช่อง unit ของ Section master อ้างถึง) */
+   ข้อมูลจริง 2026-10-05: unit_parent เป็น SelectByForm {value:<Organization _id>,label:<unit_code>}
+   ส่วน Room อยู่ zdata_room และผูก Organization ด้วย unit_id.value */
 /* Diagnosis — ลอกเส้นทางจาก lab_cpoe_worklist_api.js ที่ใช้งานได้จริงแล้ว
    ผูกกับ visit ด้วย `vid.value` (vid เป็น object ไม่ใช่ค่าเดี่ยว) และ join ใน pipeline
    เก็บ primary_dx ดิบ ๆ ({value:<ICD>, label:<ชื่อโรค>}) ให้ฟอร์มอ่านเหมือน LAB */
@@ -73,6 +75,10 @@ const RESULT_COLLECTION = 'zdata_xray_result'
    🔴 ตารางผลอ่านเดิมไม่ถูกแตะเลย — action list และฟิลด์ "ฉบับปัจจุบัน" ทั้งหมด
       ยังอ่านจาก zdata_xray_result เหมือนเดิมทุกประการ */
 const RESULT_LOG_COLLECTION = 'zdata_zdata_xray_result_log'
+const RESULT_FORM_ID = '6aa180f009c1bad08952da58'
+const RESULT_LOG_FORM_ID = '6a860980f851000f28e44ab0'
+const RESULT_COUNTER_COLLECTION = 'xray_api_counters'
+const RESULT_COUNTER_ID = 'zdata_xray_result.ResultId'
 
 /* สถานะที่ RIS แจ้งกลับ — Process xray_order_status_change (6a861d99f851000f28e44ab2)
    เพิ่ม 2026-09-09 ตามที่ผู้ใช้เลือกตัวเลือก A · ขา **เข้า** ล้วน: RIS เรียกเข้ามาหาเรา
@@ -85,6 +91,7 @@ const RESULT_LOG_COLLECTION = 'zdata_zdata_xray_result_log'
 const XRAY_RIS_ORDER_COLLECTION = 'zdata_xray_order'
 
 const ORGANIZATION_COLLECTION = 'zdata_organization'
+const ROOM_COLLECTION = 'zdata_room'
 /* แหล่งข้อมูลของแถบเตือนแพ้ยา (ผู้ใช้ขอ 2026-09-03) — ยืนยันจากวิกิ his-data-model:
    · zdata_person.allergy_main[] คือ "ประวัติการแพ้ยา" ตัวจริงของคนไข้
    · zdata_patient_assessment เก็บ drug_allergy / food_allergy ราย visit
@@ -112,12 +119,8 @@ const RIS_ORDER_REQUIRED = [
   'Hn', 'PatientFName', 'PatientGender', 'PatientDob', 'PatientClassUid',
   'VisitNo', 'AccessionNo', 'ExamUid', 'ExamName'
 ]
-/* คิวห้องรังสี — 1 เอกสาร = 1 visit (เพิ่ม 2026-09-08)
-   แยกคอลเลกชันออกมาโดยตั้งใจ ไม่ไปเขียนทับ zdata_cpoe_order ซึ่ง LAB ใช้ร่วมกันอยู่ */
-const QUEUE_COLLECTION = 'zdata_xray_queue'
-/* คิวผู้ป่วยระดับ visit ของทั้งโรงพยาบาล — ฟอร์ม EMR ใช้ตัวนี้ทำ Unit Queue / My Room
-   X-ray **อ่านอย่างเดียว** เพื่อเอา tran_id และปลายทางไปเปิดฟอร์ม "ส่งต่อ" ตัวเดียวกับ EMR
-   ไม่เขียนกลับ ไม่เปลี่ยน vtran_status — การย้ายคิวเป็นหน้าที่ของฟอร์มส่งต่อของ EMR เอง */
+/* Visit Tran is used only to resolve today's open Visit before creating an Order.
+   Queue panes themselves are native EMR List Views and do not call this Process. */
 const VISIT_TRAN_COLLECTION = 'zdata_visit_tran'
 const XRAY_SERVICE_TYPE = 'xray'
 
@@ -128,7 +131,7 @@ const RECEIVED_STATUSES = ['accepted', 'prepared', 'dispensed', 'dispatched', 'i
 const CANCELLABLE_ACTIVE_STATUSES = ['sent', 'ready'].concat(RECEIVED_STATUSES)
 
 /* คำที่ใช้ "เดาให้ดู" ว่าหน่วยงานไหนน่าจะเป็นรังสี — ใช้เป็นคำแนะนำในข้อความเท่านั้น
-   ไม่ใช่เกณฑ์ให้สิทธิ์ สิทธิ์ยังมาจาก XRAY_ORGANIZATION_CODES อย่างเดียว */
+   ไม่ใช่เกณฑ์ให้สิทธิ์ สิทธิ์มาจากรหัสตั้งต้นและสาย parent ของ Organization master */
 const RADIOLOGY_NAME_HINTS = ['รังสี', 'เอกซเรย์', 'เอ็กซเรย์', 'x-ray', 'xray', 'radio']
 
 /*
@@ -143,6 +146,10 @@ const RADIOLOGY_NAME_HINTS = ['รังสี', 'เอกซเรย์', '�
  * เทียบแบบไม่สนตัวพิมพ์ · ปล่อยว่าง = ปฏิเสธทุก Organization (fail-closed)
  */
 const XRAY_ORGANIZATION_CODES = ['m0900', 'm0901', 'CT']
+/* ทุกห้องที่จัดอยู่ใต้กลุ่มรังสีต้องใช้คิวกลางชุดเดียวกัน รวมถึงหน่วย/ห้องที่เพิ่มภายหลัง
+   (เช่น Organization RA-301 และ Room US1/US2/RF/Serv) จึง resolve ทั้งสาย
+   unit_parent.value และ zdata_room.unit_id.value ห้ามอนุญาตด้วยการเดาจากชื่อ */
+const XRAY_ORGANIZATION_ROOT_CODES = ['m0900']
 
 /*
  * รายการเครื่องของ dropdown — enum เดียวกับช่อง Modality ของ master Radio Exam
@@ -163,6 +170,22 @@ const MODALITY_MASTER = [
   { code: 'OT', label: 'Other' }
 ]
 const MODALITY_LABEL = Object.fromEntries(MODALITY_MASTER.map(row => [row.code, row.label]))
+
+/* Queue v2: ห้องหนึ่งดึงเฉพาะงานที่เครื่องในห้องทำได้ ไม่ใช่เห็นคิวกลางแล้ว
+   ดึงงานคนละ modality ไปชนกันทุกห้อง · Serv เป็นห้องงานอื่นแบบ assign-only:
+   เห็นได้เมื่อมีคนระบุปลายทางตรง ๆ เท่านั้น ไม่ดึงคิวกลางเอง */
+const XRAY_ROOM_CAPABILITIES = {
+  X11: ['DX', 'CR'],
+  X2: ['DX', 'CR'],
+  X3: ['DX', 'CR'],
+  US1: ['US'],
+  US2: ['US'],
+  RF: ['RF', 'VCUG'],
+  CT: ['CT'],
+  MRI: ['MR', 'MRI'],
+  SERV: []
+}
+const XRAY_ASSIGN_ONLY_ROOMS = ['SERV']
 
 const valueText = value => {
   if (value == null) return ''
@@ -203,6 +226,23 @@ const labelText = value => {
     return valueText(value).trim()
   }
   return String(value).trim()
+}
+
+/* CPOE item_code เป็นรหัสภายใน ส่วนรหัสที่ RIS รู้จักอยู่ใน SelectByForm
+   snapshot master.xray_item. คืน object ว่างเมื่อ master อ่านไม่ได้ เพื่อให้ caller
+   เลือก fallback ที่ปลอดภัยสำหรับ Order เก่าซึ่งเคยส่งด้วย item_code มาก่อน. */
+const readItemXrayMapping = async item => {
+  const masterRef = item && item.item_data_id && item.item_data_id.value != null
+    ? item.item_data_id.value
+    : item && item.item_data_id
+  if (!masterRef) return {}
+  try {
+    const found = await app.dbFindById(masterRef, ITEM_MASTER_COLLECTION)
+    const master = found && found.reply && found.reply.data
+    return (master && master.xray_item) || {}
+  } catch (error) {
+    return {}
+  }
 }
 
 /* ช่องแพ้ยาในแบบประเมินมักถูกกรอกว่า "ปฏิเสธการแพ้ยา" / "ไม่มี" / "NKDA" ซึ่งแปลว่า
@@ -263,10 +303,12 @@ if (!organizationCode) {
   return { success: false, message: 'บัญชีผู้ใช้ไม่มี Organization unit สำหรับกำหนดหน่วยรังสี' }
 }
 
-const allowedOrganizations = XRAY_ORGANIZATION_CODES
+const configuredOrganizations = XRAY_ORGANIZATION_CODES
   .map(code => String(code).trim().toUpperCase())
   .filter(Boolean)
-const organizationAllowed = allowedOrganizations.includes(organizationCode)
+const configuredOrganizationRoots = XRAY_ORGANIZATION_ROOT_CODES
+  .map(code => String(code).trim().toUpperCase())
+  .filter(Boolean)
 
 const page = clampInt(params.page, 1, 1, 1000000)
 const limit = clampInt(params.limit, 30, 1, 100)
@@ -309,7 +351,7 @@ const readOrganizations = async () => {
         nosql: {
           type: 'query',
           collection: ORGANIZATION_COLLECTION,
-          query: { xrstatx: { $nin: [0, 3] } },
+          query: { xrstatx: { $nin: [0, 3] }, enable: { $ne: false } },
           projection: { _id: 1, unit_code: 1, unit_name: 1, unit_parent: 1, enable: 1 },
           sort: { unit_code: 1 }
         }
@@ -324,16 +366,112 @@ const readOrganizations = async () => {
   }
 }
 
-if (!organizationAllowed) {
-  const rows = await readOrganizations()
-  const describe = row => ({
-    code: valueText(row && row.unit_code).trim(),
-    name: valueText(row && row.unit_name).trim(),
-    parent_code: valueText(row && row.unit_parent && row.unit_parent.unit_code).trim(),
-    parent_name: valueText(row && row.unit_parent && row.unit_parent.unit_name).trim()
+const describeOrganization = row => ({
+  code: valueText(row && row.unit_code).trim(),
+  name: valueText(row && row.unit_name).trim(),
+  parent_code: valueText(
+    row && row.unit_parent && (
+      row.unit_parent.unit_code || row.unit_parent.code || row.unit_parent.label || row.unit_parent
+    )
+  ).trim(),
+  parent_name: valueText(row && row.unit_parent && row.unit_parent.unit_name).trim()
+})
+
+const readRooms = async organizationIds => {
+  if (!Array.isArray(organizationIds) || !organizationIds.length) return []
+  try {
+    const found = await app.dbFindAll(
+      {
+        from: ROOM_COLLECTION,
+        nosql: {
+          type: 'query',
+          collection: ROOM_COLLECTION,
+          query: {
+            xrstatx: { $nin: [0, 3] },
+            enable: { $ne: false },
+            'unit_id.value': { $in: organizationIds }
+          },
+          projection: { _id: 1, code: 1, name: 1, unit_id: 1, enable: 1, qtype: 1, assign_only: 1 },
+          sort: { code: 1 }
+        }
+      },
+      false,
+      false
+    )
+    if (!found || found.success === false) return []
+    return found.reply && Array.isArray(found.reply.data) ? found.reply.data : []
+  } catch (error) {
+    return []
+  }
+}
+
+/* อ่าน master ทุกครั้งก่อนแตะข้อมูลผู้ป่วย แล้วขยายสิทธิ์เฉพาะลูกหลานของ root ที่กำหนดไว้
+   โดย resolve parent ด้วย ObjectId จริงก่อนใช้ label/code สำรอง จากนั้นเติม Room ที่ unit_id.value
+   ชี้เข้า Organization ที่ผ่านสิทธิ์ ถ้า master ใช้งานไม่ได้ให้กลับไปใช้ชุด explicit เดิม
+   เพื่อไม่เปิดสิทธิ์กว้างและไม่ทำให้ห้องเดิมหยุดงาน ห้องทั้งหมดใช้ queue document เดียวกันตาม visit_id */
+const organizationRows = (await readOrganizations()).filter(row => row && row.enable !== false)
+const organizationDirectory = organizationRows.map(describeOrganization).filter(row => row.code)
+const organizationCodeById = new Map()
+const organizationNameById = new Map()
+organizationRows.forEach(row => {
+  const id = valueText(row && row._id).trim().toUpperCase()
+  const code = valueText(row && row.unit_code).trim().toUpperCase()
+  if (id && code) {
+    organizationCodeById.set(id, code)
+    organizationNameById.set(id, valueText(row && row.unit_name).trim())
+  }
+})
+organizationDirectory.forEach(row => {
+  const source = organizationRows.filter(candidate =>
+    valueText(candidate && candidate.unit_code).trim().toUpperCase() === row.code.toUpperCase())[0]
+  const parentId = valueText(source && source.unit_parent && source.unit_parent.value).trim().toUpperCase()
+  if (!parentId) return
+  if (organizationCodeById.has(parentId)) row.parent_code = organizationCodeById.get(parentId)
+  if (organizationNameById.has(parentId)) row.parent_name = organizationNameById.get(parentId)
+})
+const allowedOrganizationSet = new Set(configuredOrganizations.concat(configuredOrganizationRoots))
+for (let pass = 0; pass < organizationRows.length; pass += 1) {
+  let changed = false
+  organizationRows.forEach(source => {
+    const row = describeOrganization(source)
+    const code = row.code.toUpperCase()
+    const parentId = valueText(source && source.unit_parent && source.unit_parent.value).trim().toUpperCase()
+    const parentCode = (organizationCodeById.get(parentId) || row.parent_code).toUpperCase()
+    if (code && parentCode && allowedOrganizationSet.has(parentCode) && !allowedOrganizationSet.has(code)) {
+      allowedOrganizationSet.add(code)
+      changed = true
+    }
   })
-  const directory = rows.map(describe).filter(row => row.code)
-  const current = directory.filter(row => row.code.toUpperCase() === organizationCode)[0] || null
+  if (!changed) break
+}
+const allowedOrganizationIds = organizationRows
+  .filter(row => allowedOrganizationSet.has(valueText(row && row.unit_code).trim().toUpperCase()))
+  .map(row => row && row._id)
+  .filter(Boolean)
+const roomRows = await readRooms(allowedOrganizationIds)
+const roomDirectory = roomRows.filter(row => row && row.enable !== false).map(row => {
+  const parentId = valueText(row && row.unit_id && row.unit_id.value).trim().toUpperCase()
+  const code = valueText(row && row.code).trim()
+  const normalizedCode = code.toUpperCase()
+  return {
+    code: code,
+    name: valueText(row && row.name).trim(),
+    parent_code: organizationCodeById.get(parentId) || '',
+    parent_name: valueText(row && row.unit_id && row.unit_id.label).trim(),
+    qtype: valueText(row && row.qtype).trim(),
+    capabilities: (XRAY_ROOM_CAPABILITIES[normalizedCode] || []).slice(),
+    assign_only: XRAY_ASSIGN_ONLY_ROOMS.indexOf(normalizedCode) >= 0 || row.assign_only === true
+  }
+}).filter(row => row.code && row.parent_code && allowedOrganizationSet.has(row.parent_code))
+const allowedUnitSet = new Set(allowedOrganizationSet)
+roomDirectory.forEach(row => allowedUnitSet.add(row.code.toUpperCase()))
+const allowedOrganizations = Array.from(allowedUnitSet)
+const organizationAllowed = allowedUnitSet.has(organizationCode)
+
+if (!organizationAllowed) {
+  const directory = organizationDirectory
+  const current = directory.concat(roomDirectory)
+    .filter(row => row.code.toUpperCase() === organizationCode)[0] || null
   const looksRadiology = row => {
     const haystack = (row.name + ' ' + row.parent_name).toLowerCase()
     return RADIOLOGY_NAME_HINTS.some(hint => haystack.indexOf(hint.toLowerCase()) >= 0)
@@ -354,7 +492,7 @@ if (!organizationAllowed) {
         data.organization_candidates ให้ผู้ดูแลเปิดดูได้ (มีเทสคุมทั้งสองช่อง)
      ส่วนกรณี Process ยังไม่ได้ตั้ง XRAY_ORGANIZATION_CODES เลย เก็บข้อความเดิมไว้
      เพราะเป็นความผิดพลาดตอนตั้งค่า คนที่ต้องอ่านคือผู้ดูแลระบบ ไม่ใช่เจ้าหน้าที่ */
-  const reason = allowedOrganizations.length
+  const reason = configuredOrganizations.length || configuredOrganizationRoots.length
     ? 'ห้องนี้ไม่ใช่หน่วยงานรังสี กรุณาเปลี่ยนห้องที่มุมขวาบน'
     : 'ยังไม่ได้กำหนดหน่วยงานรังสีใน Process — ใส่รหัสที่ XRAY_ORGANIZATION_CODES · ' +
       currentText + candidateText
@@ -444,6 +582,216 @@ if (action === 'resolve_open_visit') {
     return { success: true, data: { hn, visit } }
   } catch (error) {
     return { success: false, message: valueText(error && error.message) || 'ตรวจสอบ Visit วันนี้ไม่สำเร็จ' }
+  }
+}
+
+/* ── action: save_manual_report ──────────────────────────────────────────
+   ผู้ใช้ยืนยัน 2026-10-15 ให้เพิ่มปุ่มดินสอใน popup ผลอ่านเดิมเหมือน LAB
+   โดยห้ามเปลี่ยน flow อื่น จึงเพิ่ม action นี้แยกจาก get_report/dispatch/cancel:
+   · ต้องเป็น X-ray item ที่ส่งเข้าเครื่องและมี Accession No. แล้ว
+   · ใช้ field เดิมของ X-ray Result เท่านั้น; ไม่สร้าง Form/collection ใหม่
+   · upsert ฉบับปัจจุบันใน zdata_xray_result และ append ทุกฉบับใน result_log
+   · ไม่แก้ current_status ของ CPOE item — list เดิมจะเห็น ResultText แล้วคำนวณ
+     "ออกผลแล้ว" ด้วยกติกาเดิม
+   · manual_request_id ทำให้ retry คำขอเดิมไม่เพิ่ม log ซ้ำ                    */
+if (action === 'save_manual_report') {
+  const itemId = valueText(params.item_id).trim()
+  const requestId = valueText(params.manual_request_id).trim()
+  const resultText = valueText(params.result_text).trim()
+  const radiologistUid = valueText(params.radiologist_uid).trim()
+  const resultDateTime = valueText(params.result_datetime).trim()
+  const resultStatus = valueText(params.result_status).trim().toUpperCase() || 'F'
+  const severityUid = valueText(params.severity_uid).trim()
+
+  if (!/^[a-f0-9]{24}$/i.test(itemId)) {
+    return { success: false, error: 'item_id_invalid', message: 'item_id ไม่ถูกต้อง' }
+  }
+  if (!/^[A-Za-z0-9._:-]{8,80}$/.test(requestId)) {
+    return { success: false, error: 'manual_request_id_invalid', message: 'manual_request_id ไม่ถูกต้อง' }
+  }
+  if (!resultText) {
+    return { success: false, error: 'result_text_required', message: 'กรุณากรอกผลอ่าน' }
+  }
+  if (resultText.length > 8000) {
+    return { success: false, error: 'result_text_too_long', message: 'ผลอ่านต้องไม่เกิน 8,000 ตัวอักษร' }
+  }
+  if (!radiologistUid || radiologistUid.length > 100) {
+    return { success: false, error: 'radiologist_uid_required', message: 'กรุณาเลือกรังสีแพทย์' }
+  }
+  if (!['F', 'P', 'C'].includes(resultStatus)) {
+    return { success: false, error: 'result_status_invalid', message: 'สถานะผลต้องเป็น F, P หรือ C' }
+  }
+  if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(resultDateTime)) {
+    return { success: false, error: 'result_datetime_invalid', message: 'วันเวลาออกผลไม่ถูกต้อง' }
+  }
+  if (severityUid.length > 100) {
+    return { success: false, error: 'severity_uid_too_long', message: 'Severity ยาวเกินกำหนด' }
+  }
+
+  let item = null
+  try {
+    const found = await app.dbFindById(app.dbObjectId(itemId), ITEM_COLLECTION)
+    item = found && found.reply && found.reply.data
+  } catch (error) {
+    return { success: false, error: 'item_read_failed', message: 'อ่านรายการตรวจไม่สำเร็จ' }
+  }
+  if (!item || [0, 3].includes(Number(item.xrstatx))) {
+    return { success: false, error: 'item_not_found', message: 'ไม่พบรายการตรวจนี้' }
+  }
+  if (valueText(item.service_type && item.service_type.value).trim().toLowerCase() !== XRAY_SERVICE_TYPE) {
+    return { success: false, error: 'not_xray_item', message: 'รายการนี้ไม่ใช่รายการทางรังสี' }
+  }
+  const itemStatus = valueText(item.current_status).trim().toLowerCase()
+  if (itemStatus === 'cancelled' || itemStatus === 'rejected') {
+    return { success: false, error: 'item_not_editable', message: 'รายการที่ยกเลิกหรือปฏิเสธแล้วไม่สามารถบันทึกผลได้' }
+  }
+  const accessionNo = valueText(item.accession_no).trim()
+  if (!accessionNo) {
+    return { success: false, error: 'accession_required', message: 'รายการนี้ยังไม่มี Accession No. กรุณาส่งเข้าเครื่องก่อน' }
+  }
+
+  let order = null
+  const orderRef = item.order_id && item.order_id.value ? item.order_id.value : item.xparentx
+  if (orderRef) {
+    try {
+      const found = await app.dbFindById(orderRef, ORDER_COLLECTION)
+      order = found && found.reply && found.reply.data
+    } catch (error) {
+      order = null
+    }
+  }
+  if (!order || [0, 3].includes(Number(order.xrstatx))) {
+    return { success: false, error: 'order_not_found', message: 'ไม่พบ Order ของรายการตรวจนี้' }
+  }
+
+  /* ผล manual ต้องอ้าง Exam เดียวกับใบที่เคยส่งจริงตาม AccessionNo ก่อนเสมอ
+     เพื่อรองรับทั้งใบใหม่ที่ใช้ Radio Exam code และใบเก่าที่เคยใช้ CPOE item_code.
+     ถ้าไม่พบ outbound snapshot ค่อย fallback ไป mapping ปัจจุบัน แล้วจึงพฤติกรรมเดิม. */
+  let outboundOrder = null
+  try {
+    outboundOrder = await app.db.collection(XRAY_RIS_ORDER_COLLECTION).findOne(
+      { AccessionNo: accessionNo, xrstatx: { $nin: [0, 3] } },
+      { sort: { updated_at: -1, _id: -1 } }
+    )
+  } catch (error) {
+    outboundOrder = null
+  }
+  const xrayMapping = await readItemXrayMapping(item)
+  const resultExamUid = valueText(outboundOrder && outboundOrder.ExamUid).trim() ||
+    valueText(xrayMapping.value).trim() || valueText(item.item_code).trim()
+  const resultExamName = valueText(outboundOrder && outboundOrder.ExamName).trim() ||
+    labelText(xrayMapping.label) || valueText(item.item_name).trim()
+
+  const actorCode = valueText(userInfo.employee_code || userInfo.username ||
+    (userInfo.account && (userInfo.account.code || userInfo.account.name))).trim()
+  if (!actorCode) {
+    return { success: false, error: 'actor_missing', message: 'ไม่พบผู้บันทึกจากบัญชีผู้ใช้' }
+  }
+  const now = valueText(app.curDate && app.curDate()).trim() || resultDateTime
+  const messageControlId = 'HIS-MANUAL-' + requestId
+  const baseResult = {
+    MessageControlId: messageControlId,
+    Hn: valueText(order && order.vid && order.vid.pid && order.vid.pid.hn).trim(),
+    RequestNo: valueText(order && order.order_number).trim(),
+    QNo: valueText(order && (order.q_no || order.queue_no)).trim(),
+    AccessionNo: accessionNo,
+    Status: resultStatus,
+    ExamUid: resultExamUid,
+    ExamName: resultExamName,
+    ImageCapturedDateTime: valueText(item.performed_at || item.dispatched_at).trim(),
+    RadiologistUid: radiologistUid,
+    ResultText: resultText,
+    ResultDateTime: resultDateTime,
+    SeverityUid: severityUid,
+    SentDateTime: now,
+    ReceivedDateTime: now,
+    xrstatx: 1
+  }
+
+  let existingLog = null
+  try {
+    existingLog = await app.db.collection(RESULT_LOG_COLLECTION).findOne({
+      MessageControlId: messageControlId,
+      AccessionNo: accessionNo,
+      xrstatx: { $nin: [0, 3] }
+    })
+  } catch (error) {
+    return { success: false, error: 'manual_log_lookup_failed', message: 'ตรวจสอบคำขอบันทึกซ้ำไม่สำเร็จ' }
+  }
+
+  let resultId = Number(existingLog && existingLog.ResultId) || 0
+  if (!existingLog) {
+    try {
+      const allocated = await app.db.collection(RESULT_COUNTER_COLLECTION).findOneAndUpdate(
+        { _id: RESULT_COUNTER_ID },
+        { $inc: { seq: 1 } },
+        { upsert: true, returnDocument: 'after' }
+      )
+      const counter = allocated && (allocated.value || allocated)
+      resultId = Number(counter && counter.seq)
+    } catch (error) {
+      resultId = 0
+    }
+    if (!Number.isSafeInteger(resultId) || resultId < 1) {
+      return { success: false, error: 'result_id_failed', message: 'ออกเลขลำดับผลอ่านไม่สำเร็จ' }
+    }
+    const logSaved = await app.dbInsert({ ...baseResult, ResultId: resultId }, RESULT_LOG_COLLECTION, userInfo)
+    if (!logSaved || logSaved.success === false) {
+      return { success: false, error: 'manual_log_save_failed', message: 'บันทึกประวัติผล Manual ไม่สำเร็จ' }
+    }
+  }
+
+  let currentRows = []
+  try {
+    currentRows = await app.db.collection(RESULT_COLLECTION)
+      .find({ AccessionNo: accessionNo, xrstatx: { $nin: [0, 3] } })
+      .sort({ ResultDateTime: -1, xupdatx: -1, _id: -1 })
+      .limit(1)
+      .toArray()
+  } catch (error) {
+    return { success: false, error: 'current_result_lookup_failed', message: 'ค้นหาผลอ่านปัจจุบันไม่สำเร็จ' }
+  }
+  const current = currentRows[0] || null
+  const currentSaved = current && current._id
+    ? await app.dbUpdate(baseResult, RESULT_COLLECTION, userInfo, { _id: app.dbObjectId(current._id) })
+    : await app.dbInsert(baseResult, RESULT_COLLECTION, userInfo)
+  if (!currentSaved || currentSaved.success === false) {
+    return {
+      success: false,
+      error: 'current_result_save_failed',
+      message: 'บันทึกประวัติแล้ว แต่ปรับผลอ่านปัจจุบันไม่สำเร็จ กรุณากดบันทึกซ้ำ',
+      data: { item_id: itemId, accession_no: accessionNo, result_id: resultId, retry_safe: true }
+    }
+  }
+
+  try {
+    app.wsSend('gridform', RESULT_FORM_ID, 'xray-manual-result', {
+      from: 'xray-manual-result', broadcast: true, data: baseResult,
+      method: current && current._id ? 'update' : 'insert', keyid: '_id'
+    })
+    app.wsSend('gridform', RESULT_LOG_FORM_ID, 'xray-manual-result-log', {
+      from: 'xray-manual-result-log', broadcast: true,
+      data: { ...baseResult, ResultId: resultId }, method: 'insert', keyid: '_id'
+    })
+  } catch (error) {
+    /* บันทึกฐานข้อมูลสำเร็จแล้ว WebSocket ล้มไม่ควรย้อนผลทางคลินิก */
+  }
+
+  return {
+    success: true,
+    data: {
+      item_id: itemId,
+      accession_no: accessionNo,
+      result_id: resultId,
+      result_text: resultText,
+      reported_at: resultDateTime,
+      radiologist_uid: radiologistUid,
+      result_status: resultStatus,
+      severity_uid: severityUid,
+      source: 'manual',
+      duplicate_request: Boolean(existingLog)
+    },
+    message: existingLog ? 'คำขอนี้บันทึกไว้แล้ว · อัปเดตผลปัจจุบันเรียบร้อย' : 'บันทึกผล Manual เรียบร้อยแล้ว'
   }
 }
 
@@ -1115,7 +1463,15 @@ if (action === 'cancel_order') {
             ' แต่ไม่พบ RIS Order JSON ที่เคยส่งในตาราง X-ray Order — ยังไม่ยกเลิกใน HIS'
         }
       }
-      if (valueText(source.ExamUid).trim() !== valueText(target.item.item_code).trim() ||
+      /* ใบใหม่ใช้ Radio Exam code; ใบเก่าก่อน migration ใช้ CPOE item_code.
+         ยอมรับได้เฉพาะสองค่าที่ตรวจย้อนกลับถึง item เดิม เพื่อรักษา guard กันส่ง
+         tombstone ผิดใบไว้ครบ ไม่ลดเหลือการเช็ก Accession/RequestNo อย่างเดียว. */
+      const xrayMapping = await readItemXrayMapping(target.item)
+      const expectedExamUids = [
+        valueText(target.item.item_code).trim(),
+        valueText(xrayMapping.value).trim()
+      ].filter((value, index, values) => value && values.indexOf(value) === index)
+      if (expectedExamUids.indexOf(valueText(source.ExamUid).trim()) < 0 ||
           (valueText(source.RequestNo).trim() && valueText(source.RequestNo).trim() !== orderNumber)) {
         return {
           success: false,
@@ -1485,31 +1841,8 @@ const waitingStatuses = statusVocabulary.filter(status => STATUS_VOCABULARY[stat
 const cancelledStatuses = statusVocabulary.filter(status => STATUS_VOCABULARY[status] === 'cancelled')
 const completeStatuses = statusVocabulary.filter(status => STATUS_VOCABULARY[status] === 'complete')
 
-/* ── คิวห้องรังสี ───────────────────────────────────────────────────────────
-   เพิ่ม 2026-09-08 ตามคำสั่งผู้ใช้: "จากตอนแรก ถ้ามีการสั่ง → เข้าห้องเลย
-   เปลี่ยนเป็นเข้าคิวก่อน" — แทรกขั้น "คิว" คั่นก่อนถึงตาราง worklist
-
-   🔴 **ไม่แตะ `current_status` แม้แต่ค่าเดียว** และห้ามใช้สถานะ `accepted` เป็น
-      "รับเข้าห้อง" เด็ดขาด — `accepted` แปลว่า "ส่งเข้าเครื่องแล้ว" อยู่แล้ว
-      (อยู่ใน RECEIVED_STATUSES ของทั้ง dispatch/accession/worklist — ดูคอมเมนต์
-      ที่ xray_cpoe_dispatch_api.js) ถ้าเอามาใช้ซ้ำ ปุ่ม "ส่งเข้าเครื่อง" จะปฏิเสธ
-      ใบที่แค่ถูกเรียกคิว และ accession จะเพี้ยนตาม
-   ⇒ สถานะคิวเก็บแยกใน QUEUE_COLLECTION ทั้งหมด · action `list`, dispatch,
-      accession, reject, RIS จึงไม่รับรู้และไม่เปลี่ยนพฤติกรรมเลย
-
-   คิวเป็น **ราย VN** (ผู้ใช้ยืนยัน 2026-09-08) เรียง FIFO ตามเวลาสั่งที่เก่าสุดของ VN
-   และ **ไม่แยกตาม organization** — m0900/m0901 เรียกแล้วเห็น My Room ชุดเดียวกัน
-   (ผู้ใช้ยืนยัน 2026-09-08) ตรงกับที่ของเดิม organization_code เป็นด่านสิทธิ์อย่างเดียว */
-/* ── ยูนิตต้นทางของใบสั่ง (เพิ่ม 2026-09-08) ────────────────────────────────
-   ผู้ใช้กำหนดกติกา hybrid: "ถ้าคลินิคต้นทาง organize ที่สั่งเป็นรังสี m0900/m0901/ct
-   = เข้าหน้า xray เลยไม่ต้องผ่านคิว แต่ที่เหลือเข้าคิวหมด"
-
-   🔴 ยังไม่มีใครยืนยันว่า `cpoe-order-save` เขียนยูนิตผู้สั่งไว้ที่ช่องไหน
-      (Mongo MCP ไม่ได้ต่อ ตรวจของจริงไม่ได้ · โคลน CPOE ก็ไม่ได้ส่ง source ไปเก็บ)
-   ⇒ ไล่หาหลายช่องตามลำดับ ช่องไหนมีค่าก่อนใช้ช่องนั้น
-   ⇒ **ไม่เจอสักช่อง = "ไม่รู้ที่มา" ซึ่งแปลว่าแสดงตามปกติ** (ผู้ใช้เลือก fail-open
-      2026-09-08) ⇒ ถ้าเดาช่องผิดทั้งหมด พฤติกรรมจะเท่ากับก่อนแก้ ไม่มีใบไหนหาย
-   ค่าที่ใช้จริงถูกส่งกลับใน orders[].origin_unit ให้ตรวจจากหน้าจอได้โดยไม่ต้องเปิด DB */
+/* Origin unit is also used by the normal Worklist pipeline.  It is unrelated
+   to queue routing and remains part of the existing X-ray visibility scope. */
 const originUnitExpr = {
   $let: {
     vars: {
@@ -1552,463 +1885,293 @@ const originUnitExpr = {
   }
 }
 
-const queueActiveStatuses = Object.keys(STATUS_VOCABULARY)
-  .filter(status => ['waiting', 'pending'].indexOf(STATUS_VOCABULARY[status]) >= 0)
-/* Unit Queue ดูเฉพาะใบที่ยังไม่ถูกส่งเข้าเครื่อง — ใบที่เดินหน้าไปแล้วไม่ใช่ "คิวรอเรียก" */
-const queueWaitingStatuses = ['sent']
+/* ── action: queue_tracking (read-only) ───────────────────────────────────
+   This is deliberately separate from the native EMR queue panes.  It reads
+   the latest Visit Tran under the radiology root and decorates that snapshot
+   with X-ray order/result state.  It never calls a queue process and never
+   writes Visit Tran, CPOE, or RIS data.
 
-const queueVisitPipeline = statusList => [
-  {
-    $match: {
-      xrstatx: { $nin: [0, 3] },
-      'service_type.value': XRAY_SERVICE_TYPE,
-      current_status: { $in: statusList }
-    }
-  },
-  { $addFields: { order_ref_id: { $ifNull: ['$order_id.value', '$xparentx'] } } },
-  {
-    $lookup: {
-      from: ORDER_COLLECTION,
-      localField: 'order_ref_id',
-      foreignField: '_id',
-      as: 'order'
-    }
-  },
-  { $unwind: { path: '$order', preserveNullAndEmptyArrays: false } },
-  { $match: { 'order.xrstatx': { $nin: [0, 3] } } },
-  { $addFields: { origin_unit_code: originUnitExpr } },
-  {
-    /* เวลาสั่ง = stage `sent` ล่าสุดของใบ ไม่ใช่ created_at — ใช้นิยามเดียวกับ action list
-       เพื่อให้ลำดับ FIFO ในคิวตรงกับเวลาที่ผู้ใช้เห็นในตาราง worklist */
-    $addFields: {
-      requested_at: {
-        $let: {
-          vars: {
-            sent_stage: {
-              $arrayElemAt: [
+   Important semantic boundary:
+   - current location comes from zdata_visit_tran.unit_to / room_to
+   - "resulted" comes only from a non-empty RIS ResultText for every active
+     X-ray item; queue status `done` is not treated as a radiology result. */
+if (action === 'queue_tracking') {
+  const nowText = typeof app.curDate === 'function' ? valueText(app.curDate()) : ''
+  const trackingDate = validDate(valueText(params.date).trim())
+    ? valueText(params.date).trim()
+    : (validDate(nowText.slice(0, 10))
+        ? nowText.slice(0, 10)
+        : new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10))
+  const trackingLimit = clampInt(params.limit, 500, 1, 1000)
+  const radiologyRoots = configuredOrganizationRoots.length
+    ? configuredOrganizationRoots
+    : configuredOrganizations
+  const terminalItemStatuses = ['cancelled', 'rejected', 'returned', 'reversed']
+  /* A locally completed/resulted item without RIS ResultText is still waiting
+     for the actual report, so it belongs to the middle state, never `resulted`. */
+  const trackingExaminingStatuses = RECEIVED_STATUSES.concat(['resulted', 'completed'])
+
+  const trackingPipeline = [
+    {
+      $match: {
+        xrstatx: { $nin: [0, 3] },
+        visit_date: trackingDate,
+        'vid.value': { $ne: null },
+        unit_path: { $in: radiologyRoots.concat(XRAY_ORGANIZATION_ROOT_CODES) }
+      }
+    },
+    { $addFields: { _tracking_visit_id: { $toString: '$vid.value' } } },
+    { $match: { _tracking_visit_id: { $ne: '' } } },
+    { $sort: { checkin_at: -1, updated_at: -1, _id: -1 } },
+    {
+      $group: {
+        _id: '$_tracking_visit_id',
+        queue: { $first: '$$ROOT' }
+      }
+    },
+    { $replaceRoot: { newRoot: '$queue' } },
+    {
+      $lookup: {
+        from: ORDER_COLLECTION,
+        let: { visit_id: '$vid.value' },
+        pipeline: [
+          {
+            $match: {
+              xrstatx: { $nin: [0, 3] },
+              $expr: { $eq: [{ $toString: '$xparentx' }, { $toString: '$$visit_id' }] }
+            }
+          },
+          { $project: { _id: 1, order_number: 1, created_at: 1 } }
+        ],
+        as: '_tracking_orders'
+      }
+    },
+    {
+      $lookup: {
+        from: ITEM_COLLECTION,
+        let: {
+          order_ids: {
+            $map: {
+              input: { $ifNull: ['$_tracking_orders', []] },
+              as: 'order',
+              in: { $toString: '$$order._id' }
+            }
+          }
+        },
+        pipeline: [
+          {
+            $match: {
+              xrstatx: { $nin: [0, 3] },
+              'service_type.value': XRAY_SERVICE_TYPE,
+              current_status: { $in: statusVocabulary },
+              $expr: {
+                $in: [
+                  { $toString: { $ifNull: ['$order_id.value', '$xparentx'] } },
+                  '$$order_ids'
+                ]
+              }
+            }
+          },
+          {
+            $lookup: {
+              from: RESULT_COLLECTION,
+              let: { accession: '$accession_no' },
+              pipeline: [
                 {
-                  $filter: {
-                    input: { $ifNull: ['$order.status_stage', []] },
-                    as: 'stage',
-                    cond: { $eq: ['$$stage.stage_status', 'sent'] }
+                  $match: {
+                    xrstatx: { $nin: [0, 3] },
+                    $expr: {
+                      $and: [
+                        { $ne: [{ $ifNull: ['$$accession', ''] }, ''] },
+                        { $eq: ['$AccessionNo', '$$accession'] }
+                      ]
+                    }
                   }
                 },
-                -1
-              ]
+                { $sort: { ResultDateTime: -1, xupdatx: -1, _id: -1 } },
+                { $limit: 1 },
+                { $project: { _id: 0, ResultText: 1, ResultDateTime: 1 } }
+              ],
+              as: '_tracking_result'
             }
           },
-          in: { $ifNull: ['$$sent_stage.stage_at', '$order.created_at'] }
+          {
+            $addFields: {
+              _tracking_latest_result: {
+                $arrayElemAt: [{ $ifNull: ['$_tracking_result', []] }, 0]
+              }
+            }
+          },
+          {
+            $project: {
+              _id: 0,
+              item_id: { $toString: '$_id' },
+              item_code: 1,
+              item_name: 1,
+              current_status: 1,
+              accession_no: 1,
+              dispatched_at: 1,
+              resulted_at: '$_tracking_latest_result.ResultDateTime',
+              has_result: {
+                $ne: [
+                  { $trim: { input: { $ifNull: ['$_tracking_latest_result.ResultText', ''] } } },
+                  ''
+                ]
+              }
+            }
+          }
+        ],
+        as: '_tracking_items'
+      }
+    },
+    {
+      $addFields: {
+        _tracking_active_items: {
+          $filter: {
+            input: { $ifNull: ['$_tracking_items', []] },
+            as: 'item',
+            cond: { $not: [{ $in: ['$$item.current_status', terminalItemStatuses] }] }
+          }
         }
       }
-    }
-  },
-  {
-    /* รวมเป็นราย visit — คนไข้เดินเข้ามาคนเดียว ต้องเป็นคิวเดียวแม้สั่งหลายใบ */
-    $group: {
-      _id: '$order.xparentx',
-      vn: { $first: '$order.vid.vn' },
-      hn: { $first: '$order.vid.pid.hn' },
-      prename: { $first: '$order.vid.pid.prename' },
-      first_name: { $first: '$order.vid.pid.p_fname' },
-      last_name: { $first: '$order.vid.pid.p_lname' },
-      age: { $first: '$order.vid.pid.age' },
-      gender_text: { $first: '$order.vid.gender_text' },
-      visit_date: { $first: '$order.vid.visit_date' },
-      order_ids: { $addToSet: { $toString: '$order._id' } },
-      order_numbers: { $addToSet: '$order.order_number' },
-      item_count: { $sum: 1 },
-      first_requested_at: { $min: '$requested_at' },
-      origin_units: { $addToSet: '$origin_unit_code' }
-    }
-  },
-  {
-    $lookup: {
-      from: QUEUE_COLLECTION,
-      localField: '_id',
-      foreignField: 'visit_id',
-      as: 'queue_docs'
-    }
-  },
-  {
-    $addFields: {
-      queue_doc: {
-        $arrayElemAt: [
-          {
-            $filter: {
-              input: { $ifNull: ['$queue_docs', []] },
-              as: 'row',
-              cond: { $not: [{ $in: [{ $ifNull: ['$$row.xrstatx', 1] }, [0, 3]] }] }
-            }
-          },
-          -1
-        ]
-      }
-    }
-  },
-  {
-    /* แถวคิวใน visit_tran ของ visit นี้ — ใช้ $toString ทั้งสองฝั่งเพราะ vid.value
-       เก็บเป็น ObjectId หรือ string ก็ได้แล้วแต่ที่มาของข้อมูล (ทรงเดียวกับที่
-       action list ใช้ join zdata_diagnosis อยู่แล้ว)
-       ไม่เจอ = คืน null แล้วปุ่ม "ส่งต่อ" จะบอกเหตุผลตรง ๆ ไม่ใช่กดแล้วเงียบ */
-    $lookup: {
-      from: VISIT_TRAN_COLLECTION,
-      let: { visit_id: '$_id' },
-      pipeline: [
-        {
-          $match: {
-            xrstatx: { $nin: [0, 3] },
-            $expr: { $eq: [{ $toString: '$vid.value' }, { $toString: '$$visit_id' }] }
-          }
-        },
-        { $sort: { queue_ts: 1, checkin_at: 1 } }
-      ],
-      as: 'visit_trans'
-    }
-  },
-  { $addFields: { visit_tran: { $arrayElemAt: [{ $ifNull: ['$visit_trans', []] }, -1] } } }
-]
-
-/* เลขคิวที่คนไข้ถืออยู่จริง — `queue_label` เป็นสตริงสำเร็จรูปพร้อม prefix (เช่น D002)
-   แต่มีค่าเฉพาะ visit ตั้งแต่ ~2026-07-27 เป็นต้นมา (01-knowledge-base/concepts/his-data-model.md)
-   ของเก่ากว่านั้นต้องประกอบเองจาก qtype + queue_no ไม่งั้นคิวเก่าจะไม่มีเลขให้เรียก
-   ไม่มีแถวใน visit_tran = ไม่มีเลขคิว ⇒ คืนค่าว่างแล้วให้ UI ใช้ลำดับแทน */
-const queueLabelOf = tran => {
-  const ready = valueText(tran && tran.queue_label).trim()
-  if (ready) return ready
-  const qtype = valueText(tran && tran.qtype).trim()
-  const raw = tran && tran.queue_no
-  const no = Number(raw)
-  if (raw == null || raw === '' || !Number.isFinite(no)) return qtype
-  return qtype + String(Math.trunc(no)).padStart(3, '0')
-}
-
-/* ยังไม่ถูกเรียก = ไม่มีเอกสารคิว หรือมีแต่ยังไม่ได้ stamp called_at */
-const queueNotCalledMatch = {
-  $match: { $or: [{ queue_doc: null }, { 'queue_doc.called_at': { $in: [null, ''] } }] }
-}
-/* ใบที่ห้องรังสีสั่งเองไม่ต้องเข้าคิว (ผู้ใช้ยืนยัน 2026-09-08 ว่า "ไม่โผล่เลย")
-   visit หนึ่งมีได้ทั้งใบที่ส่งมาและใบที่สั่งเอง ⇒ เข้าคิวถ้ามีใบที่ "ไม่ใช่ของรังสี"
-   อย่างน้อยหนึ่งใบ · ยูนิตที่อ่านไม่ออก ('') ไม่นับเป็นของรังสี จึงยังเข้าคิว
-   ซึ่งเป็นฝั่งปลอดภัย: เห็นทั้งในคิวและในตาราง ดีกว่าหายไปจากทั้งสองที่ */
-const queueNotSelfOrderedMatch = {
-  $match: {
-    $expr: {
-      $gt: [
-        {
+    },
+    {
+      $addFields: {
+        _tracking_resulted_count: {
           $size: {
             $filter: {
-              input: { $ifNull: ['$origin_units', []] },
-              as: 'unit',
-              cond: { $not: [{ $in: ['$$unit', allowedOrganizations] }] }
+              input: '$_tracking_active_items',
+              as: 'item',
+              cond: { $eq: ['$$item.has_result', true] }
             }
           }
         },
-        0
-      ]
+        _tracking_examining_count: {
+          $size: {
+            $filter: {
+              input: '$_tracking_active_items',
+              as: 'item',
+              cond: { $in: ['$$item.current_status', trackingExaminingStatuses] }
+            }
+          }
+        }
+      }
+    },
+    {
+      $addFields: {
+        _tracking_state: {
+          $switch: {
+            branches: [
+              {
+                case: {
+                  $and: [
+                    { $gt: [{ $size: '$_tracking_active_items' }, 0] },
+                    { $eq: ['$_tracking_resulted_count', { $size: '$_tracking_active_items' }] }
+                  ]
+                },
+                then: 'resulted'
+              },
+              {
+                case: {
+                  $or: [
+                    { $in: ['$vtran_status', ['in_progress', 'done']] },
+                    { $gt: ['$_tracking_examining_count', 0] }
+                  ]
+                },
+                then: 'examining'
+              }
+            ],
+            default: 'waiting'
+          }
+        }
+      }
+    },
+    { $sort: { queue_ts: 1, checkin_at: 1, _id: 1 } },
+    { $limit: trackingLimit },
+    {
+      $project: {
+        _id: 0,
+        tran_id: { $toString: '$_id' },
+        visit_id: '$_tracking_visit_id',
+        visit_date: 1,
+        queue_label: 1,
+        queue_no: 1,
+        queue_ts: 1,
+        checkin_at: 1,
+        checkout_at: 1,
+        start_at: 1,
+        vtran_status: 1,
+        unit_from: 1,
+        unit_to: 1,
+        room_to: 1,
+        patient: {
+          hn: '$vid.pid.hn',
+          vn: '$vid.vn',
+          prename: '$vid.pid.prename',
+          first_name: '$vid.pid.p_fname',
+          last_name: '$vid.pid.p_lname',
+          gender: '$vid.pid.p_gender',
+          age: '$vid.pid.age',
+          picture: '$vid.pid.p_pic'
+        },
+        work_state: '$_tracking_state',
+        items: '$_tracking_active_items',
+        item_count: { $size: '$_tracking_active_items' },
+        resulted_item_count: '$_tracking_resulted_count'
+      }
     }
-  }
-}
-/* อยู่ในห้อง = เรียกแล้วและยัง **ไม่ปิดคิว** — ปิดแล้วต้องย้ายไปแท็บ Completed
-   ไม่งั้นแถวจะค้างอยู่ My Room ตลอดไปและแท็บที่ 4 ก็ไม่มีความหมาย */
-const queueCalledMatch = {
-  $match: { 'queue_doc.called_at': { $nin: [null, ''] }, 'queue_doc.done_at': { $in: [null, ''] } }
-}
-/* ปิดคิวแล้ว (สำเร็จ/ส่งต่อ) — คนละเรื่องกับ "ออกผลครบ" ของ chip สถานะ
-   ผู้ใช้ยืนยัน 2026-09-08: คิวจบเพราะคนไข้ถูกส่งต่อไปแล้ว ไม่ได้แปลว่าผลอ่านออกครบ
-   จึงรับทุกสถานะของรายการ ไม่ตัดเหลือแค่ active — ไม่งั้นพอผลกลับมาแถวจะหายไปเอง */
-const queueDoneMatch = { $match: { 'queue_doc.done_at': { $nin: [null, ''] } } }
-
-/* ── คิว = "คนไข้ที่มาวันนี้" ────────────────────────────────────────────────
-   🔴 แก้แกนการกรอง 2026-09-08 รอบสอง หลังผู้ใช้เจอของจริง: VN 6900205 (visit เก่า)
-   ยังโผล่ในคิววันนี้ ทั้งที่ VN ของวันนี้คือ 6900242 ซึ่งยังไม่มีใบสั่งเลย
-
-   รอบแรกผมกรองด้วย "เวลาที่สั่ง order" (first_requested_at) ซึ่งผิดแกน —
-   การมีคิวแปลว่า **คนไข้มายืนรออยู่วันนี้** ซึ่งเป็นคุณสมบัติของ *visit*
-   ไม่ใช่ของใบสั่ง · ใบเดิมที่ถูกแตะวันนี้ (ส่งซ้ำ/ตรวจใหม่) จึงลาก visit เก่ากลับมาด้วย
-   ⇒ ใช้ `visit_date` ของ visit เป็นตัวตัดสินตัวเดียว เหมือน Unit Queue/My Room
-      ของฟอร์ม EMR ที่กรอง `visit_date` = วันนี้ ตรง ๆ
-   ⇒ VN เก่าจะไม่มีทางโผล่ในคิวได้อีกไม่ว่าใบสั่งจะถูกแตะเมื่อไหร่
-   ⇒ และรองรับนัดล่วงหน้าไปในตัว: ใบที่สั่งไว้เมื่อวานแต่คนไข้เปิด VN วันนี้ จะเข้าคิววันนี้
-
-   `visit_date` เป็น date-input แบบ datetime ⇒ ค่าจริงอาจมีเวลาต่อท้าย
-   ('2026-09-08 13:02') จึงต้องตัด 10 ตัวแรกเทียบ ห้ามใช้ `=` ตรง ๆ
-   (เคยพลาดมาแล้วตอนทำ dropdown เลือก VN — ดู cpoe-order-app-vn-picker-v1-import.md) */
-const queueToday = valueText(app.curDate()).trim().slice(0, 10)
-const queueVisitDayStages = [
-  { $addFields: { visit_day: { $substrCP: [{ $toString: { $ifNull: ['$visit_date', ''] } }, 0, 10] } } },
-  { $match: { visit_day: queueToday } }
-]
-
-const QUEUE_BUCKETS = {
-  unit: {
-    statuses: queueWaitingStatuses,
-    match: queueNotCalledMatch,
-    extra: [queueNotSelfOrderedMatch],
-    sort: { first_requested_at: 1, vn: 1 }
-  },
-  room: {
-    statuses: queueActiveStatuses,
-    match: queueCalledMatch,
-    sort: { 'queue_doc.called_at': 1, vn: 1 }
-  },
-  /* ประวัติ — ใหม่สุดอยู่บน เหมือนแท็บ Completed ของฟอร์ม EMR ที่เรียงตาม checkout_at DESC */
-  done: {
-    statuses: statusVocabulary,
-    match: queueDoneMatch,
-    sort: { 'queue_doc.done_at': -1, vn: 1 }
-  }
-}
-/* วันไม่ถูกต้อง (app.curDate ตอบเพี้ยน) = ไม่กรองวัน ดีกว่าโชว์คิวว่างทั้งจอ
-   โดยที่เจ้าหน้าที่ไม่รู้ว่าคนไข้หายไปไหน */
-const queueStages = spec => [spec.match]
-  .concat(spec.extra || [])
-  .concat(validDate(queueToday) ? queueVisitDayStages : [])
-const queueBucketName = value => {
-  const key = valueText(value).trim().toLowerCase()
-  return QUEUE_BUCKETS[key] ? key : 'unit'
-}
-
-const queueRow = row => ({
-  visit_id: valueText(row && row._id).trim(),
-  vn: valueText(row && row.vn).trim(),
-  hn: valueText(row && row.hn).trim(),
-  /* คำนำหน้าเป็น coded field — valueText คืน "รหัส" (โผล่เป็น "003 ศุภัทร" บนจอจริง
-     2026-09-08) ช่องที่เอาไปโชว์ต้องอ่าน label เสมอ ส่วนช่องที่เอาไป join ยังใช้ valueText */
-  patient_name: [labelText(row && row.prename), valueText(row && row.first_name), valueText(row && row.last_name)]
-    .map(part => part.trim())
-    .filter(Boolean)
-    .join(' '),
-  age: row && row.age != null ? row.age : '',
-  gender_text: valueText(row && row.gender_text).trim(),
-  visit_date: valueText(row && row.visit_date).trim(),
-  order_ids: Array.isArray(row && row.order_ids) ? row.order_ids.filter(Boolean) : [],
-  order_numbers: Array.isArray(row && row.order_numbers) ? row.order_numbers.filter(Boolean) : [],
-  order_count: Array.isArray(row && row.order_ids) ? row.order_ids.filter(Boolean).length : 0,
-  item_count: Number(row && row.item_count) || 0,
-  requested_at: valueText(row && row.first_requested_at).trim(),
-  called_at: valueText(row && row.queue_doc && row.queue_doc.called_at).trim(),
-  called_by: (row && row.queue_doc && row.queue_doc.called_by) || null,
-  done_at: valueText(row && row.queue_doc && row.queue_doc.done_at).trim(),
-  done_by: (row && row.queue_doc && row.queue_doc.done_by) || null,
-  /* ── ข้อมูลสำหรับปุ่ม "ส่งต่อ" (เพิ่ม 2026-09-08) ─────────────────────────
-     ฟอร์มส่งต่อของ EMR รับ tran_id ของ **visit_tran** ไม่ใช่ visit id
-     ไม่มีแถวคิวใน visit_tran = ส่งต่อไม่ได้ ⇒ tran_id ว่างและปุ่มจะถูกปิดพร้อมเหตุผล */
-  /* เลขคิวพร้อม prefix ที่คนไข้ถืออยู่ (เช่น D002) — ว่างได้ถ้าไม่มีแถวใน visit_tran */
-  queue_label: queueLabelOf(row && row.visit_tran),
-  tran_id: valueText(row && row.visit_tran && row.visit_tran._id).trim(),
-  vtran_status: valueText(row && row.visit_tran && row.visit_tran.vtran_status).trim(),
-  unit_to: (row && row.visit_tran && row.visit_tran.unit_to) || null,
-  unit_from: (row && row.visit_tran && row.visit_tran.unit_from) || null,
-  visit_priority: valueText(row && row.visit_tran && row.visit_tran.visit_priority).trim(),
-  consult_info: (row && row.visit_tran && row.visit_tran.consult_info) || null
-})
-
-const runQueueAggregate = async pipeline => {
-  const cursor = app.db.collection(ITEM_COLLECTION).aggregate(pipeline, { allowDiskUse: true })
-  return await cursor.toArray()
-}
-
-const countQueueBucket = async bucket => {
-  const spec = QUEUE_BUCKETS[bucket]
-  const pipeline = queueVisitPipeline(spec.statuses).concat(queueStages(spec), [{ $count: 'value' }])
-  const rows = await runQueueAggregate(pipeline)
-  return Number(rows && rows[0] && rows[0].value) || 0
-}
-
-if (action === 'queue') {
-  const bucket = queueBucketName(params.bucket)
-  const spec = QUEUE_BUCKETS[bucket]
-  const queueSkip = (page - 1) * limit
-  const pipeline = queueVisitPipeline(spec.statuses).concat(queueStages(spec), [
-    /* FIFO — เก่าสุดอยู่บน · ผูก vn ท้ายไว้กันลำดับสลับเมื่อเวลาเท่ากันเป๊ะ */
-    { $sort: spec.sort },
-    { $skip: queueSkip },
-    { $limit: limit }
-  ])
+  ]
 
   let rows = []
   try {
-    rows = await runQueueAggregate(pipeline)
+    const found = await app.dbFindAll(
+      {
+        from: VISIT_TRAN_COLLECTION,
+        nosql: {
+          type: 'aggregate',
+          collections: [VISIT_TRAN_COLLECTION],
+          pipeline: trackingPipeline
+        }
+      },
+      false,
+      false
+    )
+    if (!found || found.success === false) throw new Error('query rejected')
+    rows = found.reply && Array.isArray(found.reply.data) ? found.reply.data : []
   } catch (error) {
-    return { success: false, message: 'อ่านคิวห้องรังสีไม่สำเร็จ: ' + valueText(error && error.message) }
+    return {
+      success: false,
+      message: 'อ่านข้อมูลติดตามคิว X-ray ไม่สำเร็จ: ' + String((error && error.message) || error)
+    }
   }
 
-  const unitCount = await countQueueBucket('unit')
-  const roomCount = await countQueueBucket('room')
-  const doneCount = await countQueueBucket('done')
-  const totals = { unit: unitCount, room: roomCount, done: doneCount }
+  const stateCounts = { all: rows.length, waiting: 0, examining: 0, resulted: 0 }
+  rows.forEach(row => {
+    const state = valueText(row && row.work_state).trim()
+    if (Object.prototype.hasOwnProperty.call(stateCounts, state)) stateCounts[state] += 1
+    const unitLabel = valueText(row && row.unit_to && row.unit_to.label).trim()
+    const roomLabel = valueText(row && row.room_to && row.room_to.label).trim()
+    row.location_label = [unitLabel, roomLabel].filter(Boolean).join(' · ') || 'ยังไม่ระบุตำแหน่ง'
+    row.location_note = valueText(row && row.unit_from && row.unit_from.label).trim()
+      ? 'รับต่อจาก ' + valueText(row.unit_from.label).trim()
+      : 'ตำแหน่งล่าสุดจากระบบคิวกลาง'
+    row.route = []
+    if (valueText(row && row.unit_from && row.unit_from.label).trim()) {
+      row.route.push({ label: valueText(row.unit_from.label).trim(), at: '' })
+    }
+    row.route.push({ label: row.location_label, at: valueText(row && row.checkin_at).trim(), current: true })
+  })
 
   return {
     success: true,
     data: {
-      bucket: bucket,
-      rows: rows.map(queueRow),
-      page: page,
-      limit: limit,
-      total: totals[bucket],
-      counts: totals,
-      organization_code: organizationCode,
-      unit_code: organizationCode
-    },
-    message: 'อ่านคิวห้องรังสีสำเร็จ'
-  }
-}
-
-if (action === 'queue_call') {
-  const visitId = valueText(params.visit_id).trim()
-  if (!/^[a-f0-9]{24}$/i.test(visitId)) {
-    return { success: false, error: 'invalid_visit_id', message: 'visit_id ไม่ถูกต้อง' }
-  }
-
-  const now = valueText(app.curDate('YYYY-MM-DD HH:mm:ss')).trim()
-  const actorCode = valueText(userInfo.employee_code || userInfo.username ||
-    (userInfo.account && (userInfo.account.code || userInfo.account.name))).trim()
-  if (!actorCode) {
-    return { success: false, error: 'actor_missing', message: 'ไม่พบผู้เรียกคิวจากบัญชีผู้ใช้' }
-  }
-  const actorName = valueText(userInfo.fullname || userInfo.display_name ||
-    (userInfo.account && (userInfo.account.label || userInfo.account.name)) || actorCode).trim()
-  const actorId = userInfo._id || userInfo.id ||
-    (userInfo.account && (userInfo.account._id || userInfo.account.id)) || ''
-  const actorAudit = { id: actorId, name: actorName || actorCode }
-
-  const visitObjectId = app.dbObjectId(visitId)
-  const queueCollection = app.db.collection(QUEUE_COLLECTION)
-  const existing = await queueCollection.findOne({ visit_id: visitObjectId, xrstatx: { $nin: [0, 3] } })
-
-  /* กดซ้ำต้องไม่รีเซ็ตเวลาเรียกเดิม — ลำดับใน My Room จะสลับมั่วถ้าเวลาเปลี่ยนทุกครั้งที่กด */
-  if (existing && valueText(existing.called_at).trim()) {
-    return {
-      success: true,
-      data: {
-        visit_id: visitId,
-        called_at: valueText(existing.called_at).trim(),
-        called_by: existing.called_by || null,
-        already_called: true
-      },
-      message: 'คิวนี้ถูกเรียกเข้าห้องแล้ว'
+      rows,
+      total: rows.length,
+      counts: stateCounts,
+      date: trackingDate,
+      read_only: true,
+      organization_code: organizationCode
     }
-  }
-
-  /* ต้องมีใบสั่ง X-ray ที่ยังรออยู่จริง ไม่งั้นเรียกคิวว่างเข้าห้องได้ */
-  const pending = await runQueueAggregate(
-    queueVisitPipeline(queueWaitingStatuses).concat(
-      [{ $match: { _id: visitObjectId } }],
-      /* ต้องเป็น visit ของวันนี้ด้วย ไม่ใช่แค่ "มีใบสั่งที่ยังรออยู่" — ไม่งั้นเรียก
-         visit เก่าเข้าห้องได้ผ่านทางเรียกตรง ทั้งที่หน้าจอไม่ควรมีปุ่มให้กดแล้ว */
-      validDate(queueToday) ? queueVisitDayStages : [],
-      [{ $limit: 1 }]
-    )
-  )
-  if (!pending.length) {
-    return {
-      success: false,
-      error: 'nothing_to_call',
-      message: 'Visit นี้ไม่มีรายการ X-ray ที่รอเรียกคิวของวันนี้'
-    }
-  }
-
-  const queueDoc = {
-    visit_id: visitObjectId,
-    vn: valueText(pending[0].vn).trim(),
-    hn: valueText(pending[0].hn).trim(),
-    called_at: now,
-    called_by: actorAudit,
-    /* บันทึกไว้ว่าเรียกจาก organization ไหน เพื่อการตรวจสอบย้อนหลัง
-       — ไม่ได้ใช้กรอง My Room เพราะผู้ใช้ยืนยันว่าไม่แยก org (2026-09-08) */
-    called_unit: organizationCode,
-    queue_date: valueText(app.curDate()).trim().slice(0, 10),
-    xrstatx: 1
-  }
-
-  try {
-    if (existing) {
-      await queueCollection.updateOne({ _id: existing._id }, { $set: queueDoc })
-    } else {
-      await queueCollection.insertOne(queueDoc)
-    }
-  } catch (error) {
-    return { success: false, message: 'บันทึกการเรียกคิวไม่สำเร็จ: ' + valueText(error && error.message) }
-  }
-
-  return {
-    success: true,
-    data: { visit_id: visitId, called_at: now, called_by: actorAudit, already_called: false },
-    message: 'เรียกคิวเข้าห้องแล้ว'
-  }
-}
-
-/* ── ปิดคิว (สำเร็จ / ส่งต่อ) ───────────────────────────────────────────────
-   เพิ่ม 2026-09-08 ตามคำสั่งผู้ใช้: แท็บที่ 4 แบบฟอร์ม EMR ที่ "มีความหมายว่า
-   สำเร็จ/ส่งต่อคิว เพราะมันคนละความหมายกับผลออกครบ"
-   ⇒ เป็นสถานะของ **คิว** ล้วน ๆ ไม่ผูกกับ current_status ของรายการเลย
-   ใบที่ผลยังไม่ออกก็ปิดคิวได้ (คนไข้ถ่ายเสร็จแล้วเดินไปห้องอื่นต่อ)
-   และใบที่ออกผลครบแล้วแต่ยังไม่ได้ส่งต่อก็ยังอยู่ My Room ตามเดิม */
-if (action === 'queue_done') {
-  const visitId = valueText(params.visit_id).trim()
-  if (!/^[a-f0-9]{24}$/i.test(visitId)) {
-    return { success: false, error: 'invalid_visit_id', message: 'visit_id ไม่ถูกต้อง' }
-  }
-
-  const now = valueText(app.curDate('YYYY-MM-DD HH:mm:ss')).trim()
-  const actorCode = valueText(userInfo.employee_code || userInfo.username ||
-    (userInfo.account && (userInfo.account.code || userInfo.account.name))).trim()
-  if (!actorCode) {
-    return { success: false, error: 'actor_missing', message: 'ไม่พบผู้ปิดคิวจากบัญชีผู้ใช้' }
-  }
-  const actorName = valueText(userInfo.fullname || userInfo.display_name ||
-    (userInfo.account && (userInfo.account.label || userInfo.account.name)) || actorCode).trim()
-  const actorId = userInfo._id || userInfo.id ||
-    (userInfo.account && (userInfo.account._id || userInfo.account.id)) || ''
-  const actorAudit = { id: actorId, name: actorName || actorCode }
-
-  const queueCollection = app.db.collection(QUEUE_COLLECTION)
-  const existing = await queueCollection.findOne({
-    visit_id: app.dbObjectId(visitId),
-    xrstatx: { $nin: [0, 3] }
-  })
-
-  /* ปิดคิวที่ไม่เคยถูกเรียกเข้าห้องไม่ได้ — ไม่งั้นคิวจะข้ามจาก Unit Queue
-     ไปโผล่ Completed โดยไม่มีใครเคยรับคนไข้เข้าห้องจริง */
-  if (!existing || !valueText(existing.called_at).trim()) {
-    return { success: false, error: 'not_called', message: 'คิวนี้ยังไม่ได้ถูกเรียกเข้าห้อง จึงปิดคิวไม่ได้' }
-  }
-
-  /* กดซ้ำ = ไม่รีเซ็ตเวลาปิดเดิม ลำดับในแท็บ Completed จะได้ไม่สลับ */
-  if (valueText(existing.done_at).trim()) {
-    return {
-      success: true,
-      data: {
-        visit_id: visitId,
-        done_at: valueText(existing.done_at).trim(),
-        done_by: existing.done_by || null,
-        already_done: true
-      },
-      message: 'คิวนี้ถูกปิดไปแล้ว'
-    }
-  }
-
-  try {
-    await queueCollection.updateOne(
-      { _id: existing._id },
-      {
-        $set: {
-          done_at: now,
-          done_by: actorAudit,
-          done_unit: organizationCode,
-          /* บอกที่มาไว้เผื่อภายหลังมีทางปิดคิวแบบอื่นนอกจากการส่งต่อ */
-          done_reason: valueText(params.done_reason).trim() || 'forwarded'
-        }
-      }
-    )
-  } catch (error) {
-    return { success: false, message: 'บันทึกการปิดคิวไม่สำเร็จ: ' + valueText(error && error.message) }
-  }
-
-  return {
-    success: true,
-    data: { visit_id: visitId, done_at: now, done_by: actorAudit, already_done: false },
-    message: 'ปิดคิวแล้ว'
   }
 }
 
@@ -2559,56 +2722,8 @@ if (scopeFrom || scopeTo) {
   pipeline.push({ $match: { status_date: range } })
 }
 
-/* ── ประตูคิวแบบ hybrid (ผู้ใช้สั่ง 2026-09-08) ─────────────────────────────
-   "คลินิคอื่นส่งมา = ต้องเรียกคิวก่อนรายการถึงจะมาแสดงที่หน้ารายการ xray
-    ถ้าเขากดสั่งสร้างรายการเอง = order จะแสดงที่ tab หน้า xray เลย"
-
-   แสดงเมื่อเข้าเงื่อนไขใดเงื่อนไขหนึ่ง:
-     1) อ่านยูนิตต้นทางไม่ออก        → แสดง (fail-open ตามที่ผู้ใช้เลือก)
-     2) ต้นทางเป็นหน่วยรังสีเอง       → แสดงทันที ไม่ต้องมีคิว
-     3) visit นี้ถูกเรียกเข้าห้องแล้ว  → แสดง
-   ⇒ ที่ถูกซ่อนคือ "ใบจากที่อื่นที่ยังไม่เคยถูกเรียกคิว" เท่านั้น
-   ⚠️ ผู้ใช้ยืนยันว่าให้ซ่อนแม้เป็นใบของ visit วันก่อน ⇒ ใบเก่าที่ไม่เคยเรียกคิว
-      จะไม่โผล่แม้ค้นด้วย HN หรือเลือกช่วงวันที่ (ยอมรับ trade-off นี้แล้ว)
-   เทียบ visit ด้วย $toString ทั้งสองฝั่ง เพราะ xparentx เป็น ObjectId หรือ string ก็ได้ */
-pipeline.push(
-  {
-    $lookup: {
-      from: QUEUE_COLLECTION,
-      let: { visit_id: '$_diagnosis_visit_id' },
-      pipeline: [
-        {
-          $match: {
-            $expr: {
-              $and: [
-                { $eq: [{ $toString: '$visit_id' }, { $toString: '$$visit_id' }] },
-                { $not: [{ $in: [{ $ifNull: ['$xrstatx', 1] }, [0, 3]] }] },
-                { $ne: [{ $ifNull: ['$called_at', ''] }, ''] }
-              ]
-            }
-          }
-        },
-        { $limit: 1 },
-        { $project: { _id: 1 } }
-      ],
-      as: '_called_queue'
-    }
-  },
-  {
-    $match: {
-      $expr: {
-        $or: [
-          { $eq: [{ $ifNull: ['$origin_unit', ''] }, ''] },
-          { $in: [{ $ifNull: ['$origin_unit', ''] }, allowedOrganizations] },
-          { $gt: [{ $size: { $ifNull: ['$_called_queue', []] } }, 0] }
-        ]
-      }
-    }
-  }
-)
-
 /* p_cid อยู่ที่ zdata_person ไม่อยู่ใน vid.pid snapshot; join เฉพาะการค้นเลขบัตร
-   หลัง scope/date/queue gate แต่ก่อน facet เพื่อให้ rows, total และ counts ใช้ชุดเดียวกัน
+   หลัง scope/date/visibility gate แต่ก่อน facet เพื่อให้ rows, total และ counts ใช้ชุดเดียวกัน
    โหมดสแกน citizen_id ต้อง match เลขบัตรตรงตัว ส่วน q 13 หลักยังเป็น free-text ตามเดิม
    ใบ CPOE จริงบางใบมี vid.pid.hn แต่ไม่มี vid.pid.value จึง fallback ด้วย HN ที่ตรงกัน
    ไม่ส่งเลขบัตรหรือเอกสาร person ออกไปที่ client */
@@ -2774,7 +2889,6 @@ pipeline.push({
           bucket: 0,
           modality_codes: 0,
           status_date: 0,
-          _called_queue: 0,
           _citizen_search_person: 0,
           _diagnosis_visit_id: 0,
           _person_id: 0,

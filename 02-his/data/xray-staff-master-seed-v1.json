@@ -1,0 +1,130 @@
+{
+  "version": 1,
+  "status": "seed-only-not-imported",
+  "notes": [
+    "ข้อมูลชุดนี้ใช้กับ Member form เดียว และยังไม่ถูกนำเข้าระบบ",
+    "คำนำหน้าใช้ object จาก PRENAME form 6a3797c94cfbfdbe257f86fd โดย value = prename_code และ label = prename_min_name",
+    "ยังไม่สร้างหรือเชื่อม initCraft User, Position master, 43 แฟ้ม, X-ray Worklist หรือ RIS",
+    "ตัวเลือก OTHER ใช้สำหรับแพทย์ภายนอกและต้องกรอก position_other ตอนใช้งานจริง",
+    "อีเมล staff01@example.invalid ถูกระบุซ้ำสำหรับ พิมพ์พันธ์ พุทธวงศ์ และ ณัฐพล ธนรัชต์สกุล ตามข้อมูลต้นทาง ต้องยืนยันก่อนนำเข้าระบบจริง"
+  ],
+  "members": [
+    {
+      "prename": { "value": "135", "label": "พ.ญ.", "prename_full_name": "แพทย์หญิง" },
+      "first_name": "กนกพร",
+      "last_name": "ชุติวงศ์ธนะพัฒน์",
+      "email": "",
+      "position": "RADIOLOGIST_PRO",
+      "position_other": "",
+      "professional_code": ""
+    },
+    {
+      "prename": { "value": "135", "label": "พ.ญ.", "prename_full_name": "แพทย์หญิง" },
+      "first_name": "ปรางใส",
+      "last_name": "คุ้มสาธิต",
+      "email": "",
+      "position": "RADIOLOGIST_PRO",
+      "position_other": "",
+      "professional_code": ""
+    },
+    {
+      "prename": { "value": "135", "label": "พ.ญ.", "prename_full_name": "แพทย์หญิง" },
+      "first_name": "ธนิฏฐา",
+      "last_name": "พฤกษหิรัญ",
+      "email": "",
+      "position": "RADIOLOGIST_PRO",
+      "position_other": "",
+      "professional_code": ""
+    },
+    {
+      "prename": { "value": "135", "label": "พ.ญ.", "prename_full_name": "แพทย์หญิง" },
+      "first_name": "ชมนาด",
+      "last_name": "จิตต์แจ้ง",
+      "email": "",
+      "position": "RADIOLOGIST_SENIOR",
+      "position_other": "",
+      "professional_code": ""
+    },
+    {
+      "prename": { "value": "135", "label": "พ.ญ.", "prename_full_name": "แพทย์หญิง" },
+      "first_name": "ลลิตพรรณ",
+      "last_name": "นิมมานเกียรติกุล",
+      "email": "",
+      "position": "RADIOLOGIST_PRO",
+      "position_other": "",
+      "professional_code": ""
+    },
+    {
+      "prename": { "value": "005", "label": "นาง", "prename_full_name": "นาง" },
+      "first_name": "สุกัญญา",
+      "last_name": "ประจะเน",
+      "email": "staff02@example.invalid",
+      "position": "RADIOGRAPHER_PRO",
+      "position_other": "",
+      "professional_code": ""
+    },
+    {
+      "prename": { "value": "004", "label": "น.ส.", "prename_full_name": "นางสาว" },
+      "first_name": "อารีรัตน์",
+      "last_name": "หล้าสิงห์",
+      "email": "staff03@example.invalid",
+      "position": "RADIOGRAPHER_PRO",
+      "position_other": "",
+      "professional_code": ""
+    },
+    {
+      "prename": { "value": "004", "label": "น.ส.", "prename_full_name": "นางสาว" },
+      "first_name": "ศรัญญา",
+      "last_name": "บุญเกิด",
+      "email": "staff04@example.invalid",
+      "position": "RADIOGRAPHER_PRO",
+      "position_other": "",
+      "professional_code": ""
+    },
+    {
+      "prename": { "value": "003", "label": "นาย", "prename_full_name": "นาย" },
+      "first_name": "ศุภกร",
+      "last_name": "ทองนิ่ม",
+      "email": "staff05@example.invalid",
+      "position": "RADIOGRAPHER_PRACTICE",
+      "position_other": "",
+      "professional_code": ""
+    },
+    {
+      "prename": { "value": "004", "label": "น.ส.", "prename_full_name": "นางสาว" },
+      "first_name": "พิมพ์พันธ์",
+      "last_name": "พุทธวงศ์",
+      "email": "staff01@example.invalid",
+      "position": "RADIOGRAPHER_PRACTICE",
+      "position_other": "",
+      "professional_code": ""
+    },
+    {
+      "prename": { "value": "004", "label": "น.ส.", "prename_full_name": "นางสาว" },
+      "first_name": "วนัชพร",
+      "last_name": "เผื่อแผ่",
+      "email": "staff06@example.invalid",
+      "position": "RADIOGRAPHER_PRACTICE",
+      "position_other": "",
+      "professional_code": ""
+    },
+    {
+      "prename": { "value": "004", "label": "น.ส.", "prename_full_name": "นางสาว" },
+      "first_name": "อัญชลี",
+      "last_name": "สิทธิเจริญธรรม",
+      "email": "staff07@example.invalid",
+      "position": "RADIOGRAPHER_PRACTICE",
+      "position_other": "",
+      "professional_code": ""
+    },
+    {
+      "prename": { "value": "003", "label": "นาย", "prename_full_name": "นาย" },
+      "first_name": "ณัฐพล",
+      "last_name": "ธนรัชต์สกุล",
+      "email": "staff01@example.invalid",
+      "position": "RADIOGRAPHER_PRACTICE",
+      "position_other": "",
+      "professional_code": ""
+    }
+  ]
+}

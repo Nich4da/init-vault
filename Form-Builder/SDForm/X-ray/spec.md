@@ -2,7 +2,7 @@
 type: spec
 title: X-ray Workbench SDForm — Build Spec
 created: 2026-08-31
-updated: 2026-09-24
+updated: 2026-10-08
 tags: [xray, sdform, spec, worklist]
 ---
 
@@ -27,7 +27,7 @@ tags: [xray, sdform, spec, worklist]
 | Form · RIS Order Status Change (`xray_order_status_change.json` → `zdata_xray_order_status_change`) | `6a9eeef2a8772e80309592e3` |
 | Form · บันทึกการใช้สารทึบรังสี (`xray-contrast-media-record-v1.json`) | `6aa2424809c1bad08952da71` — import แล้ว · **ยังไม่ยืนยันว่า Builder เรนเดอร์ครบ** (แก้ checkbox 2026-09-10 ต้อง import ทับแล้วดูอีกรอบ) |
 | Form · คลังหนังสือยินยอม (`xray-consent-document-library-v1.json`) | `6aab93911c5232627d0c6ee1` — ผู้ใช้ยืนยันการใช้งานคลัง/พรีวิว/พิมพ์บน HIS 2026-09-17; ไม่มีหลักฐานเคสใบลงนามผูกผู้ป่วย |
-| Form · ประวัติการใช้สารทึบรังสี (`xray-contrast-history-v1.json`) | **ยังไม่ import** (สร้าง 2026-09-27) — อ่านอย่างเดียว ใช้ Process worklist เดิม `6a957009422c1ca959829e45` · ขึ้นกับการ join `zdata_xray_contrast_media` ที่ฝั่ง API ซึ่งยังไม่มี |
+| Form · ประวัติการใช้สารทึบรังสี (`xray-contrast-history-v1.json`) | **ยังไม่ import** (สร้าง 2026-09-27 · ทำใหม่ตาม pattern ของ Worklist 2026-10-02) — อ่านอย่างเดียว ใช้ Process worklist เดิม `6a957009422c1ca959829e45` เฉพาะ `action:'list'` · กรองเหลือเฉพาะใบที่มีบันทึกสารทึบ · ไม่มีปุ่มสั่งงานและไม่มี chip สถานะ · ขึ้นกับการ join `zdata_xray_contrast_media` ที่ฝั่ง API ซึ่งยังไม่มี |
 | Process · order status change (ขาเข้า RIS→HIS) | `6a861d99f851000f28e44ab2` |
 | Process · worklist (`list` · `get_report` · `cancel_order`) | `6a957009422c1ca959829e45` |
 | Process · LAB worklist สำหรับแท็บสืบค้นแบบอ่านอย่างเดียว (`list` · `get_manual_result`) | `6a9434c3422c1ca959829d5e` |
@@ -496,7 +496,52 @@ Item object ต้องมีอย่างน้อย: `item_id`, `item_code
 ยังไม่ deploy: ต้อง import `xray-cpoe-worklist-v1.json` และ replace Process
 `xray_cpoe_worklist_api.js` แล้วยืนยันบนจอจริงก่อนถือว่าปิดข้อ TOR
 
-### 4.1.2 ปุ่ม “นัดล่วงหน้า” — ถอดออก 2026-09-26
+### 4.1.7 EMR-native queue สำหรับ X-ray (ยืนยัน 2026-10-08)
+
+X-ray ไม่เป็นเจ้าของคิวแยก และไม่ประกอบ Order เป็นคิวเอง. สามแท็บคิว clone widget เต็มจาก
+EMR แล้วใช้ Visit Tran Form `6a461235e521219e514d1c4b` โดยตรง:
+
+- `m0900` เป็น parent/front-desk center. เมื่อไม่เลือก Room, Unit Queue เห็นเฉพาะ `waiting`
+  ที่ `room_to` ว่าง/`FRONT`; My Room เห็น `called/in_progress/skipped` ของ `FRONT`
+- เจ้าหน้าที่ center ใช้ “ย้ายห้อง” ของ EMR (`6a9524df422c1ca959829d9e`) เพื่อส่งคิวเข้าห้องลูก
+- เมื่อเลือก Room, Unit Queue/My Room กรอง `room_to.value` เป็นห้องนั้น จึงไม่มีคิวเดียวแสดง
+  พร้อมกันทุกห้อง และไม่มีรายการห้องใหญ่ 4 ห้องแบบ custom
+- ปุ่มเรียกที่ center ใช้ `queue-call-front` (`6ab0bb0afc8b9ef3e717b010`); ปุ่มเรียกที่ห้องลูกใช้
+  `call-next-queue` (`6a4b942bac48023662b1b42a`) พร้อม Room และ `pick_id` เมื่อเรียกรายแถว
+- ซักประวัติ, ข้าม/เรียกกลับ, ย้ายห้อง, ส่งต่อ และ Completed ใช้ Form/Process กลางของ EMR
+- ปุ่ม `X-ray` ใน My Room stamp `start` ด้วย Process กลาง แล้วเปิด Worklist เดิมที่ Visit นั้น;
+  Worklist, Finance `ready`, Accession, Dispatch, RIS, นัดหมาย, สารทึบ, การพิมพ์ และ LAB lookup
+  คงเดิม
+- X-ray Worklist API ไม่มี `action: queue`; ห้ามอ่าน/เขียน `zdata_xray_queue` ใน application
+  logic แต่ห้ามลบ collection/data เดิม
+- `custom_queue` ของ `m0900` ต้องว่าง/ไม่จำกัด และ master ต้องกำหนด `m0900` เป็น front desk;
+  ชุด Replace นี้ไม่แก้ Organization master หรือ EMR สด
+
+รอบนี้ต้อง replace Form ก่อน Process (เพื่อหยุด Form เก่าเรียก `action: queue`) แล้ว UAT กับ
+`m0900`/Room จริง. ตรวจอย่างน้อย:
+คิวใหม่กองที่ `FRONT`, ย้ายเข้าห้องลูกแล้วเห็นเฉพาะห้องนั้น, เริ่มตรวจเปิด Worklist Visit เดิม,
+ส่งต่อ/จบแล้วเห็น Completed ระดับสายหน่วย และ X-ray/LAB/RIS เดิมไม่ถดถอย.
+### 4.1.2 ปุ่ม “นัดล่วงหน้า” — ถอดออก 2026-09-26 · **เอากลับ 2026-10-05**
+
+> 🔄 **อัปเดต 2026-10-05:** ผู้ใช้สั่ง *“ปุ่มที่เราเคยผูกโมดูลการนัดล่วงหน้าไว้ เอากลับมาเหมือนเดิม”*
+> ⇒ กู้ทั้งชุดกลับเป็นรูปเดิมของ 2026-09-23: ปุ่มใน `.xr-create-group` (แถวแรก คอลัมน์ 2) ·
+> `APPOINTMENT_FORM_ID` = `6ab207459a834d51703fc158` พร้อม env `XRAY_APPOINTMENT_FORM_ID` ·
+> `s.appointmentHint` (บอกด้วยว่าจอต้องมีสิทธิ์ RIS/XRAY/ADMIN) · `s.openAppointment`
+> (เปิดจอแบบไม่ส่ง initData และพา HN/เลขบัตรในบริบทไปให้) · CSS `.xr-appointment-button` ·
+> ปุ่ม **หนังสือยินยอม** กลับไป `grid-row:2` ตามผังเดิม
+>
+> 🔴 **แก้ JSON แบบ surgical ไม่ได้ regenerate** เพราะ generator ตกด่านของตัวเองที่ว่า
+> widget LAB ต้องมีสัญญา Sensitive-result (`s.requestSensitiveAccess=`) — ฟอร์ม LAB ต้นทาง
+> ถูก session อื่นแก้ 2026-10-02 (เลิกใช้ re-auth) ⇒ ถ้า regenerate ตอนนี้จะลาก widget LAB
+> ฉบับกำลังแก้เข้ามาด้วย (±500 บรรทัด) · ตรวจ diff แล้วแก้เฉพาะสามจุดของปุ่มนัด:
+> `cssCode` (+1/−1 บรรทัด) · `content` (+2) · `onCreated` (+24) ของ widget `xray_cpoe_worklist`
+> เท่านั้น · ของเดิมไม่มีบรรทัดไหนหาย · generator ก็แก้ให้ตรงกันแล้ว รอบหน้าที่ LAB นิ่งแล้ว
+> `XRAY_RIS_VIEWER_ENABLED=1 node ...build_xray_cpoe_worklist_ui.js` จะได้ผลลัพธ์เดียวกัน
+>
+> เทส: พลิก assertion กลับใน 3 ไฟล์เดิม (`test_xray_cpoe_worklist_form.js` ·
+> `test_xray_queue_deeplink.js` · `test_xray_consent_document_library.js`) พร้อมคอมเมนต์ลงวันที่
+
+**บันทึกเดิมของรอบถอดออก (เก็บไว้เป็นประวัติ):**
 
 ผู้ใช้สั่ง: *“เอาปุ่มนัดล่วงหน้าออกได้เลย ฉันเปลี่ยนแพลนว่าควรแยก module ดีกว่า
 เพราะในระบบนัดล่วงหน้ามีทุกอย่างครบแล้ว ลองเข้าไปศึกษาฟอร์มดู มีทั้งรายการนัด ตาราง schedule”*
@@ -574,11 +619,16 @@ owner Worklist และ write actions ยังถูกบล็อกตา�
   ชุดเดียวกัน ไม่เหลือ markup/CSS `.xll-*` ใน generated Form
 - เอาออกเพียงแถบ `รายการวันนี้ | สืบค้นผลแลป | สลับ CBC` เพราะ top tab ของ X-ray
   เลือกพื้นที่นี้ให้อยู่แล้ว; state ถูก lock ที่ `viewMode='lookup'`
-- Process allowlist ฝั่ง Form ยอมเฉพาะ list (action ว่าง/`list`),
-  `get_manual_result` และ `authorize_sensitive_result`; action อื่น fail closed ก่อนถึง connector
-- คง Process LAB, `cross_section:true`, `lookup_mode`, authorization และ Access Log เดิม
-- parity regression เปรียบ content กับ LAB widget แบบ exact หลังตัด view switcher และพิสูจน์
-  ว่า tab เปิดว่าง, ค้น HN/date ได้, dialog อ่านทุก Item, Sensitive flow อยู่ และ write ถูกบล็อก
+- **อัปเดต 2026-10-05 เฉพาะ Sensitive policy:** ให้ตรงกับ LAB ปัจจุบันซึ่งเลิก re-auth
+  ใน Worklist/Lookup แล้ว: แสดง placeholder สีแดง `ปกปิดผล`, ไม่มีปุ่ม/dialog บัญชีแพทย์,
+  ไม่ส่ง credential, `authorize_sensitive_result` หรือ grant ใด ๆ และ PDF คง redacted
+- Process allowlist ฝั่ง Form ยอมเฉพาะ list (action ว่าง/`list`) และ
+  `get_manual_result`; action อื่น fail closed ก่อนถึง connector
+- คง Process LAB, `cross_section:true` และ `lookup_mode` เดิม; server เป็นผู้ตัดสิน
+  `sensitive_locked` และ Form ห้ามพยายามปลดล็อก
+- regression ตรวจโครง lookup/lifecycle/read-only guard และ Sensitive redaction contract
+  โดยไม่บังคับ byte parity กับ LAB ทั้งก้อน เพื่อไม่ลากงาน LAB ที่ไม่เกี่ยวหลายร้อยบรรทัด
+  เข้ามาเมื่อผู้ใช้อนุญาตให้แก้เฉพาะจุดนี้
 - ไม่เปลี่ยน pane/lifecycle ของ Unit Queue, My Room, X-ray, Completed, RIS viewer, ordering,
   cancellation, contrast หรือ LAB Worklist ต้นทาง
 
@@ -651,6 +701,22 @@ pane ตัวสุดท้ายจริง · เปลี่ยนกา�
 ยังไม่ขยับในรอบนี้: §3.4.3.4 “จัดเรียง/กรองรายการนัดตาม Modality, อายุ, ชื่อ, รายการตรวจ,
 Code, แหล่งที่มา” — ข้อมูลครบทุกมิติในใบนัดแล้ว แต่ผู้ใช้ยังไม่ได้ยืนยันว่าจอเปิดให้
 จัดเรียง/กรองครบทุกมิติ (โค้ดจอเข้ารหัส ตรวจเองไม่ได้)
+
+**อัปเดต TOR 2026-10-09 (audit ฐานข้อมูลจริงแบบอ่านอย่างเดียว):** ขยับ 3 ข้อ
+
+| TOR | ข้อ | เดิม → ใหม่ | หลักฐาน |
+|---|---|---|---|
+| §3.4.3.4 | ผู้ป่วยใหม่ลงทะเบียนออนไลน์เพื่อจองคิว | ยังไม่มี → **ครบ** | `zdata_appt_register_request` `new_patient` 4 ใบ อนุมัติ/ได้ HN ครบ · HN กลุ่มนี้จอง X-ray จริง 13 ใบ (`xr-book` ใช้ `appt_patient_link`) |
+| §3.4.3.2 | บันทึก incident report | บางส่วน → **ครบ** | ฟอร์มสารทึบเปิดจาก Worklist ตั้งแต่ 23 ก.ย. · แถวจริงมี `extravasation` · ข้อความ "ยังไม่ได้เชื่อม" ล้าสมัย |
+| §3.4.3.5 | Print/PDF ผลอ่าน | ยังไม่มี → **บางส่วน** | `module_report` `Xray result` (X-RAY Report) จาก `zdata_xray_result` param `dataid` · ยังไม่ยืนยันปุ่มจากหน้างาน |
+
+ผลรวมใหม่: **ครบ 21 / บางส่วน 20 / ยังไม่มี 31 / ไม่ทำตามนโยบาย 1** จาก 73 ข้อ (ถ่วงน้ำหนัก ≈ 42%)
+
+พบแต่ยังไม่ปิดข้อ: ใบนัด 16 ใบ (LINE 11 · staff 3 · nurse 2) · มี `has_request:true` จริง 2 ใบ · `arrived` 1 ใบแต่ยังไม่มี
+`visit_id`/`order_id` · `emr-summary-get` ส่งผล X-ray ให้หน้าแพทย์แล้ว (ต้องยืนยันบนจอ) · ฟอร์ม `xray-contrast-history` import แล้ว
+แต่ Worklist Process ยังไม่ join ตารางสารทึบ · `zdata_xr_ris_outbox` 11 รายการ `pending` ทั้งหมด · role `RIS` 0 บัญชี / ไม่มี `XRAY` ·
+transport สำเร็จ 9 ล้ม 12 (ยังไม่ส่งซ้ำ) · ผล RIS ยัง 7 แถวตั้งแต่ 18 ก.ย. · Worklist Process live ตรงกับรีโปทุกไบต์ ·
+ฟอร์ม live เข้ารหัสจึงยืนยัน UI จาก DB ไม่ได้ · Artifact อัปเดตในลิงก์เดิม (v9)
 
 ### 4.2 `xray-cpoe-dispatch`
 
@@ -822,10 +888,11 @@ API ใช้ vocabulary ของตัวเอง
 การรับครั้งแรกจาก `sent` ก่อนจองเลข/แก้สถานะ/เรียก RIS. Retry, repair, incomplete dispatch
 และ resend ที่มีหลักฐานว่าเคยรับแล้วไม่ถูกบล็อกด้วย gate นี้.
 
-กล่องชำระเงินแสดงเฉพาะสิทธิ์เงินสดที่มียอด `total_amount > 0`. ข้อความและสีต้องอ่าน
-สถานะ Item ชุดเดียวกับปุ่ม: ถ้ายังมี Item active เป็น `sent` ให้แสดงแดง
-`ยังไม่ได้ชำระเงิน`; เมื่อทุก Item active เป็น `ready` หรือสถานะหลังรับแล้วให้แสดงเขียว
-`ชำระเงินแล้ว`. สิทธิ์อื่นไม่แสดงกล่องชำระเงินและคง badge สิทธิ์เดิม.
+กล่องชำระเงินแสดงแบบเดียวกับ LAB เมื่อมี `total_amount > 0` หรือมีสิทธิ์การรักษา โดยคง
+badge สิทธิ์เดิมไว้และแสดงกล่องการเงินร่วมกัน. ข้อความและสีต้องอ่านสถานะ Item ชุดเดียวกับ
+ปุ่ม: ถ้ายังมี Item active เป็น `sent` ให้แสดงแดง `ยังไม่ได้ชำระเงิน`; เมื่อทุก Item active
+เป็น `ready` หรือสถานะหลังรับแล้วให้แสดงเขียว `ชำระเงินแล้ว`. ห้ามใช้ `paid_amount`
+ข้าม Finance gate หรือเปลี่ยน flow dispatch.
 
 ---
 

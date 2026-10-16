@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>X-ray Worklist · Manual Result Mockup</title>
+  <style>
+    :root{
+      --primary:#409eff;--primary-50:#ecf5ff;--primary-200:#a0cfff;
+      --success:#67c23a;--success-50:#f0f9eb;--success-200:#b3e19d;
+      --warning:#e6a23c;--warning-50:#fdf6ec;--warning-200:#f3d19e;
+      --danger:#f56c6c;--ink:#303133;--text:#606266;--muted:#909399;
+      --border:#dcdfe6;--border-light:#e4e7ed;--border-lighter:#ebeef5;
+      --fill:#f5f7fa;--fill-soft:#fafafa;--white:#fff;
+      --shadow:0 18px 52px rgba(31,35,41,.22);
+      --font:"Leelawadee UI","Noto Sans Thai",Tahoma,"Segoe UI",sans-serif;
+      --mono:"SFMono-Regular","Roboto Mono",Consolas,monospace;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:#fff;color:var(--text);font:14px/1.45 var(--font);-webkit-font-smoothing:antialiased}
+    button,input,select,textarea{font:inherit}
+    button{cursor:pointer}
+    button:disabled{cursor:not-allowed;opacity:.55}
+    [hidden]{display:none!important}
+    :focus-visible{outline:2px solid rgba(64,158,255,.5);outline-offset:2px}
+    .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+    .page{max-width:1600px;margin:0 auto;padding:26px clamp(18px,3vw,46px) 48px}
+    .context{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:18px}
+    .title{display:flex;align-items:center;gap:12px}
+    .app-icon{display:grid;width:42px;height:42px;place-items:center;border-radius:9px;background:var(--primary-50);color:var(--primary)}
+    .app-icon svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.7}
+    h1{margin:0;color:var(--ink);font-size:25px;line-height:1.2}
+    .subtitle{margin-top:3px;color:var(--muted);font-size:12px}
+    .demo-label{padding:5px 9px;border:1px solid var(--warning-200);border-radius:5px;background:var(--warning-50);color:#b88230;font-size:11px;font-weight:700}
+    .tabs{display:flex;align-items:flex-end;border-bottom:1px solid var(--border-light)}
+    .tab{min-width:130px;padding:13px 18px;border:1px solid var(--border-light);border-bottom:0;background:#fff;color:var(--ink);font-weight:650;text-align:center}
+    .tab+.tab{margin-left:-1px}.tab.active{position:relative;color:var(--primary);background:#fff}
+    .tab.active:after{content:"";position:absolute;right:0;bottom:-1px;left:0;height:2px;background:var(--primary)}
+    .toolbar{display:flex;gap:10px;align-items:center;margin:18px 0}
+    .search{width:min(440px,100%);height:36px;padding:0 12px;border:1px solid var(--border);border-radius:5px;color:var(--text)}
+    .btn{display:inline-flex;min-height:34px;align-items:center;justify-content:center;gap:7px;padding:0 13px;border:1px solid var(--border);border-radius:5px;background:#fff;color:var(--text);font-weight:650;transition:.15s}
+    .btn:hover{border-color:var(--primary-200);background:var(--primary-50);color:var(--primary)}
+    .btn-primary{border-color:var(--primary);background:var(--primary);color:#fff}.btn-primary:hover{background:#66b1ff;color:#fff}
+    .btn svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+    .status-strip{display:flex;gap:8px;align-items:center;margin-bottom:14px}
+    .chip{display:flex;align-items:baseline;gap:7px;padding:7px 13px;border:1px solid var(--border-light);border-radius:6px;background:var(--fill);color:var(--muted)}
+    .chip strong{font-size:18px;line-height:1}.chip.active{border-color:var(--warning)}.chip.active strong{color:var(--warning)}
+    .shell{overflow:hidden;border:1px solid var(--border-light);border-radius:7px;background:#fff}
+    .patient-row{display:grid;grid-template-columns:32px minmax(220px,1.35fr) minmax(155px,.8fr) minmax(155px,.8fr) minmax(180px,1fr) minmax(160px,.8fr);gap:16px;align-items:center;padding:18px 20px;border-left:4px solid var(--warning);background:#fffdfa}
+    .chevron{display:grid;width:28px;height:28px;place-items:center;border:0;background:transparent;color:var(--muted)}
+    .chevron svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2}
+    .hn{color:var(--ink);font-size:16px;font-weight:800}.name{margin-top:2px;color:var(--ink);font-weight:650}.minor{margin-top:3px;color:var(--muted);font-size:11px}
+    .label{display:block;margin-bottom:4px;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase}
+    .value{color:var(--ink);font-weight:650}.tag{display:inline-flex;align-items:center;min-height:24px;padding:2px 9px;border:1px solid var(--border);border-radius:999px;font-size:11px;font-weight:700}
+    .tag.wait{border-color:var(--warning-200);background:var(--warning-50);color:#b88230}.tag.ok{border-color:var(--success-200);background:var(--success-50);color:#529b2e}
+    .detail{border-top:1px solid var(--border-lighter)}
+    .detail-tabs{display:flex;align-items:center;gap:18px;height:47px;padding:0 20px;border-bottom:1px solid var(--border-light)}
+    .detail-tab{height:47px;padding:0 7px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--muted);font-weight:700}.detail-tab.active{border-bottom-color:var(--primary);color:var(--primary)}
+    .result-note{margin-left:auto;color:var(--muted);font-size:11px}
+    .table-wrap{overflow:auto}.result-table{width:100%;min-width:1040px;border-collapse:collapse;table-layout:fixed}
+    .result-table th{height:42px;padding:8px 12px;border-bottom:1px solid var(--border-light);background:var(--primary-50);color:var(--text);font-size:11px;text-align:left}
+    .result-table td{height:58px;padding:10px 12px;border-bottom:1px solid var(--border-lighter);vertical-align:middle}
+    .result-table tr:last-child td{border-bottom:0}.test-name{color:var(--ink);font-weight:700}.test-code{display:block;margin-top:2px;color:var(--muted);font-size:11px}
+    .manual-cell{display:flex;align-items:center;gap:8px}.pending-copy{color:var(--muted);font-size:11px}
+    .decision{display:grid;grid-template-columns:1.15fr .85fr;gap:14px;margin-top:18px}
+    .note-card{padding:14px 16px;border:1px solid var(--border-light);border-radius:7px;background:var(--fill-soft)}
+    .note-card h2{margin:0 0 7px;color:var(--ink);font-size:14px}.note-card p{margin:0;color:var(--text);font-size:12px}.note-card code{color:#337ecc}
+    dialog{width:min(1180px,calc(100vw - 30px));max-height:calc(100vh - 34px);padding:0;overflow:hidden;border:1px solid var(--border);border-radius:9px;background:#fff;color:var(--text);box-shadow:var(--shadow)}
+    dialog::backdrop{background:rgba(31,35,41,.48)}
+    .modal-head{display:flex;align-items:flex-start;gap:14px;padding:20px 22px 14px}
+    .modal-title{display:flex;align-items:center;gap:8px}.modal-title h2{margin:0;color:var(--ink);font-size:25px}.source-badge,.mode-badge{padding:2px 7px;border:1px solid var(--primary-200);border-radius:999px;background:var(--primary-50);color:#337ecc;font-size:10px;font-weight:800}
+    .mode-badge{border-color:var(--border);background:var(--fill);color:var(--muted)}
+    .title-pencil{display:grid;width:34px;height:34px;place-items:center;border:1px solid transparent;border-radius:5px;background:transparent;color:var(--primary)}
+    .title-pencil:hover,.title-pencil[aria-pressed="true"]{border-color:var(--primary-200);background:var(--primary-50)}.title-pencil svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+    .modal-meta{margin-top:4px;color:var(--muted);font-size:11px}.close{width:30px;height:30px;margin-left:auto;border:0;border-radius:5px;background:transparent;color:var(--muted);font-size:22px}.close:hover{background:var(--fill)}
+    .modal-body{max-height:calc(100vh - 170px);padding:18px;overflow:auto}
+    .warning{display:flex;gap:10px;margin-bottom:16px;padding:10px 12px;border:1px solid var(--warning-200);border-radius:6px;background:var(--warning-50);color:#8a6d00;font-size:12px}.warning svg{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8}
+    .pending-panel{display:grid;min-height:78px;place-items:center;margin-top:18px;padding:18px;border:1px dashed var(--warning-200);border-radius:7px;background:var(--warning-50);color:#b88230;font-weight:650;text-align:center}
+    .read-result{margin-top:18px;padding:16px;border:1px solid var(--border-lighter);border-radius:7px;background:var(--fill-soft);white-space:pre-wrap}.read-result strong{display:block;margin-bottom:7px;color:var(--ink)}
+    .patient-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px;padding:12px;border:1px solid var(--border-lighter);border-radius:6px;background:var(--fill-soft)}
+    .summary-value{display:block;margin-top:3px;color:var(--ink);font-size:12px;font-weight:650;overflow-wrap:anywhere}
+    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.field.full{grid-column:1/-1}.field label{display:block;margin-bottom:6px;color:var(--ink);font-size:12px;font-weight:700}.required{color:var(--danger)}
+    .field input,.field select,.field textarea{width:100%;border:1px solid var(--border);border-radius:5px;background:#fff;color:var(--ink)}
+    .field input,.field select{height:38px;padding:0 10px}.field textarea{min-height:180px;padding:10px 11px;resize:vertical;line-height:1.55}.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--primary);box-shadow:0 0 0 2px rgba(64,158,255,.12);outline:0}
+    .hint{margin-top:5px;color:var(--muted);font-size:10px}.count{text-align:right}.modal-foot{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid var(--border-lighter);background:var(--fill-soft)}
+    .save-note{margin-right:auto;color:var(--muted);font-size:10px}.toast{position:fixed;left:50%;bottom:24px;z-index:10;transform:translate(-50%,14px);padding:9px 14px;border-radius:6px;background:#303133;color:#fff;box-shadow:0 8px 26px rgba(31,35,41,.25);opacity:0;pointer-events:none;transition:.2s}.toast.show{transform:translate(-50%,0);opacity:1}
+    @media(max-width:1000px){.patient-row{grid-template-columns:32px 1.5fr 1fr 1fr}.patient-row>.hide-md{display:none}.decision{grid-template-columns:1fr}.patient-summary{grid-template-columns:1fr 1fr}}
+    @media(max-width:640px){.page{padding:16px 10px 34px}.context{align-items:flex-start}.tabs{overflow:auto}.tab{min-width:112px;padding-inline:12px}.toolbar{align-items:stretch;flex-direction:column}.search{width:100%}.status-strip{overflow:auto}.patient-row{grid-template-columns:30px 1fr;padding:14px 10px}.patient-row>div:not(.identity){display:none}.form-grid,.patient-summary{grid-template-columns:1fr}.field.full{grid-column:auto}.save-note{display:none}}
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="context">
+      <div class="title">
+        <span class="app-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18M6 6l12 12M18 6 6 18"/></svg></span>
+        <div><h1>X-Ray</h1><div class="subtitle">ต้นแบบปุ่มกรอกผล Manual ในรายการที่รอผลอ่านจาก RIS</div></div>
+      </div>
+      <span class="demo-label">MOCKUP · ข้อมูลตัวอย่าง</span>
+    </header>
+
+    <nav class="tabs" aria-label="เมนู X-ray">
+      <button class="tab">Unit Queue</button><button class="tab">My Room</button><button class="tab active">X-ray</button><button class="tab">Completed</button><button class="tab">ติดตามคิว</button><button class="tab">สืบค้นผลแลป</button>
+    </nav>
+    <div class="toolbar"><input class="search" value="" placeholder="HN / VN / ON / Acc. / AN / บัตร ปชช."><button class="btn btn-primary">Search</button></div>
+    <div class="status-strip"><div class="chip"><strong style="color:var(--primary)">1</strong><span>ทั้งหมด</span></div><div class="chip active"><strong>1</strong><span>รอผลอ่าน</span></div><div class="chip"><strong style="color:var(--success)">0</strong><span>ออกผลครบ</span></div></div>
+
+    <section class="shell" aria-label="ตัวอย่างรายการ X-ray">
+      <div class="patient-row">
+        <button class="chevron" aria-label="ย่อรายละเอียด"><svg viewBox="0 0 24 24"><path d="m5 9 7 7 7-7"/></svg></button>
+        <div class="identity"><div class="hn mono">6900002</div><div class="name">น.ส. ผู้ป่วย ตัวอย่าง</div><div class="minor">หญิง · 25 ปี</div></div>
+        <div><span class="label">รายการตรวจ</span><span class="value">CT Brain</span></div>
+        <div><span class="label">เครื่อง</span><span class="tag">CT</span></div>
+        <div class="hide-md"><span class="label">เวลาสั่ง / Order No.</span><span class="value mono">R2610150001</span><div class="minor mono">15/10/69 10:21</div></div>
+        <div class="hide-md"><span class="label">สถานะ</span><span class="tag wait">รอผลอ่านจาก RIS</span></div>
+      </div>
+      <div class="detail">
+        <div class="detail-tabs"><button class="detail-tab">order</button><button class="detail-tab active">ผลอ่าน</button><span class="result-note">ปุ่มดินสออยู่ข้างหัวข้อ “ผลอ่าน” ภายใน popup ตามรูปแบบ LAB</span></div>
+        <div class="table-wrap">
+          <table class="result-table">
+            <thead><tr><th style="width:55px">ลำดับ</th><th>รายการตรวจ</th><th style="width:110px">เครื่อง</th><th style="width:175px">Accession No.</th><th style="width:145px">เวลาออกผล</th><th style="width:240px">ผลอ่าน</th><th style="width:135px">สถานะ</th></tr></thead>
+            <tbody><tr><td class="mono">1</td><td><span class="test-name">CT Brain without contrast</span><span class="test-code mono">43002</span></td><td><span class="tag">CT</span></td><td class="mono">261015CT001</td><td class="mono" id="resultTime">–</td><td><div class="manual-cell" id="resultAction"><button class="btn" id="openResult" type="button">ดูผลอ่าน</button><span class="pending-copy">รอ RIS</span></div></td><td><span class="tag wait" id="resultStatus">รอผลอ่าน</span></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="decision" aria-label="ข้อเสนอการจัดเก็บข้อมูล">
+      <div class="note-card"><h2>ข้อเสนอ: ไม่ต้องสร้าง Form เก็บผลใหม่</h2><p>ให้ Manual Result ใช้โครงสร้างเดิม: upsert ฉบับปัจจุบันใน <code>zdata_xray_result</code> และ insert ทุกฉบับใน <code>zdata_zdata_xray_result_log</code> เพื่อให้ผลจาก RIS และ Manual อยู่ในประวัติเดียวกัน</p></div>
+      <div class="note-card"><h2>เพิ่มเฉพาะ UI + API บันทึก Manual</h2><p>API ต้องตรวจสิทธิ์, ผูกด้วย Accession No., บันทึกผู้ทำ/เวลา/แหล่งที่มา และห้ามแก้ทับ log เดิม ถ้า RIS ส่งมาทีหลังให้เป็นฉบับใหม่</p></div>
+    </section>
+  </main>
+
+  <dialog id="manualDialog" aria-labelledby="manualTitle">
+    <div class="modal-head">
+      <div class="modal-title">
+        <h2 id="manualTitle">ผลอ่าน</h2>
+        <button class="title-pencil" id="editResult" type="button" aria-label="กรอกหรือแก้ไขผลอ่าน Manual" aria-pressed="false" title="กรอกหรือแก้ไขผลอ่าน Manual"><svg viewBox="0 0 24 24"><path d="m4 20 4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10L4 20Z"/><path d="m14.5 7.5 3 3"/></svg></button>
+        <span class="mode-badge" id="resultMode">โหมดดูอย่างเดียว</span>
+      </div>
+      <button class="close" id="closeManual" aria-label="ปิด">&times;</button>
+    </div>
+
+    <section id="viewPanel">
+      <div class="modal-body">
+        <div class="patient-summary"><div><span class="label">HN / Order No.</span><span class="summary-value mono">6900002 / R2610150001</span></div><div><span class="label">Accession No.</span><span class="summary-value mono">261015CT001</span></div><div><span class="label">รายการตรวจ</span><span class="summary-value">CT Brain without contrast</span></div><div><span class="label">เครื่อง</span><span class="summary-value">CT</span></div></div>
+        <div class="pending-panel" id="pendingPanel">ยังไม่มีผลอ่านของรายการนี้ · รอ RIS ส่งกลับมา</div>
+        <div class="read-result" id="readResult" hidden><strong>ผลอ่าน <span class="source-badge">MANUAL</span></strong><span id="readResultText"></span></div>
+        <div class="minor" style="margin-top:20px">รหัสรังสีแพทย์: <span id="readRadiologist">–</span></div>
+      </div>
+      <div class="modal-foot"><button class="btn" type="button" id="closeView">ปิด</button></div>
+    </section>
+
+    <form id="manualForm" hidden>
+      <div class="modal-body">
+        <div class="warning"><svg viewBox="0 0 24 24"><path d="M12 3 2.5 20h19L12 3Z"/><path d="M12 9v5M12 17.5h.01"/></svg><div><strong>บันทึกเป็นผล Manual ภายใน popup เดิม</strong><br>ระบบต้องเก็บผู้บันทึก เวลา และแหล่งที่มา โดยไม่ลบประวัติเดิม หาก RIS ส่งผลภายหลังให้เก็บเป็นอีกฉบับ</div></div>
+        <div class="form-grid">
+          <div class="field"><label for="radiologist">รังสีแพทย์ <span class="required">*</span></label><select id="radiologist" required><option value="">— เลือกรังสีแพทย์ —</option><option>พญ. แพทย์ตัวอย่าง</option><option>นพ. รังสีแพทย์ตัวอย่าง</option></select><div class="hint">ของจริงใช้ X-ray Member Master และเก็บรหัสใน RadiologistUid</div></div>
+          <div class="field"><label for="resultDateTime">วันเวลาออกผล <span class="required">*</span></label><input id="resultDateTime" type="datetime-local" required></div>
+          <div class="field"><label for="severity">ระดับความเร่งด่วนของผล</label><select id="severity"><option value="">ปกติ / ไม่ระบุ</option><option value="critical">Critical</option><option value="urgent">Urgent</option></select></div>
+          <div class="field"><label for="resultState">สถานะผล <span class="required">*</span></label><select id="resultState" required><option value="F">Final</option><option value="P">Preliminary</option></select></div>
+          <div class="field full"><label for="resultText">ผลอ่าน <span class="required">*</span></label><textarea id="resultText" maxlength="8000" required placeholder="พิมพ์ผลอ่านตามเอกสารจริงเป็นข้อความก้อนเดียว…"></textarea><div class="hint">บันทึกตรงกับ field เดิม <span class="mono">ResultText</span> โดยไม่เดาแยก Findings / Impression</div><div class="hint count"><span id="charCount">0</span> / 8,000 ตัวอักษร</div></div>
+        </div>
+      </div>
+      <div class="modal-foot"><span class="save-note">บันทึกเป็นฉบับใหม่ใน Result Log และอัปเดตผลปัจจุบัน</span><button class="btn" type="button" id="cancelManual">ยกเลิก</button><button class="btn btn-primary" type="submit">บันทึกผล Manual</button></div>
+    </form>
+  </dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite">บันทึกตัวอย่างแล้ว · เพิ่มผล Manual เป็นฉบับใหม่</div>
+  <script>
+    (function(){
+      var dialog=document.getElementById('manualDialog');
+      var form=document.getElementById('manualForm');
+      var text=document.getElementById('resultText');
+      var dt=document.getElementById('resultDateTime');
+      var viewPanel=document.getElementById('viewPanel');
+      var editButton=document.getElementById('editResult');
+      var mode=document.getElementById('resultMode');
+      function nowLocal(){var d=new Date(),z=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate())+'T'+z(d.getHours())+':'+z(d.getMinutes())}
+      function showView(){form.hidden=true;viewPanel.hidden=false;editButton.setAttribute('aria-pressed','false');mode.textContent='โหมดดูอย่างเดียว'}
+      function showEdit(){viewPanel.hidden=true;form.hidden=false;editButton.setAttribute('aria-pressed','true');mode.textContent='โหมดกรอก Manual';if(!dt.value)dt.value=nowLocal();setTimeout(function(){document.getElementById('radiologist').focus()},0)}
+      function open(){showView();dialog.showModal()}
+      function close(){dialog.close()}
+      document.getElementById('openResult').addEventListener('click',open);
+      editButton.addEventListener('click',function(){form.hidden?showEdit():showView()});
+      document.getElementById('closeManual').addEventListener('click',close);
+      document.getElementById('closeView').addEventListener('click',close);
+      document.getElementById('cancelManual').addEventListener('click',showView);
+      text.addEventListener('input',function(){document.getElementById('charCount').textContent=text.value.length});
+      dialog.addEventListener('click',function(e){if(e.target===dialog)close()});
+      form.addEventListener('submit',function(e){
+        e.preventDefault();
+        document.getElementById('resultTime').textContent=dt.value.replace('T',' ');
+        var status=document.getElementById('resultStatus');status.textContent='ออกผลแล้ว';status.className='tag ok';
+        document.getElementById('resultAction').innerHTML='<button class="btn" id="openResultSaved" type="button">ดูผลอ่าน</button><span class="source-badge">MANUAL</span>';
+        document.getElementById('pendingPanel').hidden=true;document.getElementById('readResult').hidden=false;document.getElementById('readResultText').textContent=text.value;document.getElementById('readRadiologist').textContent=document.getElementById('radiologist').value;
+        document.getElementById('openResultSaved').addEventListener('click',open);showView();var toast=document.getElementById('toast');toast.classList.add('show');setTimeout(function(){toast.classList.remove('show')},2600);
+      });
+    })();
+  </script>
+</body>
+</html>

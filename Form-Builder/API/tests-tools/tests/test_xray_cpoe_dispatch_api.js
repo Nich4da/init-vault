@@ -8,6 +8,11 @@ const apiBody = fs.readFileSync(
 )
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
 const Process = new AsyncFunction('params', 'userInfo', 'app', apiBody)
+const risOrderApiBody = fs.readFileSync(
+  path.join(__dirname, '../../api-factory/xray_api_order.js'),
+  'utf8',
+)
+const RisOrderProcess = new AsyncFunction('params', 'userInfo', 'app', risOrderApiBody)
 /* token ถูกเก็บว่างไว้ในรีโปเสมอ · เทสจึงสร้าง Process อีกตัวที่ใส่ token จำลอง
    เพื่อพิสูจน์เส้นทางสำรอง โดยไม่ต้องมี token จริงอยู่ในไฟล์ */
 const withToken = token => new AsyncFunction(
@@ -143,6 +148,9 @@ const makeHarness = ({
   forwardAck = null,
   selectObjects = false,
   cancelStatus = '',
+  radiologist = '',
+  radiographer = '',
+  missingMappingItemId = '',
 } = {}) => {
   const visitSnapshot = altPatientKeys
     ? altVisit({ an, dob })
@@ -157,6 +165,7 @@ const makeHarness = ({
       order_comment: 'สงสัยปอดอักเสบ',
       vid: visitSnapshot }],
   ])
+  const masterIdFor = id => id === ITEM_2 ? 'MASTER-2' : (id === ITEM_3 ? 'MASTER-3' : 'MASTER-1')
   const makeItem = (id, code, name) => {
     const row = {
       _id: id,
@@ -166,11 +175,13 @@ const makeHarness = ({
       current_status: itemStatus,
       item_code: code,
       item_name: name,
-      item_data_id: 'MASTER-1',
+      item_data_id: masterIdFor(id),
       quantity: 1,
     }
     if (accession) row.accession_no = accession
     if (transport) row.transport = transport
+    if (radiologist) row.radiologist = radiologist
+    if (radiographer) row.radiographer = radiographer
     return row
   }
   /* 1 order มีได้หลาย test (ผู้ใช้ยืนยัน 2026-09-01) — harness จึงมีสองรายการเสมอ */
@@ -182,9 +193,18 @@ const makeHarness = ({
   if (extraItem || thirdItem) itemRows.push([ITEM_2, second])
   if (thirdItem) itemRows.push([ITEM_3, third])
   const items = new Map(itemRows)
-  const masters = new Map([['MASTER-1', {
-    _id: 'MASTER-1', xrstatx: 1, xray_item: { modality: modality, modality_name: 'CT-Computed Tomography' },
-  }]])
+  const masterRows = [
+    ['MASTER-1', 'D-CHEST-PA', 'Chest PA'],
+    ['MASTER-2', 'D-NECK-LAT', 'Lateral neck'],
+    ['MASTER-3', 'D-HAND-BOTH', 'Both hand AP and lateral'],
+  ]
+  const masters = new Map(masterRows.map(([id, code, label]) => [id, {
+    _id: id,
+    xrstatx: 1,
+    xray_item: missingMappingItemId && id === masterIdFor(missingMappingItemId)
+      ? { modality: modality, modality_name: 'CT-Computed Tomography' }
+      : { value: code, label, modality: modality, modality_name: 'CT-Computed Tomography' },
+  }]))
 
   const calls = []
   const runProcess = async (id, payload) => {
@@ -368,13 +388,13 @@ const risCall = h => h.calls.find(call => call.id === RIS_ORDER_PROCESS_ID)
     assert(risCall(reopened), 'reopened order must keep the existing dispatch path')
   }
 
-  /* ── mapping ที่ผู้ใช้ยืนยัน 2026-09-01 ──────────────────────────────── */
+  /* ── mapping ที่ผู้ใช้ยืนยัน 2026-10-16: ใช้ Radio Exam ไม่ใช้ item_code ─ */
   {
     const h = makeHarness({ an: '' })
     await Process.call(h.context, { order_id: ids.opd }, radiologyUser, h.app)
     const sent = risCall(h).payload
     assert.strictEqual(sent.PatientClassUid, 'O', 'no AN ⇒ OPD')
-    assert.strictEqual(sent.ExamUid, 'XR-CHEST-PA', 'ExamUid is the CPOE item_code')
+    assert.strictEqual(sent.ExamUid, 'D-CHEST-PA', 'ExamUid is master.xray_item.value')
     assert.strictEqual(sent.ExamName, 'Chest PA')
     assert.strictEqual(sent.ModalityTypeUid, 'CT', 'ModalityTypeUid is the code, not a RIS uid')
     assert.strictEqual(sent.AccessionNo, 'SM20260901CT001')
@@ -395,6 +415,58 @@ const risCall = h => h.calls.find(call => call.id === RIS_ORDER_PROCESS_ID)
       if (typeof value === 'boolean') return
       assert(value !== '' && value !== null && value !== undefined, name + ' must not be sent empty')
     })
+    assert(!('RadiologistFName' in sent), 'blank Radiologist must not add an empty RIS field')
+    assert(!('RadiographerFName' in sent), 'RIS Order contract must not receive an invented Radiographer field')
+  }
+
+  /* mapping ว่างต้องหยุดก่อนออก Accession/เปลี่ยนสถานะทั้งรายการ */
+  {
+    const h = makeHarness({ missingMappingItemId: ITEM_1 })
+    const out = await Process.call(h.context, { order_id: ids.opd, item_id: ITEM_1 }, radiologyUser, h.app)
+    assert.strictEqual(out.success, false)
+    assert.strictEqual(out.error, 'xray_mapping_required')
+    assert.strictEqual(h.calls.length, 0, 'missing mapping must fail before accession and RIS calls')
+    assert.strictEqual(h.items.get(ITEM_1).current_status, 'ready')
+    assert.strictEqual(h.items.get(ITEM_1).accession_no, undefined)
+  }
+
+  /* ชื่อ Radiologist ที่เลือกใน Worklist ต้องติดไปกับ flat payload ของ item นั้น
+     ผ่าน field มาตรฐานที่มีอยู่แล้ว โดยไม่เปลี่ยนลำดับ Accession → receive → RIS */
+  {
+    const h = makeHarness({
+      radiologist: 'พญ.กนกพร ชุติวงศ์ธนะพัฒน์',
+      radiographer: 'นางสุกัญญา ประจะเน',
+    })
+    await Process.call(h.context, { order_id: ids.opd, item_id: ITEM_1 }, radiologyUser, h.app)
+    const sent = risCall(h).payload
+    assert.strictEqual(sent.RadiologistFName, 'พญ.กนกพร ชุติวงศ์ธนะพัฒน์')
+    assert(!('RadiographerFName' in sent), 'dispatch must use only fields provided by the RIS Order contract')
+    assert.deepStrictEqual(
+      h.calls.map(call => call.id),
+      [ACCESSION_PROCESS_ID, RIS_ORDER_PROCESS_ID],
+      'staff mapping must not add or reorder workflow calls',
+    )
+
+    const writes = []
+    const forwards = []
+    const risOrderApp = {
+      sdformGetOne: async () => ({ success: false, data: null }),
+      dbInsert: async (data, table) => {
+        writes.push({ data: clone(data), table })
+        return { success: true, reply: { data: { ...data, _id: 'RIS-ORDER-1' } } }
+      },
+      wsSend: async () => {},
+      axios: { post: async (_url, body) => {
+        forwards.push(clone(body))
+        return { status: 200, data: { AcknowledgementCode: 'AA' } }
+      } },
+    }
+    const ack = await RisOrderProcess({ params: sent }, radiologyUser, risOrderApp)
+    assert.strictEqual(ack.AcknowledgementCode, 'AA')
+    assert.strictEqual(writes[0].data.RadiologistFName, 'พญ.กนกพร ชุติวงศ์ธนะพัฒน์')
+    assert.strictEqual(forwards[0].RadiologistFName, 'พญ.กนกพร ชุติวงศ์ธนะพัฒน์')
+    assert(!('RadiographerFName' in writes[0].data))
+    assert(!('RadiographerFName' in forwards[0]))
   }
 
   /* Select object ต้องส่งข้อความ label ไม่ใช่ internal code */
@@ -617,7 +689,7 @@ const risCall = h => h.calls.find(call => call.id === RIS_ORDER_PROCESS_ID)
     assert.strictEqual(risCalls.length, 3, 'RIS still receives one flat order per item')
     assert.deepStrictEqual(
       risCalls.map(call => call.payload.ExamUid),
-      ['XR-HAND-BOTH', 'XR-CHEST-PA', 'XR-NECK-LAT'],
+      ['D-HAND-BOTH', 'D-CHEST-PA', 'D-NECK-LAT'],
     )
     risCalls.forEach(call => assert(!Array.isArray(call.payload.items), 'RIS contract must remain flat'))
     requested.forEach(id => assert.strictEqual(h.items.get(id).current_status, 'dispatched'))
@@ -626,7 +698,7 @@ const risCall = h => h.calls.find(call => call.id === RIS_ORDER_PROCESS_ID)
 
   /* RIS ปฏิเสธหนึ่งรายการไม่ rollback รายการก่อนหน้า และรายการถัดไปยังถูกส่ง */
   {
-    const h = makeHarness({ thirdItem: true, ackByExam: { 'XR-CHEST-PA': 'AE' } })
+    const h = makeHarness({ thirdItem: true, ackByExam: { 'D-CHEST-PA': 'AE' } })
     const out = await Process.call(
       h.context,
       { order_id: ids.opd, item_ids: [ITEM_1, ITEM_2, ITEM_3] },
@@ -683,7 +755,7 @@ const risCall = h => h.calls.find(call => call.id === RIS_ORDER_PROCESS_ID)
     const sent = h.calls.filter(call => call.id === RIS_ORDER_PROCESS_ID)
     assert.deepStrictEqual(
       sent.map(call => call.payload.ExamUid),
-      ['XR-CHEST-PA', 'XR-NECK-LAT'],
+      ['D-CHEST-PA', 'D-NECK-LAT'],
       'one RIS order per test, in the order the user pressed them',
     )
     assert.strictEqual(h.items.get(ITEM_1).current_status, 'dispatched')
@@ -713,7 +785,7 @@ const risCall = h => h.calls.find(call => call.id === RIS_ORDER_PROCESS_ID)
     assert.strictEqual(h.items.get(ITEM_1).accession_no, undefined, 'and must not get a number')
     const sent = h.calls.filter(call => call.id === RIS_ORDER_PROCESS_ID)
     assert.strictEqual(sent.length, 1)
-    assert.strictEqual(sent[0].payload.ExamUid, 'XR-NECK-LAT')
+    assert.strictEqual(sent[0].payload.ExamUid, 'D-NECK-LAT')
   }
 
   /* id ที่ไม่อยู่ในใบนี้ = บอกให้ชัด ไม่ใช่เงียบว่าไม่มีรายการ */

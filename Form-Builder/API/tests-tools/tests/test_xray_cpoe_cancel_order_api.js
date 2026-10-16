@@ -25,6 +25,7 @@ const OTHER_ORDER = 'aaaaaaaaaaaaaaaaaaaaaaa2'
 const ITEM_A = 'bbbbbbbbbbbbbbbbbbbbbbb1'
 const ITEM_B = 'bbbbbbbbbbbbbbbbbbbbbbb2'
 const ITEM_LAB = 'bbbbbbbbbbbbbbbbbbbbbbb3'
+const MASTER_A = 'ddddddddddddddddddddddd1'
 
 const clone = value => JSON.parse(JSON.stringify(value))
 const radiologyUser = {
@@ -34,7 +35,7 @@ const radiologyUser = {
 const wardUser = { roles: ['auth'], username: 'ward', employee_code: 'W1', unit: { code: '19.P' } }
 
 const makeHarness = ({ items = null, cancellation = null, raceOn = '', risOrders = [],
-  risResults = [], risReplies = [] } = {}) => {
+  risResults = [], risReplies = [], masters = [] } = {}) => {
   const rows = items || [
     { _id: ITEM_A, xrstatx: 1, order_ref_id: ORDER, service_type: { value: 'xray' },
       current_status: 'sent', item_code: 'RD015', item_name: 'Neck AP' },
@@ -48,6 +49,7 @@ const makeHarness = ({ items = null, cancellation = null, raceOn = '', risOrders
   const cancellations = new Map(cancellation ? [[ORDER, clone(cancellation)]] : [])
   const risRows = risOrders.map(clone)
   const resultRows = risResults.map(clone)
+  const masterRows = new Map(masters.map(row => [String(row._id), clone(row)]))
   const risCalls = []
   const replies = risReplies.slice()
 
@@ -97,6 +99,10 @@ const makeHarness = ({ items = null, cancellation = null, raceOn = '', risOrders
     isAuth: () => true,
     curDate: () => '2026-09-01 19:00:00',
     dbObjectId: id => String(id),
+    dbFindById: async (id, from) => ({
+      success: true,
+      reply: { data: from === 'zdata_master_item_order' ? clone(masterRows.get(String(id)) || null) : null },
+    }),
     dbFindAll: async () => ({ success: true, reply: { data: [] } }),
     db: {
       collection: name => ({
@@ -456,6 +462,25 @@ const cancel = (h, extra, user) => Process(
     assert.strictEqual(out.error, 'ris_cancel_order_mismatch')
     assert.strictEqual(h.risCalls.length, 0)
     assert.strictEqual(h.items.get(ITEM_A).current_status, 'dispatched')
+  }
+
+  /* ใบใหม่ใช้ Radio Exam code ต่างจาก CPOE item_code แต่ยังยกเลิกได้อย่างปลอดภัย
+     เพราะตรวจ source.ExamUid กับ master.xray_item.value; guard OTHER-EXAM ด้านบนยังอยู่. */
+  {
+    const mappedSource = { ...RIS_SOURCE, ExamUid: 'D891', ExamName: 'Hepatobiliary (DISIDA)' }
+    const h = makeHarness({
+      items: [{ _id: ITEM_A, xrstatx: 1, order_ref_id: ORDER, service_type: { value: 'xray' },
+        current_status: 'dispatched', item_code: '47508', item_data_id: MASTER_A,
+        accession_no: mappedSource.AccessionNo }],
+      masters: [{ _id: MASTER_A, xrstatx: 1,
+        xray_item: { value: 'D891', label: 'Hepatobiliary (DISIDA)', modality_type: 'DX' } }],
+      risOrders: [mappedSource],
+    })
+    const out = await cancel(h)
+    assert.strictEqual(out.success, true, out.message)
+    assert.strictEqual(h.risCalls.length, 1)
+    assert.strictEqual(h.risCalls[0].payload.ExamUid, 'D891')
+    assert.strictEqual(h.risCalls[0].payload.IsDeleted, true)
   }
 
   /* ── หลายรายการ: RIS ยืนยันไม่ครบ ห้ามเปลี่ยน CPOE ครึ่งใบ ──────────── */

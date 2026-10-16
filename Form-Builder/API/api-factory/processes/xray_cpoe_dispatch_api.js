@@ -135,11 +135,11 @@ const transactionUnsupported = error => {
 }
 
 /* ── mapping CPOE → RIS ────────────────────────────────────────────────────
-   ผู้ใช้ยืนยัน 2026-09-01:
+   ผู้ใช้ยืนยัน 2026-10-16 หลังเทียบ QSNICH EXAM กับ Radio Exam ครบทั้งชุด:
      · PatientClassUid ใช้แค่ I / O — ตัด E (ห้องฉุกเฉิน) ออก มี AN = I ไม่มี = O
-     · ExamUid ใช้ item_code ของ CPOE ตรงๆ
+     · ExamUid/ExamName ใช้ master.xray_item.value/label ซึ่งเป็นรหัส/ชื่อของ RIS
+       ห้ามใช้ item_code ของ CPOE เพราะเป็นรหัสภายในคนละหน้าที่
      · ModalityTypeUid ใช้ code (เช่น DX)
-     · ส่งฟิลด์เท่าที่เห็นว่าเหมาะสม ฝั่ง RIS จะ map ต่อเอง
    แก้ mapping ทั้งหมดได้ที่บล็อกนี้บล็อกเดียว
    ────────────────────────────────────────────────────────────────────────── */
 
@@ -209,7 +209,9 @@ const displayText = value => {
   return trimmed(value)
 }
 
-const buildRisPayload = (order, item, accessionNo, modalityCode, modalityName, organizationCode) => {
+const buildRisPayload = (
+  order, item, accessionNo, examUid, examName, modalityCode, modalityName, organizationCode
+) => {
   const visit = (order && order.vid) || {}
   const patient = visit.pid || {}
   const admissionNo = trimmed(visit.an)
@@ -229,8 +231,8 @@ const buildRisPayload = (order, item, accessionNo, modalityCode, modalityName, o
     PatientClassUid: admissionNo ? 'I' : 'O',
     VisitNo: firstText(visit.vn, visit.visit_no, order && order.vn),
     AccessionNo: trimmed(accessionNo),
-    ExamUid: trimmed(item && item.item_code),
-    ExamName: trimmed(item && item.item_name),
+    ExamUid: trimmed(examUid),
+    ExamName: trimmed(examName),
     Priority: isUrgent(order) ? 'U' : 'R',
     Status: 'A',
     IsDeleted: false
@@ -272,7 +274,11 @@ const buildRisPayload = (order, item, accessionNo, modalityCode, modalityName, o
     ModalityTypeUid: trimmed(modalityCode),
     ModalityTypeName: trimmed(modalityName),
     OrganizationUid: trimmed(organizationCode),
-    Qty: item && item.quantity != null ? Number(item.quantity) : null
+    Qty: item && item.quantity != null ? Number(item.quantity) : null,
+    /* ชื่อรังสีแพทย์ที่ Worklist บันทึกเป็นชื่อแสดงผลก้อนเดียว จึงส่งทั้งก้อน
+       เข้า field มาตรฐาน RadiologistFName ที่ X-ray Order มีอยู่แล้ว โดยไม่เดา
+       แยกคำนำหน้า/ชื่อกลาง/นามสกุล และไม่สร้าง field นอก contract ของ RIS. */
+    RadiologistFName: trimmed(item && item.radiologist)
   }
   Object.keys(optional).forEach(name => {
     const value = optional[name]
@@ -580,11 +586,61 @@ if (!targets.length) {
   }
 }
 
+/* ── preflight mapping ก่อนออกเลข/เปลี่ยนสถานะ ─────────────────────────────
+   Radio Exam ถูกผูกไว้ที่ CPOE Item master เป็น SelectByForm snapshot
+   {value:<EXAM CODE>, label:<EXAM NAME>, ...}. ต้อง resolve ให้ครบทั้ง batch ก่อน
+   แตะ Accession หรือ current_status เพื่อไม่ทิ้งรายการค้างครึ่งทางเมื่อ mapping ว่าง. */
+const targetMappings = new Map()
+const missingMappings = []
+for (let index = 0; index < targets.length; index += 1) {
+  const item = targets[index]
+  const itemId = valueText(item && item._id)
+  const masterRef = item && item.item_data_id && item.item_data_id.value != null
+    ? item.item_data_id.value
+    : item && item.item_data_id
+  let master = null
+  if (masterRef) {
+    try {
+      master = await masterCollection.findOne({ _id: masterRef, xrstatx: { $nin: [0, 3] } })
+    } catch (error) {
+      return {
+        success: false,
+        error: 'xray_mapping_read_failed',
+        message: 'อ่าน Xray Item mapping ไม่สำเร็จ — ยังไม่มีรายการใดถูกส่ง',
+        data: { order_id: orderId, item_id: itemId }
+      }
+    }
+  }
+  const xrayItem = (master && master.xray_item) || {}
+  const examUid = trimmed(xrayItem.value)
+  const examName = trimmed(xrayItem.label)
+  if (!examUid || !examName) {
+    missingMappings.push({
+      item_id: itemId,
+      item_code: trimmed(item && item.item_code),
+      item_name: trimmed(item && item.item_name),
+      missing: [!examUid ? 'ExamUid' : '', !examName ? 'ExamName' : ''].filter(Boolean)
+    })
+    continue
+  }
+  targetMappings.set(itemId, { master: master, xrayItem: xrayItem, examUid: examUid, examName: examName })
+}
+if (missingMappings.length) {
+  return {
+    success: false,
+    error: 'xray_mapping_required',
+    message: 'มีรายการที่ยังไม่ได้ผูก Xray Item — ยังไม่มีรายการใดถูกส่ง',
+    data: { order_id: orderId, items: missingMappings }
+  }
+}
+
 const results = []
 
 for (let index = 0; index < targets.length; index += 1) {
   const item = targets[index]
   const itemId = valueText(item._id)
+  const mapping = targetMappings.get(itemId)
+  const xrayItem = mapping.xrayItem
   const alreadyDispatched = hasDispatchEvidence(item)
   let accessionNo = trimmed(item.accession_no)
   /* จำไว้ก่อนเรียกตัวออกเลข เพื่อแยก "ส่งตรวจซ้ำ" (มีเลขมาก่อนแล้ว) ออกจาก
@@ -724,15 +780,13 @@ for (let index = 0; index < targets.length; index += 1) {
   }
 
   /* ── 4. ส่งเข้า RIS นอก transaction ───────────────────────────────────── */
-  let master = null
-  if (item.item_data_id) {
-    master = await masterCollection.findOne({ _id: item.item_data_id, xrstatx: { $nin: [0, 3] } })
-  }
-  const xrayItem = (master && master.xray_item) || {}
   const modalityCode = trimmed(xrayItem.modality || xrayItem.modality_type).toUpperCase()
   const modalityName = trimmed(xrayItem.modality_name || xrayItem.modality_label)
 
-  const payload = buildRisPayload(order, item, accessionNo, modalityCode, modalityName, organizationCode)
+  const payload = buildRisPayload(
+    order, item, accessionNo, mapping.examUid, mapping.examName,
+    modalityCode, modalityName, organizationCode
+  )
 
   /* อ่านซ้ำก่อนขาส่ง RIS: ปุ่มยกเลิกอาจถูกกดหลัง preflight ด้านบน */
   if (await cancelBlocksDispatch()) {

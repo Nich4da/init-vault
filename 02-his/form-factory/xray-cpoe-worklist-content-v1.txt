@@ -1,0 +1,506 @@
+<div class="xray-cpoe">
+  <div v-if="createOrderNotice" class="xr-create-notice" role="alert" aria-live="assertive">
+    <span>{{ createOrderNotice }}</span>
+    <button type="button" aria-label="ปิดข้อความแจ้งเตือน" @click="dismissCreateOrderNotice">×</button>
+  </div>
+  <section aria-label="ค้นหาและกรองรายการ">
+    <div class="xr-toolbar">
+      <el-input class="xr-search-control" :model-value="filters.q" size="small" clearable
+        prefix-icon="Search" placeholder="HN / VN / ON / Acc. / AN / บัตร ปชช. / ชื่อ"
+        title="ค้นหา HN, VN, Order No., Accession No., AN ผู้ป่วยใน, เลขบัตรประชาชน หรือชื่อผู้ป่วย"
+        aria-label="ค้นหา HN VN Order No. Accession No. AN ผู้ป่วยใน เลขบัตรประชาชน หรือชื่อผู้ป่วย"
+        @input="setSearch" @clear="applyFilters" @keyup.enter="applyFilters" />
+
+      <el-date-picker class="xr-date-control" :model-value="filters.dates" size="small" type="daterange"
+        range-separator="ถึง" start-placeholder="Date Range" end-placeholder="Date Range"
+        value-format="YYYY-MM-DD" format="DD/MM/YYYY" :disabled="scanMode"
+        :title="scanMode?'โหมดสแกนแสดงทุกวันที่ของผู้ป่วยนี้ ช่วงวันที่จึงไม่มีผล':''"
+        @update:model-value="setDates" />
+
+      <div class="xr-modality-field" :class="{'is-picked':modality.length,'is-multirow':modality.length>3}">
+        <span class="xr-modality-label">เครื่อง</span>
+        <el-select class="xr-modality-select" popper-class="xray-cpoe-modality-popper"
+          :model-value="modality" size="small" filterable multiple clearable
+          :style="{width:modalitySelectWidth()}"
+          :disabled="!view.modalityReady"
+          :placeholder="view.modalityPlaceholder" :aria-label="view.modalityAria"
+          @change="setModality">
+          <el-option v-for="m in view.modalities" :key="m.value" :label="m.value" :value="m.value">
+            <span class="xr-opt-label" :title="m.label">{{ m.value }}</span>
+            <span v-if="m.count !== null" class="xr-opt-count">{{ m.count }}</span>
+          </el-option>
+        </el-select>
+      </div>
+
+      <div class="xr-sort-field">
+        <span class="xr-sort-label">เรียงตาม</span>
+        <el-select class="xr-sort-select" :model-value="sortKey" size="small"
+          aria-label="เลือกลำดับการจัดเรียงรายการ" @change="setSort">
+          <el-option v-for="o in sortOptions" :key="o.value" :label="o.label" :value="o.value" />
+        </el-select>
+      </div>
+
+      <el-button size="small" type="primary" :loading="loading" @click="applyFilters">Search</el-button>
+      <el-dropdown trigger="click" @command="reportCommand">
+        <el-button size="small">Report <span class="xr-dropdown-caret">⌄</span></el-button>
+        <template #dropdown>
+          <el-dropdown-menu>
+            <el-dropdown-item command="pdf">PDF</el-dropdown-item>
+            <el-dropdown-item command="excel">Excel</el-dropdown-item>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
+      <div class="xr-create-group">
+        <el-button class="xr-create-button" size="small" type="primary" :loading="createOrderLoading" @click="openCreateOrder">สร้างรายการใหม่</el-button>
+        <el-button class="xr-appointment-button" size="small" :title="appointmentHint"
+          @click="openAppointment">นัดล่วงหน้า</el-button>
+        <el-button class="xr-consent-button" size="small" :title="consentLibraryHint"
+          @click="openConsentLibrary">หนังสือยินยอม</el-button>
+      </div>
+    </div>
+
+    <div v-if="scanMode" class="xr-scan-context" role="status" aria-live="polite">
+      <span class="xr-scan-context-label">โหมดผู้ป่วยจากการสแกน</span>
+      <strong class="xr-mono">{{ scanLabel }} {{ scanDisplay }}</strong>
+      <span>แสดงทุกวันที่ของผู้ป่วยนี้</span>
+      <el-button size="small" plain @click="clearScan">{{ scanType==='citizen_id'?'ล้างเลขบัตรที่สแกน':'ล้าง HN ที่สแกน' }}</el-button>
+    </div>
+
+    <div v-if="focusVisitId" class="xr-scan-context" role="status" aria-live="polite">
+      <span class="xr-scan-context-label">เปิดจากคิว</span>
+      <strong class="xr-mono">VN {{ focusVisitVn || '-' }}</strong>
+      <span>แสดงเฉพาะใบสั่งของ Visit นี้</span>
+      <el-button size="small" plain @click="clearFocusVisit">แสดงทั้งหมด</el-button>
+    </div>
+
+    <div class="xr-status-strip" role="group" aria-label="กรองรายการตามสถานะ">
+      <button v-for="filter in statusFilters" :key="filter.key" type="button"
+        class="xr-status-chip" :class="{'is-active':statusKey===filter.key}"
+        :data-status="filter.key==='all'?'':filter.key" :aria-pressed="statusKey===filter.key"
+        @click="setStatus(filter.key)">
+        <strong>{{ view.counts[filter.key] || 0 }}</strong><span>{{ filter.label }}</span>
+      </button>
+      <div class="xr-status-legend" aria-label="คำอธิบายสีสถานะ">
+        <span class="xr-status-legend-item">
+          <i class="xr-status-legend-dot is-waiting" aria-hidden="true"></i><span>รอรับ</span>
+        </span>
+        <span class="xr-status-legend-item">
+          <i class="xr-status-legend-dot is-pending" aria-hidden="true"></i><span>รอผลตรวจ</span>
+        </span>
+        <span class="xr-status-legend-item">
+          <i class="xr-status-legend-dot is-resulted" aria-hidden="true"></i><span>ออกผลแล้ว</span>
+        </span>
+        <span class="xr-status-legend-item">
+          <i class="xr-status-legend-dot is-cancelled" aria-hidden="true"></i><span>ยกเลิก</span>
+        </span>
+      </div>
+    </div>
+  </section>
+
+  <div v-if="view.configWarning" class="xr-notice is-warning">{{ view.configWarning }}</div>
+  <div v-if="view.serverNote" class="xr-notice is-warning">{{ view.serverNote }}</div>
+  <div v-if="view.dataNote" class="xr-notice is-warning">{{ view.dataNote }}</div>
+  <div v-if="view.modalityNote" class="xr-notice">{{ view.modalityNote }}</div>
+
+  <div v-if="loading" class="xr-list-summary">กำลังโหลดรายการ…</div>
+  <div v-else-if="errorMessage" class="xr-list-summary is-error">
+    {{ errorMessage }} <el-button size="small" @click="loadOrders">ลองใหม่</el-button>
+  </div>
+  <div v-else class="xr-list-summary">{{ view.summary }}</div>
+
+  <section class="xr-worklist-shell" aria-label="รายการผู้ป่วย">
+    <div class="xr-worklist">
+      <div class="xr-list-head" aria-hidden="true">
+        <div></div><div>ผู้ป่วย</div><div></div><div>รายการตรวจ</div><div>เครื่อง</div>
+        <div>เวลาสั่ง / Order No.</div><div>แพทย์ / Diagnosis</div><div>สถานะ</div><div></div>
+      </div>
+
+      <article v-for="row in view.rows" :key="row.id" class="xr-patient-block"
+        :class="{'is-open':isExpanded(row.id)}">
+        <div class="xr-patient-row" @click="toggleOrderFromRow(row,$event)">
+          <button class="xr-expand-button" type="button"
+            :aria-label="isExpanded(row.id)?'ย่อรายละเอียด':'ขยายรายละเอียด'"
+            :aria-expanded="isExpanded(row.id)" @click="toggleOrder(row.id)">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"></path></svg>
+          </button>
+
+          <div class="xr-patient-summary">
+            <div class="xr-patient-hn">
+              <span class="xr-mono">{{ row.hn }}</span>
+              <span v-if="row.urgent" class="xr-inline-tag xr-urgent-tag">{{ row.urgent_label }}</span>
+            </div>
+            <div class="xr-patient-name">{{ row.name }}</div>
+            <div class="xr-patient-demographic">
+              <span v-if="row.gender" class="xr-inline-tag xr-gender-pill">{{ row.gender }}</span>
+              <span v-if="row.age">{{ row.age }}</span>
+            </div>
+          </div>
+
+          <div class="xr-context-tags">
+            <!-- แถบเตือนแพ้ยา / COVID (ผู้ใช้ขอ 2026-09-03) — ข้อมูลมาจาก EMR ผ่าน API เท่านั้น
+                 ห้ามเดาเอง · ไม่มีข้อมูล = ไม่ขึ้นกล่อง ห้ามขึ้นกล่องเปล่าให้เข้าใจว่า "ไม่แพ้"
+                 ข้อความเต็มดูได้ตอน hover เพราะช่องแคบและตัดด้วย ellipsis -->
+            <div v-if="row.alert_text" class="xr-alert-box" role="alert" :title="row.alert_full">
+              <span>{{ row.alert_text }}</span>
+            </div>
+            <div class="xr-context-top">
+              <span v-if="row.room" class="xr-inline-tag xr-meta-pill xr-source-pill">{{ row.room }}</span>
+              <span v-if="row.show_cash_payment" class="xr-inline-tag xr-meta-pill xr-payment-pill"
+                :class="{'is-unpaid':!row.finance_passed}">{{ row.finance_passed ? 'ชำระเงินแล้ว' : 'ยังไม่ได้ชำระเงิน' }}</span>
+              <span v-if="row.coverage" class="xr-inline-tag xr-meta-pill xr-coverage-pill">{{ row.coverage }}</span>
+            </div>
+          </div>
+
+          <div class="xr-metric xr-test-cell" data-label="รายการตรวจ">
+            <el-tooltip placement="top" :disabled="!row.test_count" popper-class="xray-cpoe-test-popper">
+              <span class="xr-test-count">{{ row.test_summary }}</span>
+              <template #content>
+                <div v-for="line in row.test_list" :key="line" class="xr-test-pop-line">{{ line }}</div>
+              </template>
+            </el-tooltip>
+          </div>
+
+          <div class="xr-metric xr-modality-cell" data-label="เครื่อง">
+            <span v-for="m in row.modalities" :key="m.code" class="xr-modality-tag"
+              :title="m.label">{{ m.code }}</span>
+          </div>
+
+          <div class="xr-metric xr-order-cell" data-label="เวลาสั่ง / Order No.">
+            <span v-if="row.order_no" class="xr-order-no-tag">{{ row.order_no }}</span>
+            <span class="xr-field-value xr-time-value xr-mono">
+              <span>{{ row.ordered_date }}</span><span>{{ row.ordered_time }}</span>
+            </span>
+          </div>
+
+          <div class="xr-doctor-cell" data-label="แพทย์">
+            <span class="xr-field-value" :title="row.doctor">{{ row.doctor }}</span>
+            <el-tooltip placement="top" :disabled="!row.dx_has" popper-class="xray-cpoe-dx-popper">
+              <span class="xr-diagnosis-summary">{{ row.dx_short }}</span>
+              <template #content><div class="xr-dx-pop">{{ row.dx_full }}</div></template>
+            </el-tooltip>
+          </div>
+
+          <!-- เช็คลิสต์สถานะระดับ order — 4 ช่องตามเส้นทางจริงของ item
+               รอรับ · รอผลตรวจ · ออกผลแล้ว · ยกเลิก/ปฏิเสธ
+               มีรายการค้างที่ขั้นนี้ = จุดสี + จำนวน · ผ่านขั้นนี้ไปแล้ว = จุดสี + เครื่องหมายถูก
+               ยังไม่ถึง = เว้นว่าง · hover ดอตเห็นชื่อสถานะ hover ทั้งช่องเห็นสรุปทั้งใบ -->
+          <div class="xr-row-status-check" role="img" :aria-label="row.status_aria" :title="row.status_aria">
+            <span v-for="step in row.status_steps" :key="step.key" class="xr-status-step"
+              :class="[step.dot_class,{'is-on':step.active||step.done,'is-done':step.done}]"
+              :title="step.title">
+              <i class="xr-status-dot" aria-hidden="true"></i>
+              <b v-if="step.active" class="xr-status-count">{{ step.count }}</b>
+              <svg v-else-if="step.done" class="xr-status-check" viewBox="0 0 12 12" aria-hidden="true">
+                <path d="M2.4 6.4 4.9 8.9 9.6 3.4"></path>
+              </svg>
+            </span>
+          </div>
+
+          <div class="xr-row-actions">
+            <!-- PDF ตรงนี้คือใบสั่งตรวจระดับ Order เท่านั้น
+                 ปุ่ม PDF ของผลอ่านระดับ item ถูกตัดออก 2026-09-03 (ผู้ใช้ขอ)
+                 และยังห้ามมี PDF ผลอ่านระดับ Order เหมือนเดิม เพราะผลกลับมาเป็นรายรายการ
+                 และอาจเสร็จคนละเวลา (ยืนยัน 2026-09-02) -->
+            <sd-report v-if="!row.cancelled&&orderReportReady(row)" class="xr-plain-action xr-order-report"
+              :report-list="orderRequestReportList" :params="orderReportParams(row)" size="small" />
+            <el-button v-else-if="!row.cancelled" class="xr-plain-action" size="small" disabled
+              title="Order นี้ไม่มี Order ID หรือ Visit ID สำหรับสร้าง PDF">PDF</el-button>
+            <el-button v-if="!row.cancelled" class="xr-plain-action xr-hn-print" size="small"
+              type="primary" plain :loading="!!hnPrinting[row.id]"
+              :disabled="!hnOrderReportReady(row)||!!hnPrinting[row.id]"
+              :title="hnPrintHint(row)" @click="printHnLabel(row)">พิมพ์ HN</el-button>
+            <el-button v-if="!row.cancelled" class="xr-plain-action" size="small"
+              @click="openEmr(row)">EMR</el-button>
+            <!-- 2026-09-18: ปุ่มสรุปเปิดรายการให้เลือกก่อน ห้ามตรวจใหม่ทั้ง Order โดยไม่ติ๊ก item -->
+            <el-button v-else class="xr-plain-action" size="small" type="warning" plain
+              title="เปิดรายการเพื่อเลือก X-ray ที่ต้องการตรวจใหม่"
+              @click="openRetestSelection(row)">ตรวจใหม่</el-button>
+          </div>
+        </div>
+
+        <div v-if="isExpanded(row.id)" class="xr-detail-panel">
+          <div class="xr-detail-top" role="tablist">
+            <button class="xr-detail-tab" :class="{'is-active':detailTab(row.id)==='order'}" type="button"
+              role="tab" :aria-selected="detailTab(row.id)==='order'"
+              @click="setDetailTab(row.id,'order')">order</button>
+            <button class="xr-detail-tab" :class="{'is-active':detailTab(row.id)==='results'}" type="button"
+              role="tab" :aria-selected="detailTab(row.id)==='results'"
+              :title="row.has_result?'ดูผลอ่านของ order นี้':'ยังไม่มีผลอ่าน — เปิดดูโครงตารางได้'"
+              @click="setDetailTab(row.id,'results')">ผลอ่าน</button>
+            <div class="xr-bulk-actions">
+              <el-tooltip v-if="row.can_dispatch" placement="top" :disabled="!row.dispatch_disabled_reason"
+                :content="row.dispatch_disabled_reason" popper-class="xray-cpoe-list-popper">
+                <span class="xr-dispatch-tooltip">
+                  <el-button size="small" type="success" :loading="row.dispatching"
+                    :disabled="row.dispatching||row.rejecting||row.retesting||!row.dispatch_ready"
+                    :title="row.dispatch_hint"
+                    @click="dispatchOrder(row)">{{ row.dispatch_label }}</el-button>
+                </span>
+              </el-tooltip>
+              <el-button v-if="row.can_reject" size="small" type="warning"
+                :loading="row.rejecting"
+                :disabled="row.dispatching||row.rejecting||!row.reject_ready"
+                :title="row.reject_hint"
+                @click="rejectSelected(row)">ปฏิเสธรายการ</el-button>
+              <el-button v-if="!row.cancelled" size="small" type="danger"
+                :loading="cancelDialog.loading&&cancelDialog.order_id===row.id"
+                :disabled="row.dispatching||row.rejecting||cancelDialog.loading||!row.can_cancel"
+                :title="row.cancel_hint"
+                @click="openCancelOrder(row)">ยกเลิกรายการที่เลือก</el-button>
+              <el-button v-if="row.can_retest" size="small" type="warning" plain
+                :loading="row.retesting"
+                :disabled="row.retesting||row.dispatching||row.rejecting||!row.retest_ready"
+                :title="row.retest_hint"
+                @click="retestOrder(row)">ตรวจใหม่เฉพาะที่เลือก</el-button>
+            </div>
+          </div>
+
+          <div v-if="detailTab(row.id)==='order'" class="xr-item-grid-wrap">
+            <div class="xr-item-grid xr-item-head" aria-hidden="true">
+              <div class="xr-item-check-cell"><el-checkbox :model-value="allSelectableSelected(row)"
+                :indeterminate="someSelectableSelected(row)" :disabled="!selectableItemIds(row).length"
+                aria-label="เลือกทุกรายการที่ดำเนินการได้" @change="toggleAllItems(row)" /></div>
+              <div>Accession No.</div><div>รายการตรวจ</div><div>เครื่อง</div>
+              <div>เวลาส่งเข้าเครื่อง</div><div>Radiographer</div><div>Radiologist</div><div>สถานะ</div><div>ปฏิเสธ</div><div>คนปฏิเสธ</div><div>สติ๊กเกอร์ HN</div><div>สารทึบ</div>
+            </div>
+            <div v-for="item in row.items" :key="item.id" class="xr-item-grid xr-item-row"
+              :class="{'is-selectable':item.can_select,'is-selected':item.selected}"
+              @click="selectRow(item,$event)">
+              <div data-label="เลือก" class="xr-item-check-cell">
+                <el-checkbox :model-value="item.selected" :disabled="!item.can_select"
+                  @change="toggleItem(item.id)" />
+              </div>
+              <div data-label="Accession No." class="xr-mono">{{ item.accession_no }}<span
+                v-if="item.ris_status_label" class="xr-ris-chip" :class="item.ris_status_class"
+                :title="item.ris_status_title">{{ item.ris_status_label }}</span></div>
+              <div data-label="รายการตรวจ" class="xr-test-name">
+                {{ item.name }}<span class="xr-mono xr-test-code-inline">{{ item.code }}</span>
+              </div>
+              <div data-label="เครื่อง" class="xr-item-modality"><span v-if="item.modality" class="xr-modality-tag" :title="item.modality_label">{{ item.modality }}</span></div>
+              <div data-label="เวลาส่งเข้าเครื่อง" class="xr-mono">
+                {{ item.dispatched_text }}
+                <span v-if="item.transport_failed" class="xr-transport-note">{{ item.transport_note }}</span>
+                <span v-else-if="item.needs_accession" class="xr-transport-note">ยังไม่ได้เลข Accession · กดส่งเข้าเครื่องอีกครั้ง</span>
+              </div>
+              <!-- คอลัมน์นี้เคยเป็น "ผู้ส่ง" (คนกดส่งเข้าเครื่อง) — ผู้ใช้ให้เปลี่ยนเป็น Radiographer
+                   2026-09-03 · ค่าเดิมไม่ได้หายไป ยังอยู่ใน item.dispatched_by และโชว์ตอน hover
+                   2026-09-30 เชื่อม Member Master แล้ว: เลือกได้เฉพาะบุคลากรสาย Radiographer -->
+              <div data-label="Radiographer" class="xr-item-radiographer"
+                :title="item.dispatched_by?('ผู้กดส่งเข้าเครื่อง: '+item.dispatched_by):''">
+                <el-select :model-value="item.radiographer" size="small" clearable filterable
+                  :loading="staffOptionsLoading || item.radiographer_saving" :disabled="item.radiographer_saving"
+                  placeholder="เลือก Radiographer" :aria-label="'Radiographer ของ '+item.name"
+                  @change="value=>setRadiographer(row,item,value)">
+                  <el-option v-for="tech in radiographerOptions" :key="tech.member_id||tech.value"
+                    :label="tech.label" :value="tech.value" />
+                </el-select>
+              </div>
+              <!-- 2026-09-30 เชื่อม Member Master: เลือกแพทย์ประจำจาก master ได้
+                   และ allow-create สำหรับพิมพ์ชื่อแพทย์ภายนอกโดยไม่สร้าง Member ปลอม -->
+              <div data-label="Radiologist" class="xr-item-radiologist">
+                <el-select :model-value="item.radiologist" size="small" clearable filterable
+                  allow-create default-first-option
+                  :loading="staffOptionsLoading || item.radiologist_saving" :disabled="item.radiologist_saving"
+                  placeholder="เลือกหรือพิมพ์ Radiologist" :aria-label="'Radiologist ของ '+item.name"
+                  @change="value=>setRadiologist(row,item,value)">
+                  <el-option v-for="doc in radiologistOptions" :key="doc.member_id||doc.value"
+                    :label="doc.label" :value="doc.value" />
+                </el-select>
+              </div>
+              <div data-label="สถานะ"><span class="xr-state-tag" :class="item.status_class">{{ item.status_label }}</span></div>
+              <div data-label="ปฏิเสธ">{{ item.reject_reason }}</div>
+              <div data-label="คนปฏิเสธ">{{ item.rejected_by }}</div>
+              <div data-label="สติ๊กเกอร์ HN" class="xr-item-sticker-action">
+                <sd-report v-if="itemStickerReady(row,item)" class="xr-plain-action xr-item-sticker-report"
+                  :report-list="hnStickerReportList" :params="itemStickerParams(row,item)" size="small" />
+                <el-button v-else class="xr-plain-action" size="small" disabled
+                  :title="item.sticker_hint">สติ๊กเกอร์ HN</el-button>
+              </div>
+              <!-- คอลัมน์ "สารทึบ" (ผู้ใช้เลือกตัวเลือก A 2026-09-23) — อยู่ระดับ item
+                   เพราะใบเดียวมีได้ทั้งรายการที่ฉีดและรายการที่ไม่ฉีด
+                   🔴 ไม่มีข้อมูล = "ยังไม่ได้บันทึก" เท่านั้น ห้ามอ่านว่า "ไม่ได้ฉีด"
+                      จึงกดได้ทุกรายการ ยังไม่กรองตาม modality เพราะผู้ใช้ยังไม่ได้ให้
+                      รายชื่อเครื่องที่ฉีดได้ — เดาเองแล้วรายการที่ฉีดจริงจะกดไม่ได้
+                   ปุ่มนี้ไม่แตะ can_select / สถานะ / ปุ่มเดิมของแถวสักตัว -->
+              <div data-label="สารทึบ" class="xr-item-contrast">
+                <button v-if="item.contrast_label" type="button" class="xr-contrast-chip"
+                  :title="item.contrast_title" @click="openContrastRecord(row,item)">{{ item.contrast_label }}</button>
+                <el-button v-else class="xr-plain-action" size="small"
+                  :title="item.contrast_hint" @click="openContrastRecord(row,item)">+ บันทึก</el-button>
+              </div>
+            </div>
+          </div>
+
+          <div v-else class="xr-result-list">
+            <div class="xr-result-list-head" aria-hidden="true">
+              <div>ลำดับ</div><div>รายการตรวจ</div><div>เครื่อง</div><div>ผู้ส่ง</div>
+              <div>เวลาออกผล</div><div>สถานะ</div><div></div>
+            </div>
+            <div v-for="item in row.result_items" :key="'result-'+item.id" class="xr-result-list-row">
+              <div class="xr-mono">{{ item.seq }}</div>
+              <div class="xr-test-name">{{ item.name }}</div>
+              <div><span v-if="item.modality" class="xr-modality-tag" :title="item.modality_label">{{ item.modality }}</span></div>
+              <div>{{ item.dispatched_by }}</div>
+              <div class="xr-mono">{{ item.resulted_text }}</div>
+              <div><span class="xr-state-tag" :class="item.state_class">{{ item.state_label }}</span></div>
+              <div class="xr-result-action-group">
+                <!-- กดดูได้เสมอ ยังไม่มีผลก็เปิดดูสถานะรอผลได้ (ผู้ใช้ขอ 2026-09-02) -->
+                <el-button size="small" type="primary" @click="openReport(row,item)">ดูผล</el-button>
+                <!-- ── เปลี่ยนเป็นลิงก์จริง 2026-09-17 (ผู้ใช้เจอของจริง) ──────────────
+                     ของเดิมเป็นปุ่มที่เรียก window.open() ด้วย JS ⇒ เบราว์เซอร์นับเป็น
+                     "ป๊อปอัปที่สคริปต์สั่งเปิด" แล้วบล็อก · ผู้ใช้ตั้ง Allow ให้โดเมนนี้แล้ว
+                     ก็ยังโดนบล็อก เพราะหน้าฟอร์มถูกฝังใน iframe ที่ไม่อนุญาต popup
+                     ⇒ ตั้งค่าเบราว์เซอร์แก้ไม่ได้ ต้องเป็น <a> ที่คน "คลิกเอง" จริง ๆ
+                     ซึ่งเบราว์เซอร์ไม่เคยบล็อก (เป็น navigation ไม่ใช่ popup)
+                     🔴 ไม่มี URL (ยังไม่เปิดใช้ / ไม่มีทั้ง AN และ HN) = ตกกลับไปใช้ปุ่มเดิม
+                        ที่บอกเหตุผลผ่าน notify เหมือนเดิมทุกประการ -->
+                <a v-if="viewerHref(row,item)" class="el-button el-button--small xr-viewer-link"
+                  :href="viewerHref(row,item)" target="_blank" rel="noopener noreferrer"
+                  :title="imageHint(row,item)">ดูภาพ</a>
+                <el-button v-else size="small" :title="imageHint(row,item)" @click="openImage(row,item)">ดูภาพ</el-button>
+                <!-- ปุ่ม PDF ระดับ item ถูกตัดออก 2026-09-03 (ผู้ใช้ขอ) — item.can_pdf / pdf_hint
+                     ยังคำนวณอยู่เหมือนเดิม เอาปุ่มกลับมาได้ทันทีโดยไม่ต้องรื้อ logic -->
+              </div>
+            </div>
+            <div v-if="!row.result_items.length" class="xr-empty">ยังไม่มีผลอ่านใน Order นี้</div>
+          </div>
+        </div>
+      </article>
+
+      <div v-if="!loading && !view.rows.length" class="xr-empty">
+        <strong>ไม่พบรายการ</strong><br />
+        <template v-if="scanMode">ไม่พบ Order ของ {{ scanLabel }} {{ scanDisplay }} ในสถานะนี้ · ลองเปลี่ยนแท็บสถานะ หรือกดล้างเลขที่สแกน</template>
+        <template v-else>ลองเปลี่ยนคำค้น เครื่อง ช่วงวันที่ หรือสถานะ</template>
+      </div>
+    </div>
+  </section>
+
+  <div v-if="page.total>page.size" class="xr-pagination">
+    <el-pagination :current-page="page.current" :page-size="page.size"
+      :page-sizes="[10,20,30,50,100]" :total="page.total" size="small" background
+      layout="total, sizes, prev, pager, next, jumper"
+      @current-change="setPage" @size-change="setPageSize" />
+  </div>
+
+  <el-dialog :model-value="cancelDialog.visible" title="ยกเลิกรายการ X-ray" width="min(560px,94vw)"
+    :close-on-click-modal="false" :close-on-press-escape="!cancelDialog.loading"
+    :show-close="!cancelDialog.loading"
+    @update:model-value="setCancelVisible" @closed="resetCancelDialog">
+    <div class="xr-cancel-summary">
+      <strong>Order No. {{ cancelDialog.order_no }}</strong>
+      <span>ยกเลิกเฉพาะ {{ cancelDialog.item_names.length }} รายการที่เลือก: {{ cancelDialog.item_names.join(', ') }}</span>
+      <span>รายการที่ส่งแล้วจะส่ง Order JSON เดิมพร้อม IsDeleted:true ไป API Order ทีมก่อนเปลี่ยนสถานะใน HIS · ทีม API Order รับผิดชอบส่งต่อ RIS</span>
+    </div>
+    <label class="xr-cancel-reason"><span>เหตุผลการยกเลิก <b>*</b></span>
+      <el-input :model-value="cancelDialog.reason" type="textarea" :rows="4" maxlength="1000"
+        show-word-limit :disabled="cancelDialog.loading" placeholder="ระบุเหตุผลการยกเลิกรายการ"
+        @update:model-value="setCancelReason" />
+    </label>
+    <template #footer>
+      <el-button :disabled="cancelDialog.loading" @click="setCancelVisible(false)">ไม่ยกเลิก</el-button>
+      <el-button type="danger" :loading="cancelDialog.loading" :disabled="!cancelDialog.reason||!cancelDialog.item_ids.length"
+        @click="submitCancelOrder">ยืนยันยกเลิกรายการที่เลือก</el-button>
+    </template>
+  </el-dialog>
+
+  <el-dialog :model-value="report.visible" title="ผลอ่าน" width="min(1060px,96vw)"
+    :close-on-click-modal="false" destroy-on-close
+    @update:model-value="setReportVisible" @closed="resetReport">
+    <div v-loading="report.loading" class="xr-report-doc">
+      <div class="xr-report-head">
+        <div><span>โหมด</span><span class="xr-mode-badge">โหมดดูอย่างเดียว</span></div>
+        <div><span>รายการตรวจ</span><strong :title="report.data.test_name">{{ report.data.test_name }}</strong><small>{{ report.data.test_code }}</small></div>
+        <div><span>เครื่อง</span><strong><span v-if="report.data.modality_code" class="xr-report-modality"
+          :title="report.data.modality_label">{{ report.data.modality_code }}</span></strong></div>
+        <div><span>Accession No.</span><strong class="xr-mono">{{ report.data.accession_no }}</strong></div>
+        <div><span>HN / Order No.</span><strong class="xr-mono xr-report-wrap"
+          :title="report.data.patient_hn + ' / ' + report.data.order_number">{{ report.data.patient_hn }} / {{ report.data.order_number }}</strong></div>
+        <div><span>เวลาถ่าย</span><strong class="xr-mono">{{ report.data.performed_text }}</strong></div>
+        <div><span>เวลาออกผล</span><strong class="xr-mono">{{ shownReported() }}</strong></div>
+      </div>
+
+      <!-- ── ประวัติการแก้ผลอ่าน (เพิ่ม 2026-09-15 · ผู้ใช้อนุมัติดีไซน์แล้ว) ──────
+           RIS insert แถวใหม่ทุกครั้ง ⇒ ทุกฉบับถูกเก็บไว้ครบใน zdata_xray_result
+           API คืน data.versions[] (ใหม่→เก่า) · versions[0] คือฉบับล่าสุดเสมอ
+           🔴 Process รุ่นเก่าที่ยังไม่คืน versions[] ⇒ versions ว่าง แล้ว dialog
+              ตกกลับไปหน้าตาเดิมทุกประการ (ข้อความ version_note เดิม + ผลก้อนเดียว) -->
+      <div v-if="report.versions.length > 1" class="xr-rev-bar">
+        <el-button size="small" :type="report.history_open ? 'primary' : ''" plain
+          @click="toggleReportHistory">ประวัติการแก้ {{ report.versions.length }} ฉบับ</el-button>
+        <span class="xr-rev-note">{{ report.data.version_summary }}</span>
+      </div>
+      <div v-else-if="report.data.version_stale" class="xr-report-pending">{{ report.data.version_stale }}</div>
+      <div v-else-if="report.data.version_note" class="xr-report-pending">{{ report.data.version_note }}</div>
+
+      <div v-if="report.history_open && report.versions.length && !currentReportVersion().latest"
+        class="xr-rev-alert" role="alert">
+        <span>กำลังดูฉบับที่ {{ currentReportVersion().no }} ซึ่งถูกแทนที่แล้ว — ไม่ใช่ผลที่ใช้อ้างอิง</span>
+        <el-button size="small" @click="goLatestReportVersion">ไปฉบับล่าสุด</el-button>
+      </div>
+
+      <div v-if="report.data.has_report" class="xr-rev-split"
+        :class="{'is-solo':!report.history_open || report.versions.length < 2}">
+        <nav v-if="report.history_open && report.versions.length > 1" class="xr-rev-rail"
+          aria-label="ประวัติผลอ่าน">
+          <div class="xr-rev-rail-head">ไทม์ไลน์ · ใหม่ → เก่า</div>
+          <div class="xr-rev-rail-list">
+            <button v-for="(ver,vi) in report.versions" :key="'ver-'+vi" type="button"
+              class="xr-rev-node" :class="{'is-latest':ver.latest,'is-current':report.selected===vi}"
+              :aria-current="report.selected===vi ? 'true' : 'false'" @click="selectReportVersion(vi)">
+              <span class="xr-rev-mark" aria-hidden="true"><i class="xr-rev-dot"></i><i class="xr-rev-line"></i></span>
+              <span class="xr-rev-node-body">
+                <span class="xr-rev-node-top">
+                  <b>ฉบับที่ {{ ver.no }}</b>
+                  <em class="xr-rev-tag" :class="ver.latest ? 'is-latest' : 'is-old'">{{ ver.latest ? 'ล่าสุด' : 'ถูกแทนที่' }}</em>
+                </span>
+                <span class="xr-rev-node-when xr-mono">{{ ver.reported_text }}</span>
+                <span class="xr-rev-node-who">รังสีแพทย์ {{ ver.radiologist || '—' }}</span>
+              </span>
+            </button>
+          </div>
+        </nav>
+
+        <div class="xr-rev-panel">
+          <div class="xr-rev-panel-head">
+            <h3>ผลอ่าน<template v-if="report.history_open && report.versions.length > 1"> ฉบับที่ {{ currentReportVersion().no }}<template v-if="currentReportVersion().latest"> (ล่าสุด)</template></template></h3>
+            <el-checkbox v-if="report.history_open && report.versions.length && currentReportVersion().has_previous"
+              class="xr-rev-diff" :model-value="report.diff" size="small"
+              @change="setReportDiff">ไฮไลต์ส่วนที่ต่างจากฉบับก่อน</el-checkbox>
+          </div>
+          <p v-if="report.versions.length" class="xr-report-body">
+            <span v-for="(ln,li) in currentReportVersion().lines" :key="'ln-'+li"
+              class="xr-rev-ln" :class="{'is-changed':ln.changed && report.diff,'is-head':ln.head}">{{ ln.text }}</span>
+          </p>
+          <p v-else class="xr-report-body">{{ report.data.result_text }}</p>
+
+          <div v-if="report.history_open && report.versions.length" class="xr-rev-kv">
+            <div><span>เวลาออกผล</span><strong class="xr-mono">{{ currentReportVersion().reported_text || '—' }}</strong></div>
+            <div><span>รังสีแพทย์</span><strong class="xr-mono">{{ currentReportVersion().radiologist || '—' }}</strong></div>
+            <div><span>สถานะผล</span><strong>{{ currentReportVersion().status_label || '—' }}</strong></div>
+            <div><span>HIS รับเมื่อ</span><strong class="xr-mono">{{ currentReportVersion().received_text || '—' }}</strong></div>
+            <div><span>Message Control Id</span><strong class="xr-mono">{{ currentReportVersion().message_control_id || '—' }}</strong></div>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="!report.data.has_report && !report.loading" class="xr-report-pending">
+        {{ report.data.pending_message }}
+      </div>
+
+      <!-- ช่อง "ผู้รับรองผล" ถูกตัดออก 2026-09-03 (ผู้ใช้ขอ) — มันยังไม่มีที่เก็บฝั่ง server
+           อยู่แล้ว · state certified_by / setReportCertifier ยังอยู่ครบ เอากลับมาแสดงได้ทันที -->
+
+      <!-- ท้าย dialog เดินตามฉบับที่กำลังดู ไม่ใช่ฉบับล่าสุดเสมอไป — ไม่งั้นเปิดฉบับเก่า
+           แล้วชื่อคนอ่านกับเวลายังเป็นของอีกฉบับ ซึ่งอ่านแล้วเข้าใจผิดได้ทันที
+           ไม่มี versions (Process เก่า) = ค่าเดิมจาก report.data เหมือนเดิมทุกประการ -->
+      <div class="xr-report-foot">
+        <span>รหัสรังสีแพทย์: {{ shownRadiologist() }}</span>
+        <span v-if="shownSeverity()">Severity: {{ shownSeverity() }}</span>
+        <span>{{ shownReported() }}</span>
+      </div>
+    </div>
+    <template #footer>
+      <el-button @click="setReportVisible(false)">ปิด</el-button>
+    </template>
+  </el-dialog>
+</div>

@@ -2,7 +2,7 @@
 type: design
 title: X-ray Workbench SDForm — Design Reference
 created: 2026-08-31
-updated: 2026-09-24
+updated: 2026-10-05
 tags: [xray, sdform, worklist, design]
 ---
 
@@ -37,16 +37,24 @@ tooltip `ยังไม่ผ่านการเงิน`; ยังเล�
 `6a967029422c1ca959829edc` และ Process ออกเลข enforce กติกานี้ฝั่ง server ด้วย โดยไม่บล็อก
 retry/repair/resend ของรายการที่เคยรับแล้ว.
 
-Badge การเงินใช้เฉพาะสิทธิ์เงินสดที่มี `total_amount > 0`: ถ้า Item ที่ยัง active ทุกตัวผ่าน
-`ready` หรือสถานะหลังรับแล้ว แสดงเขียว `ชำระเงินแล้ว`; ถ้ายังมี `sent` แสดงแดง
-`ยังไม่ได้ชำระเงิน`. สิทธิ์อื่นแสดง badge สิทธิ์เดิมและไม่แสดง badge การเงิน.
+Badge การเงินใช้แบบเดียวกับ LAB และแสดงร่วมกับ badge สิทธิ์: เมื่อมี `total_amount > 0`
+หรือมีสิทธิ์การรักษา ให้คง badge สิทธิ์เดิมและแสดงสถานะการเงินเพิ่ม. ถ้า Item ที่ยัง active
+ทุกตัวผ่าน `ready` หรือสถานะหลังรับแล้ว แสดงเขียว `ชำระเงินแล้ว`; ถ้ายังมี `sent`
+แสดงแดง `ยังไม่ได้ชำระเงิน`. ข้อความ/สีใช้สถานะชุดเดียวกับปุ่ม `ส่งเข้าเครื่อง` ไม่ใช้
+`paid_amount` ปลด gate.
 
-แท็บระดับบนเรียง `Unit Queue` · `My Room` · `X-ray` · `สืบค้นผลแลป` · `Completed` โดย
+แท็บระดับบนเรียง `Unit Queue` · `My Room` · `X-ray` · `Completed` · `สืบค้นผลแลป` โดย
 ยังเปิดเริ่มต้นที่ `X-ray`. แท็บใหม่ใช้ LAB Process `6a9434c3422c1ca959829d5e` แบบ
 read-only: เริ่มว่าง, ค้นด้วย HN แบบตรงตัวหรือ Date Range, ส่ง `cross_section:true`, ดูได้ทั้ง
 ผลและรายการสั่งจากทุก LAB section ที่เปิดใช้ และเรียกได้เฉพาะ `list`/`get_manual_result`.
 ก่อน deploy ต้องให้สิทธิ์กลุ่ม X-ray เรียก LAB Process นี้และ UAT ด้วยบัญชีจริง; ยังไม่มีหลักฐาน
 Builder/Preview หรือ runtime ของแท็บใหม่นี้.
+
+คิว X-ray ใช้ **หน้า Unit Queue / My Room / Completed ของ EMR โดยตรง** และมี
+`zdata_visit_tran` เป็น source of truth เพียงชุดเดียว. `m0900` เป็น parent/front-desk center:
+เมื่อไม่เลือก Room จะเห็นเฉพาะคิว `FRONT`, เจ้าหน้าที่ center จึงซักประวัติ/เรียก/ย้ายห้อง
+เข้าห้องลูกเอง. เมื่อเลือก Room จะเห็นและเรียกเฉพาะคิวของห้องนั้นผ่าน Process กลางของ EMR;
+ไม่มีวิดเจ็ตคิว X-ray, ไม่มีรายการห้องใหญ่ 4 ห้อง และไม่มีการกระจายคิวเดียวไปทุกห้อง.
 
 ## แหล่งอ้างอิงตามลำดับ
 
@@ -107,11 +115,12 @@ Builder/Preview หรือ runtime ของแท็บใหม่นี้.
 - **D-X2 เคาะบางส่วนแล้ว 2026-08-31** — เครื่องอ่านจาก `master.xray_item.modality` และ dropdown ใช้ enum 11 ค่า
   ของ master Radio Exam (`6a8fde8a4c725771c62b1bc1`) ไม่ใช่รายการ 19 ค่าเดิม
 - **D-X14 เคาะแล้ว 2026-09-01** — เลข accession ใช้ code 2 ตัวจาก enum 11 ค่าของ Radio Exam (`VCUG` → `VC`) รูปแบบเต็มอยู่ใน `spec.md` §4.3
-- **D-X8 เคาะแล้ว 2026-08-31 · ขยาย 2026-09-01** — ขอบเขตคุมด้วย Organization ไม่ใช่ Section
-  (`XRAY_ORGANIZATION_CODES = ['m0900','m0901','CT']`) ผังจริงคือ `m0900` กลุ่มงานรังสีวิทยา (xray)
-  มีลูกสองหน่วยคือ `m0901` งานรังสีวิทยา (X-ray ธรรมดา) และ `CT` CT scan / CT-MRI SCAN
-  · **เป็นประตูอย่างเดียว ไม่ได้กรองข้อมูล** — ทุก org ที่ผ่านเข้ามาเห็นรายการรังสีทั้งหมด
-  เหมือนกัน ผู้ใช้ยืนยัน 2026-09-01 ว่ายังไม่ต้องแยกให้แต่ละ org เห็นเฉพาะงานตัวเอง
+- **D-X8 เคาะแล้ว 2026-08-31 · ขยาย 2026-09-01 และ 2026-10-05** — ขอบเขตคุมด้วย
+  Organization ไม่ใช่ Section. `m0900` เป็น root กลุ่มงานรังสีวิทยา; Process ใช้
+  `XRAY_ORGANIZATION_CODES = ['m0900','m0901','CT']` เป็น fallback แล้วขยายทุกลูกหลาน
+  จาก Organization master แบบ recursive (รวม RA-11 / RA-1206 / RA-301 ตามผังปัจจุบัน)
+  · ขอบเขตนี้ยังใช้กับ X-ray Worklist เดิม แต่ **ไม่ใช้สร้างคิว X-ray แยก**. หน้า queue
+  clone EMR: parent `m0900` เห็น `FRONT` ผ่าน `unit_path`; ห้องลูกเห็นเฉพาะ Room ที่เลือก
 - **D-X3 เคาะทิศทางแล้ว 2026-09-01** — ปุ่ม `ส่งเข้าเครื่อง` = ออกเลข Accession แล้วส่งเข้า RIS
   ด้วย **API ที่ทีมเขียน** (`../../API/api-factory/xray_api_order.js` · Process
   `6a8f1ef87632d182ef6914fe`) ไม่ใช้ Agent submit ของ LAB ที่บังคับ `labno`/`specimen_code`

@@ -1,0 +1,746 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>X-ray Order + Queue Flow</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #f4f7f8;
+      --muted: #97a7ad;
+      --paper: #081014;
+      --panel: #0d181d;
+      --panel-2: #101e24;
+      --line: #24383f;
+      --order: #ffbc63;
+      --order-soft: rgba(255, 188, 99, .12);
+      --queue: #54d6ce;
+      --queue-soft: rgba(84, 214, 206, .12);
+      --action: #92e080;
+      --action-soft: rgba(146, 224, 128, .12);
+      --danger: #ff7b6b;
+      --warning: #f3d36a;
+      --radius: 18px;
+      --shadow: 0 26px 70px rgba(0, 0, 0, .34);
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      background:
+        linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px),
+        radial-gradient(circle at 88% 5%, rgba(84,214,206,.09), transparent 34%),
+        var(--paper);
+      background-size: 28px 28px, 28px 28px, auto, auto;
+      color: var(--ink);
+      font-family: "Noto Sans Thai", "Leelawadee UI", Tahoma, sans-serif;
+      line-height: 1.55;
+    }
+
+    button, a { font: inherit; }
+
+    .shell {
+      width: min(1440px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 34px 0 64px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 24px;
+      padding-bottom: 26px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .eyebrow {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+      color: var(--queue);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+
+    .pulse {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--queue);
+      box-shadow: 0 0 0 6px rgba(84,214,206,.1);
+    }
+
+    h1 {
+      max-width: 920px;
+      margin: 0;
+      font-size: clamp(34px, 5vw, 70px);
+      font-weight: 780;
+      letter-spacing: -.055em;
+      line-height: .98;
+    }
+
+    h1 span { color: var(--order); }
+
+    .version {
+      flex: 0 0 auto;
+      padding: 12px 15px;
+      border: 1px solid rgba(146,224,128,.35);
+      border-radius: 999px;
+      background: var(--action-soft);
+      color: var(--action);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .02em;
+    }
+
+    .intro {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(280px, .6fr);
+      gap: 22px;
+      margin: 26px 0;
+    }
+
+    .thesis,
+    .legend,
+    .flow-board,
+    .side-card,
+    .state-card,
+    .truth-table,
+    .notice {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(13,24,29,.9);
+      box-shadow: var(--shadow);
+    }
+
+    .thesis {
+      padding: 24px 26px;
+      font-size: clamp(17px, 2vw, 22px);
+      line-height: 1.6;
+    }
+
+    .thesis strong { color: var(--ink); }
+    .thesis .order-text { color: var(--order); }
+    .thesis .queue-text { color: var(--queue); }
+
+    .legend {
+      display: grid;
+      align-content: center;
+      gap: 11px;
+      padding: 19px 22px;
+    }
+
+    .legend-item {
+      display: grid;
+      grid-template-columns: 10px 1fr;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .dot { width: 10px; height: 10px; border-radius: 3px; }
+    .dot.order { background: var(--order); }
+    .dot.queue { background: var(--queue); }
+    .dot.action { background: var(--action); }
+
+    .scenario-bar {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 4px 0 18px;
+      scrollbar-width: thin;
+    }
+
+    .scenario {
+      flex: 0 0 auto;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #0b151a;
+      color: var(--muted);
+      padding: 10px 16px;
+      cursor: pointer;
+      transition: border-color .2s ease, color .2s ease, background .2s ease, transform .2s ease;
+    }
+
+    .scenario:hover { border-color: #47616a; color: var(--ink); transform: translateY(-1px); }
+    .scenario:focus-visible { outline: 3px solid rgba(84,214,206,.34); outline-offset: 2px; }
+    .scenario.active { border-color: var(--queue); background: var(--queue-soft); color: var(--ink); }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 340px;
+      gap: 20px;
+      align-items: start;
+    }
+
+    .workspace > *,
+    .below-grid > *,
+    .side-stack > * { min-width: 0; }
+
+    .flow-board { overflow: hidden; }
+
+    .board-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 18px;
+      padding: 18px 22px;
+      border-bottom: 1px solid var(--line);
+      background: #0a1418;
+    }
+
+    .board-head strong { font-size: 14px; letter-spacing: .01em; }
+    .board-head small { color: var(--muted); }
+
+    .flow-lane {
+      display: grid;
+      grid-template-columns: 116px minmax(0, 1fr);
+      min-height: 222px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .flow-lane:last-child { border-bottom: 0; }
+
+    .lane-label {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 26px;
+      padding: 24px 18px;
+      border-right: 1px solid var(--line);
+    }
+
+    .order-lane .lane-label { background: var(--order-soft); }
+    .queue-lane .lane-label { background: var(--queue-soft); }
+
+    .lane-kicker {
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: .15em;
+      text-transform: uppercase;
+    }
+
+    .order-lane .lane-kicker { color: var(--order); }
+    .queue-lane .lane-kicker { color: var(--queue); }
+
+    .lane-number {
+      color: rgba(255,255,255,.11);
+      font-size: 48px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .lane-content {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(145px, 1fr));
+      gap: 28px;
+      align-items: stretch;
+      padding: 27px;
+    }
+
+    .flow-node {
+      position: relative;
+      min-height: 164px;
+      padding: 18px;
+      border: 1px solid #294048;
+      border-radius: 14px;
+      background: #101c21;
+      transition: opacity .25s ease, transform .25s ease, border-color .25s ease, box-shadow .25s ease;
+    }
+
+    .flow-node:not(:last-child)::after {
+      content: "→";
+      position: absolute;
+      top: 50%;
+      right: -22px;
+      color: #587079;
+      font-size: 18px;
+      transform: translateY(-50%);
+    }
+
+    .flow-node .step {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 25px;
+      height: 25px;
+      margin-bottom: 18px;
+      border-radius: 7px;
+      color: #061013;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .order-lane .step { background: var(--order); }
+    .queue-lane .step { background: var(--queue); }
+
+    .flow-node h2 {
+      margin: 0 0 6px;
+      font-size: 16px;
+      line-height: 1.35;
+    }
+
+    .flow-node p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12.5px;
+      line-height: 1.55;
+    }
+
+    .mini-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 12px;
+    }
+
+    .tag {
+      padding: 4px 7px;
+      border: 1px solid #2d444d;
+      border-radius: 5px;
+      color: #c7d2d5;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .flow-node.is-dim { opacity: .25; transform: scale(.985); }
+    .flow-node.is-hot {
+      z-index: 2;
+      border-color: var(--action);
+      box-shadow: 0 0 0 3px rgba(146,224,128,.11), 0 14px 38px rgba(0,0,0,.25);
+      transform: translateY(-3px);
+    }
+
+    .order-lane .flow-node.is-hot { border-color: var(--order); box-shadow: 0 0 0 3px var(--order-soft); }
+    .queue-lane .flow-node.is-hot { border-color: var(--queue); box-shadow: 0 0 0 3px var(--queue-soft); }
+
+    .side-stack { display: grid; gap: 14px; }
+
+    .side-card { padding: 22px; }
+
+    .side-card h2,
+    .state-card h2,
+    .truth-table h2 {
+      margin: 0 0 8px;
+      font-size: 17px;
+    }
+
+    .side-card > p { margin: 0 0 18px; color: var(--muted); font-size: 13px; }
+
+    .outcome {
+      display: grid;
+      gap: 10px;
+      padding-top: 17px;
+      border-top: 1px solid var(--line);
+    }
+
+    .outcome-row {
+      display: grid;
+      grid-template-columns: 38px 1fr;
+      gap: 10px;
+      align-items: start;
+    }
+
+    .outcome-icon {
+      display: grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 9px;
+      background: #14242a;
+      color: var(--queue);
+      font-weight: 900;
+    }
+
+    .outcome-row strong { display: block; font-size: 13px; }
+    .outcome-row span { color: var(--muted); font-size: 12px; }
+
+    .rule-list { display: grid; gap: 12px; margin-top: 16px; }
+
+    .rule {
+      display: grid;
+      grid-template-columns: 18px 1fr;
+      gap: 10px;
+      color: #cbd5d8;
+      font-size: 12.5px;
+    }
+
+    .rule::before { content: "✓"; color: var(--action); font-weight: 900; }
+
+    .below-grid {
+      display: grid;
+      grid-template-columns: minmax(0, .82fr) minmax(0, 1.18fr);
+      gap: 20px;
+      margin-top: 20px;
+    }
+
+    .state-card, .truth-table { padding: 24px; }
+    .state-card > p, .truth-table > p { margin: 0; color: var(--muted); font-size: 13px; }
+
+    .states {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-top: 22px;
+      overflow-x: auto;
+      padding-bottom: 5px;
+    }
+
+    .state {
+      flex: 0 0 auto;
+      min-width: 94px;
+      padding: 10px 12px;
+      border: 1px solid #314850;
+      border-radius: 9px;
+      background: #0c171b;
+      text-align: center;
+      font-size: 12px;
+    }
+
+    .state strong { display: block; color: var(--ink); }
+    .state small { color: var(--muted); }
+    .state-arrow { flex: 0 0 auto; color: #536970; }
+    .state.waiting { border-color: #78858a; }
+    .state.called { border-color: var(--warning); }
+    .state.progress { border-color: var(--action); }
+    .state.done { background: var(--action-soft); border-color: var(--action); }
+
+    .skip-note {
+      margin-top: 14px;
+      padding: 11px 13px;
+      border-left: 3px solid var(--danger);
+      background: rgba(255,123,107,.08);
+      color: #d7dfe1;
+      font-size: 12px;
+    }
+
+    .table-wrap { overflow-x: auto; margin-top: 18px; }
+    table { width: 100%; min-width: 580px; border-collapse: collapse; }
+    th, td { padding: 12px 13px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; font-size: 12px; }
+    th { color: var(--muted); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
+    td:first-child { color: var(--ink); font-weight: 800; }
+    tbody tr:last-child td { border-bottom: 0; }
+
+    .notice {
+      display: grid;
+      grid-template-columns: 32px 1fr;
+      gap: 14px;
+      margin-top: 20px;
+      padding: 18px 20px;
+      border-color: rgba(243,211,106,.32);
+      background: rgba(243,211,106,.07);
+      box-shadow: none;
+    }
+
+    .notice-mark { color: var(--warning); font-size: 21px; font-weight: 900; }
+    .notice strong { display: block; margin-bottom: 4px; color: var(--warning); font-size: 13px; }
+    .notice p { margin: 0; color: #c9d1d3; font-size: 12px; }
+
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      margin-top: 22px;
+      color: #6f8288;
+      font-size: 11px;
+    }
+
+    @media (max-width: 1120px) {
+      .workspace { grid-template-columns: 1fr; }
+      .side-stack { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .lane-content { grid-template-columns: repeat(2, minmax(190px, 1fr)); }
+      .flow-node:nth-child(2)::after { display: none; }
+    }
+
+    @media (max-width: 760px) {
+      .shell { width: min(100% - 24px, 1440px); padding-top: 22px; }
+      .topbar { display: block; }
+      .version { display: inline-block; margin-top: 18px; }
+      .intro, .below-grid, .side-stack { grid-template-columns: 1fr; }
+      .flow-lane { grid-template-columns: 1fr; }
+      .lane-label { flex-direction: row; align-items: center; padding: 14px 18px; border-right: 0; border-bottom: 1px solid var(--line); }
+      .lane-number { font-size: 26px; }
+      .lane-content { grid-template-columns: 1fr; padding: 18px; }
+      .flow-node { min-height: auto; }
+      .flow-node:not(:last-child)::after { content: "↓"; top: auto; right: 50%; bottom: -25px; transform: translateX(50%); }
+      .flow-node:nth-child(2)::after { display: block; }
+      .board-head { align-items: flex-start; flex-direction: column; }
+      .footer { flex-direction: column; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <div class="eyebrow"><span class="pulse"></span> X-ray operating model · 13 Oct 2026</div>
+        <h1>Order กับ Queue <span>วิ่งคู่กัน</span><br>แต่ไม่ผูกคอกัน</h1>
+      </div>
+      <div class="version">LOCAL JSON · READY TO REPLACE</div>
+    </header>
+
+    <section class="intro" aria-label="แนวคิดหลัก">
+      <div class="thesis">
+        <strong>ใจความสำคัญ:</strong> เมื่อมีคำสั่ง X-ray ระบบแสดงที่ <span class="order-text">Worklist ทันที</span>
+        ตามเงื่อนไขของ Order ส่วนคิวที่การเงินหรือห้องตรวจส่งมา จะเข้า <span class="queue-text">Unit Queue</span>
+        ผ่าน Visit Tran กลาง ทั้งสองอย่างเกิดพร้อมกันได้ และสถานะคิวไม่ใช้เป็นประตูบังคับการเห็น Order
+      </div>
+      <div class="legend" aria-label="คำอธิบายสี">
+        <div class="legend-item"><span class="dot order"></span><span>สาย Order · CPOE → Worklist</span></div>
+        <div class="legend-item"><span class="dot queue"></span><span>สาย Queue · Visit Tran → Queue tabs</span></div>
+        <div class="legend-item"><span class="dot action"></span><span>จุดเชื่อม · action X-ray เปิด Visit</span></div>
+      </div>
+    </section>
+
+    <nav class="scenario-bar" aria-label="เลือกสถานการณ์จำลอง">
+      <button class="scenario active" type="button" data-scenario="all">ภาพรวมทั้งหมด</button>
+      <button class="scenario" type="button" data-scenario="order">1 · มี Order อย่างเดียว</button>
+      <button class="scenario" type="button" data-scenario="both">2 · มี Order + มี Queue</button>
+      <button class="scenario" type="button" data-scenario="action">3 · กด action X-ray</button>
+      <button class="scenario" type="button" data-scenario="done">4 · ตรวจเสร็จ</button>
+    </nav>
+
+    <div class="workspace">
+      <section class="flow-board" aria-label="แผนภาพ flow">
+        <div class="board-head">
+          <strong>สองเส้นทางข้อมูลของผู้ป่วย Visit เดียวกัน</strong>
+          <small>กดสถานการณ์ด้านบนเพื่อเน้นเส้นทาง</small>
+        </div>
+
+        <div class="flow-lane order-lane">
+          <div class="lane-label">
+            <div><div class="lane-kicker">Order lane</div><strong>ใบสั่งตรวจ</strong></div>
+            <div class="lane-number">01</div>
+          </div>
+          <div class="lane-content">
+            <article class="flow-node" data-node="order-create">
+              <span class="step">1</span>
+              <h2>แพทย์สั่ง X-ray</h2>
+              <p>CPOE Item ถูกสร้างตามรายการตรวจ โดยไม่ต้องรอให้มี Visit Tran ของคิวก่อน</p>
+              <div class="mini-tags"><span class="tag">Order</span><span class="tag">Visit ID</span></div>
+            </article>
+            <article class="flow-node" data-node="order-query">
+              <span class="step">2</span>
+              <h2>Worklist อ่าน Order</h2>
+              <p>API ดึงรายการ X-ray ตามกฎ Worklist และสถานะของ Item ไม่อิงแท็บ Queue</p>
+              <div class="mini-tags"><span class="tag">ไม่ gate ด้วยคิว</span></div>
+            </article>
+            <article class="flow-node" data-node="order-show">
+              <span class="step">3</span>
+              <h2>เห็น Order ปกติ</h2>
+              <p>รายการปรากฏในแท็บ X-ray Worklist แม้ยังไม่มีใครส่งคิวเข้าหน่วย</p>
+              <div class="mini-tags"><span class="tag">Worklist</span><span class="tag">Order card</span></div>
+            </article>
+            <article class="flow-node" data-node="order-focus">
+              <span class="step">4</span>
+              <h2>Focus ทั้ง Visit</h2>
+              <p>เมื่อมาจาก action X-ray ระบบเลือก Visit และกาง Order ทุกใบของ Visit นั้น</p>
+              <div class="mini-tags"><span class="tag">Auto expand</span></div>
+            </article>
+          </div>
+        </div>
+
+        <div class="flow-lane queue-lane">
+          <div class="lane-label">
+            <div><div class="lane-kicker">Queue lane</div><strong>ลำดับเข้าห้อง</strong></div>
+            <div class="lane-number">02</div>
+          </div>
+          <div class="lane-content">
+            <article class="flow-node" data-node="queue-send">
+              <span class="step">1</span>
+              <h2>ส่งคิวเข้า X-ray</h2>
+              <p>การเงินหรือห้องตรวจส่งคิวผ่านระบบกลาง เกิดเป็น Visit Tran ของหน่วย X-ray</p>
+              <div class="mini-tags"><span class="tag">Finance</span><span class="tag">Exam room</span></div>
+            </article>
+            <article class="flow-node" data-node="queue-unit">
+              <span class="step">2</span>
+              <h2>ขึ้น Unit Queue</h2>
+              <p>สถานะ <b>waiting</b> แสดงใน List View และเรียกคิวจาก action ของแถวนั้น</p>
+              <div class="mini-tags"><span class="tag">เรียก</span><span class="tag">ย้ายห้อง</span><span class="tag">ส่งต่อ</span></div>
+            </article>
+            <article class="flow-node" data-node="queue-room">
+              <span class="step">3</span>
+              <h2>เข้า My Room</h2>
+              <p>หลังเรียกจะเห็นสถานะ called / in_progress / skipped ตามห้องที่เลือก</p>
+              <div class="mini-tags"><span class="tag">เรียกคิวถัดไป</span><span class="tag">Check-in</span></div>
+            </article>
+            <article class="flow-node" data-node="queue-xray">
+              <span class="step">4</span>
+              <h2>กด action “X-ray”</h2>
+              <p>ถ้า called จะ start คิวก่อน; ถ้า in_progress จะเปิด Worklist ของ Visit ได้ทันที</p>
+              <div class="mini-tags"><span class="tag">start → focus Visit</span></div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <aside class="side-stack">
+        <section class="side-card" aria-live="polite">
+          <div class="eyebrow">Scenario output</div>
+          <h2 id="scenario-title">ภาพรวมทั้งหมด</h2>
+          <p id="scenario-copy">Order และ Queue เป็นข้อมูลคนละชุด แต่เชื่อมกันด้วย Visit เมื่อผู้ใช้กด action X-ray</p>
+          <div class="outcome" id="scenario-outcomes"></div>
+        </section>
+
+        <section class="side-card">
+          <div class="eyebrow">Current controls</div>
+          <h2>ปุ่มที่เห็นจริง</h2>
+          <div class="rule-list">
+            <div class="rule"><span><b>Unit Queue:</b> ไม่มีปุ่มหัวข้อ “เรียกคิวถัดไป” แล้ว เรียกจากแต่ละแถว</span></div>
+            <div class="rule"><span><b>My Room:</b> มี “เรียกคิวถัดไป” และ “Check-in” ที่หัวรายการ</span></div>
+            <div class="rule"><span><b>My Room row:</b> มี action “X-ray” สำหรับเริ่มตรวจและเปิด Order</span></div>
+            <div class="rule"><span><b>Completed:</b> action “X-ray” เปิดกลับไปดู Order โดยไม่เปลี่ยนคิว</span></div>
+          </div>
+        </section>
+      </aside>
+    </div>
+
+    <div class="below-grid">
+      <section class="state-card">
+        <div class="eyebrow">Queue state machine</div>
+        <h2>สถานะคิวกลางที่หน้าจอใช้</h2>
+        <p>เป็น lifecycle ของ Visit Tran และไม่ใช่สถานะของ Order</p>
+        <div class="states" aria-label="ลำดับสถานะคิว">
+          <div class="state waiting"><strong>waiting</strong><small>Unit Queue</small></div>
+          <span class="state-arrow">→</span>
+          <div class="state called"><strong>called</strong><small>My Room</small></div>
+          <span class="state-arrow">→</span>
+          <div class="state progress"><strong>in_progress</strong><small>กำลังตรวจ</small></div>
+          <span class="state-arrow">→</span>
+          <div class="state done"><strong>done</strong><small>Completed</small></div>
+        </div>
+        <div class="skip-note"><b>ทางแยก:</b> skipped ยังอยู่ใน My Room และสามารถ “เรียกกลับ” ได้; ป้ายเรียกกลับแสดงเป็น ↺</div>
+      </section>
+
+      <section class="truth-table">
+        <div class="eyebrow">Visibility matrix</div>
+        <h2>อะไรขึ้นหน้าไหน</h2>
+        <p>ใช้ตารางนี้ตรวจ UAT หลัง Replace JSON</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>เหตุการณ์</th><th>Worklist</th><th>Unit Queue</th><th>ผลลัพธ์</th></tr></thead>
+            <tbody>
+              <tr><td>มี X-ray Order อย่างเดียว</td><td>เห็น Order</td><td>ยังไม่ขึ้น</td><td>ทำงานฝั่ง Order ได้ตามปกติ</td></tr>
+              <tr><td>ส่งคิวเข้า X-ray</td><td>Order เดิมยังอยู่</td><td>ขึ้นสถานะ waiting</td><td>ข้อมูลสองหน้าทำงานคู่กัน</td></tr>
+              <tr><td>กด “เรียก” รายแถว</td><td>ไม่ลบ/ไม่ย้าย Order</td><td>ย้ายไป My Room</td><td>คิวเป็น called</td></tr>
+              <tr><td>กด action “X-ray”</td><td>เปิด Visit + กางทุก Order</td><td>ไม่ซ้ำรายการ</td><td>called → in_progress</td></tr>
+              <tr><td>คิว done</td><td>Order/ผลยังเปิดดูได้</td><td>ไป Completed</td><td>จบเฉพาะ lifecycle คิว</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <section class="notice">
+      <div class="notice-mark">!</div>
+      <div>
+        <strong>จุดที่ยังต้อง UAT หลัง Replace</strong>
+        <p>หน้าอธิบายนี้อ้างอิง JSON local ที่พร้อม Replace; live X-ray จะเปลี่ยนเมื่อผู้ใช้นำ JSON ขึ้นเท่านั้น และ Check-in ของหน่วย m0900 ยังติดกฎ API กลางที่อนุญาตเฉพาะ clinic จนกว่าเจ้าของ SuperAdmin InitAPI จะเพิ่ม allowlist ที่ตรงหน่วย</p>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <span>Source: xray-cpoe-worklist-v1.json · EMR queue read-only audit</span>
+      <span>Order status ≠ Queue status · Visit ID คือจุดเชื่อม</span>
+    </footer>
+  </main>
+
+  <script>
+    const scenarios = {
+      all: {
+        title: 'ภาพรวมทั้งหมด',
+        copy: 'Order และ Queue เป็นข้อมูลคนละชุด แต่เชื่อมกันด้วย Visit เมื่อผู้ใช้กด action X-ray',
+        hot: [],
+        outcomes: [
+          ['O', 'Order lane', 'เข้า Worklist ได้โดยไม่รอคิว'],
+          ['Q', 'Queue lane', 'เข้า Unit Queue จาก Visit Tran กลาง'],
+          ['X', 'จุดเชื่อม', 'action X-ray เปิด Worklist ของ Visit']
+        ]
+      },
+      order: {
+        title: 'มี Order อย่างเดียว',
+        copy: 'ผู้ป่วยยังไม่มีคิว X-ray ก็เห็นใบสั่งตรวจใน Worklist ได้ตามปกติ',
+        hot: ['order-create', 'order-query', 'order-show'],
+        outcomes: [
+          ['✓', 'Worklist', 'เห็น Order ตามเงื่อนไข CPOE'],
+          ['–', 'Unit Queue', 'ยังไม่มีรายการ เพราะยังไม่มี Visit Tran'],
+          ['=', 'Order status', 'ไม่ถูกบังคับด้วยสถานะคิว']
+        ]
+      },
+      both: {
+        title: 'มี Order พร้อมมี Queue',
+        copy: 'เมื่อการเงินหรือห้องตรวจส่งคิว รายการจะขึ้น Unit Queue เพิ่ม โดย Order เดิมยังอยู่ที่ Worklist',
+        hot: ['order-show', 'queue-send', 'queue-unit'],
+        outcomes: [
+          ['2', 'เห็นสองตำแหน่ง', 'Worklist และ Unit Queue พร้อมกัน'],
+          ['↗', 'Unit Queue', 'ใช้ action “เรียก” ของแถว'],
+          ['≠', 'ข้อมูลไม่ซ้ำชุด', 'Order กับ Visit Tran มีหน้าที่ต่างกัน']
+        ]
+      },
+      action: {
+        title: 'กด action X-ray',
+        copy: 'ที่ My Room ระบบเริ่มคิวถ้าจำเป็น แล้วสลับไป Worklist พร้อม focus Visit และกาง Order ทุกใบ',
+        hot: ['queue-room', 'queue-xray', 'order-focus'],
+        outcomes: [
+          ['▶', 'called', 'run start → in_progress'],
+          ['↪', 'in_progress', 'เปิด Worklist ได้ทันที'],
+          ['▤', 'หลาย Order', 'กางทุกใบของ Visit เดียวกัน']
+        ]
+      },
+      done: {
+        title: 'ตรวจเสร็จ',
+        copy: 'คิวที่ done ไปอยู่ Completed แต่ไม่ได้ลบ Order หรือผลตรวจ และยังเปิดกลับไปดูได้',
+        hot: ['queue-xray', 'order-focus'],
+        outcomes: [
+          ['✓', 'Completed', 'เก็บรายการคิวที่จบแล้ว'],
+          ['○', 'Worklist', 'Order/ผลยังคงมีตาม lifecycle ของงาน'],
+          ['↩', 'เปิดย้อนหลัง', 'action X-ray กลับไปยัง Visit ได้']
+        ]
+      }
+    };
+
+    const buttons = [...document.querySelectorAll('.scenario')];
+    const nodes = [...document.querySelectorAll('.flow-node')];
+    const title = document.getElementById('scenario-title');
+    const copy = document.getElementById('scenario-copy');
+    const outcomes = document.getElementById('scenario-outcomes');
+
+    function renderScenario(key) {
+      const scenario = scenarios[key] || scenarios.all;
+      buttons.forEach(button => button.classList.toggle('active', button.dataset.scenario === key));
+      nodes.forEach(node => {
+        const focused = !scenario.hot.length || scenario.hot.includes(node.dataset.node);
+        node.classList.toggle('is-hot', scenario.hot.includes(node.dataset.node));
+        node.classList.toggle('is-dim', !focused);
+      });
+      title.textContent = scenario.title;
+      copy.textContent = scenario.copy;
+      outcomes.innerHTML = scenario.outcomes.map(([icon, label, detail]) => `
+        <div class="outcome-row">
+          <div class="outcome-icon">${icon}</div>
+          <div><strong>${label}</strong><span>${detail}</span></div>
+        </div>`).join('');
+    }
+
+    buttons.forEach(button => button.addEventListener('click', () => renderScenario(button.dataset.scenario)));
+    renderScenario('all');
+  </script>
+</body>
+</html>

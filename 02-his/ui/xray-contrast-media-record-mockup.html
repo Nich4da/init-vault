@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#ffffff">
-  <title>บันทึกการใช้สารทึบรังสี — Mockup 2 แท็บ</title>
+  <title>ประวัติการใช้สารทึบรังสี</title>
   <style>
     :root {
       --primary:#409eff;
@@ -1309,10 +1309,6 @@
       background:var(--fill);
     }
 
-    /* chip สถานะเพิ่มสองสีให้ครบชุดห้าอันของ Worklist — ใช้ตัวแปรเดิมทั้งหมด */
-    .status-chip[data-status="waiting"] { --chip-color:#b88230; --chip-border:var(--warning-200); --chip-bg:var(--warning-50); }
-    .status-chip[data-status="pending"] { --chip-color:#337ecc; --chip-border:#a0cfff; --chip-bg:var(--primary-50); }
-
     /* ── ชิปสารทึบ — ยกค่าสีจาก .xr-contrast-chip ของ Worklist ตัวจริง ───────── */
     .cm-chip {
       display:inline-flex;
@@ -1454,7 +1450,7 @@
 
     <p class="pane-note" id="paneNote"></p>
 
-    <!-- โครง toolbar · status chip · แถวผู้ป่วย · แผงรายละเอียด
+    <!-- โครง toolbar · แถวผู้ป่วย · แผงรายละเอียด
          ยกจาก X-ray CPOE Worklist ทั้งชุด ต่างกันสองข้อเท่านั้น:
            1. กรองเหลือเฉพาะใบที่มีบันทึกการใช้สารทึบ
            2. ไม่มีปุ่ม action ใด ๆ (ส่งเข้าเครื่อง · ยกเลิก · ปฏิเสธ · ตรวจใหม่ ·
@@ -1502,7 +1498,6 @@
         <span class="scope-hint">อ่านอย่างเดียว · ไม่มีปุ่มสั่งงานในหน้านี้</span>
       </div>
 
-      <div id="statusStrip" class="status-strip" role="group" aria-label="กรองรายการตามสถานะ"></div>
     </section>
 
     <p class="list-summary" id="listSummary" hidden></p>
@@ -1515,12 +1510,12 @@
       <h2>หมายเหตุการนำไป implement</h2>
       <ul>
         <li>หน้านี้เป็น <strong>mockup</strong> ข้อมูลสมมติทั้งหมด — HN ชื่อผู้ป่วย แพทย์ เลข Order/Accession ยี่ห้อสารทึบ Lot และเวลา ห้าม hard-code ลงระบบจริง</li>
-        <li>โครงหน้าทั้งหมด (toolbar · status chip · แถวผู้ป่วย · แผงรายละเอียด) <strong>ยกจาก X-ray CPOE Worklist</strong> — CSS และ markup คัดลอกตรงจาก <code>02-his/ui/xray-workbench-mockup.html</code> (หน้าต้นแบบที่ผู้ใช้ตรวจแล้ว 4 รอบ) ต้นฉบับเดียวคือ <code>design/Lab_design.md</code> ไม่มี token ใหม่</li>
+        <li>โครงหน้าทั้งหมด (toolbar · แถวผู้ป่วย · แผงรายละเอียด) <strong>ยกจาก X-ray CPOE Worklist</strong> — CSS และ markup คัดลอกตรงจาก <code>02-his/ui/xray-workbench-mockup.html</code> (หน้าต้นแบบที่ผู้ใช้ตรวจแล้ว 4 รอบ) ต้นฉบับเดียวคือ <code>design/Lab_design.md</code> ไม่มี token ใหม่</li>
         <li><strong>ต่างจาก Worklist สองข้อเท่านั้น</strong> — (1) ค้น HN แล้ว <strong>กรองเหลือเฉพาะ order ที่มีบันทึกการใช้สารทึบอย่างน้อย 1 รายการ</strong> (2) <strong>ไม่มีปุ่มสั่งงานใด ๆ</strong>: ส่งเข้าเครื่อง · ยกเลิก order · ปฏิเสธ · ตรวจใหม่ · สร้างรายการใหม่ · หนังสือยินยอม · checkbox เลือกรายการ · dropdown Radiographer/Radiologist · สติ๊กเกอร์ HN ถูกตัดออกทั้งหมด</li>
         <li>คอลัมน์แถวผู้ป่วยเหมือน Worklist ทุกช่อง — ช่องปุ่มท้ายแถวใช้บอก <strong>สารทึบ n/N</strong> และป้าย <strong>อาการ</strong> แทน ไม่ได้ปล่อยว่าง</li>
         <li>ตารางในแผงรายละเอียดใช้คอลัมน์ชุดเดียวกับแท็บ <code>order</code> ของ Worklist: Accession No. · รายการตรวจ · เครื่อง · เวลาส่งเข้าเครื่อง · Radiographer · สถานะ · ปฏิเสธ · คนปฏิเสธ · <strong>สารทึบ</strong> · ปุ่ม <code>ดูบันทึก</code> · Radiographer แสดงเป็นข้อความ (ของจริงเป็น dropdown ที่เขียนค่าได้ จึงตัดออก)</li>
         <li>บรรทัดสรุปบอกจำนวนใบที่ถูกซ่อนเสมอ (“ซ่อน n ใบที่ยังไม่มีบันทึก”) เพื่อไม่ให้เข้าใจผิดว่าผู้ป่วยรายนี้มีแค่ใบที่เห็น</li>
-        <li>status chip ห้าอันชุดเดียวกับ Worklist (ทั้งหมด · รอรับ · รอผลตรวจ · ออกผลครบ · ยกเลิก) นับ <strong>ภายใต้ใบที่มีบันทึกสารทึบและตัวกรองเครื่อง/ช่วงวันที่ปัจจุบัน</strong></li>
+        <li><strong>ไม่มี chip กรองสถานะ</strong> (ตัดออก 2026-10-02 ตามที่ผู้ใช้สั่ง) — หน้านี้ตอบคำถามเดียวคือ “order นี้มีคนแนบใบบันทึกการใช้สารทึบไว้หรือยัง” ไม่ได้มาดูผลหรือสถานะการตรวจ · คอลัมน์สถานะยังอยู่เพราะเป็นคอลัมน์เดิมของ Worklist แต่ไม่ได้ใช้เป็นตัวกรอง</li>
         <li>⏸️ <strong>โหมด “บันทึกการใช้สารทึบ” ยังพักไว้</strong> ตามที่ผู้ใช้สั่ง 2026-09-27 — โค้ดยังอยู่ครบ (<code>recordForm()</code> · dialog <code>#recordFormDialog</code> · ปุ่ม <code>+ บันทึก</code> ในตาราง) เปิดกลับด้วย <code>RECORD_MODE_ENABLED = true</code> ที่ต้นสคริปต์ · ระหว่างนี้การบันทึกใช้ปุ่ม “สารทึบ” คอลัมน์ที่ 12 ใน X-ray CPOE Worklist ตามเดิม</li>
         <li>🔴 <strong>ไม่มีข้อมูล = “ยังไม่ได้บันทึก” เท่านั้น ห้ามอ่านว่า “ไม่ได้ฉีด”</strong> — กติกาเดิมจากคอลัมน์สารทึบใน Worklist (2026-09-23) · ใช้ทั้งกับใบที่ถูกซ่อนและรายการที่ยังว่างในใบที่แสดง</li>
         <li><strong>ของเดิมที่ใช้งานได้แล้ว ห้ามแตะ:</strong> ปุ่ม “สารทึบ” คอลัมน์ที่ 12 ของ X-ray CPOE Worklist เปิดฟอร์ม <code>xray-contrast-media-record-v1</code> ผ่าน <code>initData</code> (item_id · accession_no · order_id · order_no · visit_id · modality · item_code · item_name) และไม่เรียก Process ใด ๆ · หน้านี้เป็น <strong>ทางเข้าเพิ่ม</strong> ไม่ใช่ของแทน</li>
@@ -1608,16 +1603,6 @@
         { label: 'VCUG', code: 'VCUG' }
       ];
       var MODALITY_LABELS = MODALITIES.map(function (m) { return m.label; });
-
-      /* status chip ชุดเดียวกับ X-ray Worklist — นับเฉพาะใบที่มีบันทึกสารทึบแล้ว
-         เพราะหน้านี้กรองเหลือเฉพาะใบเหล่านั้นตั้งแต่ต้น */
-      var STATUS_FILTERS = [
-        { key: 'all', label: 'ทั้งหมด' },
-        { key: 'waiting', label: 'รอรับ' },
-        { key: 'pending', label: 'รอผลตรวจ' },
-        { key: 'complete', label: 'ออกผลครบ' },
-        { key: 'cancelled', label: 'ยกเลิก' }
-      ];
 
       var STATE_LABEL = {
         waiting: 'รอรับ', dispatched: 'ส่งเครื่องแล้ว', partial: 'ออกผลบางส่วน',
@@ -1841,7 +1826,6 @@
         query: '',
         dateFrom: '', dateTo: '',
         modality: '',        /* '' = Select all */
-        status: 'all',
         expanded: {}
       };
       var calCursor = new Date(2026, 8, 1);
@@ -1887,14 +1871,6 @@
         if (resulted.length) return 'partial';
         if (accepted.length) return 'dispatched';
         return 'waiting';
-      }
-      /* bucket ของ status chip — ชุดเดียวกับ Worklist: รอรับ · รอผลตรวจ · ออกผลครบ · ยกเลิก */
-      function statusBucket(order) {
-        var s = orderState(order);
-        if (s === 'cancelled') return 'cancelled';
-        if (s === 'complete') return 'complete';
-        if (s === 'waiting') return 'waiting';
-        return 'pending';
       }
       function statusTime(order) {
         var s = orderState(order);
@@ -1968,30 +1944,16 @@
         return scopedOrders().filter(function (o) { return recordedItems(o).length > 0; });
       }
       function visibleOrders() {
-        return contrastOrders().filter(function (o) {
-          return state.status === 'all' || statusBucket(o) === state.status;
-        }).sort(function (a, b) { return a.ordered_at < b.ordered_at ? 1 : -1; });
-      }
-      function counts() {
-        var out = { all: 0, waiting: 0, pending: 0, complete: 0, cancelled: 0 };
-        contrastOrders().forEach(function (o) { out.all++; out[statusBucket(o)]++; });
-        return out;
+        /* ไม่มีตัวกรองสถานะแล้ว — หน้านี้ตอบคำถามเดียวคือ "ใบนี้มีคนแนบใบบันทึกสารทึบไว้หรือยัง"
+           (ผู้ใช้สั่งเอา chip สถานะออก 2026-10-02 เพราะไม่ได้มาดูผลหรือสถานะ) */
+        return contrastOrders().sort(function (a, b) { return a.ordered_at < b.ordered_at ? 1 : -1; });
       }
       function scopeText() {
         if (state.dateFrom && state.dateTo) return dateText(state.dateFrom) + ' – ' + dateText(state.dateTo);
         return 'ทุกช่วงเวลา';
       }
 
-      /* ── render: chip · dropdown · บรรทัดสรุป ────────────────────────────── */
-      function renderChips() {
-        var c = counts();
-        $('#statusStrip').innerHTML = STATUS_FILTERS.map(function (f) {
-          return '<button class="status-chip' + (state.status === f.key ? ' active' : '') + '" type="button"' +
-            ' data-status="' + (f.key === 'all' ? '' : f.key) + '" data-filter-key="' + f.key + '"' +
-            ' aria-pressed="' + (state.status === f.key) + '">' +
-            '<strong>' + (c[f.key] || 0) + '</strong><span>' + esc(f.label) + '</span></button>';
-        }).join('');
-      }
+      /* ── render: dropdown · บรรทัดสรุป ───────────────────────────────────── */
       function renderModalityMenu() {
         var pool = ORDERS.filter(function (o) { return matchesQuery(o) && matchesDate(o) && recordedItems(o).length; });
         var rows = [
@@ -2125,10 +2087,10 @@
         $('#worklist').innerHTML = rows.length
           ? rows.map(orderBlock).join('')
           : '<div class="empty-state" style="padding:40px 16px"><strong>ไม่พบใบที่มีบันทึกการใช้สารทึบ</strong>' +
-            'หน้านี้แสดงเฉพาะ order ที่มีบันทึกการใช้สารทึบอย่างน้อย 1 รายการ · ลองเปลี่ยน HN ช่วงวันที่ เครื่อง หรือ chip สถานะ</div>';
+            'หน้านี้แสดงเฉพาะ order ที่มีคนแนบใบบันทึกการใช้สารทึบไว้แล้วอย่างน้อย 1 รายการ · ลองเปลี่ยน HN ช่วงวันที่ หรือเครื่อง</div>';
       }
 
-      function render() { renderChips(); renderModalityMenu(); renderSummary(); renderList(); }
+      function render() { renderModalityMenu(); renderSummary(); renderList(); }
 
       /* ── หน้าต่าง "ดูบันทึก" — เรียงการ์ดตามฟอร์มจริง xray-contrast-media-record-v1 ──
          การ์ด: 1–2 ผู้ป่วย · 3 รายการตรวจพิเศษ · 4–6 สารทึบ · 7–8 เวลา/แพทย์ ·
@@ -2404,12 +2366,6 @@
       });
       $('#searchButton').addEventListener('click', render);
 
-      $('#statusStrip').addEventListener('click', function (e) {
-        var chip = e.target.closest('[data-filter-key]');
-        if (!chip) return;
-        state.status = chip.getAttribute('data-filter-key');
-        render();
-      });
 
       $('#modalityTrigger').addEventListener('click', function () {
         var open = $('#modalityMenu').hidden;
@@ -2501,10 +2457,10 @@
       });
 
       /* ── init ───────────────────────────────────────────────────────────── */
-      $('#paneNote').innerHTML = '<strong>อ่านอย่างเดียว</strong> หน้านี้ใช้โครงเดียวกับ <strong>X-ray CPOE Worklist</strong> ทุกคอลัมน์ ' +
-        'ต่างกันสองข้อ: (1) ค้น HN แล้ว <strong>กรองเหลือเฉพาะ order ที่มีบันทึกการใช้สารทึบ</strong> ' +
-        '(2) ไม่มีปุ่มสั่งงานใด ๆ — ส่งเข้าเครื่อง · ยกเลิก · ปฏิเสธ · ตรวจใหม่ · สร้างรายการใหม่ · checkbox เลือกรายการ ถูกตัดออกทั้งหมด · ' +
-        'ช่องสารทึบว่างในใบที่แสดง = <strong>ยังไม่ได้บันทึกของรายการนั้น</strong> ไม่ได้แปลว่าไม่ได้ฉีด';
+      $('#paneNote').innerHTML = '<strong>หน้านี้ตอบคำถามเดียว: order ไหนมีคนแนบใบบันทึกการใช้สารทึบไว้แล้ว</strong> ' +
+        'ค้นด้วย HN แล้วแสดงเฉพาะใบที่มีบันทึกอย่างน้อย 1 รายการ · ดูได้ว่าแนบไว้ที่รายการตรวจใด ยี่ห้อ/ปริมาณอะไร และกด ' +
+        '<code>ดูบันทึก</code> เพื่อเปิดใบเต็ม · <strong>อ่านอย่างเดียว</strong> ไม่มีปุ่มสั่งงานและไม่มีตัวกรองสถานะ ' +
+        'เพราะไม่ได้มาดูผลตรวจ · ใบที่ไม่ขึ้น = ยังไม่มีคนบันทึก ไม่ได้แปลว่าไม่ได้ฉีด';
       syncDateLabel();
       render();
     })();

@@ -35,23 +35,24 @@ assert.deepStrictEqual(state.visibleFolders(), [])
 assert.deepStrictEqual(state.visibleFiles(), [])
 
 const worklistWidget = worklist.fields[0].tabs[2].fields[0].cols[0].fields[0].options
-/* ── 🔴 ปุ่ม "นัดล่วงหน้า" ถูกถอดออก 2026-09-26 ตามคำสั่งผู้ใช้ ─────────────────
-   ("เอาปุ่มนัดล่วงหน้าออกได้เลย ฉันเปลี่ยนแพลนว่าควรแยก module ดีกว่า
-     เพราะในระบบนัดล่วงหน้ามีทุกอย่างครบแล้ว")
-   assertion เดิมที่ล็อกว่า "ปุ่มต้องมีและต้องเชื่อมจอ XR Staff Booking" ถูกแทนด้วย
-   assertion ตรงข้าม เพื่อกันไม่ให้ปุ่มแอบกลับมาโดยไม่มีคำสั่งผู้ใช้
-   สิ่งที่เทสเดิมปกป้อง (ปุ่มอื่นในกลุ่มต้องไม่หายและไม่เปลี่ยนปลายทาง) ยังตรวจครบด้านล่าง */
-assert(!worklistWidget.content.includes('>นัดล่วงหน้า</el-button>'), 'the appointment button is gone for good')
-assert(!worklistWidget.onCreated.includes('openAppointment'), 'and so is its handler')
+/* ── ปุ่ม "นัดล่วงหน้า" กลับมาแล้ว ─────────────────────────────────────────────
+   🔴 พลิก assertion กลับ **2026-10-05 ตามคำสั่งผู้ใช้** ("ปุ่มที่เราเคยผูกโมดูล
+      การนัดล่วงหน้าไว้ เอากลับมาเหมือนเดิม") หลังถอดออกไปเมื่อ 2026-09-26
+   สิ่งที่เทสช่วงถอดออกปกป้อง (ปุ่มอื่นในกลุ่มต้องไม่หายและไม่เปลี่ยนปลายทาง) ยังตรวจครบ */
+assert(worklistWidget.content.includes('>นัดล่วงหน้า</el-button>'), 'the appointment button is back')
+assert(worklistWidget.onCreated.includes('s.openAppointment='), 'together with its handler')
 const create = worklistWidget.content.indexOf('>สร้างรายการใหม่</el-button>')
+const appointment = worklistWidget.content.indexOf('>นัดล่วงหน้า</el-button>')
 const consent = worklistWidget.content.indexOf('>หนังสือยินยอม</el-button>')
-assert(create > 0 && consent > create, 'consent still sits after the create button in the same group')
+assert(create > 0 && appointment > create && consent > appointment,
+  'create → appointment → consent keep that order in the same group')
 assert(worklistWidget.content.includes('class="xr-create-group"'))
 assert(!worklistWidget.content.includes('class="xr-toolbar-spacer"'))
 assert(worklist.formConfig.cssCode.includes('.xray-cpoe .xr-toolbar{display:flex;flex-wrap:wrap;align-items:flex-start;'))
-assert(!worklist.formConfig.cssCode.includes('.xr-appointment-button'), 'its layout rule is gone too')
-/* หนังสือยินยอมเลื่อนขึ้นแถวแรกแทนช่องที่ว่างลง ไม่ปล่อยให้เหลือแถวที่ 2 ว่างเปล่า */
-assert(worklist.formConfig.cssCode.includes('.xray-cpoe .xr-consent-button{grid-column:2;grid-row:1;'))
+assert(worklist.formConfig.cssCode.includes('.xray-cpoe .xr-appointment-button{grid-column:2;grid-row:1;'),
+  'its layout rule is back in the first row')
+/* หนังสือยินยอมกลับไปอยู่แถวสองใต้ปุ่มนัด ตามผังเดิมก่อน 2026-09-26 */
+assert(worklist.formConfig.cssCode.includes('.xray-cpoe .xr-consent-button{grid-column:2;grid-row:2;'))
 assert(worklistWidget.onCreated.includes('s.openConsentLibrary=()=>{'))
 assert(worklistWidget.onCreated.includes("const CONSENT_LIBRARY_FORM_ID='6aab93911c5232627d0c6ee1';"))
 assert(worklistWidget.onCreated.includes('form.openForm(CONSENT_LIBRARY_FORM_ID'))

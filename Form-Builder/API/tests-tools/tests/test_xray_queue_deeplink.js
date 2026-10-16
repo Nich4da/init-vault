@@ -147,15 +147,35 @@ const run = async () => {
     assert.strictEqual(s.buildRow(ORDER_A).id, s.orderKey(ORDER_A), 'row.id and orderKey can never drift')
   }
 
-  /* ── 🔴 ปุ่ม "นัดล่วงหน้า" ถูกถอดออก 2026-09-26 ตามคำสั่งผู้ใช้ ───────────────
-     ("เอาปุ่มนัดล่วงหน้าออกได้เลย ... ควรแยก module ดีกว่า")
-     บล็อกเดิมสองอัน (ปุ่มเชื่อมจอจริง / ปิดปุ่มด้วย env แล้วต้องบอกเหตุผล) ถูกแทนด้วย
-     assertion ว่าปุ่มและกลไกของมันต้องไม่มีอยู่แล้ว กันไม่ให้แอบกลับมาเงียบ ๆ */
+  /* ── ปุ่ม "นัดล่วงหน้า" → จอ XR Staff Booking ───────────────────────────────
+     🔴 พลิก assertion กลับ **2026-10-05 ตามคำสั่งผู้ใช้** ("ปุ่มที่เราเคยผูกโมดูล
+        การนัดล่วงหน้าไว้ เอากลับมาเหมือนเดิม") หลังถอดออกไปเมื่อ 2026-09-26
+     ตรวจสองอย่างเหมือนบล็อกเดิมก่อนถอด: เชื่อมจอจริง / ปิดด้วย env แล้วต้องบอกเหตุผล */
   {
-    assert(!/const APPOINTMENT_FORM_ID=/.test(worklist.options.onCreated), 'no appointment form id ships any more')
-    const { s } = boot([], { form: { openForm: () => {} } })
-    assert.strictEqual(typeof s.openAppointment, 'undefined', 'the handler is gone')
-    assert.strictEqual(typeof s.appointmentHint, 'undefined', 'and so is its tooltip')
+    assert(/const APPOINTMENT_FORM_ID='6ab207459a834d51703fc158';/.test(worklist.options.onCreated),
+      'the appointment form id ships again')
+    const opened = []
+    const { s } = boot([], { form: { openForm: (id, a, b, init, cfg) => opened.push({ id, init, cfg }) } })
+    assert.strictEqual(typeof s.openAppointment, 'function', 'the handler is back')
+    assert(s.appointmentHint.includes('XR Staff Booking'), 'and so is its tooltip')
+    s.openAppointment()
+    assert.strictEqual(opened[0].id, '6ab207459a834d51703fc158', 'it opens the booking screen')
+    assert.strictEqual(opened[0].init, null, 'the screen takes no initData')
+    assert.strictEqual(opened[0].cfg.params.appointment, true, 'the appointment flag rides along')
+  }
+  /* ปิดปุ่มด้วย env ได้โดยไม่ต้องแก้โค้ด — ปิดแล้วต้องบอกเหตุผล ไม่ใช่กดแล้วเงียบ */
+  {
+    const opened = []
+    const { s, notices } = boot([], {
+      form: { openForm: (...args) => opened.push(args) },
+      source: worklist.options.onCreated.replace(
+        "const APPOINTMENT_FORM_ID='6ab207459a834d51703fc158';", "const APPOINTMENT_FORM_ID='';"),
+    })
+    s.openAppointment()
+    assert.strictEqual(opened.length, 0, 'an unwired button opens nothing')
+    assert(String((notices[notices.length - 1] || {}).message || '').includes('XRAY_APPOINTMENT_FORM_ID'),
+      'and it names exactly what is missing')
+    assert(s.appointmentHint.includes('XRAY_APPOINTMENT_FORM_ID'), 'the tooltip says it too')
   }
   /* 🔴 ปุ่มเดิมต้องไม่เปลี่ยนปลายทาง — สร้างรายการใหม่ยังเปิดโคลนที่เลือก VN ได้เอง */
   {

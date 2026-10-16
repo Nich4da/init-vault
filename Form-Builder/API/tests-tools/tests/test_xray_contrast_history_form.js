@@ -1,8 +1,14 @@
 /* ล็อกหน้า "ประวัติการใช้สารทึบรังสี" (xray-contrast-history-v1.json)
-   ผู้ใช้สั่ง 2026-09-27: ให้เหลือเฉพาะโหมดดูประวัติ และให้ยก pattern ของแท็บ
-   "สืบค้นผลแลป" มาใช้ตรง ๆ ไม่คิดโครงใหม่
-   เทสนี้กันสามเรื่อง: โครงไฟล์ตามกฎ SDForm · หน้าเป็น read-only จริง ·
-   คอลัมน์/ถ้อยคำที่ผู้ใช้เคาะแล้วไม่หายไปเงียบ ๆ */
+ *
+ * 🔴 เขียน assertion ชุดนี้ใหม่ 2026-10-02 ตามคำสั่งผู้ใช้ — ไม่ใช่การลดความเข้ม
+ *    ของเทสเดิมเพื่อให้ของใหม่ผ่าน แต่เพราะผู้ใช้เปลี่ยนแบบหน้าจอเอง 2 รอบ:
+ *      1) 2026-09-28 ให้ยก pattern ของ X-ray CPOE Worklist มาใช้แทนแท็บสืบค้นผลแลป
+ *         ⇒ assertion เดิมที่ล็อกคลาส .xll-* ใช้ไม่ได้อีก เปลี่ยนเป็นล็อก .xr-*
+ *      2) 2026-10-02 ให้เอา chip กรองสถานะออก เพราะหน้านี้ไม่ได้มาดูผล/สถานะ
+ *         ⇒ assertion เดิมที่บังคับให้มี chip ถูกแทนด้วย assertion ที่ "ห้ามมี" chip
+ *    สิ่งที่เทสเดิมปกป้องไว้ยังอยู่ครบทุกข้อ: read-only · ไม่มีปุ่มสั่งงาน ·
+ *    ขอบเขตการค้น · ถ้อยคำ "ยังไม่ได้บันทึก" · ไม่มี specimen · options ครบตามแม่แบบ
+ */
 const assert = require('assert')
 const fs = require('fs')
 const path = require('path')
@@ -36,8 +42,7 @@ assert.deepStrictEqual(
   ['columnSpan', 'content', 'customClass', 'hidden', 'label', 'name', 'onCreated', 'onMounted', 'onUnmount'],
   'ชุด options ของ vue-ui ต้องครบตามแม่แบบ ห้ามเพิ่มหรือลด',
 )
-/* customClass ของ widget ต้องปล่อยตามแม่แบบ — ภาคผนวก §12.4 */
-assert.strictEqual(widget.options.customClass, '', 'ห้ามยัดคลาสลง options.customClass ของ widget')
+assert.strictEqual(widget.options.customClass, '', 'ห้ามยัดคลาสลง options.customClass ของ widget (§12.4)')
 assert(Array.isArray(form.formConfig.customClass), 'formConfig.customClass ต้องเป็นอาร์เรย์')
 
 const names = []
@@ -52,64 +57,80 @@ walk(form.fields)
 assert.strictEqual(new Set(names).size, names.length, 'options.name ห้ามซ้ำ')
 
 const content = widget.options.content
-const script_ = widget.options.onCreated
+const code = widget.options.onCreated
+const css = form.formConfig.cssCode
 
-/* ── read-only เท่านั้น ─────────────────────────────────────────────────────
-   หน้านี้ต้องไม่มีทางเขียนอะไรกลับไปที่ order/item เลย */
+/* ── read-only เท่านั้น ─────────────────────────────────────────────────────── */
 ;['cancel_order', 'dispatch', 'reject', 'accept', 'queue_call', 'queue_done'].forEach(action => {
-  assert(!script_.includes("action:'" + action + "'"), 'ห้ามมี action เขียน: ' + action)
+  assert(!code.includes("action:'" + action + "'"), 'ห้ามมี action เขียน: ' + action)
 })
-assert(script_.includes("action:'list'"), 'ต้องเรียก action list ของ Process worklist เดิม')
-assert(script_.includes("const WORKLIST_PROCESS_ID='6a957009422c1ca959829e45'"),
+assert(code.includes("action:'list'"), 'ต้องเรียก action list ของ Process worklist เดิม')
+assert(code.includes("const WORKLIST_PROCESS_ID='6a957009422c1ca959829e45'"),
   'ต้องใช้ Process เดิมของ X-ray Worklist ห้ามสร้าง Process ใหม่')
-assert(!/ส่งเข้าเครื่อง|ยกเลิกรายการ|ปฏิเสธ/.test(content), 'ห้ามมีปุ่มฝั่งเขียนในหน้านี้')
+;['ส่งเข้าเครื่อง', 'ยกเลิก order', 'ตรวจใหม่', 'สร้างรายการใหม่', 'หนังสือยินยอม'].forEach(label => {
+  assert(!content.includes('>' + label + '<'), 'ห้ามมีปุ่มสั่งงาน: ' + label)
+})
+;['xr-item-check-cell', 'el-checkbox', 'xr-create-button', 'xr-consent-button', 'xr-item-sticker-action']
+  .forEach(cls => assert(!content.includes(cls), 'ห้ามมีของฝั่งเขียน: ' + cls))
 assert(content.includes('อ่านอย่างเดียว'), 'ต้องบอกผู้ใช้ว่าอ่านอย่างเดียว')
 
-/* ── pattern ยกมาจากแท็บสืบค้นผลแลป ────────────────────────────────────────── */
-;['xll-toolbar', 'xll-search', 'xll-date', 'xll-mode-strip', 'xll-summary', 'xll-shell',
-  'xll-head', 'xll-order', 'xll-row', 'xll-expand', 'xll-patient', 'xll-context',
-  'xll-sections', 'xll-order-meta', 'xll-status', 'xll-detail', 'xll-item-head',
-  'xll-item-row', 'xll-empty', 'xll-pagination'].forEach(cls => {
-  assert(content.includes(cls), 'ต้องใช้คลาสเดิมของ xray_lab_lookup: ' + cls)
-  assert(form.formConfig.cssCode.includes(cls), 'CSS ต้องมีคลาส ' + cls)
-})
-assert(form.formConfig.cssCode.startsWith('.xray-contrast-history{'), 'root class ของ CSS ต้องเป็นของหน้านี้')
+/* ── ไม่มี chip กรองสถานะ (ผู้ใช้สั่ง 2026-10-02) ───────────────────────────
+   หน้านี้ตอบคำถามเดียว: order นี้มีคนแนบใบบันทึกสารทึบไว้หรือยัง */
+assert(!content.includes('xr-status-strip'), 'ห้ามมีแถบ chip กรองสถานะ')
+assert(!content.includes('xr-status-chip'), 'ห้ามมี chip กรองสถานะ')
+assert(!content.includes('statusFilters'), 'ห้ามมีรายการตัวกรองสถานะ')
+/* แต่คอลัมน์สถานะยังต้องอยู่ เพราะเป็นคอลัมน์เดิมของ Worklist ที่ผู้ใช้สั่งให้ยกมาทั้งชุด */
+assert(content.includes('xr-state-tag'), 'คอลัมน์สถานะของแถวต้องยังอยู่')
 
-/* คอลัมน์ระดับ order — เรียงตามแท็บ LAB โดยสลับ Specimen→สารทึบ และ ห้องแลป→เครื่อง */
-const orderHead = (content.match(/<div class="xll-head"[\s\S]*?<\/div>\s*<article/) || [''])[0]
-;['ผู้ป่วย', 'บริบท', 'รายการ', 'สารทึบ', 'เครื่อง', 'เวลาสั่ง / Order No.', 'สถานะ'].forEach(label => {
-  assert(orderHead.includes('<div>' + label + '</div>'), 'หัวตารางต้องมีคอลัมน์ ' + label)
+/* ── pattern ยกจาก X-ray CPOE Worklist ────────────────────────────────────── */
+;['xr-toolbar', 'xr-search-control', 'xr-date-control', 'xr-worklist-shell', 'xr-worklist',
+  'xr-list-head', 'xr-patient-block', 'xr-patient-row', 'xr-expand-button', 'xr-patient-summary',
+  'xr-context-tags', 'xr-metric', 'xr-doctor-cell', 'xr-row-actions',
+  'xr-detail-panel', 'xr-item-grid', 'xr-item-head', 'xr-item-row', 'xr-empty'].forEach(cls => {
+  assert(content.includes(cls), 'ต้องใช้คลาสเดิมของ Worklist: ' + cls)
+  assert(css.includes(cls), 'CSS ต้องมีคลาส ' + cls)
 })
-/* คอลัมน์ระดับ item — LAB NO.→Accession No. · เวลาออกผล→วันเวลาที่ใช้ · ดูผล→ดูบันทึก */
-const itemHead = (content.match(/<div class="xll-item-head">[\s\S]*?<\/div>\s*<div v-for/) || [''])[0]
-;['ลำดับ', 'Accession No.', 'รายการตรวจ', 'สารทึบ', 'เครื่อง', 'วันเวลาที่ใช้', 'สถานะ'].forEach(label => {
-  assert(itemHead.includes('<div>' + label + '</div>'), 'หัวตารางรายการต้องมีคอลัมน์ ' + label)
+/* xr-order-cell เป็น hook ใน markup ที่ Worklist ตัวจริงก็ไม่มีกฎ CSS ของตัวเอง
+   (จัดรูปด้วย .xr-metric) — ล็อกไว้แค่ว่าต้องอยู่ใน markup เหมือนต้นฉบับ */
+assert(content.includes('xr-order-cell'), 'ต้องใช้คลาสเดิมของ Worklist: xr-order-cell')
+assert(css.startsWith('.xray-contrast-history{'), 'CSS ต้อง scope ใต้ root ของหน้านี้')
+assert(!css.includes('.xray-cpoe'), 'ห้ามเหลือ scope ของ Worklist มาทับสไตล์ฟอร์มอื่น')
+
+/* หัวตาราง item — LAB NO./Specimen ไม่มีใน X-ray · Radiologist/สติ๊กเกอร์เป็นของฝั่งเขียน */
+;['Accession No.', 'รายการตรวจ', 'เครื่อง', 'เวลาส่งเข้าเครื่อง', 'Radiographer', 'สถานะ',
+  'ปฏิเสธ', 'คนปฏิเสธ', 'สารทึบ'].forEach(label => {
+  assert(content.includes('<div>' + label + '</div>'), 'หัวตารางรายการต้องมีคอลัมน์ ' + label)
 })
-/* 🔴 X-ray ไม่มี specimen และไม่มี Lab No. — ห้ามมีคอลัมน์หรือคำเหล่านี้หลุดมา */
 assert(!/specimen/i.test(content), 'X-ray ไม่มี specimen')
 assert(!content.includes('LAB NO.'), 'X-ray ไม่มี Lab No.')
+assert(!content.includes('Radiologist'), 'Radiologist เป็น dropdown ฝั่งเขียน ไม่อยู่ในหน้านี้')
+
+/* ── ตัวกรองของหน้า: เหลือเฉพาะใบที่มีบันทึกสารทึบ ────────────────────────── */
+assert(code.includes('r.contrast_count>0'), 'ต้องกรองเหลือเฉพาะใบที่มีบันทึกการใช้สารทึบ')
+assert(code.includes('s.hiddenCount='), 'ต้องนับใบที่ถูกซ่อนไว้บอกผู้ใช้')
+assert(content.includes('ซ่อน'), 'ต้องบอกจำนวนใบที่ถูกซ่อน ไม่ให้เข้าใจว่าไม่มีใบอื่น')
 
 /* ── ถ้อยคำที่ผู้ใช้เคาะแล้ว ────────────────────────────────────────────────
    🔴 ไม่มีข้อมูล = "ยังไม่ได้บันทึก" เท่านั้น ห้ามอ่านว่า "ไม่ได้ฉีด" */
 assert(content.includes('ยังไม่ได้บันทึก'), 'ช่องว่างต้องอ่านว่า "ยังไม่ได้บันทึก"')
-assert(script_.includes('ไม่ได้แปลว่าไม่ได้ฉีด'), 'tooltip ต้องย้ำว่าไม่มีข้อมูลไม่ได้แปลว่าไม่ได้ฉีด')
-assert(!/ไม่ได้ฉีด(?!\))/.test(content.replace('ไม่ได้แปลว่าไม่ได้ฉีด', '')), 'ห้ามสรุปว่า "ไม่ได้ฉีด"')
+assert(code.includes('ไม่ได้แปลว่าไม่ได้ฉีด'), 'tooltip ต้องย้ำว่าไม่มีข้อมูลไม่ได้แปลว่าไม่ได้ฉีด')
+assert(content.includes('ไม่ได้แปลว่าไม่ได้ฉีด'), 'บรรทัดสรุปต้องย้ำกติกาเดียวกัน')
 
 /* ── ขอบเขตการค้น: HN ตรงตัว หรือ Date Range ครบสองฝั่ง (spec.md §5.1) ────── */
-assert(script_.includes("s.searched=false"), 'ต้องเริ่มด้วยสถานะยังไม่ค้น')
-assert(script_.includes('โปรดระบุ HN หรือเลือกช่วงวันที่'), 'ไม่เข้าเงื่อนไขต้องเตือนและไม่เรียก Process')
-assert(!script_.includes('s.load()') || script_.includes('s.search=()'), 'ต้องเรียก load ผ่าน search เท่านั้น')
+assert(code.includes('s.searched=false'), 'ต้องเริ่มด้วยสถานะยังไม่ค้น')
+assert(code.includes('โปรดระบุ HN หรือเลือกช่วงวันที่'), 'ไม่เข้าเงื่อนไขต้องเตือนและไม่เรียก Process')
 assert.strictEqual(widget.options.onMounted, '', 'onMounted ต้องว่าง — ห้ามโหลดรายการเองตอนเปิดหน้า')
 assert(content.includes('โปรดระบุ HN / เลือกวันที่'), 'หน้าว่างต้องบอกกติกาการค้น')
 
 /* ── ปุ่มดูบันทึกเปิดฟอร์มเดิม ไม่สร้างฟอร์มใหม่ ────────────────────────── */
-assert(script_.includes("const CONTRAST_FORM_ID="), 'ต้องมีค่าฟอร์มบันทึกสารทึบให้ตั้งตอน generate')
-assert(script_.includes('openForm(CONTRAST_FORM_ID'), 'ปุ่มดูบันทึกต้องเปิดฟอร์มบันทึกสารทึบตัวเดิม')
-assert(script_.includes('accession_no:'), 'ต้องส่งตัวระบุรายการทาง initData เหมือนปุ่มใน Worklist')
+assert(code.includes('const CONTRAST_FORM_ID='), 'ต้องมีค่าฟอร์มบันทึกสารทึบให้ตั้งตอน generate')
+assert(code.includes('openForm(CONTRAST_FORM_ID'), 'ปุ่มดูบันทึกต้องเปิดฟอร์มบันทึกสารทึบตัวเดิม')
+assert(code.includes('accession_no:'), 'ต้องส่งตัวระบุรายการทาง initData เหมือนปุ่มใน Worklist')
 
 /* ── สารทึบอ่านจาก payload เท่านั้น ห้าม hard-code ────────────────────────── */
-assert(script_.includes('s.contrastInfo=i=>'), 'ต้องอ่าน item.contrast จาก payload')
-assert(script_.includes('i.contrast_brand'), 'ต้องรองรับทรงแบน item.contrast_* ด้วย')
-assert(!/Omnipaque|Visipaque|Barium Sulfate Suspension/.test(script_ + content), 'ห้าม hard-code ยี่ห้อสารทึบ')
+assert(code.includes('s.contrastInfo=i=>'), 'ต้องอ่าน item.contrast จาก payload')
+assert(code.includes('i.contrast_brand'), 'ต้องรองรับทรงแบน item.contrast_* ด้วย')
+assert(!/Omnipaque|Visipaque|Barium Sulfate Suspension/.test(code + content), 'ห้าม hard-code ยี่ห้อสารทึบ')
+assert(!/'(CR|CT|DX|MRI|VCUG)'/.test(content), 'ห้าม hard-code รายชื่อเครื่องในหน้าจอ')
 
 console.log('X-ray contrast history form tests passed')

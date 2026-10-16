@@ -8,11 +8,16 @@
  *
  * รันใหม่ได้เสมอ:  node Form-Builder/seed/tests-tools/scripts/build_xray_cpoe_worklist_ui.js
  */
-const fs = require('fs')
+/* ใช้ชื่อเฉพาะของ generator แทน `fs` เพื่อไม่ชนกับ binding ที่ runner บางตัว
+   inject ไว้ใน shared evaluation scope (จะขึ้น Identifier 'fs' has already been declared) */
+const worklistFs = require('fs')
 const path = require('path')
 
 const root = path.resolve(__dirname, '../../../..')
 const templatePath = path.join(root, 'Form-Builder/SDForm/Lab/lab-cpoe-worklist-waiting-v1.json')
+/* Read-only snapshot of the EMR queue panes.  X-ray clones these complete
+   button-ui/list-ui widgets instead of maintaining a parallel queue widget. */
+const emrQueueTemplatePath = path.join(root, 'Form-Builder/SDForm/sdform_module/EMR_form/EMR_appointment_v2.json')
 const outPath = path.join(root, 'Form-Builder/SDForm/X-ray/xray-cpoe-worklist-v1.json')
 const defaultOrderRequestReportId = '6a97f826422c1ca95982a048'
 /* ปุ่ม HN ระดับ Order — เปลี่ยนเป็น "ป้ายติดแฟ้ม (HN)" ตามคำสั่งผู้ใช้ 2026-09-04
@@ -66,20 +71,25 @@ const worklistProcessId = '6a957009422c1ca959829e45'
 /* แท็บสืบค้นผล LAB ในหน้า X-ray ใช้ Process เดียวกับ LAB Worklist โดยเปิด
    cross_section แบบ read-only เท่านั้น ไม่สร้าง API ซ้ำและไม่แตะ flow X-ray */
 const labWorklistProcessId = '6a9434c3422c1ca959829d5e'
-/* ปุ่ม "นัดล่วงหน้า" — 🔴 ถอดออกแล้ว 2026-09-26 ตามคำสั่งผู้ใช้
-   ("เอาปุ่มนัดล่วงหน้าออกได้เลย ฉันเปลี่ยนแพลนว่าควรแยก module ดีกว่า
-     เพราะในระบบนัดล่วงหน้ามีทุกอย่างครบแล้ว ... มีทั้งรายการนัด ตาราง schedule")
+/* ── ปุ่ม "นัดล่วงหน้า" → จอ XR Staff Booking ───────────────────────────────
+   ไทม์ไลน์: สั่งทำปุ่ม 2026-09-08 → เชื่อมจอ `6ab207459a834d51703fc158` 2026-09-23
+   → ถอดออก 2026-09-26 (ผู้ใช้เปลี่ยนแพลนว่าระบบนัดควรแยกเป็นโมดูล)
+   → **เอากลับ 2026-10-05 ตามคำสั่งผู้ใช้** ("ปุ่มที่เราเคยผูกโมดูลการนัดล่วงหน้าไว้
+     เอากลับมาเหมือนเดิม") ⇒ กู้ทั้งชุดกลับเป็นรูปเดิมของ 2026-09-23
 
-   ประวัติ: ผู้ใช้สั่งทำปุ่มไว้ 2026-09-08 แล้วเชื่อมเข้าจอ XR Staff Booking
-   `6ab207459a834d51703fc158` เมื่อ 2026-09-23 · ตอนนี้ระบบนัดโตเป็นโมดูลของตัวเอง
-   (sdform_manage มีฟอร์มตระกูล APPT/XR รวม 23 ตัว เช่น XR Staff Booking ·
-   XR Nurse App `6ab62fa9469a0989e63a59d1` · APPT Nurse Console · APPT Slot Setting)
-   ⇒ ไม่ต้องมีทางเข้าจากหน้า Worklist อีก
-
-   🔴 ห้ามเติมปุ่มนี้กลับเองโดยไม่มีคำสั่งผู้ใช้ — มี assertion กันไว้ในเทสฟอร์มแล้ว
-   ถ้าจะเอากลับ: กู้บล็อกนี้ ปุ่มใน `.xr-create-group` `s.openAppointment`
-   `s.appointmentHint` `APPOINTMENT_FORM_ID` และกฎ CSS `.xr-appointment-button`
-   จาก git history ของไฟล์นี้ (commit ก่อน 2026-09-26) */
+   🔴 จอนี้เป็น form_ui (ไม่มี form_table) ⇒ **ไม่ต้องส่ง initData** · ส่ง null
+   🔴 จอกั้นสิทธิ์ `ALLOWED_ROLES = ['RIS','XRAY','ADMIN']` ใน Process `xr-staff-data`
+      ⇒ คนที่ไม่มีสิทธิ์กดแล้วจะเจอข้อความจากจอเอง ไม่ใช่ปุ่มพัง · tooltip บอกไว้ให้ชัด
+   ปิดปุ่มได้โดยไม่ต้องแก้โค้ด: XRAY_APPOINTMENT_FORM_ID= (ค่าว่าง) */
+const defaultAppointmentFormId = '6ab207459a834d51703fc158'
+const appointmentFormId = String(
+  process.env.XRAY_APPOINTMENT_FORM_ID === undefined
+    ? defaultAppointmentFormId
+    : process.env.XRAY_APPOINTMENT_FORM_ID
+).trim()
+if (appointmentFormId && !/^[a-f0-9]{24}$/i.test(appointmentFormId)) {
+  throw new Error('XRAY_APPOINTMENT_FORM_ID must be the 24-character Form ID of the XR Staff Booking screen')
+}
 /* The new UI Form record was created on 2026-09-17. Import its model before
  * replacing the worklist: otherwise the button would open an empty form.
  * The environment override can disable or redirect the button deliberately. */
@@ -91,6 +101,12 @@ const consentLibraryFormId = String(
 ).trim()
 if (consentLibraryFormId && !/^[a-f0-9]{24}$/i.test(consentLibraryFormId)) {
   throw new Error('XRAY_CONSENT_LIBRARY_FORM_ID must be the 24-character Form ID of the document library')
+}
+/* ปุ่ม toolbar "ปริ้นสติ้กเกอร์" เปิด Xray Print Stickers Set โดยตรง
+   ตาม Form ID ที่ผู้ใช้ระบุ 2026-10-05 · ไม่ส่ง initData/params และไม่แตะ flow อื่น */
+const printStickersFormId = '6abc9291c54b3f93ce79f520'
+if (!/^[a-f0-9]{24}$/i.test(printStickersFormId)) {
+  throw new Error('printStickersFormId must be the 24-character Xray Print Stickers Set Form ID')
 }
 /* ── ปุ่ม "สารทึบ" ระดับ item — ผู้ใช้เลือกตัวเลือก A 2026-09-23 ─────────────
    ("เพิ่มคอลัมผูกปุ่มของ xray ตามนี้หน่อย ห้ามกระทบ flow อื่นนะแค่เพิ่มมา")
@@ -190,7 +206,14 @@ const hnPrintAction = hnOrderReportId
               :title="hnPrintHint(row)" @click="printHnLabel(row)">พิมพ์ HN</el-button>`
   : ''
 
-const form = JSON.parse(fs.readFileSync(templatePath, 'utf8'))
+const form = JSON.parse(worklistFs.readFileSync(templatePath, 'utf8'))
+const emrQueueForm = JSON.parse(worklistFs.readFileSync(emrQueueTemplatePath, 'utf8'))
+/* My Room buttons already carry EMR's `mb15` class.  The X-ray generator
+   replaces the source stylesheet, so copy the exact spacing rule back from
+   the read-only EMR snapshot instead of inventing a second layout value. */
+const emrRoomSpacingRule = String(emrQueueForm.formConfig && emrQueueForm.formConfig.cssCode || '')
+  .match(/\.mb15\s*\{[^}]*\}/)
+if (!emrRoomSpacingRule) throw new Error('EMR My Room spacing rule .mb15 not found')
 
 const grid = form.fields[0]
 if (!grid || grid.component !== 'grid') throw new Error('template grid not found')
@@ -271,8 +294,10 @@ form.fields.push(scanField)
    token: ผู้ใช้สั่งให้ใส่ค่าจริงลงไปเลย 2026-09-11 ("เอา token เอาอะไรของ agent ใส่มาให้เลย")
       หลังจากผมทักท้วงเรื่องกติกา "ห้ามเก็บ credential" ใน CLAUDE.md — เจ้าของรีโปตัดสินแล้ว
       ค่านี้เป็น token ของ print agent บน localhost ของผู้ใช้เอง ไม่ใช่ของระบบกลาง
-      🔴 ไฟล์นี้และ JSON ที่ generate ออกมามี token อยู่ ⇒ ห้าม push ขึ้นที่สาธารณะ
-      override ได้ด้วย XRAY_LOCAL_AGENT_TOKEN ถ้าเครื่องอื่นใช้ token คนละตัว */
+   2026-10-16 ผู้ใช้สั่งให้แทนค่าจริงด้วย placeholder ก่อน push ขึ้น repo public
+      ค่าจริงเก็บใน `.env` (gitignored) — generate ของจริงด้วย
+      `XRAY_LOCAL_AGENT_TOKEN=... node build_xray_cpoe_worklist_ui.js`
+      ถ้าไม่ตั้ง env จะได้ placeholder ซึ่งต้องแก้ใน Builder ก่อน import */
 const defaultLocalAgentToken = '__XRAY_LOCAL_AGENT_TOKEN__'
 const localAgentToken = String(
   process.env.XRAY_LOCAL_AGENT_TOKEN === undefined
@@ -340,19 +365,35 @@ if (!String(labLookupTemplate.options.onCreated || '').includes(`const PROCESS_I
   throw new Error('generated LAB widget does not point at the expected LAB Worklist Process')
 }
 /* สิทธิ์ดูผลต้องติดมาจาก LAB ทั้งชุด ไม่ใช่แค่หน้าตาเหมือนกัน หาก LAB template
-   ไม่มี lock/re-auth/grant-to-PDF contract ให้หยุด generate ทันที เพื่อไม่ให้ X-ray
-   ได้สำเนาที่เผลอเปิด Sensitive result หรือส่ง PDF โดยไม่มี server-issued grant */
+   ไม่มีสัญญา fail-closed ของ Sensitive result ให้หยุด generate ทันที เพื่อไม่ให้
+   X-ray ได้สำเนาที่เผลอเปิดค่า/ไฟล์ที่ server ปกปิดไว้
+
+   2026-10-05: LAB เลิก re-auth ใน Worklist แล้ว จึงต้องคงเพียง placeholder "ปกปิดผล"
+   และห้าม Form ส่ง doctor credential, authorize action หรือ Sensitive grant ทุกชนิด */
 for (const requiredContract of [
-  's.requestSensitiveAccess=group=>',
-  "action:'authorize_sensitive_result'",
-  's.sensitiveSheetKey=(order,item)=>',
-  's.currentSensitiveGrant=()=>',
-  'if(grant&&grant.token)params.grant_token=grant.token;',
+  'class="lab-sensitive-result-label">ปกปิดผล</strong>',
+  'const sensitiveLocked=d.sensitive_locked===true;',
+  "const key=!sensitiveLocked&&panelGroupingAllowed&&parentCode?'panel:'",
   "action:'get_manual_result'",
-  'if(grant&&grant.token)request.sensitive_grant_token=grant.token;',
 ]) {
   if (!String(labLookupTemplate.options.onCreated || '').includes(requiredContract)) {
-    throw new Error('generated LAB widget is missing the Sensitive-result access contract: ' + requiredContract)
+    if (!String(labLookupTemplate.options.content || '').includes(requiredContract)) {
+      throw new Error('generated LAB widget is missing the Sensitive-result redaction contract: ' + requiredContract)
+    }
+  }
+}
+for (const forbiddenContract of [
+  'requestSensitiveAccess',
+  'submitSensitiveAccess',
+  "action:'authorize_sensitive_result'",
+  'sensitive_grant_token',
+  'sensitiveGrants',
+]) {
+  if (
+    String(labLookupTemplate.options.content || '').includes(forbiddenContract) ||
+    String(labLookupTemplate.options.onCreated || '').includes(forbiddenContract)
+  ) {
+    throw new Error('generated LAB widget still exposes the retired Sensitive re-auth contract: ' + forbiddenContract)
   }
 }
 widget.options.name = 'xray_cpoe_worklist'
@@ -399,7 +440,9 @@ form.formConfig.cssCode = `.xray-cpoe{--primary:var(--el-color-primary,#409eff);
 .xray-cpoe .xr-create-group{display:grid;grid-template-columns:max-content max-content;grid-template-rows:auto auto;align-items:start;gap:5px 8px;flex:0 0 auto;margin-left:auto;max-width:100%}
 .xray-cpoe .xr-create-group .el-button+.el-button{margin-left:0}
 .xray-cpoe .xr-create-button{grid-column:1;grid-row:1}
-.xray-cpoe .xr-consent-button{grid-column:2;grid-row:1;margin-left:0}
+.xray-cpoe .xr-appointment-button{grid-column:2;grid-row:1;margin-left:0}
+.xray-cpoe .xr-sticker-button{grid-column:1;grid-row:2;margin-left:0}
+.xray-cpoe .xr-consent-button{grid-column:2;grid-row:2;margin-left:0}
 .xray-cpoe .xr-create-notice{position:fixed;top:12px;left:50%;z-index:3200;display:flex;align-items:center;gap:12px;max-width:calc(100vw - 24px);padding:7px 10px 7px 13px;transform:translateX(-50%);border:0;border-radius:6px;background:rgba(245,108,108,.2);color:#a83b43;font-size:13px;line-height:1.4;text-align:left}
 .xray-cpoe .xr-create-notice span{overflow-wrap:anywhere}
 .xray-cpoe .xr-create-notice button{flex:none;border:0;background:transparent;color:inherit;font:inherit;font-size:18px;line-height:1;cursor:pointer}
@@ -633,6 +676,10 @@ widget.options.content = `<div class="xray-cpoe">
       </el-dropdown>
       <div class="xr-create-group">
         <el-button class="xr-create-button" size="small" type="primary" :loading="createOrderLoading" @click="openCreateOrder">สร้างรายการใหม่</el-button>
+        <el-button class="xr-appointment-button" size="small" :title="appointmentHint"
+          @click="openAppointment">นัดล่วงหน้า</el-button>
+        <el-button class="xr-sticker-button" size="small"
+          @click="openStickerForm">ปริ้นสติ้กเกอร์</el-button>
         <el-button class="xr-consent-button" size="small" :title="consentLibraryHint"
           @click="openConsentLibrary">หนังสือยินยอม</el-button>
       </div>
@@ -724,7 +771,7 @@ widget.options.content = `<div class="xray-cpoe">
             </div>
             <div class="xr-context-top">
               <span v-if="row.room" class="xr-inline-tag xr-meta-pill xr-source-pill">{{ row.room }}</span>
-              <span v-if="row.show_cash_payment" class="xr-inline-tag xr-meta-pill xr-payment-pill"
+              <span v-if="row.show_payment_status" class="xr-inline-tag xr-meta-pill xr-payment-pill"
                 :class="{'is-unpaid':!row.finance_passed}">{{ row.finance_passed ? 'ชำระเงินแล้ว' : 'ยังไม่ได้ชำระเงิน' }}</span>
               <span v-if="row.coverage" class="xr-inline-tag xr-meta-pill xr-coverage-pill">{{ row.coverage }}</span>
             </div>
@@ -976,12 +1023,24 @@ widget.options.content = `<div class="xray-cpoe">
     </template>
   </el-dialog>
 
-  <el-dialog :model-value="report.visible" title="ผลอ่าน" width="min(1060px,96vw)"
+  <el-dialog :model-value="report.visible" width="min(1060px,96vw)"
     :close-on-click-modal="false" destroy-on-close
     @update:model-value="setReportVisible" @closed="resetReport">
+    <template #header>
+      <div class="xr-report-dialog-title">
+        <strong>ผลอ่าน</strong>
+        <el-button v-if="report.data.accession_no" class="xr-report-edit" text circle
+          :disabled="report.loading || report.saving"
+          :title="report.editing?'กลับไปดูผลอ่าน':'กรอกหรือแก้ไขผลอ่าน Manual'"
+          :aria-label="report.editing?'กลับไปดูผลอ่าน':'กรอกหรือแก้ไขผลอ่าน Manual'"
+          :aria-pressed="report.editing?'true':'false'" @click="toggleManualReport">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10L4 20Z"/><path d="m14.5 7.5 3 3"/></svg>
+        </el-button>
+      </div>
+    </template>
     <div v-loading="report.loading" class="xr-report-doc">
       <div class="xr-report-head">
-        <div><span>โหมด</span><span class="xr-mode-badge">โหมดดูอย่างเดียว</span></div>
+        <div><span>โหมด</span><span class="xr-mode-badge">{{ report.editing?'โหมดกรอก Manual':'โหมดดูอย่างเดียว' }}</span></div>
         <div><span>รายการตรวจ</span><strong :title="report.data.test_name">{{ report.data.test_name }}</strong><small>{{ report.data.test_code }}</small></div>
         <div><span>เครื่อง</span><strong><span v-if="report.data.modality_code" class="xr-report-modality"
           :title="report.data.modality_label">{{ report.data.modality_code }}</span></strong></div>
@@ -992,6 +1051,7 @@ widget.options.content = `<div class="xray-cpoe">
         <div><span>เวลาออกผล</span><strong class="xr-mono">{{ shownReported() }}</strong></div>
       </div>
 
+      <div v-if="!report.editing">
       <!-- ── ประวัติการแก้ผลอ่าน (เพิ่ม 2026-09-15 · ผู้ใช้อนุมัติดีไซน์แล้ว) ──────
            RIS insert แถวใหม่ทุกครั้ง ⇒ ทุกฉบับถูกเก็บไว้ครบใน zdata_xray_result
            API คืน data.versions[] (ใหม่→เก่า) · versions[0] คือฉบับล่าสุดเสมอ
@@ -1071,9 +1131,52 @@ widget.options.content = `<div class="xray-cpoe">
         <span v-if="shownSeverity()">Severity: {{ shownSeverity() }}</span>
         <span>{{ shownReported() }}</span>
       </div>
+      </div>
+
+      <div v-else class="xr-manual-report-form">
+        <div class="xr-manual-report-note">บันทึกผล Manual ลงฟิลด์ผลอ่านเดิม และเพิ่มประวัติอีกหนึ่งฉบับโดยไม่ลบผลก่อนหน้า</div>
+        <div class="xr-manual-report-grid">
+          <label><span>รังสีแพทย์ <b>*</b></span>
+            <el-select :model-value="report.manual.radiologist_uid" filterable
+              :loading="staffOptionsLoading" placeholder="เลือกรังสีแพทย์"
+              @update:model-value="value=>setManualReportField('radiologist_uid',value)">
+              <el-option v-for="doc in radiologistOptions" :key="'manual-'+(doc.member_id||doc.value)"
+                :label="doc.label" :value="doc.professional_code||doc.member_id" />
+            </el-select>
+          </label>
+          <label><span>วันเวลาออกผล <b>*</b></span>
+            <el-date-picker :model-value="report.manual.result_datetime" type="datetime"
+              value-format="YYYY-MM-DD HH:mm:ss" format="DD/MM/YYYY HH:mm:ss"
+              placeholder="เลือกวันเวลาออกผล"
+              @update:model-value="value=>setManualReportField('result_datetime',value)" />
+          </label>
+          <label><span>สถานะผล <b>*</b></span>
+            <el-select :model-value="report.manual.result_status"
+              @update:model-value="value=>setManualReportField('result_status',value)">
+              <el-option label="Final (F)" value="F" />
+              <el-option label="Preliminary (P)" value="P" />
+              <el-option label="Corrected (C)" value="C" />
+            </el-select>
+          </label>
+          <label><span>Severity UID</span>
+            <el-input :model-value="report.manual.severity_uid" maxlength="100" placeholder="ไม่ระบุ"
+              @update:model-value="value=>setManualReportField('severity_uid',value)" />
+          </label>
+          <label class="xr-manual-report-text"><span>ผลอ่าน <b>*</b></span>
+            <el-input :model-value="report.manual.result_text" type="textarea" :rows="9"
+              maxlength="8000" show-word-limit placeholder="พิมพ์ผลอ่าน"
+              @update:model-value="value=>setManualReportField('result_text',value)" />
+          </label>
+        </div>
+      </div>
     </div>
     <template #footer>
-      <el-button @click="setReportVisible(false)">ปิด</el-button>
+      <template v-if="report.editing">
+        <el-button :disabled="report.saving" @click="cancelManualReport">ยกเลิก</el-button>
+        <el-button type="primary" :loading="report.saving" :disabled="!canSaveManualReport()"
+          @click="saveManualReport">บันทึกผล Manual</el-button>
+      </template>
+      <el-button v-else @click="setReportVisible(false)">ปิด</el-button>
     </template>
   </el-dialog>
 </div>`
@@ -1114,6 +1217,10 @@ const REJECTION_FORM_ID='';
 const CPOE_ORDER_APP_ID='${cpoeOrderAppId}';
 /* คลัง PDF หนังสือยินยอม — ต้องได้ Form ID หลัง import ฟอร์มแยก */
 const CONSENT_LIBRARY_FORM_ID='${consentLibraryFormId}';
+/* Xray Print Stickers Set — ปุ่ม toolbar เปิดฟอร์มตรง ๆ โดยไม่ส่งข้อมูลเพิ่ม */
+const PRINT_STICKERS_FORM_ID='${printStickersFormId}';
+/* จอนัดล่วงหน้า XR Staff Booking — ว่าง = ปิดปุ่มโดยยังขึ้นให้เห็นพร้อมเหตุผล */
+const APPOINTMENT_FORM_ID='${appointmentFormId}';
 /* ฟอร์มบันทึกการใช้สารทึบรังสี ระดับ item — ว่าง = ยังไม่ได้ import (ดูคอมเมนต์ที่ generator) */
 const CONTRAST_FORM_ID='${contrastFormId}';
 /* EMR History — ผู้ใช้แจ้ง Form ID 2026-09-01 · LAB ผูกตัวนี้แล้วและใช้งานได้จริง
@@ -1185,10 +1292,14 @@ s.serverMessage='';
 s.unmapped=0;
 s.loadSeq=0;
 s.countSeq=0;
-s.report={visible:false,loading:false,order:null,item:null,data:{},certified_by:'',versions:[],selected:0,history_open:false,diff:true};
+s.report={visible:false,loading:false,saving:false,editing:false,order:null,item:null,data:{},certified_by:'',versions:[],selected:0,history_open:false,diff:true,manual:{manual_request_id:'',result_text:'',radiologist_uid:'',result_datetime:'',result_status:'F',severity_uid:''}};
 s.consentLibraryHint=CONSENT_LIBRARY_FORM_ID
   ?'เปิดคลังเอกสาร X-ray เพื่อดูตัวอย่างและพิมพ์ PDF'
   :'ยังไม่ได้เชื่อมคลังเอกสาร X-ray — import ฟอร์มแยกแล้วตั้ง XRAY_CONSENT_LIBRARY_FORM_ID';
+/* เชื่อมแล้วต้องบอกด้วยว่าจอกั้นสิทธิ์ไว้ ไม่งั้นคนกดแล้วเจอข้อความปฏิเสธจะคิดว่าปุ่มพัง */
+s.appointmentHint=APPOINTMENT_FORM_ID
+  ?'เปิดจอนัดล่วงหน้า X-ray (XR Staff Booking) — ต้องมีสิทธิ์ RIS หรือ XRAY หรือ ADMIN'
+  :'ยังไม่ได้เชื่อมจอนัดล่วงหน้า X-ray — ตั้ง XRAY_APPOINTMENT_FORM_ID ตอน generate';
 s.contrastHint=CONTRAST_FORM_ID
   ?'บันทึกการใช้สารทึบรังสีของรายการนี้'
   :'ยังไม่ได้เชื่อมฟอร์มบันทึกการใช้สารทึบรังสี — import xray-contrast-media-record-v1 แล้วตั้ง XRAY_CONTRAST_FORM_ID';
@@ -1545,9 +1656,9 @@ s.requesterName=o=>{const r=(o&&o.requester)||{};return s.personName(r.cosign_us
 s.sourceRoom=o=>s.text(o&&o.visit&&(o.visit.clinic||o.visit.ward));
 s.isPaid=o=>{const f=(o&&o.finance)||{};const total=Number(f.total_amount||0);return total>0&&Number(f.paid_amount||0)>=total;};
 s.showPaid=o=>s.isPaid(o)&&!s.coverageAbbrev(o);
-s.showCashPayment=o=>{const f=(o&&o.finance)||{};return Number(f.total_amount||0)>0&&!s.coverageAbbrev(o);};
-/* Finance เป็นเจ้าของ transition sent → ready เหมือน LAB: ยอดเงินใช้เพียง
-   ตัดสินว่าต้องแสดงกล่องสิทธิ์เงินสดหรือไม่ ส่วนข้อความ/สีและสิทธิ์กดส่งเครื่อง
+s.showPaymentStatus=o=>{const f=(o&&o.finance)||{};return Number(f.total_amount||0)>0||!!s.coverageAbbrev(o);};
+/* Finance เป็นเจ้าของ transition sent → ready เหมือน LAB: ยอดเงินหรือสิทธิ์ใช้เพียง
+   ตัดสินว่าต้องแสดงกล่องสถานะการเงินหรือไม่ ส่วนข้อความ/สีและสิทธิ์กดส่งเครื่อง
    ต้องยึด current_status ของ Item เพื่อไม่ให้ยอดที่ sync ช้าปลด gate ผิดจังหวะ.
    สถานะหลังรับทั้งหมดถือว่าผ่าน gate ไปแล้ว เพื่อไม่ย้อน badge เป็นแดงกลาง flow. */
 s.isFinancePassed=o=>{
@@ -1567,7 +1678,8 @@ s.isUrgent=o=>{const p=s.priorityCode(o);return p.indexOf('urgent')>=0||p.indexO
 /* รหัสที่ไม่รู้จัก (เช่น 'urgent'/'stat' ที่ระบบอื่นส่งมา) ⇒ ใช้ข้อความที่ส่งมาถ้าเป็นชื่อไทยอยู่แล้ว
    ไม่งั้นตกกลับไปที่คำเดิม 'เร่งด่วน' — ป้ายต้องไม่หายไม่ว่าค่าจะเป็นอะไร */
 s.urgentLabel=o=>{if(!s.isUrgent(o))return '';const p=s.priorityCode(o);if(PRIORITY_LABEL[p])return PRIORITY_LABEL[p];const raw=s.text(o&&o.priority);return raw.indexOf('ด่วน')>=0?raw:'เร่งด่วน';};
-s.ageText=o=>s.text(o&&o.patient&&o.patient.age);
+/* รูปแบบอายุให้ตรงกับ LAB Worklist: ปี เดือน วัน โดยเปลี่ยนเฉพาะข้อความแสดงผล */
+s.orderAgeText=o=>{const raw=o&&o.patient&&o.patient.age;if(raw==null||raw==='')return '';let year='',month='',day='';if(typeof raw==='object'){const value=(...keys)=>{for(let i=0;i<keys.length;i++){const candidate=raw[keys[i]];if(candidate!=null&&candidate!=='')return s.text(candidate);}return '';};year=value('year','years','y');month=value('month','months','m');day=value('day','days','d');}else{const value=s.text(raw).trim(),yearMatch=value.match(/(-?[0-9]+(?:[.][0-9]+)?)[ \t]*(?:y|ปี)/i),monthMatch=value.match(/(-?[0-9]+(?:[.][0-9]+)?)[ \t]*(?:m|เดือน)/i),dayMatch=value.match(/(-?[0-9]+(?:[.][0-9]+)?)[ \t]*(?:d|วัน)/i);if(yearMatch||monthMatch||dayMatch){year=yearMatch?yearMatch[1]:'';month=monthMatch?monthMatch[1]:'';day=dayMatch?dayMatch[1]:'';}else if(/^-?[0-9]+(?:[.][0-9]+)?$/.test(value))year=value;}if(!year&&!month&&!day)return '';return year+' ปี '+month+' เดือน '+day+' วัน';};
 /* Diagnosis = primary_dx ดิบจาก zdata_diagnosis ({value:<ICD>, label:<ชื่อโรค>})
    s.text หยิบ label มาก่อน ถ้าไม่มีจะตกไปที่ value — พฤติกรรมเดียวกับ LAB ที่ใช้งานได้จริง */
 s.diagnosisText=o=>s.text(o&&(o.diagnosis||(o.emr_context&&o.emr_context.diagnosis)));
@@ -1981,12 +2093,12 @@ s.buildRow=o=>{
     hn:s.text(o&&o.patient&&o.patient.hn),
     name:s.patientName(o),
     gender:s.text(o&&o.patient&&o.patient.gender_text),
-    age:s.ageText(o),
+    age:s.orderAgeText(o),
     urgent:s.isUrgent(o),
     urgent_label:s.urgentLabel(o),
     room:s.sourceRoom(o),
     paid:s.showPaid(o),
-    show_cash_payment:s.showCashPayment(o),
+    show_payment_status:s.showPaymentStatus(o),
     finance_passed:s.isFinancePassed(o),
     coverage:s.coverageAbbrev(o),
     /* เพิ่ม 2026-09-03: แถบเตือนแพ้ยา/COVID · ว่าง = ไม่มีข้อมูลจาก EMR จึงไม่ขึ้นกล่อง
@@ -2491,6 +2603,30 @@ s.submitCancelOrder=async()=>{
     field.notify(s.text(error&&error.message)||'เรียก API ยกเลิก Order ไม่สำเร็จ','error',6000);
   }
 };
+/* ── ปริ้นสติ้กเกอร์ — เปิด Xray Print Stickers Set เท่านั้น ─────────────── */
+s.openStickerForm=()=>{
+  const form=field.getFormRef&&field.getFormRef();
+  if(!form||typeof form.openForm!=='function'){field.notify('ไม่พบตัวเปิดฟอร์มปริ้นสติ้กเกอร์','error',3000);return;}
+  form.openForm(PRINT_STICKERS_FORM_ID,'','',null,{backdrop:false});
+};
+/* ── นัดล่วงหน้า — เปิดจอ XR Staff Booking (เอากลับ 2026-10-05 ตามคำสั่งผู้ใช้) ──
+   จอเป็น form_ui ไม่มีฟิลด์ ⇒ initData เป็น null เสมอ
+   พา HN/เลขบัตรที่อยู่ในบริบทไปให้ด้วย (ตัวช่วยเดียวกับปุ่มสร้างรายการใหม่)
+   ไม่มีคนไข้ในบริบท = ไม่ส่งคีย์นั้นเลย ไม่ยัดค่าว่างให้จอ */
+s.openAppointment=()=>{
+  if(!APPOINTMENT_FORM_ID){
+    field.notify('ยังไม่ได้เชื่อมจอนัดล่วงหน้า X-ray — ตั้ง XRAY_APPOINTMENT_FORM_ID ตอน generate','warning',6000);
+    return;
+  }
+  const form=field.getFormRef&&field.getFormRef();
+  if(!form||typeof form.openForm!=='function'){field.notify('ไม่พบตัวเปิดจอนัดล่วงหน้า X-ray','error',3000);return;}
+  const target=s.createOrderTarget();
+  form.openForm(APPOINTMENT_FORM_ID,'','',null,{backdrop:false,params:Object.assign({},form.formParams||{},{
+    source:'xray-worklist',
+    service_type:'xray',
+    appointment:true
+  },target||{})});
+};
 s.openConsentLibrary=()=>{
   if(!CONSENT_LIBRARY_FORM_ID){
     field.notify('ยังไม่ได้เชื่อมคลังเอกสาร X-ray — import ฟอร์มแยกแล้วตั้ง XRAY_CONSENT_LIBRARY_FORM_ID','warning',6000);
@@ -2709,6 +2845,75 @@ s.shownSeverity=()=>{
   const list=Array.isArray(s.report.versions)?s.report.versions:[];
   return list.length?s.currentReportVersion().severity:s.text(s.report.data&&s.report.data.severity);
 };
+s.nowResultDateTime=()=>{
+  const date=new Date(),pad=value=>String(value).padStart(2,'0');
+  return date.getFullYear()+'-'+pad(date.getMonth()+1)+'-'+pad(date.getDate())+' '+
+    pad(date.getHours())+':'+pad(date.getMinutes())+':'+pad(date.getSeconds());
+};
+s.newManualRequestId=()=>('xray-'+Date.now()+'-'+Math.random().toString(36).slice(2,10));
+s.assignedRadiologistUid=()=>{
+  const item=s.report.item||{},current=s.shownRadiologist();
+  if(current)return current;
+  const memberId=s.text(item.radiologist_member_id),name=s.text(item.radiologist);
+  const option=(Array.isArray(s.radiologistOptions)?s.radiologistOptions:[])
+    .find(row=>(memberId&&s.text(row.member_id)===memberId)||(name&&s.text(row.value)===name));
+  return option?s.text(option.professional_code||option.member_id):'';
+};
+s.setManualReportField=(name,value)=>{
+  if(!['result_text','radiologist_uid','result_datetime','result_status','severity_uid'].includes(name))return;
+  s.report={...s.report,manual:{...s.report.manual,[name]:value==null?'':String(value)}};
+};
+s.beginManualReport=()=>{
+  if(s.report.loading||s.report.saving||!s.text(s.report.data&&s.report.data.accession_no))return;
+  const current=s.currentReportVersion(),hasVersions=Array.isArray(s.report.versions)&&s.report.versions.length>0;
+  s.report={...s.report,editing:true,history_open:false,selected:0,manual:{
+    manual_request_id:s.newManualRequestId(),
+    result_text:hasVersions?s.text(current.result_text):s.text(s.report.data&&s.report.data.result_text),
+    radiologist_uid:s.assignedRadiologistUid(),
+    result_datetime:s.nowResultDateTime(),
+    result_status:hasVersions?s.text(current.status_code||'F'):(s.text(s.report.data&&s.report.data.result_status)||'F'),
+    severity_uid:hasVersions?s.text(current.severity):s.text(s.report.data&&s.report.data.severity)
+  }};
+};
+s.cancelManualReport=()=>{s.report={...s.report,editing:false,manual:{manual_request_id:'',result_text:'',radiologist_uid:'',result_datetime:'',result_status:'F',severity_uid:''}};};
+s.toggleManualReport=()=>{if(s.report.editing)s.cancelManualReport();else s.beginManualReport();};
+s.canSaveManualReport=()=>{
+  const manual=s.report.manual||{};
+  return !s.report.loading&&!s.report.saving&&!!s.text(s.report.data&&s.report.data.accession_no)&&
+    !!s.text(manual.manual_request_id)&&!!s.text(manual.result_text)&&!!s.text(manual.radiologist_uid)&&
+    !!s.text(manual.result_datetime)&&['F','P','C'].includes(s.text(manual.result_status).toUpperCase());
+};
+s.saveManualReport=async()=>{
+  if(!s.canSaveManualReport())return;
+  const row=s.report.order,item=s.report.item,manual={...s.report.manual};
+  s.report={...s.report,saving:true};
+  try{
+    const saved=await s.processCall(WORKLIST_PROCESS_ID,{
+      action:'save_manual_report',organization_code:s.unitCode(),order_id:s.text(row&&row.id),
+      item_id:s.text(item&&item.id),manual_request_id:s.text(manual.manual_request_id),
+      result_text:s.text(manual.result_text),radiologist_uid:s.text(manual.radiologist_uid),
+      result_datetime:s.text(manual.result_datetime),result_status:s.text(manual.result_status).toUpperCase(),
+      severity_uid:s.text(manual.severity_uid)
+    });
+    if(!saved||saved.success===false){throw new Error(s.text(saved&&saved.message)||'บันทึกผล Manual ไม่สำเร็จ');}
+    if(!s.actionAnswered(saved,'item_id')){throw new Error(s.staleProcessNote('save_manual_report'));}
+    const latest=await s.processCall(WORKLIST_PROCESS_ID,{action:'get_report',organization_code:s.unitCode(),order_id:s.text(row&&row.id),item_id:s.text(item&&item.id)});
+    if(!latest||latest.success===false){
+      s.report={...s.report,visible:false,loading:false,saving:false,editing:false};
+      field.notify('บันทึกผล Manual แล้ว แต่โหลดผลล่าสุดไม่สำเร็จ กรุณาเปิดผลอ่านอีกครั้ง','warning',5200);
+    }else{
+      const payload=(latest&&latest.data)||{};
+      s.report={...s.report,loading:false,saving:false,editing:false,data:s.buildReport(payload,row,item),
+        versions:s.buildVersions(payload),selected:0,history_open:false,diff:true,
+        manual:{manual_request_id:'',result_text:'',radiologist_uid:'',result_datetime:'',result_status:'F',severity_uid:''}};
+      field.notify(s.text(saved&&saved.message)||'บันทึกผล Manual เรียบร้อยแล้ว','success',3200);
+    }
+    s.loadOrders();s.refreshCounts();
+  }catch(error){
+    s.report={...s.report,saving:false};
+    field.notify(s.text(error&&error.message)||'บันทึกผล Manual ไม่สำเร็จ','error',5200);
+  }
+};
 s.buildReport=(d,row,item)=>{
   const resultText=s.text(d&&d.result_text);
   const versions=Number(d&&d.result_versions)||0;
@@ -2725,11 +2930,13 @@ s.buildReport=(d,row,item)=>{
     order_number:s.text(d&&d.order_number)||(row&&row.order_no)||'',
     performed_text:s.compactDateTime(d&&d.performed_at),
     reported_text:s.compactDateTime(d&&d.reported_at),
+    reported_at_raw:s.text(d&&d.reported_at),
     result_text:resultText,
     /* RIS ส่งมาเป็น "รหัส" รังสีแพทย์ ยังไม่มีตาราง map เป็นชื่อ — แสดงรหัสตามจริง
        ห้ามเดาชื่อคนจากรหัส (คำถามข้อ 5 ที่ยังรอทีม RIS ตอบ) */
     radiologist:s.text(d&&d.radiologist_uid),
     severity:s.text(d&&d.severity_uid),
+    result_status:s.text(d&&d.result_status).toUpperCase(),
     versions:versions,
     /* endpoint ของ RIS insert ทุกครั้ง ⇒ มีได้หลายฉบับ ต้องบอกให้ผู้ใช้รู้ว่ากำลังดูฉบับล่าสุด */
     version_note:versions>1?('accession นี้มีผลอ่าน '+versions+' ฉบับ · แสดงฉบับล่าสุด'):'',
@@ -2748,13 +2955,13 @@ s.setReportVisible=v=>{s.report={...s.report,visible:!!v};};
 /* ชื่อผู้รับรองผล — เก็บไว้ในหน้าจอเท่านั้น ยังไม่มีที่เก็บฝั่ง server
    ไม่ทำปุ่มบันทึกหลอกไว้ เพราะกดแล้วไม่เกิดอะไรจะแย่กว่าไม่มีปุ่ม */
 s.setReportCertifier=v=>{s.report={...s.report,certified_by:s.text(v)};};
-s.resetReport=()=>{s.report={visible:false,loading:false,order:null,item:null,data:{},certified_by:'',versions:[],selected:0,history_open:false,diff:true};};
+s.resetReport=()=>{s.report={visible:false,loading:false,saving:false,editing:false,order:null,item:null,data:{},certified_by:'',versions:[],selected:0,history_open:false,diff:true,manual:{manual_request_id:'',result_text:'',radiologist_uid:'',result_datetime:'',result_status:'F',severity_uid:''}};};
 s.openReport=async(row,item)=>{
   if(!item){field.notify('รายการนี้ยังไม่มีผลอ่าน','warning',2600);return;}
   /* เปิดใหม่ทุกครั้ง = เริ่มที่ฉบับล่าสุดและพับประวัติไว้ก่อน (พฤติกรรมเดิมของ dialog)
      ผู้ใช้กดปุ่มประวัติเองเมื่ออยากเทียบ — เปิดค้างไว้ข้ามรายการจะทำให้หลงว่าอยู่ฉบับไหน */
-  s.report={visible:true,loading:true,order:row,item:item,data:s.buildReport({},row,item),certified_by:'',
-    versions:[],selected:0,history_open:false,diff:true};
+  s.report={visible:true,loading:true,saving:false,editing:false,order:row,item:item,data:s.buildReport({},row,item),certified_by:'',
+    versions:[],selected:0,history_open:false,diff:true,manual:{manual_request_id:'',result_text:'',radiologist_uid:'',result_datetime:'',result_status:'F',severity_uid:''}};
   if(!WORKLIST_PROCESS_ID){s.report={...s.report,loading:false};field.notify('ยังไม่ได้ตั้งค่า Process ID จึงอ่านผลไม่ได้','error',3600);return;}
   try{
     const p=await s.processCall(WORKLIST_PROCESS_ID,{action:'get_report',organization_code:s.unitCode(),order_id:s.text(row&&row.id),item_id:s.text(item&&item.id)});
@@ -2937,10 +3144,9 @@ if(s.__unitWatch){
 }`
 
 
-/* ── คิวห้องรังสี — แท็บ Unit Queue / My Room ────────────────────────────────
-   เพิ่ม 2026-09-08 ตามคำสั่งผู้ใช้: "จากตอนแรก ถ้ามีการสั่ง → เข้าห้องเลย
-   เปลี่ยนเป็นเข้าคิวก่อน" · โครงเลียนแบบฟอร์ม EMR (6a4f64e7f8cdfc54cec16488)
-   ที่ผู้ใช้ชี้เป็นต้นแบบ: Unit Queue → My Room → (ปุ่ม) → หน้างานจริง
+/* ── EMR-native queue + existing X-ray Worklist ─────────────────────────────
+   Unit Queue / My Room / Completed clone the real EMR widgets. X-ray does not
+   derive queue rows from Orders and does not own any queue action.
 
    🔴 แท็บ "X-ray" คือ widget เดิมทั้งก้อน **ไม่แก้อะไรข้างในเลย** — ที่เพิ่มมีแค่
       s.focusVisit()/s.clearFocusVisit() กับบล็อกอ่าน deep link ใน onMounted
@@ -2957,15 +3163,9 @@ const XRAY_PANE_UNIT = 'xray_tab_unit'
 const XRAY_PANE_ROOM = 'xray_tab_room'
 const XRAY_PANE_DONE = 'xray_tab_done'
 const XRAY_PANE_WORKLIST = 'xray_tab_worklist'
+const XRAY_PANE_TRACKING = 'xray_tab_tracking'
 const XRAY_PANE_LAB_LOOKUP = 'xray_tab_lab_lookup'
 const XRAY_TAB_NAME = 'xray_app'
-/* ปุ่ม "ส่งต่อ" ยกมาจากฟอร์ม EMR ตามคำสั่งผู้ใช้ 2026-09-08 — ใช้ฟอร์มและ Process
-   ตัวเดียวกับที่ EMR เรียกอยู่จริง ไม่ได้สร้างของใหม่ขึ้นมาซ้ำ
-     · ฟอร์มย้ายคิว   6a4f828d22f95f21b606d9a2  (EMR list-ui visit_room ปุ่มที่ 3)
-     · cpoe-order-dest 6a75820bb902d8cb04375f69  (เดาปลายทางจากใบสั่งยาที่รอห้องยา) */
-const MOVE_FORM_ID = '6a4f828d22f95f21b606d9a2'
-const ORDER_DEST_PROCESS_ID = '6a75820bb902d8cb04375f69'
-const QUEUE_WIDGET_NAMES = { unit: 'xray_queue_unit', room: 'xray_queue_room', done: 'xray_queue_done' }
 
 const clone = value => JSON.parse(JSON.stringify(value))
 
@@ -2983,296 +3183,382 @@ const wrapInGrid = (childWidget, slug) => {
   return wrapGrid
 }
 
-const QUEUE_WIDGET_LABELS = { unit: 'X-ray Unit Queue', room: 'X-ray My Room', done: 'X-ray Completed' }
-const queueWidget = bucket => {
-  const isUnit = bucket === 'unit'
-  const slug = 'xray-queue-' + bucket
+/* ── Native EMR queue panes -------------------------------------------------
+   Clone the complete, system-exported EMR panes.  The checked live source is
+   EMR form 6a4f64e7f8cdfc54cec16488, updated 2026-10-10 23:58:38.  The local
+   source snapshot predates three verified live deltas (Unit Queue no longer
+   has the header call-next button, My Room has Check-in, and recalled queues
+   use a compact badge), so those deltas are applied explicitly below.  Only
+   the X-ray filters/call branching and destination action are adapted.
+   Queue state continues to live solely in zdata_visit_tran and all mutations
+   continue to use the central EMR processes/forms. */
+const emrQueueRoot = emrQueueForm.fields.find(field => field && field.component === 'tab')
+if (!emrQueueRoot || !Array.isArray(emrQueueRoot.tabs)) {
+  throw new Error('EMR queue template tab not found')
+}
+
+const emrPaneByLabel = label => {
+  const pane = emrQueueRoot.tabs.find(item => item && item.options && item.options.label === label)
+  if (!pane) throw new Error('EMR queue template pane not found: ' + label)
+  return pane
+}
+
+const callNextQueueScript = `// Clone of the live EMR "เรียกคิวถัดไป" branch (2026-10-08).
+const CALL_NEXT = '6a4b942bac48023662b1b42a';
+const CALL_FRONT = '6ab0bb0afc8b9ef3e717b010';
+const api = this.getFormRef().userState;
+const u = api.user || {};
+if (!u.unit || !u.unit.code) { this.alert('ยังไม่ได้เลือกแผนก', 'warning'); return; }
+const atFront = !u.room || !u.room.code;
+const proc = atFront ? CALL_FRONT : CALL_NEXT;
+const args = atFront
+  ? { unit: u.unit.code }
+  : { unit_to: u.unit.code, room: { value: u.room.code, label: u.room.name, qtype: u.room.qtype || null } };
+api.runProcess(proc, args, (res) => {
+  const d = res.data || {};
+  if (d.empty) { this.alert('ไม่มีคิวรอ', 'info'); return; }
+  if (!d.success) { this.alert(d.message || 'เรียกคิวไม่สำเร็จ', 'warning'); return; }
+  this.alert('เรียกคิว ' + d.queue_label + (atFront && d.room_to ? ' ที่' + d.room_to.label : ''), 'success');
+  ['visit_unit', 'visit_room'].forEach((name) => {
+    const target = this.getFieldRef(name);
+    if (target && target.getFieldEditor()) target.getFieldEditor().handleRefresh();
+  });
+}, (err) => this.alert('เรียกคิวไม่สำเร็จ: ' + ((err && err.message) || err), 'error'));
+`
+/* 2026-10-15: keep the My Room action-to-list spacing identical to EMR. */
+form.formConfig.cssCode += `\n${emrRoomSpacingRule[0]}\n`
+
+const callSelectedQueueScript = `// Clone of the live EMR per-row "เรียก" branch (2026-10-08).
+const CALL_NEXT = '6a4b942bac48023662b1b42a';
+const CALL_FRONT = '6ab0bb0afc8b9ef3e717b010';
+const listField = this;
+const api = this.getFormRef().userState;
+const u = api.user || {};
+if (!u.unit || !u.unit.code) { this.alert('ยังไม่ได้เลือกแผนก', 'warning'); return; }
+const atFront = !u.room || !u.room.code;
+const proc = atFront ? CALL_FRONT : CALL_NEXT;
+const args = atFront
+  ? { tran_id: String(dataRow._id), unit: u.unit.code }
+  : {
+      unit_to: u.unit.code,
+      room: { value: u.room.code, label: u.room.name, qtype: u.room.qtype || null },
+      pick_id: String(dataRow._id)
+    };
+api.runProcess(proc, args, (res) => {
+  const d = (res && res.data) || {};
+  if (!d.success) { listField.alert(d.message || 'เรียกคิวไม่สำเร็จ', 'warning'); return; }
+  listField.alert((d.recalled ? 'เรียกซ้ำ ' : 'เรียก ') + d.queue_label + (d.room_to ? ' ที่' + d.room_to.label : ''), 'success');
+  ['visit_unit', 'visit_room'].forEach((name) => {
+    const target = listField.getFieldRef(name);
+    if (target && target.getFieldEditor()) target.getFieldEditor().handleRefresh();
+  });
+}, (err) => listField.alert('เรียกคิวไม่สำเร็จ: ' + ((err && err.message) || err), 'error'));
+`
+
+/* Live EMR My Room added this second header action after the stored snapshot.
+   It opens the central Check-in form; it does not implement a parallel X-ray
+   check-in process.  The source form and process remain owned by SuperAdmin
+   InitAPI, so this package only clones the caller. */
+const checkinQueueScript = `/**
+ * ปุ่ม "Check-in" — clone จาก EMR live 2026-10-10
+ * เปิดฟอร์มกลางเพื่อดึงคิวมาแผนก/ห้องของผู้กด แล้ว refresh สองรายการคิว
+ * 🔴 ห้ามใช้ await — onClick เป็น sync handler
+ */
+const CHECKIN_FORM = '6ac9f156481c196fbb330cab';
+const form = this.getFormRef();
+const u = form.userState.user || {};
+if (!u.unit || !u.unit.code) {
+  this.alert('ยังไม่ได้เลือกแผนก', 'warning');
+  return;
+}
+const refreshQueues = () => {
+  ['visit_unit', 'visit_room'].forEach((name) => {
+    const target = form.getFieldRef(name);
+    if (target && target.getFieldEditor && target.getFieldEditor()) target.getFieldEditor().handleRefresh();
+  });
+};
+const closeAndRefresh = () => {
+  form.subFormClose();
+  refreshQueues();
+};
+form.openForm(CHECKIN_FORM, '', '', {}, {
+  params: {},
+  cancelCallback: closeAndRefresh,
+  afterSaveCallback: (saved, autoSave) => {
+    if (autoSave) return;
+    closeAndRefresh();
+  },
+});
+`
+
+/* Live EMR renders a recalled waiting queue as the compact ↺ state and adds a
+   tooltip with the full Thai label.  Keep the Completed-only `done` mapping
+   from the source snapshot while applying the recalled branch to every clone. */
+const applyLiveRecallState = list => {
+  const values = Array.isArray(list.options.customValue) ? list.options.customValue : []
+  const doneList = list.options.name === 'visit_done'
+  const statusMaps = doneList
+    ? {
+        label: "({'waiting':'รอเรียก','called':'เรียกแล้ว','in_progress':'กำลังตรวจ','skipped':'ข้าม','done':'เสร็จสิ้น'})[row.vtran_status]||'-'",
+        color: "({'waiting':'var(--el-color-info)','called':'var(--el-color-warning)','in_progress':'var(--el-color-success)','skipped':'var(--el-color-danger)','done':'var(--el-color-success)'})[row.vtran_status]||'var(--el-color-info)'",
+        bg: "({'waiting':'var(--el-color-info-light-9)','called':'var(--el-color-warning-light-9)','in_progress':'var(--el-color-success-light-9)','skipped':'var(--el-color-danger-light-9)','done':'var(--el-color-success-light-9)'})[row.vtran_status]||'var(--el-fill-color)'",
+        title: "({'waiting':'รอเรียก','called':'เรียกแล้ว','in_progress':'กำลังตรวจ','skipped':'ข้าม','done':'เสร็จสิ้น'})[row.vtran_status]||''"
+      }
+    : {
+        label: "({'waiting':'รอเรียก','called':'เรียกแล้ว','in_progress':'กำลังตรวจ','skipped':'ข้าม'})[row.vtran_status]||'-'",
+        color: "({'waiting':'var(--el-color-info)','called':'var(--el-color-warning)','in_progress':'var(--el-color-success)','skipped':'var(--el-color-danger)'})[row.vtran_status]||'var(--el-color-info)'",
+        bg: "({'waiting':'var(--el-color-info-light-9)','called':'var(--el-color-warning-light-9)','in_progress':'var(--el-color-success-light-9)','skipped':'var(--el-color-danger-light-9)'})[row.vtran_status]||'var(--el-fill-color)'",
+        title: "({'waiting':'รอเรียก','called':'เรียกแล้ว','in_progress':'กำลังตรวจ','skipped':'ข้าม'})[row.vtran_status]||''"
+      }
+  const liveExpressions = {
+    statusLabel: `row.vtran_status==='waiting'&&row.recalled_at?'↺':(${statusMaps.label})`,
+    statusColor: `row.vtran_status==='waiting'&&row.recalled_at?'var(--el-color-warning)':(${statusMaps.color})`,
+    statusBg: `row.vtran_status==='waiting'&&row.recalled_at?'var(--el-color-warning-light-9)':(${statusMaps.bg})`,
+    statusTitle: `row.vtran_status==='waiting'&&row.recalled_at?'เรียกกลับ':(${statusMaps.title})`
+  }
+  for (const [fieldName, expressions] of Object.entries(liveExpressions)) {
+    const current = values.find(item => item && item.fieldName === fieldName)
+    if (current) current.expressions = expressions
+    else values.push({ labelWidth: 150, align: 'left', fieldName, expressions })
+  }
+  list.options.customValue = values
+  const badge = "<span style='display:inline-block;margin-top:3px;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;background:{{statusBg}};color:{{statusColor}};'>{{statusLabel}}</span>"
+  const liveBadge = "<span title='{{statusTitle}}' style='display:inline-block;margin-top:3px;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;background:{{statusBg}};color:{{statusColor}};'>{{statusLabel}}</span>"
+  if (!String(list.options.detailContent || '').includes("title='{{statusTitle}}'")) {
+    if (!String(list.options.detailContent || '').includes(badge)) throw new Error('EMR queue status badge not found')
+    list.options.detailContent = list.options.detailContent.replace(badge, liveBadge)
+  }
+}
+
+const addLiveMyRoomHeader = pane => {
+  const sourceButton = (pane.fields || []).find(field => field && field.component === 'button-ui' && field.options && field.options.name === 'btn_room')
+  if (!sourceButton) throw new Error('EMR My Room header button not found')
+
+  const checkinButton = clone(sourceButton)
+  checkinButton.id = 'button-ui-xray-room-checkin'
+  checkinButton.options.name = 'button_ui52909'
+  checkinButton.options.label = 'Buttons clone'
+  checkinButton.options.textAlign = 'right'
+  checkinButton.options.buttons = [clone(sourceButton.options.buttons[0])]
+  checkinButton.options.buttons[0].label = 'Check-in'
+  checkinButton.options.buttons[0].prefixIcon = 'el-circle-check'
+  /* 2026-10-15: current EMR uses the orange outlined Check-in action. */
+  checkinButton.options.buttons[0].type = 'warning'
+  checkinButton.options.buttons[0].plain = true
+  checkinButton.options.buttons[0].color = ''
+  checkinButton.options.buttons[0].onClick = checkinQueueScript
+
+  sourceButton.id = 'button-ui-xray-room'
+  const actionsGrid = clone(grid)
+  actionsGrid.id = 'grid-xray-room-actions'
+  actionsGrid.options.name = 'xray_room_actions_grid'
+  const primaryCol = clone(col)
+  primaryCol.id = 'grid-col-xray-room-primary'
+  primaryCol.options.name = 'xray_room_actions_primary_col'
+  primaryCol.options.span = 12
+  primaryCol.fields = [sourceButton]
+  const checkinCol = clone(col)
+  checkinCol.id = 'grid-col-xray-room-checkin'
+  checkinCol.options.name = 'xray_room_actions_checkin_col'
+  checkinCol.options.span = 12
+  checkinCol.fields = [checkinButton]
+  actionsGrid.cols = [primaryCol, checkinCol]
+
+  pane.fields = (pane.fields || []).map(field => field === sourceButton ? actionsGrid : field)
+}
+
+const goXrayScript = ({ startQueue }) => `const form = this.getFormRef();
+const goXray = (row) => {
+  const visitId = row && row.vid && row.vid.value ? String(row.vid.value) : String((row && row.visit_id) || '');
+  if (!visitId) { this.alert('คิวนี้ไม่มี Visit ID', 'warning'); return; }
+  const target = {
+    visit_id: visitId,
+    vn: String((row && row.vn) || (row && row.vid && row.vid.label) || ''),
+    hn: String((row && row.hn) || (row && row.patient && row.patient.hn) || '')
+  };
+  form.$xrayQueueTarget = target;
+  const worklist = form.getFieldRef('xray_cpoe_worklist');
+  if (worklist && worklist.vueState && typeof worklist.vueState.focusVisit === 'function') {
+    worklist.vueState.focusVisit(target);
+  }
+  const tab = form.getFieldRef('${XRAY_TAB_NAME}');
+  if (tab) tab.activeTabName = '${XRAY_PANE_WORKLIST}';
+};
+${startQueue ? `const st = dataRow.vtran_status;
+if (st === 'in_progress') { goXray(dataRow); return; }
+if (st !== 'called') { this.alert('เริ่มตรวจได้เฉพาะคิวที่เรียกแล้ว', 'warning'); return; }
+form.userState.runProcess('6a4f852422f95f21b606d9a3', { tran_id: String(dataRow._id), action: 'start' }, (res) => {
+  const d = res.data || {};
+  if (!d.success) { this.alert(d.message || 'เริ่มตรวจไม่สำเร็จ', 'warning'); return; }
+  this.alert('เริ่มตรวจคิว ' + d.queue_label, 'success');
+  this.getFieldEditor().handleRefresh();
+  goXray({ ...dataRow, vtran_status: 'in_progress', start_at: this.dayjs().format('YYYY-MM-DD HH:mm:ss') });
+}, (err) => this.alert(String((err && err.message) || err), 'error'));` : `goXray(dataRow);`}
+`
+
+const nativeQueuePane = bucket => {
+  const label = bucket === 'unit' ? 'Unit Queue' : (bucket === 'room' ? 'My Room' : 'Completed')
+  const pane = clone(emrPaneByLabel(label))
+  pane.options.name = bucket === 'unit' ? XRAY_PANE_UNIT : (bucket === 'room' ? XRAY_PANE_ROOM : XRAY_PANE_DONE)
+  pane.options.active = false
+  pane.id = 'tab-pane-xray-' + bucket
+
+  const list = (pane.fields || []).find(field => field && field.component === 'list-ui')
+  if (!list) throw new Error('EMR ' + label + ' list-ui not found')
+  list.id = 'list-ui-xray-' + bucket
+  list.options.enableWs = true
+  list.options.wsRefresh = true
+  applyLiveRecallState(list)
+
+  if (bucket === 'unit') {
+    /* 2026-10-13: the user and a read-only live Builder audit confirmed that
+       current EMR removed the Unit Queue header "เรียกคิวถัดไป" button.  Keep
+       the per-row "เรียก" action below as the only call control in this pane. */
+    const obsoleteHeaders = (pane.fields || []).filter(field =>
+      field && field.component === 'button-ui' && field.options && field.options.name === 'btn_unit'
+    )
+    if (obsoleteHeaders.length !== 1) {
+      throw new Error('expected exactly one obsolete EMR Unit Queue header button')
+    }
+    pane.fields = (pane.fields || []).filter(field => field !== obsoleteHeaders[0])
+    list.options.where = "`visit_date` = DATE_TO_STRING(DATE_ADD(CURRENT_DATE(), 'hour', 7), '%Y-%m-%d') AND vtran_status = 'waiting' AND `unit_path` = :xunit_codex AND COALESCE(`room_to.value`, 'FRONT') = (CASE WHEN :xroom_codex = '__NONE__' THEN 'FRONT' ELSE :xroom_codex END)"
+    list.options.orderBy = [
+      { column: 'vid.visit_priority', sort: 'DESC' },
+      { column: 'queue_ts', sort: 'ASC' }
+    ]
+    const callButton = (list.options.buttonsRow || []).find(button => button && button.label === 'เรียก')
+    if (!callButton) throw new Error('EMR Unit Queue call button not found')
+    callButton.onClick = callSelectedQueueScript
+  } else if (bucket === 'room') {
+    list.options.where = "`visit_date` = DATE_TO_STRING(DATE_ADD(CURRENT_DATE(), 'hour', 7), '%Y-%m-%d') AND vtran_status IN ('called', 'in_progress', 'skipped') AND `unit_path` = :xunit_codex AND `room_to.value` = CASE WHEN :xroom_codex = '__NONE__' THEN 'FRONT' ELSE :xroom_codex END"
+    list.options.orderBy = [
+      { column: 'vid.visit_priority', sort: 'DESC' },
+      { column: 'queue_ts', sort: 'ASC' }
+    ]
+    /* 2026-10-15: ผู้ใช้สั่งเอาเฉพาะ action "ซักประวัติ" ออกจากแถว My Room
+       ปุ่มเดียวกันใน Unit Queue และ action อื่นทุกตัวต้องคงเดิม */
+    const historyButtons = (list.options.buttonsRow || []).filter(button => button && button.label === 'ซักประวัติ')
+    if (historyButtons.length !== 1) throw new Error('expected exactly one EMR My Room history action')
+    list.options.buttonsRow = (list.options.buttonsRow || []).filter(button => button !== historyButtons[0])
+    const emrButton = (list.options.buttonsRow || []).find(button => button && button.label === 'EMR')
+    if (!emrButton) throw new Error('EMR My Room action button not found')
+    emrButton.label = 'X-ray'
+    emrButton.onClick = goXrayScript({ startQueue: true })
+    addLiveMyRoomHeader(pane)
+  } else {
+    list.options.where = "`visit_date` = DATE_TO_STRING(DATE_ADD(CURRENT_DATE(), 'hour', 7), '%Y-%m-%d') AND vtran_status = 'done' AND `unit_path` = :xunit_codex"
+    const emrButton = (list.options.buttonsRow || []).find(button => button && button.label === 'EMR')
+    if (!emrButton) throw new Error('EMR Completed action button not found')
+    emrButton.label = 'X-ray'
+    emrButton.onClick = goXrayScript({ startQueue: false })
+  }
+
+  const visitFields = value => {
+    if (!value || typeof value !== 'object') return
+    if (value.component === 'button-ui') {
+      const nextButton = (value.options.buttons || []).find(button => button && button.label === 'เรียกคิวถัดไป')
+      if (nextButton) nextButton.onClick = callNextQueueScript
+    }
+    for (const child of value.fields || []) visitFields(child)
+    for (const child of value.cols || []) visitFields(child)
+  }
+  visitFields(pane)
+  return pane
+}
+
+/* ── Queue tracking (read-only) -------------------------------------------
+   Approved 2026-10-13: add one display-only tab between Completed and LAB
+   lookup.  It does not clone or expose any EMR queue action.  Location comes
+   from Visit Tran; X-ray work status comes from CPOE/RIS through the additive
+   `queue_tracking` read action in the existing Worklist Process. */
+const trackingWidget = () => {
   const node = clone(widget)
-  node.options.name = QUEUE_WIDGET_NAMES[bucket]
-  node.options.label = QUEUE_WIDGET_LABELS[bucket]
-  node.id = 'vue-ui-' + slug
-  node.options.content = `<div class="xray-queue">
-  <div class="xq-bar">
-    <div class="xq-heading">
-      <span class="xq-title">{{ title }}</span>
-      <span class="xq-total">{{ total }} คิว</span>
-    </div>
-    <el-button size="small" :loading="loading" @click="reload">รีเฟรช</el-button>
+  node.id = 'vue-ui-xray-queue-tracking'
+  node.options.name = 'xray_queue_tracking'
+  node.options.label = 'X-ray Queue Tracking'
+  node.options.content = `<section class="xray-queue-tracking" aria-label="ติดตามตำแหน่งและสถานะตรวจ X-ray">
+  <header class="xqt-head">
+    <div class="xqt-title"><span class="xqt-doc">▤</span><div><h2>ติดตามตำแหน่งและสถานะตรวจ <small>( {{ visibleRows().length }} )</small></h2><p>ใช้ดูอย่างเดียว · ไม่มีปุ่มเรียกคิว ย้ายห้อง หรือเปลี่ยนสถานะจากหน้านี้</p></div></div>
+    <div class="xqt-sync"><span></span>{{ lastLoaded ? 'อัปเดตล่าสุด '+lastLoaded : 'ข้อมูลจากระบบคิวกลาง' }}</div>
+  </header>
+
+  <div class="xqt-toolbar">
+    <el-input v-model="filters.q" clearable placeholder="ค้นหา HN, VN, เลขคิว หรือชื่อผู้ป่วย" prefix-icon="el-search" />
+    <el-button :loading="loading" @click="load">รีเฟรช</el-button>
   </div>
 
-  <div v-if="errorMessage" class="xq-error" role="alert">{{ errorMessage }}</div>
-
-  <div v-else-if="!loading && !rows.length" class="xq-empty">{{ emptyText }}</div>
-
-  <div v-else class="xq-list" v-loading="loading">
-    <div v-for="(row,index) in rows" :key="row.visit_id" class="xq-row">
-      <div class="xq-seq" :class="{'is-label':!!row.queue_label}" :title="seqHint(row)">{{ seqText(row, index) }}</div>
-      <div class="xq-who">
-        <div class="xq-nameline">
-          <span class="xq-name">{{ row.patient_name || '(ไม่มีชื่อในระบบ)' }}</span>
-          <span class="xq-state" :class="stateClass">{{ stateLabel }}</span>
-        </div>
-        <div class="xq-meta">
-          <span class="xr-mono">HN {{ row.hn || '-' }}</span>
-          <span class="xr-mono">VN {{ row.vn || '-' }}</span>
-          <span v-if="row.gender_text">{{ row.gender_text }}</span>
-          <span v-if="row.age !== ''">{{ row.age }} ปี</span>
-        </div>
-      </div>
-      <div class="xq-when">
-        <div class="xq-wait">&#9201; {{ waitText(row) }}</div>
-        <div class="xq-sub">{{ stampText(row) }}</div>
-      </div>
-      <div class="xq-load">
-        <strong>{{ row.item_count }}</strong> รายการ
-        <span class="xq-sub">{{ row.order_count }} ใบสั่ง</span>
-      </div>
-      <div class="xq-act">
-        <el-button v-if="isUnit" type="primary" plain size="small"
-          :loading="!!calling[row.visit_id]" @click="callVisit(row)">เรียก/รับเข้าห้อง</el-button>
-        <template v-else>
-          <el-button type="primary" plain size="small" @click="goXray(row)">X-ray</el-button>
-          <el-button v-if="isRoom" type="success" plain size="small"
-            :disabled="!row.tran_id" :title="forwardHint(row)"
-            @click="forwardVisit(row)">ส่งต่อ</el-button>
-        </template>
-      </div>
-    </div>
+  <div class="xqt-filters" aria-label="กรองสถานะงาน X-ray">
+    <button v-for="option in statusOptions" :key="option.value" type="button"
+      :class="['xqt-filter',{'is-active':filters.status===option.value}]"
+      @click="filters.status=option.value">{{ option.label }} <b>{{ countFor(option.value) }}</b></button>
   </div>
 
-  <div v-if="!loading && total > rows.length" class="xq-more">
-    แสดง {{ rows.length }} จาก {{ total }} คิว — กดรีเฟรชหลังเคลียร์คิวด้านบนเพื่อดูส่วนที่เหลือ
+  <div v-if="errorMessage" class="xqt-message is-error" role="alert">{{ errorMessage }}</div>
+  <div v-else-if="loading&&!rows.length" class="xqt-message">กำลังอ่านข้อมูลติดตามคิว…</div>
+  <div v-else-if="!visibleRows().length" class="xqt-message"><strong>ไม่พบคิวที่ตรงกับตัวกรอง</strong><span>ลองล้างคำค้นหาหรือเลือกสถานะอื่น</span></div>
+
+  <div v-else class="xqt-list">
+    <article v-for="row in visibleRows()" :key="row.tran_id" :class="['xqt-row','is-'+row.work_state]"
+      @click="toggleRouteFromRow(row,$event)">
+      <div class="xqt-queue">
+        <small>{{ elapsed(row) }}</small><strong>{{ row.queue_label||'-' }}</strong>
+        <span>{{ statusLabel(row.work_state) }}</span>
+      </div>
+      <div class="xqt-patient">
+        <div class="xqt-avatar"><img v-if="patientPhoto(row)" :src="patientPhoto(row)" alt="รูปผู้ป่วย" /><span v-else>{{ initials(row) }}</span></div>
+        <div><h3>{{ patientHn(row) }}</h3><p>{{ patientName(row) }}</p><p>{{ patientMeta(row) }}</p><p class="xqt-items">รายการ: {{ itemSummary(row) }}</p></div>
+      </div>
+      <div class="xqt-field">
+        <label>⌖ คิวอยู่ที่ไหนตอนนี้</label>
+        <div class="xqt-textbox"><span class="xqt-box-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v4M12 18v4M2 12h4M18 12h4"></path></svg></span><div><strong>{{ row.location_label||'ยังไม่ระบุตำแหน่ง' }}</strong><small>{{ locationNote(row) }}</small></div></div>
+      </div>
+      <button class="xqt-expand" type="button" :aria-expanded="expanded[row.tran_id]===true"
+        :title="expanded[row.tran_id]?'ซ่อนเส้นทางคิว':'แสดงเส้นทางคิว'" @click.stop="toggleRoute(row)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 9 7 7 7-7"></path></svg></button>
+      <div v-if="expanded[row.tran_id]" class="xqt-route">
+        <h4>เส้นทางคิวล่าสุด</h4><div><template v-for="(step,index) in (row.route||[])" :key="index"><span v-if="index" class="xqt-arrow">→</span><span :class="['xqt-step',{'is-current':step.current}]">{{ step.label }}<small v-if="step.at"> · {{ timeOnly(step.at) }}</small></span></template></div>
+      </div>
+    </article>
   </div>
-</div>`
-
-  node.options.onCreated = `const field=this;
-const s=this.vueState;
-const WORKLIST_PROCESS_ID='${worklistProcessId}';
-const BUCKET='${bucket}';
-const XRAY_PANE='${XRAY_PANE_WORKLIST}';
-const TAB_NAME='${XRAY_TAB_NAME}';
-const SIBLINGS=${JSON.stringify(Object.keys(QUEUE_WIDGET_NAMES).filter(key => key !== bucket).map(key => QUEUE_WIDGET_NAMES[key]))};
-const MOVE_FORM_ID='${MOVE_FORM_ID}';
-const ORDER_DEST_PROCESS_ID='${ORDER_DEST_PROCESS_ID}';
-
-s.isUnit=BUCKET==='unit';
-s.isRoom=BUCKET==='room';
-s.isDone=BUCKET==='done';
-s.title=s.isUnit?'คิวรอเรียกเข้าห้อง':(s.isRoom?'คิวในห้อง (เรียกแล้ว)':'คิวที่สำเร็จ / ส่งต่อแล้ว');
-s.emptyText=s.isUnit?'ไม่มีคิวในวันนี้':(s.isRoom?'ยังไม่มีคิวที่เรียกเข้าห้อง':'ยังไม่มีคิวที่ปิดวันนี้');
+  <footer class="xqt-foot"><span>ตำแหน่ง: Visit Tran ล่าสุดในสายงานรังสี</span><span>ออกผลแล้ว: มีผล RIS ครบทุก X-ray item ที่ยัง active</span></footer>
+</section>`
+  node.options.onCreated = `const s=this.vueState;
+const field=this;
+const PROCESS_ID='${worklistProcessId}';
 s.rows=[];
-s.total=0;
 s.loading=false;
 s.errorMessage='';
-s.calling={};
-s.loadSeq=0;
-
-s.text=v=>{
-  if(v==null)return '';
-  if(typeof v==='string')return v;
-  if(typeof v==='number'||typeof v==='boolean')return String(v);
-  if(typeof v==='object')return s.text(v.label!=null?v.label:(v.value!=null?v.value:''));
-  return String(v);
-};
+s.lastLoaded='';
+s.expanded={};
+s.filters={q:'',status:'all'};
+s.statusOptions=[{value:'all',label:'ทั้งหมด'},{value:'waiting',label:'รอรับ'},{value:'examining',label:'ตรวจอยู่'},{value:'resulted',label:'ออกผลแล้ว'}];
+s.text=value=>value==null?'':String(value).trim();
 s.api=()=>field.globalUserState||((field.getFormRef&&field.getFormRef())||{}).userState;
-s.extractProcess=out=>{
-  const c=[out,out&&out.data,out&&out.data&&out.data.data,out&&out.reply&&out.reply.data];
-  for(let i=0;i<c.length;i++){const x=c[i];if(x&&typeof x==='object'&&typeof x.success==='boolean')return x;}
-  return out||{};
-};
-s.processCall=(id,params)=>new Promise((resolve,reject)=>{
-  const api=s.api();
-  if(!api||typeof api.runProcess!=='function'){reject(new Error('ไม่พบ API Process connector'));return;}
-  api.runProcess(id,params||{},out=>resolve(s.extractProcess(out)),error=>reject(error||new Error('เรียก API Process ไม่สำเร็จ')));
-});
-s.unitCode=()=>{const user=field.globalUserState&&field.globalUserState.user;return s.text(user&&user.unit&&user.unit.code).toUpperCase();};
-
-/* เวลารอ — คิดจากเวลาสั่ง (Unit Queue) หรือเวลาเรียกเข้าห้อง (My Room)
-   ใช้ตัวแปลงวันที่แบบเดียวกับ worklist (new Date + replace ' ' เป็น 'T'))
-   ฟอร์มนี้ไม่มี dayjs ให้เรียก จึงห้ามอ้างถึง */
-s.toDate=v=>{if(!v)return null;const d=new Date(String(v).replace(' ','T'));return Number.isNaN(d.getTime())?null:d;};
-s.minutesSince=v=>{
-  const d=s.toDate(v);
-  if(!d)return null;
-  const diff=Math.floor((Date.now()-d.getTime())/60000);
-  return diff>=0?diff:0;
-};
-/* เลขคิวจริงมี prefix อยู่ข้างหน้า (เช่น D002) — ผู้ใช้ทักท้วง 2026-09-08
-   มาจาก visit_tran ผ่าน API · ไม่มีแถวคิวก็ตกกลับไปใช้ลำดับในรายการเหมือนเดิม
-   จะได้ไม่มีช่องว่างให้เจ้าหน้าที่อ่านไม่ออกว่าใครมาก่อนหลัง */
-/* ป้ายสถานะของคิว — ผู้ใช้ขอ 2026-09-08: "หน้า myroom ต้องมี status ว่ารับแล้ว
-   เหมือนกับ flow emr" · เป็นสถานะของ **คิว** ไม่ใช่สถานะของใบสั่ง
-   (ใบสั่งมีป้ายของตัวเองอยู่แล้วในตาราง X-ray ห้ามเอามาปนกัน) */
-s.stateLabel=s.isDone?'ส่งต่อแล้ว':(s.isRoom?'รับแล้ว':'รอเรียก');
-s.stateClass=s.isDone?'is-done':(s.isRoom?'is-room':'is-wait');
-s.seqText=(row,index)=>s.text(row&&row.queue_label)||String(index+1);
-s.seqHint=row=>(row&&row.queue_label)
-  ?'เลขคิวจากระบบคิวผู้ป่วย'
-  :'ยังไม่มีเลขคิวใน visit_tran — แสดงลำดับในรายการแทน';
-s.humanMinutes=mins=>{
-  if(mins==null)return '--:--';
-  const h=Math.floor(mins/60);
-  return h>0?(h+' ชม. '+(mins%60)+' น.'):(mins+' นาที');
-};
-s.waitText=row=>{
-  /* ปิดคิวแล้วไม่มี "เวลารอ" อีก — ที่มีความหมายคือ "อยู่ในห้องนานเท่าไหร่" */
-  if(s.isDone){
-    const from=s.toDate(row&&row.called_at),to=s.toDate(row&&row.done_at);
-    if(!from||!to)return '--:--';
-    return s.humanMinutes(Math.max(0,Math.floor((to-from)/60000)));
-  }
-  return s.humanMinutes(s.minutesSince(s.isUnit?(row&&row.requested_at):(row&&row.called_at)));
-};
-s.stampText=row=>{
-  const raw=s.isUnit?s.text(row&&row.requested_at):(s.isRoom?s.text(row&&row.called_at):s.text(row&&row.done_at));
-  const label=s.isUnit?'สั่ง ':(s.isRoom?'เรียก ':'ปิดคิว ');
-  return raw?(label+raw.slice(11,16)):'';
-};
-
-s.load=()=>{
-  const seq=++s.loadSeq;
-  s.loading=true;
-  s.errorMessage='';
-  s.processCall(WORKLIST_PROCESS_ID,{action:'queue',bucket:BUCKET,organization_code:s.unitCode(),limit:50}).then(p=>{
-    if(seq!==s.loadSeq)return;
-    if(p&&p.success===false){s.rows=[];s.total=0;s.errorMessage=s.text(p.message)||'อ่านคิวไม่สำเร็จ';s.loading=false;return;}
-    const d=(p&&p.data)||{};
-    s.rows=Array.isArray(d.rows)?d.rows:[];
-    s.total=Number(d.total)||s.rows.length;
-    s.loading=false;
-  }).catch(error=>{
-    if(seq!==s.loadSeq)return;
-    s.rows=[];s.total=0;
-    s.errorMessage=s.text(error&&error.message)||'อ่านคิวไม่สำเร็จ';
-    s.loading=false;
-  });
-};
-s.reload=()=>s.load();
-/* คิวย้ายถังแล้วแถวต้องหายจากที่นี่และไปโผล่อีกแท็บ ⇒ รีเฟรชแท็บที่เหลือทั้งหมด
-   ไม่ให้ผู้ใช้เห็นคิวค้างอยู่สองที่พร้อมกัน (แท็บที่ยังไม่ mount จะข้ามไปเอง) */
-s.reloadSibling=()=>{
-  const form=field.getFormRef&&field.getFormRef();
-  if(!form||typeof form.getFieldRef!=='function')return;
-  SIBLINGS.forEach(name=>{
-    const other=form.getFieldRef(name);
-    if(other&&other.vueState&&typeof other.vueState.load==='function')other.vueState.load();
-  });
-};
-
-s.callVisit=row=>{
-  const id=s.text(row&&row.visit_id);
-  if(!id){field.notify('คิวนี้ไม่มี Visit ID','warning',3000);return;}
-  if(s.calling[id])return;
-  s.calling={...s.calling,[id]:true};
-  s.processCall(WORKLIST_PROCESS_ID,{action:'queue_call',organization_code:s.unitCode(),visit_id:id}).then(p=>{
-    s.calling={...s.calling,[id]:false};
-    if(p&&p.success===false){field.notify(s.text(p.message)||'เรียกคิวไม่สำเร็จ','error',4200);return;}
-    const already=!!(p&&p.data&&p.data.already_called);
-    field.notify(already?'คิวนี้ถูกเรียกเข้าห้องอยู่แล้ว':'เรียกคิวเข้าห้องแล้ว',already?'info':'success',2600);
-    s.load();
-    s.reloadSibling();
-  }).catch(error=>{
-    s.calling={...s.calling,[id]:false};
-    field.notify(s.text(error&&error.message)||'เรียกคิวไม่สำเร็จ','error',4200);
-  });
-};
-
-/* กดแล้ว "แค่กาง order ให้ดู" — ไม่แตะสถานะคิวและไม่แตะ current_status
-   (ผู้ใช้ยืนยัน 2026-09-08 ว่าต่างจากปุ่ม EMR ที่ stamp เริ่มตรวจ) */
-s.goXray=row=>{
-  const form=field.getFormRef&&field.getFormRef();
-  const visitId=s.text(row&&row.visit_id);
-  if(!visitId){field.notify('คิวนี้ไม่มี Visit ID','warning',3000);return;}
-  if(!form){field.notify('ไม่พบฟอร์มสำหรับเปิดหน้า X-ray','error',3000);return;}
-  const target={visit_id:visitId,vn:s.text(row&&row.vn),hn:s.text(row&&row.hn)};
-  form.$xrayQueueTarget=target;
-  const w=form.getFieldRef&&form.getFieldRef('xray_cpoe_worklist');
-  if(w&&w.vueState&&typeof w.vueState.focusVisit==='function')w.vueState.focusVisit(target);
-  const tab=form.getFieldRef&&form.getFieldRef(TAB_NAME);
-  if(tab)tab.activeTabName=XRAY_PANE;
-};
-
-/* ── ส่งต่อ (ยกมาจากปุ่ม "ส่งต่อ" ของฟอร์ม EMR · ผู้ใช้สั่ง 2026-09-08) ──────
-   ลำดับ prefill ปลายทางเหมือน EMR ทุกประการ:
-     consult (หมอเจาะจงปลายทางไว้) > ใบสั่งยาที่รอห้องยา > ไม่ prefill
-   🔴 ห้ามใช้ await — เป็น sync handler เหมือนต้นฉบับ ⇒ ใช้ callback ของ runProcess
-   🔴 หาปลายทางไม่ได้/ล้ม = เปิดฟอร์มตามปกติ ห้ามบล็อกเจ้าหน้าที่
-      (เป็นตัวช่วยกรอก ไม่ใช่ด่าน — เหตุผลเดียวกับที่เขียนไว้ในฟอร์ม EMR)
-   ต่างจาก EMR ตรงเดียว: บันทึกเสร็จแล้วปิดคิวฝั่ง X-ray ด้วย เพื่อให้แถวย้ายไป
-   แท็บ Completed — EMR ไม่ต้องทำเพราะมันอ่าน vtran_status ตรง ๆ อยู่แล้ว */
-s.forwardHint=row=>(row&&row.tran_id)
-  ?'ส่งต่อคนไข้ไปหน่วยอื่น แล้วปิดคิวรังสีนี้'
-  :'คิวนี้ไม่มีรายการใน visit_tran จึงส่งต่อไม่ได้ — ต้องตั้งค่า routing ของหน่วยรังสีก่อน';
-s.closeQueue=row=>{
-  const id=s.text(row&&row.visit_id);
-  if(!id)return;
-  s.processCall(WORKLIST_PROCESS_ID,{action:'queue_done',organization_code:s.unitCode(),visit_id:id}).then(p=>{
-    if(p&&p.success===false){field.notify(s.text(p.message)||'ส่งต่อแล้วแต่ปิดคิวไม่สำเร็จ','warning',5200);}
-    else field.notify('ส่งต่อแล้ว · ปิดคิวเรียบร้อย','success',2800);
-    s.load();
-    s.reloadSibling();
-  }).catch(error=>{
-    field.notify(s.text(error&&error.message)||'ส่งต่อแล้วแต่ปิดคิวไม่สำเร็จ','error',5200);
-    s.load();
-    s.reloadSibling();
-  });
-};
-s.forwardVisit=row=>{
-  const form=field.getFormRef&&field.getFormRef();
-  const tranId=s.text(row&&row.tran_id);
-  if(!tranId){field.notify(s.forwardHint(row),'warning',5200);return;}
-  if(!form||typeof form.openForm!=='function'){field.notify('ไม่พบตัวเปิดฟอร์มส่งต่อ','error',3000);return;}
-  const ci=(row&&row.consult_info)||null;
-  const curUnit=s.text(row&&row.unit_to&&row.unit_to.value);
-  const ctx={
-    tran_id:tranId,
-    cur_unit:curUnit,
-    visit_priority:s.text(row&&row.visit_priority)||'10',
-    tran_note:'',
-    consult_id:''
-  };
-  const refresh=()=>{s.load();s.reloadSibling();};
-  const openMove=()=>form.openForm(MOVE_FORM_ID,'','',ctx,{
-    params:ctx,
-    afterSaveCallback:()=>{
-      if(typeof form.subFormClose==='function')form.subFormClose();
-      s.closeQueue(row);
-    },
-    cancelCallback:()=>{
-      if(typeof form.subFormClose==='function')form.subFormClose();
-      refresh();
-    }
-  });
-  if(ci&&ci.clinic&&String(ci.clinic)!==String(curUnit)){
-    ctx.unit_to={value:ci.clinic,label:ci.to_label||ci.clinic};
-    ctx.tran_note=ci.reason||'';
-    ctx.visit_priority=ci.priority||ctx.visit_priority;
-    ctx.consult_id=ci.consult_id||'';
-    openMove();
-    return;
-  }
-  if(ci&&ci.reply&&String(ci.clinic)===String(curUnit)&&row.unit_from&&row.unit_from.value){
-    ctx.unit_to={value:row.unit_from.value,label:row.unit_from.label||row.unit_from.value};
-    openMove();
-    return;
-  }
-  const api=s.api();
-  if(!api||typeof api.runProcess!=='function'){openMove();return;}
-  api.runProcess(ORDER_DEST_PROCESS_ID,{tran_id:tranId},out=>{
-    const p=s.extractProcess(out);
-    const d=(p&&p.data)||(out&&out.data)||{};
-    if(d.found&&d.unit&&d.unit.value){
-      ctx.unit_to=d.unit;
-      ctx.tran_note=d.order_count>1?('ใบสั่งยา '+d.order_number+' (มี '+d.order_count+' ใบรอห้องยา)'):'';
-    }
-    openMove();
-  },()=>openMove());
-};`
-
-  node.options.onMounted = `const s=this.vueState;
-if(!s.__started){s.__started=true;s.load();}`
-  node.options.onUnmount = ''
-  return wrapInGrid(node, slug)
+s.unitCode=()=>{const api=s.api(),user=api&&api.user;return s.text(user&&user.unit&&user.unit.code).toUpperCase();};
+s.extract=out=>{const choices=[out,out&&out.data,out&&out.data&&out.data.data,out&&out.reply&&out.reply.data];for(let i=0;i<choices.length;i++){const value=choices[i];if(value&&typeof value==='object'&&(typeof value.success==='boolean'||(value.data&&Array.isArray(value.data.rows))))return value;}return out||{};};
+s.call=params=>new Promise((resolve,reject)=>{const api=s.api();if(!api||typeof api.runProcess!=='function'){reject(new Error('ไม่พบ API Process connector'));return;}api.runProcess(PROCESS_ID,params||{},out=>resolve(s.extract(out)),error=>reject(error||new Error('เรียก API Process ไม่สำเร็จ')));});
+s.load=async()=>{if(s.loading)return;s.loading=true;s.errorMessage='';try{const out=await s.call({action:'queue_tracking',organization_code:s.unitCode(),limit:500});if(!out||out.success===false)throw new Error((out&&out.message)||'API ปฏิเสธคำขอ');const data=out.data||{};s.rows=Array.isArray(data.rows)?data.rows:[];s.lastLoaded=new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});}catch(error){s.errorMessage=s.text(error&&error.message)||'อ่านข้อมูลติดตามคิวไม่สำเร็จ';}finally{s.loading=false;}};
+/* 2026-10-15: ผู้ใช้ถอด dropdown ตำแหน่งและให้ค้นหาเฉพาะ HN/VN/เลขคิว/ชื่อผู้ป่วย */
+s.searchText=row=>{const p=(row&&row.patient)||{};return [row&&row.queue_label,row&&row.queue_no,p.hn,p.vn,p.prename&&p.prename.label,p.first_name,p.last_name].map(s.text).join(' ').toLowerCase();};
+s.visibleRows=()=>{const q=s.text(s.filters.q).toLowerCase(),status=s.text(s.filters.status)||'all';return (s.rows||[]).filter(row=>(status==='all'||row.work_state===status)&&(!q||s.searchText(row).indexOf(q)>=0));};
+s.countFor=status=>status==='all'?(s.rows||[]).length:(s.rows||[]).filter(row=>row&&row.work_state===status).length;
+s.statusLabel=state=>({waiting:'รอรับ',examining:'ตรวจอยู่',resulted:'ออกผลแล้ว'})[state]||'รอรับ';
+s.patientHn=row=>s.text(row&&row.patient&&row.patient.hn)||'-';
+s.patientName=row=>{const p=(row&&row.patient)||{},pre=s.text(p.prename&&p.prename.label)||s.text(p.prename);return [pre+s.text(p.first_name),s.text(p.last_name)].filter(Boolean).join(' ')||'-';};
+s.ageValue=raw=>{if(raw==null||raw==='')return '';let year='',month='',day='';if(typeof raw==='object'){const value=(...keys)=>{for(let i=0;i<keys.length;i++){const candidate=raw[keys[i]];if(candidate!=null&&candidate!=='')return s.text(candidate);}return '';};year=value('year','years','y');month=value('month','months','m');day=value('day','days','d');}else{const value=s.text(raw).trim(),yearMatch=value.match(/(-?[0-9]+(?:[.][0-9]+)?)[ \t]*(?:y|ปี)/i),monthMatch=value.match(/(-?[0-9]+(?:[.][0-9]+)?)[ \t]*(?:m|เดือน)/i),dayMatch=value.match(/(-?[0-9]+(?:[.][0-9]+)?)[ \t]*(?:d|วัน)/i);if(yearMatch||monthMatch||dayMatch){year=yearMatch?yearMatch[1]:'';month=monthMatch?monthMatch[1]:'';day=dayMatch?dayMatch[1]:'';}else if(/^-?[0-9]+(?:[.][0-9]+)?$/.test(value))year=value;}if(!year&&!month&&!day)return '';return year+' ปี '+month+' เดือน '+day+' วัน';};
+s.patientMeta=row=>{const p=(row&&row.patient)||{},parts=[],age=s.ageValue(p.age);if(s.text(p.vn))parts.push(s.text(p.vn));if(age)parts.push('อายุ '+age);return parts.join(' · ')||'-';};
+s.patientPhoto=row=>{const raw=row&&row.patient&&row.patient.picture;if(Array.isArray(raw)){const first=raw[0];return first&&typeof first==='object'?s.text(first.url||first.path||first.value):s.text(first);}if(raw&&typeof raw==='object')return s.text(raw.url||raw.path||raw.value);return s.text(raw);};
+s.initials=row=>{const p=(row&&row.patient)||{},first=s.text(p.first_name),last=s.text(p.last_name);return ((first.charAt(0)||'X')+(last.charAt(0)||'R')).toUpperCase();};
+s.itemSummary=row=>{const names=(row&&Array.isArray(row.items)?row.items:[]).map(item=>s.text(item&&item.item_name)||s.text(item&&item.item_code)).filter(Boolean);return names.length?names.join(', '):'ยังไม่พบใบสั่ง X-ray';};
+s.timeOnly=value=>{const text=s.text(value);return text.length>=16?text.slice(11,16):text;};
+s.elapsed=row=>{if(row&&row.work_state==='resulted')return '✓ '+(s.timeOnly(s.latestResultAt(row))||'ออกผลแล้ว');const raw=s.text(row&&row.checkin_at);if(!raw)return 'ยังไม่มีเวลา';const parsed=Date.parse(raw.replace(' ','T'));if(!Number.isFinite(parsed))return s.timeOnly(raw);const minutes=Math.max(0,Math.floor((Date.now()-parsed)/60000));return '◷ '+minutes+' นาที';};
+s.latestResultAt=row=>{const times=(row&&Array.isArray(row.items)?row.items:[]).map(item=>s.text(item&&item.resulted_at)).filter(Boolean).sort();return times.length?times[times.length-1]:'';};
+s.locationNote=row=>{const note=s.text(row&&row.location_note),time=s.timeOnly(row&&row.checkin_at);return [note,time?'เวลา '+time:''].filter(Boolean).join(' · ')||'ตำแหน่งล่าสุดจากระบบคิวกลาง';};
+s.toggleRoute=row=>{const key=s.text(row&&row.tran_id);if(!key)return;s.expanded={...s.expanded,[key]:!s.expanded[key]};};
+/* 2026-10-15: ขยาย click target เฉพาะแถวสรุปของแท็บติดตามคิว; ปุ่ม/ลิงก์/ช่องกรอกและรายละเอียดที่กางแล้วไม่ toggle ซ้ำ */
+s.toggleRouteFromRow=(row,event)=>{const target=event&&event.target;if(target&&target.closest&&target.closest('button,a,input,textarea,select,.el-button,.el-input,.el-select,.xqt-route'))return;s.toggleRoute(row);};`
+  node.options.onMounted = `const s=this.vueState;s.load();if(s.__trackingTimer)clearInterval(s.__trackingTimer);s.__trackingTimer=setInterval(()=>s.load(),60000);`
+  node.options.onUnmount = `const s=this.vueState;if(s.__trackingTimer){clearInterval(s.__trackingTimer);s.__trackingTimer=null;}`
+  return wrapInGrid(node, 'xray-queue-tracking')
 }
 
 /* ── สืบค้นผล LAB ข้ามทุกห้อง — clone UI ของ LAB จริง + read-only lock ───────
@@ -3306,9 +3592,8 @@ const labLookupWidget = () => {
   node.options.content = labLookupContent(labLookupTemplate.options.content)
   node.options.onCreated = `${labLookupTemplate.options.onCreated}
 
-/* X-ray owns only the read-only LAB lookup surface.  Keep the LAB rendering and
-   sensitive-result flow intact, but make every LAB Process call fail closed unless
-   it is one of the three reads required by this screen. */
+/* X-ray owns only the read-only LAB lookup surface. Keep LAB rendering and the
+   fail-closed Sensitive redaction intact; allow only the two reads used here. */
 s.viewMode='lookup';
 s.lookupMode='results';
 s.lookupSearched=false;
@@ -3320,7 +3605,7 @@ s.expanded={};
 s.detailTabs={};
 s.selected={};
 s.page={...s.page,current:1,total:0};
-const xrayLabReadActions=['','list','get_manual_result','authorize_sensitive_result'];
+const xrayLabReadActions=['','list','get_manual_result'];
 const xrayLabBaseProcessCall=s.processCall;
 s.processCall=(id,params)=>{
   const action=s.text(params&&params.action).toLowerCase();
@@ -3328,7 +3613,7 @@ s.processCall=(id,params)=>{
     return Promise.reject(new Error('แท็บ X-ray สืบค้นผล LAB เป็นแบบอ่านอย่างเดียว'));
   }
   const next={...(params||{})};
-  if(action==='get_manual_result'||action==='authorize_sensitive_result'){
+  if(action==='get_manual_result'){
     next.cross_section=true;
     next.lookup_mode='results';
   }
@@ -3363,7 +3648,7 @@ const tabRoot = {
       fieldLength: null,
       children: true,
       enable: true,
-      fields: [queueWidget('unit')],
+      fields: nativeQueuePane('unit').fields,
       options: {
         name: XRAY_PANE_UNIT,
         label: 'Unit Queue',
@@ -3385,7 +3670,7 @@ const tabRoot = {
       fieldLength: null,
       children: true,
       enable: true,
-      fields: [queueWidget('room')],
+      fields: nativeQueuePane('room').fields,
       options: {
         name: XRAY_PANE_ROOM,
         label: 'My Room',
@@ -3432,7 +3717,7 @@ const tabRoot = {
       fieldLength: null,
       children: true,
       enable: true,
-      fields: [queueWidget('done')],
+      fields: nativeQueuePane('done').fields,
       options: {
         /* "สำเร็จ / ส่งต่อคิว" — คนละความหมายกับ chip "ออกผลครบ" ของตาราง X-ray
            (ผู้ใช้ย้ำ 2026-09-08) อันนั้นคือผลอ่านครบ อันนี้คือคิวจบแล้ว */
@@ -3445,6 +3730,28 @@ const tabRoot = {
         icon: 'el-circle-check'
       },
       id: 'tab-pane-xray-done'
+    },
+    {
+      key: 65026,
+      name: 'Tab Pane',
+      component: 'tab-pane',
+      category: 'container',
+      icon: 'tab-pane',
+      fieldType: 'None',
+      fieldLength: null,
+      children: true,
+      enable: true,
+      fields: [trackingWidget()],
+      options: {
+        name: XRAY_PANE_TRACKING,
+        label: 'ติดตามคิว',
+        hidden: false,
+        active: false,
+        disabled: false,
+        customClass: '',
+        icon: 'el-location-information'
+      },
+      id: 'tab-pane-xray-tracking'
     },
     /* ── สืบค้นผลแลป — ย้ายมาไว้ท้ายสุด 2026-09-27 ตามคำสั่งผู้ใช้ ───────────────
        ("tab สืบค้นผลแลปของ xray ... ตอนนี้มันเป็น tab รวมใหญ่ มันคนละหน้าที่
@@ -3496,37 +3803,6 @@ if (!widget.options.onCreated.includes("const WORKLIST_PROCESS_ID='" + worklistP
   throw new Error('worklistProcessId ไม่ตรงกับ Process ID ที่ฝังอยู่ใน onCreated ของตาราง worklist')
 }
 
-/* CSS ของแท็บคิว — ต่อท้ายอย่างเดียว ไม่แตะสไตล์เดิมของตาราง (.xray-cpoe) แม้แต่บรรทัดเดียว */
-form.formConfig.cssCode += `
-.xray-queue{--xq-ink:var(--el-text-color-primary,#303133);--xq-text:var(--el-text-color-regular,#606266);--xq-muted:var(--el-text-color-secondary,#909399);--xq-border:var(--el-border-color-light,#e4e7ed);--xq-fill:var(--el-fill-color-light,#f5f7fa);--xq-white:var(--el-bg-color,#fff);width:100%;padding:4px 0 28px;color:var(--xq-text);font-family:"Leelawadee UI","Noto Sans Thai",Tahoma,"Segoe UI",sans-serif;font-size:13px;line-height:1.4}
-.xray-queue *{box-sizing:border-box}
-.xray-queue .xq-bar{display:flex;align-items:center;gap:12px;margin-bottom:10px}
-.xray-queue .xq-heading{display:flex;align-items:baseline;gap:10px;min-width:0}
-.xray-queue .xq-title{font-size:15px;font-weight:700;color:var(--xq-ink)}
-.xray-queue .xq-total{font-size:12px;color:var(--xq-muted)}
-.xray-queue .xq-error{padding:10px 12px;border:1px solid var(--el-color-danger-light-7,#fab6b6);background:var(--el-color-danger-light-9,#fef0f0);color:var(--el-color-danger,#f56c6c);border-radius:6px}
-.xray-queue .xq-empty{padding:28px 12px;text-align:center;color:var(--xq-muted);background:var(--xq-fill);border:1px dashed var(--xq-border);border-radius:6px}
-.xray-queue .xq-list{display:flex;flex-direction:column;gap:6px}
-.xray-queue .xq-row{display:grid;grid-template-columns:62px minmax(180px,2fr) minmax(110px,1fr) minmax(96px,auto) max-content;align-items:center;gap:12px;padding:10px 12px;background:var(--xq-white);border:1px solid var(--xq-border);border-radius:6px}
-.xray-queue .xq-row>*{min-width:0}
-.xray-queue .xq-seq{font-size:18px;font-weight:800;color:var(--xq-ink);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.xray-queue .xq-seq.is-label{font-family:"SFMono-Regular","Roboto Mono",Consolas,monospace;font-size:14px;letter-spacing:.02em}
-.xray-queue .xq-nameline{display:flex;align-items:center;gap:8px;min-width:0}
-.xray-queue .xq-name{flex:1 1 auto;min-width:0;font-weight:700;color:var(--xq-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.xray-queue .xq-state{flex:none;display:inline-flex;min-height:20px;align-items:center;padding:1px 8px;border:1px solid;border-radius:999px;font-size:10px;font-weight:650;white-space:nowrap}
-.xray-queue .xq-state.is-wait{border-color:#f3d19e;background:#fdf6ec;color:#b88230}
-.xray-queue .xq-state.is-room{border-color:#b3e19d;background:#f0f9eb;color:#529b2e}
-.xray-queue .xq-state.is-done{border-color:#c8c9cc;background:#f4f4f5;color:#73767a}
-.xray-queue .xq-meta{display:flex;flex-wrap:wrap;gap:10px;font-size:11px;color:var(--xq-muted)}
-.xray-queue .xq-wait{font-size:12px;color:var(--xq-ink);white-space:nowrap}
-.xray-queue .xq-sub{font-size:11px;color:var(--xq-muted);white-space:nowrap}
-.xray-queue .xq-load{font-size:12px;white-space:nowrap}
-.xray-queue .xq-act{text-align:right}
-.xray-queue .xq-more{margin-top:10px;font-size:11px;color:var(--xq-muted);text-align:center}
-.xray-queue .xr-mono{font-family:"SFMono-Regular","Roboto Mono",Consolas,monospace}
-@media (max-width:900px){.xray-queue .xq-row{grid-template-columns:54px 1fr max-content;row-gap:6px}.xray-queue .xq-when,.xray-queue .xq-load{grid-column:2}}
-`
-
 /* Legacy `.xll-*` stylesheet from the rejected custom X-ray lookup.  Keep the
    source snapshot here for provenance, but never append it to the generated Form. */
 const legacyXllCss = `
@@ -3546,11 +3822,35 @@ void legacyXllCss
    เริ่มจาก labLookupCss นี้ */
 form.formConfig.cssCode += `\n${labLookupCss}\n`
 
+/* Read-only queue-tracking tab.  Styles are isolated under `.xray-queue-tracking`
+   so the cloned EMR panes and the existing Worklist keep their exact behavior. */
+form.formConfig.cssCode += `
+.xray-queue-tracking{--xqt-border:var(--el-border-color-light,#e4e7ed);--xqt-muted:var(--el-text-color-secondary,#909399);--xqt-ink:var(--el-text-color-primary,#303133);width:100%;padding:8px 0 30px;color:var(--el-text-color-regular,#606266);font-family:"Leelawadee UI","Noto Sans Thai",Tahoma,"Segoe UI",sans-serif;font-size:13px;line-height:1.45}
+.xray-queue-tracking *{box-sizing:border-box}.xqt-head{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:17px 19px;border:1px solid var(--xqt-border);border-radius:8px 8px 0 0;background:var(--el-bg-color,#fff)}.xqt-title{display:flex;align-items:center;gap:12px}.xqt-doc{display:grid;width:34px;height:34px;place-items:center;border-radius:7px;background:#eafaf4;color:#31bc86;font-size:18px}.xqt-title h2{margin:0;color:var(--xqt-ink);font-size:18px}.xqt-title h2 small{margin-left:4px;color:var(--xqt-muted);font-size:12px;font-weight:500}.xqt-title p{margin:3px 0 0;color:var(--xqt-muted);font-size:11px}.xqt-sync{display:flex;align-items:center;gap:8px;color:var(--xqt-muted);font-size:11px;white-space:nowrap}.xqt-sync>span{width:7px;height:7px;border-radius:50%;background:var(--el-color-success,#67c23a);box-shadow:0 0 0 4px var(--el-color-success-light-9,#f0f9eb)}
+.xqt-toolbar{display:grid;grid-template-columns:minmax(240px,1fr) auto;gap:10px;padding:14px 17px;border-right:1px solid var(--xqt-border);border-bottom:1px solid var(--xqt-border);border-left:1px solid var(--xqt-border);background:var(--el-fill-color-lighter,#fafafa)}.xqt-filters{display:flex;gap:7px;overflow-x:auto;padding:12px 17px;border-right:1px solid var(--xqt-border);border-bottom:1px solid var(--xqt-border);border-left:1px solid var(--xqt-border)}.xqt-filter{flex:none;padding:6px 11px;border:1px solid var(--el-border-color,#dcdfe6);border-radius:999px;background:var(--el-bg-color,#fff);color:var(--el-text-color-regular,#606266);font:inherit;font-size:12px;cursor:pointer}.xqt-filter b{margin-left:3px}.xqt-filter.is-active{border-color:var(--el-color-primary,#409eff);background:var(--el-color-primary-light-9,#ecf5ff);color:var(--el-color-primary,#409eff);font-weight:700}.xqt-filter:focus-visible,.xqt-expand:focus-visible{outline:2px solid var(--el-color-primary,#409eff);outline-offset:2px}
+.xqt-list{border-right:1px solid var(--xqt-border);border-left:1px solid var(--xqt-border)}.xqt-row{position:relative;display:grid;grid-template-columns:100px minmax(250px,.95fr) minmax(280px,1.35fr) 40px;gap:18px;align-items:center;min-height:142px;padding:19px 18px 19px 22px;border-bottom:1px solid var(--xqt-border);background:var(--el-bg-color,#fff)}.xqt-row:before{position:absolute;inset:0 auto 0 0;width:4px;background:var(--xqt-accent,var(--el-color-warning,#e6a23c));content:""}.xqt-row.is-waiting{--xqt-accent:var(--el-color-warning,#e6a23c);background:color-mix(in srgb,var(--el-color-warning-light-9,#fdf6ec) 35%,var(--el-bg-color,#fff))}.xqt-row.is-examining{--xqt-accent:var(--el-color-success,#67c23a);background:color-mix(in srgb,var(--el-color-success-light-9,#f0f9eb) 35%,var(--el-bg-color,#fff))}.xqt-row.is-resulted{--xqt-accent:#7b68ee;background:color-mix(in srgb,#f1efff 38%,var(--el-bg-color,#fff))}.xqt-queue{text-align:center}.xqt-queue small{display:block;color:var(--xqt-muted);font-size:10.5px}.xqt-queue strong{display:block;margin:2px 0 6px;color:var(--xqt-ink);font-size:19px}.xqt-queue span{display:inline-flex;padding:2px 7px;border-radius:4px;background:var(--el-bg-color,#fff);font-size:10px;font-weight:700}.xqt-patient{display:grid;grid-template-columns:60px minmax(0,1fr);gap:12px;align-items:center;min-width:0}.xqt-avatar{display:grid;width:60px;height:70px;place-items:center;overflow:hidden;border:1px solid var(--xqt-border);border-radius:10px;background:var(--el-fill-color-light,#f5f7fa);color:var(--el-text-color-secondary,#909399);font-weight:800}.xqt-avatar img{display:block;width:100%;height:100%;object-fit:cover}.xqt-avatar>span{display:grid;width:100%;height:100%;place-items:center}.xqt-patient h3{margin:0 0 3px;color:var(--xqt-ink);font-size:15px}.xqt-patient p{margin:1px 0;overflow:hidden;color:var(--el-text-color-regular,#606266);font-size:11px;text-overflow:ellipsis;white-space:nowrap}.xqt-patient .xqt-items{color:var(--xqt-muted)}
+.xqt-field{min-width:0}.xqt-field>label{display:block;margin-bottom:5px;color:var(--xqt-muted);font-size:10px;font-weight:700;letter-spacing:.035em}.xqt-textbox{display:flex;align-items:center;gap:9px;min-height:44px;padding:8px 11px;border:1px solid var(--el-border-color,#dcdfe6);border-radius:6px;background:var(--el-bg-color,#fff)}.xqt-box-icon{flex:none;display:grid;width:26px;height:26px;place-items:center;border-radius:6px;background:var(--el-color-primary-light-9,#ecf5ff);color:var(--el-color-primary,#409eff)}.xqt-box-icon svg,.xqt-expand svg{display:block;width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.xqt-textbox>div{min-width:0}.xqt-textbox strong,.xqt-textbox small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.xqt-textbox strong{color:var(--xqt-ink);font-size:12.5px}.xqt-textbox small{margin-top:2px;color:var(--xqt-muted);font-size:10px}.xqt-expand{display:grid;width:34px;height:34px;padding:0;place-items:center;border:1px solid var(--xqt-border);border-radius:6px;background:var(--el-bg-color,#fff);color:var(--xqt-muted);font:inherit;line-height:1;cursor:pointer}.xqt-expand svg{transition:transform .18s}.xqt-expand[aria-expanded="true"]{color:var(--el-color-primary,#409eff)}.xqt-expand[aria-expanded="true"] svg{transform:rotate(180deg)}.xqt-route{grid-column:2/-1;margin:-3px 0 1px;padding:12px 14px;border:1px dashed var(--el-border-color,#dcdfe6);border-radius:6px;background:color-mix(in srgb,var(--el-bg-color,#fff) 82%,transparent)}.xqt-route h4{margin:0 0 8px;color:var(--xqt-muted);font-size:10.5px}.xqt-route>div{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.xqt-step{padding:4px 8px;border-radius:4px;background:var(--el-fill-color,#f0f2f5);font-size:10px}.xqt-step.is-current{background:var(--el-color-primary-light-9,#ecf5ff);color:var(--el-color-primary,#409eff);font-weight:700}.xqt-step small{font-size:9.5px}.xqt-arrow{color:var(--xqt-muted)}.xqt-message{display:grid;min-height:190px;place-content:center;gap:4px;border-right:1px solid var(--xqt-border);border-bottom:1px solid var(--xqt-border);border-left:1px solid var(--xqt-border);color:var(--xqt-muted);text-align:center}.xqt-message strong{color:var(--xqt-ink)}.xqt-message.is-error{color:var(--el-color-danger,#f56c6c)}.xqt-foot{display:flex;justify-content:space-between;gap:16px;padding:11px 15px;border:1px solid var(--xqt-border);border-top:0;border-radius:0 0 8px 8px;background:var(--el-fill-color-lighter,#fafafa);color:var(--xqt-muted);font-size:10px}
+@media(max-width:1050px){.xqt-row{grid-template-columns:86px minmax(220px,.9fr) minmax(250px,1.1fr) 38px}.xqt-expand{grid-column:4;grid-row:1/span 2}.xqt-route{grid-column:2/-1}}
+@media(max-width:760px){.xqt-head{align-items:flex-start;flex-direction:column}.xqt-toolbar{grid-template-columns:1fr}.xqt-row{grid-template-columns:64px minmax(0,1fr) 36px;gap:12px;padding:16px 12px 16px 17px}.xqt-patient{grid-template-columns:48px minmax(0,1fr)}.xqt-avatar{width:48px;height:58px}.xqt-field{grid-column:1/-1}.xqt-expand{grid-column:3;grid-row:1/span 2}.xqt-route{grid-column:1/-1}.xqt-foot{flex-direction:column}}
+`
+
 /* CSS ของ "ประวัติการแก้ผลอ่าน" (เพิ่ม 2026-09-15) — ต่อท้ายอย่างเดียว
    🔴 ไม่ scope ใต้ .xray-cpoe เหมือนคลาส .xr-report-* ตัวอื่น เพราะ el-dialog ถูก
       teleport ออกไปนอก root ของ widget ⇒ selector ที่ scope ไว้จะไม่โดน
    สีทั้งหมดอิงตัวแปรของ Element Plus ชุดเดียวกับที่ dialog เดิมใช้ จึงไปกับธีมมืดได้เอง */
 form.formConfig.cssCode += `
+.xr-report-dialog-title{display:flex;align-items:center;gap:7px;min-height:32px;color:var(--el-text-color-primary,#303133)}
+.xr-report-dialog-title>strong{font-size:18px;font-weight:700;line-height:1.35}
+.xr-report-edit{color:var(--el-color-primary,#409eff)!important}
+.xr-report-edit svg{display:block;width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.xr-report-edit[aria-pressed="true"]{background:var(--el-color-primary-light-9,#ecf5ff)!important}
+.xr-manual-report-form{display:grid;gap:13px}
+.xr-manual-report-note{padding:9px 12px;border:1px solid var(--el-color-warning-light-5,#f3d19e);border-radius:6px;background:var(--el-color-warning-light-9,#fdf6ec);color:#b88230;font-size:12px}
+.xr-manual-report-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px 16px}
+.xr-manual-report-grid>label{display:grid;gap:6px;min-width:0;color:var(--el-text-color-primary,#303133);font-size:12px;font-weight:650}
+.xr-manual-report-grid>label>span b{color:var(--el-color-danger,#f56c6c)}
+.xr-manual-report-grid .el-select,.xr-manual-report-grid .el-date-editor{width:100%}
+.xr-manual-report-text{grid-column:1/-1}
 .xr-rev-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .xr-rev-note{color:var(--el-text-color-secondary,#909399);font-size:12px}
 .xr-report-modality{display:inline-block;width:fit-content;padding:2px 8px;border:1px solid var(--el-border-color,#dcdfe6);border-radius:5px;background:var(--el-fill-color,#f0f2f5);color:var(--el-text-color-regular,#606266);font-family:"SFMono-Regular","Roboto Mono",Consolas,monospace;font-size:11.5px;font-weight:650;line-height:1.35;white-space:nowrap;cursor:default}
@@ -3589,7 +3889,7 @@ form.formConfig.cssCode += `
 .xr-rev-kv>div{min-width:0}
 .xr-rev-kv span{display:block;margin-bottom:2px;color:var(--el-text-color-secondary,#909399);font-size:10.5px;font-weight:650}
 .xr-rev-kv strong{display:block;color:var(--el-text-color-primary,#303133);font-size:12px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-@media(max-width:760px){.xr-rev-split{grid-template-columns:minmax(0,1fr)}.xr-rev-rail{order:-1}}
+@media(max-width:760px){.xr-rev-split{grid-template-columns:minmax(0,1fr)}.xr-rev-rail{order:-1}.xr-manual-report-grid{grid-template-columns:minmax(0,1fr)}.xr-manual-report-text{grid-column:auto}}
 `
 
 /* ── Dark mode ของป้ายสถานะและชิป (ผู้ใช้แจ้ง 2026-09-15) ────────────────────
@@ -3617,13 +3917,11 @@ form.formConfig.cssCode += `
 .dark .xray-cpoe .xr-context-top .xr-coverage-pill{border-color:#7a5a22;background:rgba(230,162,60,.14);color:#ffc978}
 .dark .xray-cpoe .xr-status-legend-dot.is-waiting{background:#d4bb1a}
 .dark .xr-report-pending{border-color:#7a5a22;background:rgba(230,162,60,.14);color:#ffc978}
+.dark .xr-manual-report-note{border-color:#7a5a22;background:rgba(230,162,60,.14);color:#ffc978}
 .dark .xr-cancel-summary{border-color:#7a3a3a;background:rgba(245,108,108,.14);color:#ffa8a8}
 .dark .xr-rev-alert{border-color:#7a5a22;background:rgba(230,162,60,.16);color:#ffc978}
 .dark .xr-rev-tag.is-latest{border-color:#3f6b30;background:rgba(103,194,58,.16);color:#a6e08a}
 .dark .xr-rev-ln.is-changed{border-left-color:#7a5a22;background:rgba(230,162,60,.14)}
-.dark .xray-queue .xq-state.is-wait{border-color:#7a5a22;background:rgba(230,162,60,.16);color:#ffc978}
-.dark .xray-queue .xq-state.is-room{border-color:#3f6b30;background:rgba(103,194,58,.16);color:#a6e08a}
-.dark .xray-queue .xq-state.is-done{border-color:#4a4f57;background:rgba(144,147,153,.16);color:#b9bec8}
 /* ลิงก์ "ดูภาพ" ที่สวมคลาสของ el-button — ต้องลบเส้นใต้และบังคับ box ให้เท่าปุ่มจริง
    ไม่งั้นแถวจะสูงไม่เท่ากันและมีขีดใต้ตัวอักษรโผล่มา (เพิ่ม 2026-09-17) */
 .xray-cpoe a.xr-viewer-link{display:inline-flex;align-items:center;justify-content:center;
@@ -3634,6 +3932,6 @@ form.formConfig.cssCode += `
 .xr-report-head strong.xr-report-wrap{white-space:normal;overflow:visible;overflow-wrap:anywhere;line-height:1.35}
 `
 
-fs.mkdirSync(path.dirname(outPath), { recursive: true })
-fs.writeFileSync(outPath, JSON.stringify(form, null, 2) + '\n')
+worklistFs.mkdirSync(path.dirname(outPath), { recursive: true })
+worklistFs.writeFileSync(outPath, JSON.stringify(form, null, 2) + '\n')
 console.log('wrote ' + path.relative(root, outPath))
