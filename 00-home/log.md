@@ -2,7 +2,7 @@
 type: synthesis
 title: Wiki Log
 created: 2026-07-16
-updated: 2026-09-15
+updated: 2026-10-08
 tags: [meta, log]
 ---
 
@@ -4709,3 +4709,508 @@ Append-only, chronological. Newest at the bottom. Each entry header is
   `test_xray_cpoe_worklist_form.js` (fails: the X-ray form lacks the refresh button the LAB form
   just gained), the two `.txt` byte-duplicates of the EMR/treat-summary HTML templates, and both
   `.obsidian/` editor-state files.
+
+## [2026-10-01] audit | LAB production-readiness checkpoint
+
+- Verdict is NO-GO despite broad local/runtime testing: the currently deployed Receive Process is
+  dated 2026-09-23 and does not contain the new OPD/IPD `encounter.class` derivation. Submit was
+  updated 2026-09-30, Worklist 2026-10-01, and Result Upsert 2026-09-29, but none has a complete
+  post-update HIS→Agent→LIS→HIS run.
+- Read-only live totals: Work Item 175; Outbound 97 (40 queued/in-progress/resulted, 56 still new,
+  1 cancelled); Receipt 14; Report 19; Result Item 36; Edit Log 1; Revision Log 0. Result receipts
+  cover preliminary/partial/final/corrected and one unmatched branch, but do not prove the newest
+  deployed code, duplicate/revision audit, or a single trace across every stage.
+- Targeted LAB/HL7/report local tests passed except two known missing-fixture tests. Remaining release
+  proof: version-matched real E2E including multi-item final, corrected, duplicate, outage/retry,
+  Finance, RBAC, viewer/EMR, upload/PDF, reject/cancel/retest, and finance reconciliation.
+
+## [2026-10-01] inspect | Outbound LAB NO. 106910010001 encounter class
+
+- Read-only HIS check found one Outbound record created at 12:00:51. Agent accepted it with HTTP
+  202 and `hl7_status=queued` on the first attempt.
+- The stored outbound JSON contains no `encounter` object and therefore no `encounter.class`; it
+  contains only legacy `visit_type="4"`.
+- The source CPOE Order exists and has no AN, so current mapping rules classify it as OPD. This is
+  direct runtime evidence that the live Receive Process is still the old body and must be replaced
+  before OPD/IPD is actually sent to Agent.
+
+## [2026-10-01] deploy-check | Receive OPD/IPD payload path present live
+
+- Read-only inspection after the user's replacement found Receive Process
+  `6a94f634422c1ca959829d70` updated at 12:05:20. Its live body is 67,210 bytes, exactly matching
+  the local artifact size.
+- Static live-body checks confirm `encounterClassFromVisit`, Visit AN projection, OPD/IPD enum and
+  two `encounter: { class: ... }` payload sites for single and batch receipt.
+- Agent Submit Process already validates `payload.encounter.class`, accepts only OPD/IPD and rejects
+  unknown nested fields. The next newly received Order is ready for runtime payload verification;
+  LAB NO. `106910010001` remains the expected pre-replacement negative control.
+
+## [2026-10-01] inspect | Agent result metadata for LAB NO. 106910010001
+
+- Read-only HIS inspection found the callback received/processed at 12:03:47 with 13 analytes,
+  `stage=final`, `overall_status=resulted`, `report_seq=1`, and Result Item version 1.
+- Agent sent both `reported_at` and `verified_at` (the same source timestamp) plus both source
+  identities. It sent no `comment` key, no top-level order/report comment, and no page metadata.
+  All 13 persisted `result_comment` values are empty.
+- The callback is not corrected: no corrected stage/status/change kind and no correction flag.
+  The current strict contract supports analyte `items[].comment`, but has no order-comment or page
+  fields; correction is represented by `stage/overall_status=corrected` with a new sequence/version.
+- Control evidence: an older 2026-09-24 callback contained one analyte comment and it persisted in
+  one normalized Result Item, so the missing comment in this callback originates upstream rather
+  than being dropped by the current HIS result pipeline.
+
+## [2026-10-01] diagnose | LAB result popup uses two different report-button components
+
+- Compared the MY Manual-result screenshots with the current Worklist form. The normal outlined
+  PDF action is `<sd-report>` and appears only when `labResultPdfReady()` finds exactly one printable
+  Result Report parent ID.
+- With no persisted printable result, the template instead renders a separate disabled
+  `el-button type="danger"`; this creates the pink button without the PDF icon. The condition is not
+  directly “specimen received”, although an unreceived Item normally has no persisted result parent.
+- No implementation file was changed. A presentation decision remains: hide the unavailable action
+  or keep one neutral disabled PDF-style button so the header does not visually change component.
+
+## [2026-10-01] fix | Normalize unavailable LAB Result PDF button
+
+- Changed only the Order-result popup fallback: removed the disabled danger styling and added the
+  same PDF cue (`📄 รายงานผล`) on a neutral plain disabled Element Plus button. The ready-state
+  `<sd-report>`, `labResultPdfReady()` condition, PDF parameters and workflow are unchanged.
+- Updated the generator source, generated LAB Worklist form and the directly related regression
+  assertion. `test_lab_cpoe_worklist_form.js`, SDForm validator and `git diff --check` pass.
+- Static checks do not prove Builder/runtime rendering; replace/import the form and verify the
+  no-result and printable-result states visually.
+
+## [2026-10-01] note | Scrubbed personal emails from creator stamps
+
+- `7163b88` removed the parenthesised address from every `created_by`/`updated_by` name in editable
+  tracked text files: 55 stamps, 26 files, 3 real addresses. Display names kept, `id`/`$oid`
+  untouched.
+- Left alone by the user's decision: `Form-Builder/SDForm/backup/emr-history-…-export-2026-09-24_18-03-01.json`
+  (CLAUDE.md §3 forbids editing a backup snapshot in place) and the 16 `.zip` export/import packages
+  under `02-his/report_factory`, `02-his/sql-factory`, `02-his/handoff`. The addresses still exist
+  there.
+- `test_lab_cpoe_worklist_form.js` keeps a `Name (email)` fixture with a placeholder address rather
+  than losing the email: stripping that suffix is the contract `requesterName()` must honour, so the
+  assertion was not weakened. Reason and date are commented in the test.
+- `02-his/handoff/lab-result-pdf-sensitive-v3/checksums.sha256` regenerated and verified; the sibling
+  `.zip` still contains the unscrubbed copies, so package and archive now differ.
+- `marnichacha27@`/`iencoded@` already appear in pushed history (5 and 4 commits); scrubbing the tree
+  cannot undo that. `<redacted-email>` is not yet public — `39338ec` would publish it, and that is
+  only fixable before the push.
+- Verified: every touched JSON parses, `person.json` passes the SDForm validator, suite unchanged at
+  49 pass / 11 fail (same 11 as before).
+
+## [2026-10-01] design | LAB Result popup with top-level order_note
+
+- Confirmed from the current Worklist source that result viewing uses one `el-dialog` with two
+  presentation branches: Section `MB` uses the Microbiology/MLab layout; every other Section,
+  including `MY`, Profile, Manual and Sensitive cases, uses the standard layout.
+- Added `02-his/ui/lab-result-order-note-popup-mockup.html` for user confirmation only. It places a
+  single multiline `order_note` block before result content, while keeping `items[].comment`
+  attached to its analyte row. The prototype switches between both layouts and can hide the note
+  or the Sensitive example.
+- No API, schema, generator or SDForm runtime file changed. Sensitive `order_note` redaction remains
+  a server/API responsibility and must not be inferred by the browser.
+
+## [2026-10-01] implement | LAB Agent top-level order_note end-to-end
+
+- Extended `agent-to-his-result-v2.schema.json` and `hl7_result_upsert_api.js` so optional multiline
+  `order_note` is type-checked and stored on the immutable Receipt, Result Report header, whole-sheet
+  Revision Log and Result Item parent snapshot. It remains separate from `items[].comment`.
+- Added the field to the Receipt, Report and Revision SDForm schemas without renumbering existing
+  widget IDs. Worklist API returns it only for an unlocked result response; locked Sensitive
+  responses return before loading/reporting the note.
+- Updated the one Worklist result dialog in both presentation branches: Standard and Section `MB`
+  show one themed note block before result content only when non-empty, preserve line breaks and
+  include it in `คัดลอกผลที่แสดง`. Order-level reads deduplicate identical notes from Item calls.
+- Updated interface docs, example payloads, generators and focused regression assertions.
+  `test_hl7_result_upsert_api.js`, `test_lab_cpoe_worklist_api.js`,
+  `test_lab_cpoe_worklist_form.js` and `test_agent_result_forms_v1.js` pass; all six changed SDForms
+  pass the repository validator; `git diff --check` passes. Deployment and real Agent callback UAT
+  are still pending.
+
+## [2026-10-01] diagnose | Result Report form cannot open after replace
+
+- Screenshot shows Form Manage globally dimmed/spinning with both `License not found` and
+  `License Verify not found`; it does not identify a form widget or JSON parse error.
+- Rechecked `Form-Builder/SDForm/Lab/Result_Report_Manual_Entry.json`: valid JSON/schema v3,
+  repository validator passes, no duplicate widget IDs or field names, and the hidden multiline
+  `order_note` field matches the approved textarea template. The file is byte-identical to the
+  generator output and its focused form suite passes.
+- Current diagnosis is initCraft license/session verification failure. First retry after hard
+  refresh/sign-in and open another CRUD form; if other forms open but only this one fails, capture
+  the Builder Console and failing Network response before changing the form artifact.
+
+## [2026-10-01] diagnose | Duplicate-like Result Report forms and blank license widget
+
+- User-provided `getsdform-all` response succeeded with 20 records; client/form license was present,
+  while the separate License Verify request had an empty `widget`. The exposed session JWT was
+  treated as compromised; user must invalidate it and use a new session.
+- Read-only `his.sdform_manage` verification found two enabled Pro CRUD forms with the same license:
+  `6a8d40e3f851000f28e5025a` is `Result_Report_Manual_Entry ` (trailing space) backed by
+  `zdata_6a8d40e3f851000f28e5025a`; `6a8d4334f851000f28e5025b` is the runtime form backed by
+  `zdata_lab_report_manual_entry` and is the ID used by LAB APIs/tests.
+- Do not replace the trailing-space duplicate as the production Result Report. Open/replace exact
+  runtime Form ID `6a8d4334f851000f28e5025b`; if that route still sends blank `widget`, the remaining
+  blocker is initCraft Pro Builder license resolution, not the form JSON.
+
+## [2026-10-01] audit | Result Report duplicate deletion safety
+
+- Read-only checks found zero records in duplicate table `zdata_6a8d40e3f851000f28e5025a`,
+  `version_count=0`, and no repository references to its Form/table ID. Runtime table
+  `zdata_lab_report_manual_entry` contains 21 records and belongs to Form
+  `6a8d4334f851000f28e5025b`.
+- The duplicate is a strong candidate for removal, but use the recoverable Form Manage Trash action
+  first rather than permanent deletion. Never delete runtime Form `6a8d4334f851000f28e5025b`.
+  Removing the duplicate will not fix a blank License Verify `widget`; that is a separate condition.
+
+## [2026-10-02] design | LAB Worklist specimen preservation column
+
+- Added confirmation-only interactive prototype
+  `02-his/ui/lab-worklist-specimen-storage-column-mockup.html`; no runtime API, generator or SDForm
+  artifact changed.
+- Recommended layout renames the collected-time header to `เวลาเก็บ / การเก็บรักษา` and groups the
+  collection date/time, `IM`/`RF`/`RT` preservation badge, optional temperature and optional Source
+  of specimen in the same cell. The prototype also switches to an alternate view with Source below
+  Order/Test so the user can compare before approval.
+- Included an editable specimen popup: Source stays optional, temperature appears for refrigerator
+  or room-temperature selections, and all temperature values are clearly marked as UI samples that
+  require LAB/Test Master confirmation. Browser checks proved layout switching, popup opening and
+  conditional temperature rendering; HTML diff check passes.
+
+## [2026-10-02] implement | LAB Worklist specimen context under collected time
+
+- User approved placing specimen context below collected time. Updated the LAB Worklist generator
+  and generated SDForm only; the Worklist API and stored data contract are unchanged because
+  `specimen.ordered.source` and `specimen.ordered.storage` already exist.
+- Renamed the column to `เวลาเก็บ / การเก็บรักษา`; it now shows collection date/time, a mapped
+  `IM`/`RF`/`RT` preservation tag and optional Source. Missing Source renders `ไม่ระบุ`.
+- Long Source text is constrained to its own column with CSS ellipsis and an Element Plus tooltip
+  containing the complete entered text, matching the existing Order/Specimen hover pattern.
+- Added regression assertions for markup, mapping, classes, ellipsis and tooltip. The focused Form
+  suite passes, SDForm validator exits 0 (two known root-widget warnings), JS syntax and diff checks
+  pass. Builder/deployed runtime visual UAT remains required.
+
+## [2026-10-02] design | Order-source LAB NO for protected Sections
+
+- Updated `02-his/ui/immunology-lab-no-flow.html` to replace the former LAB-side Immunology
+  issuance proposal. The Order/request system now owns `SSYYMMDDNNNN` generation and sends each
+  relevant Item with its LAB NO. before it enters the LAB waiting queue.
+- Protected scope is IM/30, MI-OUT/31 and MB/40. LAB must consume the incoming number, validate the
+  12-digit format and matching prefix, and never call its generator or overwrite the number.
+- Added explicit enabled/disabled Receive examples: missing or mismatched LAB NO. disables the
+  button and returns the Order to the source team; valid data records receipt using the same number.
+  Other Sections retain the existing generate-on-receive flow.
+- This changes only the confirmation HTML and catalog/log metadata; runtime API, Worklist and SDForm
+  behavior remain unchanged pending user approval. HTML parse/ID assertions, inline JS syntax,
+  Quick Look visual review and `git diff --check` pass.
+
+## [2026-10-02] ui | ตัด chip กรองสถานะออกจากหน้าประวัติสารทึบ
+
+- ผู้ใช้ทัก: หน้านี้ไม่ได้มาดูผลหรือสถานะ อยากรู้แค่ว่า order นั้นมีคนแนบใบบันทึกสารทึบไว้หรือยัง
+- ตัด chip 5 อัน (ทั้งหมด · รอรับ · รอผลตรวจ · ออกผลครบ · ยกเลิก) ออกทั้งแถบ พร้อมโค้ดที่เลิกใช้:
+  `STATUS_FILTERS` · `statusBucket()` · `counts()` · `renderChips()` · `state.status` · handler และ CSS สองบรรทัด
+- คงคอลัมน์สถานะในแถว/ตารางไว้ (เป็นคอลัมน์เดิมของ Worklist) แค่ไม่ใช้เป็นตัวกรองอีก
+- แก้ข้อความแถบบนให้ตรงจุดประสงค์: "order ไหนมีคนแนบใบบันทึกการใช้สารทึบไว้แล้ว"
+- ตรวจ: `node --check` ผ่าน · เรนเดอร์ headless ผ่าน · เผยแพร่ทับลิงก์เดิม (Artifact v2)
+- ลิงก์ดูบนเบราว์เซอร์ (ส่วนตัว): https://claude.ai/artifact/XatMKRBP2aawhoEC6Qjqt3
+
+## [2026-10-02] implement | ทำ JSON หน้าประวัติสารทึบใหม่ตาม pattern ของ X-ray Worklist
+
+- ผู้ใช้สั่ง "ทำ json ui ฟอร์มสำหรับสืบค้นประวัติการใช้สารทึบนี้มาเลย" — เขียน generator ใหม่ทั้งไฟล์
+  `Form-Builder/seed/tests-tools/scripts/build_xray_contrast_history_ui.js`
+  → `Form-Builder/SDForm/X-ray/xray-contrast-history-v1.json` (70 KB)
+- ของเดิมรอบแรกใช้ pattern แท็บสืบค้นผลแลป (`.xll-*`) — ผู้ใช้เปลี่ยนแบบเองสองรอบ จึงทำใหม่:
+  CSS ชุด `.xr-*` **คัดลอกตรง** จาก `build_xray_cpoe_worklist_ui.js` (บล็อก `.xray-cpoe`)
+  เปลี่ยนเฉพาะชื่อ root scope เป็น `.xray-contrast-history` ⇒ หน้าตาเหมือน Worklist ทุกคอลัมน์
+- ต่างจาก Worklist สองข้อ: กรองเหลือเฉพาะใบที่มีบันทึกสารทึบ · ไม่มีปุ่มสั่งงานและไม่มี chip สถานะ
+  (ตัด checkbox · Radiologist · สติ๊กเกอร์ HN · ส่งเข้าเครื่อง/ยกเลิก/ปฏิเสธ/ตรวจใหม่/สร้างรายการใหม่/หนังสือยินยอม)
+- ตาราง item 10 คอลัมน์: Accession No. · รายการตรวจ · เครื่อง · เวลาส่งเข้าเครื่อง · Radiographer ·
+  สถานะ · ปฏิเสธ · คนปฏิเสธ · สารทึบ · ปุ่ม `ดูบันทึก` (เปิดฟอร์ม `xray-contrast-media-record-v1` ตัวเดิม)
+- generator มี assert กันพลาด: ห้าม action เขียน · ห้ามคลาส/ปุ่มฝั่งเขียน · ห้าม chip สถานะ ·
+  ต้องมีตัวกรอง `contrast_count>0` · ต้องมีคำว่า "ยังไม่ได้บันทึก" · ห้ามเหลือ scope `.xray-cpoe`
+- เขียนเทสใหม่ `test_xray_contrast_history_form.js` พร้อมคอมเมนต์ว่าทำไม assertion ชุดเดิมถูกแทน
+  (ผู้ใช้เปลี่ยนแบบ ไม่ใช่ลดความเข้มเพื่อให้ของใหม่ผ่าน) · สิ่งที่เทสเดิมปกป้องยังอยู่ครบ
+- ตรวจ: `check_sdform_json.py` exit 0 · generator รันซ้ำได้ byte-identical · เทสใหม่ผ่าน ·
+  เทสเดิมผ่าน: contrast media form · worklist API · consent library
+- 🔴 เทส `test_xray_cpoe_worklist_form.js` แดงอยู่ **ไม่ได้เกิดจากงานนี้** — `lab-cpoe-worklist-waiting-v1.json`
+  ถูกแก้เมื่อ 2026-10-02 00:18 (เพิ่มปุ่มรีเฟรช) แต่ `xray-cpoe-worklist-v1.json` ยัง generate ไว้ 2026-09-30
+  ⇒ เจ้าของงานนั้นต้อง regenerate ด้วย `XRAY_RIS_VIEWER_ENABLED=1` ไม่ได้แตะในรอบนี้
+- ยังไม่ import เข้า Builder — validator ผ่านไม่เท่ากับใช้งานได้ ต้องให้ผู้ใช้เปิดดูใน Builder จริงก่อน
+
+## [2026-10-02] schema | Preserve MCP state across handshake failures and handoffs
+
+- Added a root `AGENTS.md` continuity rule: a single MCP handshake/discovery failure cannot disable,
+  remove, uninstall, kill, or clear the server, plugin, Computer Use, browser, runtime, config, or
+  Keychain state.
+- Required bounded, read-only triage before declaring failure: inspect sanitized configuration,
+  classify the failure layer, verify executable/health, perform one fresh-client handshake, and
+  retry once after an in-scope dependency repair.
+- Defined MCP handoff fields and prohibited credentials, URIs, tokens, cookies, Keychain values,
+  and session state in handoff files. Handoff preserves enabled services unless the user explicitly
+  requests pause/removal or a verified safety risk requires calls to stop.
+
+## [2026-10-04] implement | Agent visit_type OPD/IPD
+
+- ตาม contract ใหม่ของทีม Agent ฝั่ง Receive ส่ง `visit_type` เป็น `IPD` เมื่อพบ AN และเป็น `OPD`
+  เมื่อไม่มี AN โดยคง `encounter.class` ให้สะท้อนค่าเดียวกันในช่วง compatibility transition.
+- Agent Submit และ schema ตรวจรับเฉพาะ `OPD`/`IPD`; ทดสอบ Receive/Agent ผ่าน รวม matrix 500 เคส
+  ของ IM, MI-OUT, MB และ MY โดยไม่มีการเรียก LAB NO Generator. งานยังเป็น local และรอ deploy/runtime E2E.
+
+## [2026-10-05] feat | เอาปุ่ม "นัดล่วงหน้า" กลับเข้า X-ray Worklist
+
+- ผู้ใช้สั่ง: "ปุ่มที่เราเคยผูกโมดูลการนัดล่วงหน้าไว้ เอากลับมาเหมือนเดิม"
+- กู้ทั้งชุดกลับเป็นรูปเดิมของ 2026-09-23 (ถอดออกไปเมื่อ 2026-09-26):
+  `APPOINTMENT_FORM_ID` `6ab207459a834d51703fc158` + env `XRAY_APPOINTMENT_FORM_ID` ·
+  ปุ่มใน `.xr-create-group` แถวแรกคอลัมน์ 2 · `s.appointmentHint` (บอกว่าจอต้องมีสิทธิ์
+  RIS/XRAY/ADMIN) · `s.openAppointment` (ไม่ส่ง initData เพราะจอเป็น form_ui · พา
+  hn/citizen_id จาก `s.createOrderTarget()` ไปเฉพาะตอนมีคนไข้ในบริบท) ·
+  CSS `.xr-appointment-button` · หนังสือยินยอมกลับไป `grid-row:2`
+- 🔴 **แก้ JSON แบบ surgical ไม่ได้ regenerate**: generator ตกด่านตัวเองที่บังคับว่า widget LAB
+  ต้องมี `s.requestSensitiveAccess=` — ฟอร์ม LAB ต้นทางถูก session อื่นแก้ 2026-10-02
+  (เลิกใช้ re-auth) ⇒ regenerate ตอนนี้จะลาก widget LAB ฉบับกำลังแก้เข้ามา ±500 บรรทัด
+  จึง build ลง scratchpad แล้ว diff ก่อน · ยืนยันว่าส่วนของปุ่มนัดเป็น "เพิ่มอย่างเดียว"
+  (cssCode +1/−1 · content +2 · onCreated +24) แล้วค่อยแก้สามจุดนั้นลง JSON จริง
+  · generator แก้ให้ตรงกันแล้ว รอบหน้าที่ LAB นิ่งจะ regenerate ได้ผลเดียวกัน
+- เทส: พลิก assertion กลับ 3 ไฟล์พร้อมคอมเมนต์ลงวันที่ว่าใครสั่ง (ไม่ใช่ลดความเข้มเพื่อให้ผ่าน)
+  · เพิ่ม runtime assert ว่ากดแล้วเปิดจอถูกตัว ไม่ส่ง initData พา HN ไปให้ และปิดด้วย env ได้
+- ผล: `test_xray_queue_deeplink` · `test_xray_consent_document_library` · อีก 5 ชุด X-ray ผ่าน
+  · SDForm validator exit 0 (คำเตือนเท่าเดิม)
+- 🔴 `test_xray_cpoe_worklist_form.js` ยังแดงที่ assertion เทียบ widget LAB — **แดงอยู่ก่อนแล้ว**
+  จาก LAB drift (พิสูจน์ด้วยการรันกับ JSON สำรองก่อนแก้ ได้ assertion เดียวกัน) · ตรวจ assertion
+  ปุ่มนัดด้วยสำเนาใน scratchpad ที่ข้ามเฉพาะการเทียบ widget LAB → ผ่านทั้งไฟล์
+- ยังไม่ deploy: ต้อง import `xray-cpoe-worklist-v1.json` แล้วยืนยันบนจอจริง
+
+## [2026-10-05] note | แตกไฟล์ paste-ready ของ widget xray_cpoe_worklist
+
+- ผู้ใช้ขอ "เอา xray_cpoe_worklist มาให้ replace ใหม่" — แตกจาก JSON ปัจจุบันตรง ๆ
+  · `02-his/form-factory/xray-cpoe-worklist-content-v1.txt` (32,150 ตัวอักษร)
+  · `02-his/form-factory/xray-cpoe-worklist-oncreated-v1.txt` (98,612)
+  · `02-his/form-factory/xray-cpoe-worklist-csscode-v1.txt` (105,881 · ระดับฟอร์ม)
+  · handoff `02-his/handoff/xray-worklist-appointment-button-restore-v1.md`
+- ตรวจแล้ว: เนื้อไฟล์ตรงกับ JSON แบบ byte-for-byte ทั้งสามไฟล์ · ไม่มี token ของ print agent
+  (token อยู่ใน widget `local_agent` คนละตัว) · `onMounted`/`onUnmount` ไม่เปลี่ยนรอบนี้ จึงไม่แตกออกมา
+- ย้ำในเอกสาร: ต้องวางครบทั้งสามช่อง เพราะปุ่มอยู่ content · handler อยู่ onCreated · ตำแหน่งอยู่ cssCode
+
+## [2026-10-05] note | อัปเดต handoff สามฉบับให้ตรงสถานะ X-ray ปัจจุบัน
+
+- `00-home/handoff.md` — เพิ่มหัวข้อ "สถานะงาน X-ray ล่าสุด (2026-10-05)" ไว้บนสุดสำหรับแชตใหม่
+  (ทำเสร็จอะไร · ขั้นตอนถัดไป · ตัวขวาง) · คง `status: inactive` เพราะ**ไม่มี reset** และ
+  เก็บประวัติ reset ที่ปิดไปแล้วทั้งสองฉบับไว้ครบ ไม่ลบของ session อื่น
+- `design/Xray_implementation-handoff.md` — ของเดิมลงวันที่ 2026-08-31 และขัดกับของจริงหลายข้อ
+  ใส่หัวข้อ "สถานะปัจจุบัน" (ตาราง artifact + ID · ลำดับ deploy · ตัวขวาง) และกำกับ
+  **[แทนที่แล้ว]** ให้ข้อที่ตกยุคโดยไม่ลบข้อความเดิม: 1 order = 1 test → หลาย test/accession ·
+  chip 4 → 5 ตัว · toolbar มีเรียงตาม/นัดล่วงหน้า/หนังสือยินยอม · dropdown เครื่องอ่านจาก API ·
+  ติ๊กของที่ได้คำตอบแล้ว (contract ปุ่มดูภาพ · โครงสร้างผลอ่าน)
+- `02-his/handoff/xray-worklist-appointment-button-restore-v1.md` — เพิ่มหัวข้อฝั่ง API:
+  ปุ่มนัดไม่เรียก Process ใด ๆ แต่ถ้าจะ replace คราวเดียวให้ครบ ต้อง Process ก่อน Form เสมอ ·
+  ลิสต์ action ที่เวอร์ชันในรีโปรองรับ · ย้ำว่ายังไม่ join `zdata_xray_contrast_media`
+- ไม่แตะโค้ด ไม่ generate ใหม่ ไม่ commit
+
+## [2026-10-05] implement | คิว X-ray กลางทุก Organization ห้องรังสี
+
+- `xray_cpoe_worklist_api.js` ขยายสิทธิ์จากรหัสตั้งต้นไปยัง Organization ลูกหลานของ
+  `m0900` แบบ recursive จาก master โดยไม่อนุญาตจากชื่อ และใช้คิวกลางต่อ visit ร่วมกันทุกห้อง
+- `queue_call` เปลี่ยนเป็น atomic claim: compare-and-set สำหรับเอกสารเดิมและใช้ visit ID เป็น
+  `_id` สำหรับเอกสารใหม่; การกดพร้อมกันคืน `already_called` แทนการสร้างคิวซ้ำ
+- Form/generator refresh Unit Queue, My Room และ Completed ทุก 8 วินาที พร้อม clear timer
+  เมื่อ unmount; action เดิมยัง refresh ทันทีและไม่แตะ CPOE `current_status`
+- Queue/API/Form/deep-link/consent/contrast-history tests และ SDForm validator ผ่าน;
+  X-ray suite ผ่าน 17/19 โดยสอง RIS fixture failures เป็นของเดิมและไม่เกี่ยวกับคิว
+- ยังไม่ deploy; ผู้ใช้จะ replace Process worklist ก่อน Form แล้ว UAT สอง Organization พร้อมกัน
+
+## [2026-10-05] implement | ปุ่ม Xray Print Stickers Set ใน Worklist
+
+- เพิ่มเฉพาะปุ่ม `ปริ้นสติ้กเกอร์` ใน `.xr-create-group` ตำแหน่งคอลัมน์ 1/แถว 2 ตามภาพ;
+  ปุ่มเดิม `สร้างรายการใหม่` · `นัดล่วงหน้า` · `หนังสือยินยอม` และ Process ทุกตัวไม่เปลี่ยน
+- ปุ่มเรียก `form.openForm('6abc9291c54b3f93ce79f520','','',null,{backdrop:false})` โดยตรง
+  จึงไม่สร้าง record/parent ID, ไม่ส่ง initData และไม่ส่ง params เพิ่ม
+- แก้แบบ surgical เฉพาะ `cssCode` · widget `content` · widget `onCreated` ใน Worklist JSON
+  และ sync generator; semantic diff จากสำเนาก่อนแก้ยืนยันว่ามีเพียงสาม path นี้เปลี่ยน
+- ตรวจผ่าน: SDForm validator, generator syntax/temp generation, focused Worklist Form runtime test,
+  queue deep-link test, consent library test และ `git diff --check`; ยังไม่ import/deploy
+
+## [2026-10-05] uat | Seed ใบสั่ง X-ray จาก EMR รอชำระเงิน
+
+- เปิด Visit HN6900025 / VN6900396 ในคลินิกวัคซีน ห้อง 19.p.1 และเรียกคิว VD002 เข้า My Room
+  ก่อนสั่งจาก EMR CPOE โดยไม่แก้ source artifact หรือฐานข้อมูลโดยตรง
+- สร้างใบสั่งชำระเอง 5 ใบ รวม 6 รายการ: R2610050013 ปกติ RD010 Chest (CXR) ฿250;
+  R2610050014 ด่วน RD001 Abdomen Supine,Upright + RD040 Right Hand AP,oblique ฿1,000;
+  R2610050015 ปกติ 44101 CT Brain NC ฿3,500; R2610050016 ด่วน 43506 US Upper abdomen ฿1,000;
+  และ R2610050017 ปกติ 45101 MRI brain ฿8,000
+- หยุดตามขอบเขตที่ผู้ใช้กำหนด: ยังไม่ชำระเงินและยังไม่กด `ส่งเข้าเครื่อง`; ส่งหน้าจอ EMR คืนให้ผู้ใช้
+  ชำระเงินก่อน ขั้นถัดไปจึงค่อย seed การสั่งจากหน้า X-ray โดยตรงและ interaction ของ Worklist
+
+## [2026-10-05] implement | ให้ทุก Room ใต้ Organization รังสีเห็นคิวกลาง
+
+- ผู้ใช้พบว่าเลือก Room `Serv` ใต้ RA-301 แล้ว Worklist แจ้งว่าไม่ใช่หน่วยงานรังสีและคิวเป็นศูนย์
+  แม้ implementation ก่อนหน้ารองรับ Organization ลูกของ m0900 แล้ว
+- ตรวจ MongoDB แบบ read-only พบ schema จริงสองชั้น: `zdata_organization.unit_parent.value` อ้าง
+  Organization ด้วย ObjectId และ `zdata_room.unit_id.value` อ้าง Organization แม่; Room จริงที่ตรวจพบ
+  ได้แก่ RF/Serv/US1/US2 ใต้ RA-301 และ X11 ใต้ RA-11
+- แก้เฉพาะ Process Worklist ให้ resolve parent ด้วย ObjectId จริงและเพิ่ม active Room ของ Organization
+  ที่ผ่านสิทธิ์ลง allowlist กลาง; ห้องนอกกลุ่ม/ปิดใช้งานยังถูกปฏิเสธ และ queue/order status ไม่เปลี่ยน
+- เพิ่ม regression fixture จาก schema จริงและทดสอบ Worklist/Queue/Widget ผ่าน; X-ray ทั้งชุดผ่าน 17/19
+  โดยสอง failure เดิมเป็น RIS fixture mismatch ไม่เกี่ยวข้อง งานยัง local ต้อง replace Process ก่อนทดสอบจอจริง
+
+## [2026-10-05] implement | ถอน Finance gate ก่อนส่งเข้าเครื่องเฉพาะ X-ray
+
+- ผู้ใช้ยืนยันว่า `ready` คือชำระเงินแล้ว แต่ต้องการให้ X-ray ส่งเข้าเครื่องได้ทันทีโดยไม่รอ Finance;
+  ปรับเฉพาะสถานะเริ่ม dispatch ให้รับทั้ง `sent` และ `ready`
+- แก้ครบสามชั้น: Worklist UI, Dispatch Process และ Accession Process รวม compare-and-set ตอนเปลี่ยนเป็น
+  `dispatched`; ป้ายการเงินยังอ่านสถานะจริงและ flow หลังส่งเข้าเครื่องไม่เปลี่ยน
+- ทดสอบ `sent` เดี่ยวและ batch ผสม `sent/ready` ผ่าน, focused Worklist runtime ผ่าน, SDForm validator ผ่าน
+- งานยัง local; replace Accession `6a95cd58422c1ca959829e8d` → Dispatch `6a967029422c1ca959829edc`
+  → Worklist Form `6a953fb6422c1ca959829e14` ก่อน UAT
+
+## [2026-10-05] revert | คืน Finance gate ของ X-ray ให้เหมือน LAB
+
+- ผู้ใช้สั่งยกเลิกการ bypass รอบก่อนและให้ตรวจ `current_status = ready` เหมือน LAB
+- คืน gate ครบ UI, Accession Process, Dispatch Process และ compare-and-set: `sent` ถูกบล็อกด้วย
+  `payment_not_ready`; batch ผสม `ready/sent` หยุดก่อนออกเลขหรือเรียก RIS
+- ป้ายการเงิน, คิวทุกห้อง, นัดล่วงหน้า, Sensitive lookup และปุ่มปริ้นสติ๊กเกอร์ไม่เปลี่ยน
+- Accession/Dispatch/focused Worklist tests, SDForm validator และ `git diff --check` ผ่าน; ยังไม่ deploy
+
+## [2026-10-05] diagnose | Order ready หายจาก X-ray ก่อนเรียกคิว
+
+- ตรวจ read-only พบ R2610050021 และ X-ray items 3 รายการเป็น `ready`; master/section เป็น DX ถูกต้อง
+- Order มาจาก `19.p` แต่ Visit ไม่มี `zdata_xray_queue` row ขณะที่ Worklist ของหน่วยต้นทางภายนอก
+  แสดงได้ต่อเมื่อคิวมี `called_at`
+- Unit Queue ใช้ `queueWaitingStatuses = ['sent']`; เมื่อ Finance เปลี่ยนเป็น `ready` ก่อนเรียกคิว
+  รายการจึงหายจาก Unit Queue และยังไม่เข้า Worklist
+- เปรียบเทียบ R2610050020 ซึ่งเป็น `ready` แต่แสดงได้ เพราะมี queue row และ `called_at`; ยังไม่แก้โค้ด
+
+## [2026-10-05] note | ยืนยันสถาปัตยกรรม X-ray Queue v2 ระดับ Unit และ Room
+
+- ผู้ใช้ยืนยัน flow ใหม่หลังตรวจ Organization/Room master และ EMR runtime แบบ read-only
+- Unit Queue เป็น shared view ไม่ทำสำเนาต่อห้อง; claim ต้องมี current Unit+Room และ My Room แยกตาม Room
+- ส่งต่อบังคับ target Unit, target Room เป็น optional: Unit-only เข้าคิวกลาง, Unit+Room ล็อก waiting ให้ห้อง
+- Finance เปลี่ยน Item เป็น `ready` เท่านั้น; ต้องเพิ่ม modality/capability mapping ก่อน common-room pull
+- บันทึกรายละเอียดใน `design/Xray_implementation-handoff.md`; ยังไม่แก้ Process/Form
+
+## [2026-10-05] implement | X-ray Queue v2 ตาม Unit / Room / Finance ready
+
+- เปลี่ยน Unit Queue จาก `sent` เป็น `ready`; Finance ยังเป็นผู้ปลดคิวและปุ่มส่งเข้าเครื่องยังบังคับ
+  `ready` เหมือน LAB ไม่เปลี่ยน CPOE status ตอนเรียกคิว
+- เพิ่ม active Organization/Room hierarchy และ capability mapping: X11/X2/X3=DX/CR,
+  US1/US2=US, RF=RF/VCUG, CT=CT, MRI=MR/MRI; Serv เป็น assign-only; parent Unit ปิดแล้วห้องลูกใช้ไม่ได้
+- Form ส่ง current Unit+Room ทุก queue call; server ตรวจ room อยู่ใต้ unit และ capability ก่อน atomic claim,
+  stamp `called_unit/called_room/called_at/called_by`; My Room/Completed filter ตาม owner room
+- เพิ่ม `queue_targets` และ `queue_reassign`: target Unit บังคับ, Room optional; Unit-only กลับ shared queue,
+  Unit+Room ล็อกปลายทาง, ไม่ข้ามเป็น called และเก็บ history; ส่งออกหน่วยอื่นยังใช้ EMR Move Unit เดิม
+- เพิ่ม episode coverage ด้วย `covered_item_ids`; ถ้ามี item `ready` ใหม่หลังปิดคิว visit เดิมจะกลับเข้า
+  Unit Queue ได้อีกโดยไม่เปิด duplicate queue document
+- ตรวจผ่าน Queue API, Queue widget, Worklist API, Dispatch API, AsyncFunction compile,
+  `git diff --check` และ SDForm validator exit 0 (`SDFORM-RULES-OK-2026-08-25`)
+- ยังไม่ deploy; ผู้ใช้จะ replace Worklist Process `6a957009422c1ca959829e45` ก่อน แล้ว Form
+  `6a953fb6422c1ca959829e14`; ต้อง UAT หลายห้องจริงและยืนยัน Builder/Preview
+
+## [2026-10-05] implement | เชื่อม X-ray Queue v2 กับ Queue Display v2
+
+- ตรวจ Queue Display v2 `6a9514a0422c1ca959829d8f`: จออ่าน `zdata_visit_tran` และ subscribe
+  `gridform` ด้วย Visit Tran Form `6a461235e521219e514d1c4b`; จึงแก้ฝั่ง X-ray ไม่แก้ตัวจอ
+- เพิ่ม Visit Tran projection เฉพาะ X-ray (`source_type=xray_cpoe`) แยกจากแถว clinic/finance/pharmacy;
+  `queue_call/reassign/done` sync projection กับ `zdata_xray_queue` ใน transaction เดียวกัน
+- ส่ง WebSocket และล้าง cache หลัง transaction สำเร็จ; failure test ยืนยันว่า projection ล้มแล้วไม่ broadcast
+- รอบนี้ไม่แก้ Worklist Form JSON; Queue API/widget, Worklist/Dispatch/deep-link tests, compile และ
+  `git diff --check` ผ่าน งานยัง local รอผู้ใช้ replace Worklist Process `6a957009422c1ca959829e45`
+
+## [2026-10-06] note | Diagnose API Error หลัง replace X-ray Worklist Process
+
+- ยืนยันจากหน้า X-ray จริงว่า Unit Queue และ action list ล้มด้วย `Unexpected token '{'` ทั้งคู่
+- export Process `6a957009422c1ca959829e45` จาก API Factory พบว่า live code ถูก merge ซ้ำ ไม่ใช่ full replace:
+  มี `$sort` เดิมกับ `$sort` ใหม่ติดกันโดยไม่มี comma และมี `if (existing)` ซ้ำกลาง object อีกชุด
+- ลบเพียง `$sort` เก่าใน memory แล้วยังพบ syntax error จุดถัดไป จึงต้อง replace โค้ดทั้ง Process
+  จาก working file ห้ามแก้เฉพาะบรรทัด; local compile และ Queue/Widget/Worklist/Dispatch/deep-link tests ผ่าน
+
+## [2026-10-06] implement | Unit Queue เห็นคิวก่อนเลือก Room และหยุด poll กระพริบ
+
+- เปลี่ยนเฉพาะ X-ray Queue: action `queue` bucket `unit` ไม่บังคับ Room และไม่กรอง modality ตาม
+  capability ของห้องที่เลือก; ยังคุม target Unit/Room ไม่ให้คิวข้าม Unit
+- `queue_call` ยังบังคับ Room ทั้ง client/server พร้อมข้อความ `กรุณาเลือกห้องตรวจก่อนเรียกคิว` และยังตรวจ
+  hierarchy/capability แบบเดิมก่อน atomic claim
+- พบต้นเหตุจอกระพริบคือ widget ตั้ง blocking `loading=true` ทุก poll 8 วินาที; เปลี่ยนเป็น silent background
+  refresh คง rows/error เดิมไว้ และให้ spinner ทำงานเฉพาะ initial/manual refresh
+- regenerate Form JSON แล้ว; Queue API/widget, Worklist API, Dispatch API, deep-link, Process compile,
+  SDForm validator และ `git diff --check` ผ่าน ยังไม่ deploy ต้อง full-replace Process ก่อน Form
+
+## [2026-10-06] fix | กัน `roomContext` redeclaration ใน X-ray Worklist Process
+
+- ผู้ใช้พบ live error `Identifier 'roomContext' has already been declared`; local ก่อนแก้ยัง compile ผ่าน
+  จึงชี้ว่า API Factory live ถูกวางโค้ดแบบ merge/เหลือ declaration เก่า ไม่ใช่ runtime queue failure
+- เปลี่ยนชื่อตัวแปรตาม action เป็น `queueReadRoomContext`, `queueCallRoomContext`,
+  `queueDoneRoomContext` และแยก room เป็น `queueReadRoom/queueCallRoom/queueDoneRoom`
+- ยืนยันว่าไม่มี `const roomContext` เหลือ, Process compile ผ่าน, Queue/Worklist/Dispatch/deep-link tests ผ่าน
+- ไม่แก้หรือบันทึก live; ผู้ใช้จะ select-all แล้ว replace Process body ทั้งไฟล์เอง
+
+## [2026-10-06] diagnose | Export live ยืนยันสาเหตุ `Unexpected token 'const'`
+
+- Export Process `6a957009422c1ca959829e45` แบบ read-only พบ live ยาวกว่า local 25 บรรทัด/1,710 bytes
+  เพราะบรรทัดเก่าไม่ได้ถูกลบ แต่ถูกเก็บไว้ติดกับบรรทัดใหม่หลายจุด
+- จุด parse แรกอยู่ราว live line 2341: legacy `const pipeline ... bucket, room), [` เปิด array ค้างไว้ แล้ว
+  เจอ `const pipeline ... bucket, queueReadRoom), [` ทันที จึงเกิด `Unexpected token 'const'`
+- 403 จาก `/v1/process/...` เป็นผลของ Process compile ไม่ผ่าน ไม่ใช่ permission failure แยกต่างหาก
+- ไฟล์ local มี current pipeline declaration หนึ่งจุดและไม่มี legacy declaration; wrapped compile,
+  Queue/Worklist/Dispatch/deep-link tests และ `git diff --check` ผ่าน ไม่แก้หรือบันทึก live
+
+## [2026-10-06] fix | กู้ X-ray Order ที่ PIS เปลี่ยนเป็น accepted และปิดต้นเหตุข้าม service
+
+- ตรวจ read-only ยืนยัน `R2610060007` ยัง active และชำระครบ แต่ Pharmacy `pis-order-accept` เปลี่ยน
+  หัวใบ/Item X-ray จาก `sent` เป็น `accepted` โดยไม่มี X-ray Queue, Accession, dispatch หรือ transport
+- เพิ่ม recovery เฉพาะ Unit Queue/`queue_call`: รับ `accepted` กลับมาได้เมื่อ accepted stage มาจาก Unit
+  นอกกลุ่มรังสีและไม่มีหลักฐานส่งเข้าเครื่อง; `accepted` จริงที่มีหลักฐานยังไม่กลับเข้าคิว
+- เพิ่ม working Process `pis_order_accept_api.js`: รับเฉพาะ Order ที่ active child Items ทุกตัวเป็น `med`;
+  mixed/non-med fail-closed และไม่ถูกเขียนสถานะ
+- เพิ่ม `test_pis_order_accept_api.js` และ regression guards ใน `test_xray_queue_api.js`; ผ่าน PIS accept,
+  Queue API/widget/deep-link, Worklist API, Dispatch API และ pre-dispatch matrix (9 Finance + 3 queue)
+- ตรวจ live read-only แล้วสูตร recovery match `R2610060007` และไม่ match X-ray `accepted` ที่มี Accession;
+  ยังไม่ replace/deploy live ตาม workflow ที่ผู้ใช้ replace X-ray artifacts เอง
+
+## [2026-10-08] fix | X-ray อ่านคิวกลาง ไม่สร้างคิวแยก
+
+- audit local/live แบบ read-only ยืนยันว่า `zdata_xray_queue` ไม่มี dependency executable ที่ต้องเก็บนอก
+  X-ray Worklist; collection 10 documents ไม่ถูกแก้หรือลบ และ central queue อยู่ที่ `zdata_visit_tran`
+- ถอด projection/write และ `queue_call/reassign/done` ออกจาก Worklist Process; รวม X-ray Orders ตาม
+  VN/Visit แล้ว join เลขคิวกลางแบบ read-only โดยไม่สร้างเลขคิวเทียม
+- Form/generator เปลี่ยนเป็น header action `เรียกคิวถัดไป` ผ่าน central Process และใช้ central Move Unit
+  ด้วย `tran_id` จริง; คง Worklist, Finance ready gate, Accession, Dispatch และ RIS
+- focused suites, Process compile, SDForm validator และ `git diff --check` ผ่าน; full Form suiteติดเพียง
+  LAB lookup assertion เดิมนอก scope
+- live ยังไม่แก้: Process ยังมี old logic และ Form มี extra List View `xray_queue_receive`; รอคำยืนยัน
+  ณ จังหวะ Save/Publish เพื่อแก้ live แบบ surgical โดยรักษา Query Error fix และไม่กด patient action
+
+## [2026-10-08] implement | X-ray clone EMR queue และใช้ m0900 เป็น center
+
+- เปลี่ยน Unit Queue, My Room และ Completed เป็น full clone ของ EMR `button-ui`/`list-ui`; filter ล่าสุดใช้
+  `unit_path` + `FRONT`/Room และ WebSocket refresh เหมือน EMR
+- `m0900` เป็น parent/front-desk center; center เรียก/ซักประวัติ/ย้ายเข้าห้องลูก และห้องลูกเห็นเฉพาะคิว
+  ของตน ไม่มี custom four-room UI, shared claim/polling หรือการกระจายคิวเดียวไปทุกห้อง
+- ถอด Worklist API `action: queue`; คง Worklist, LAB lookup, Finance, Accession, Dispatch, RIS,
+  นัดหมาย, สารทึบ และการพิมพ์
+- สร้างคู่มือ Replace `02-his/handoff/xray-emr-native-queue-replace-v1.md`; ผู้ใช้เป็นผู้ Replace เอง
+  และต้องตรวจ `m0900` เป็น front desk พร้อม `custom_queue` ว่าง/ไม่จำกัดก่อน UAT
+- dedicated queue + full Worklist Form/API/deep-link tests, event/API syntax, SDForm validator และ
+  `git diff --check` ผ่าน; full X-ray sweepติด pre-existing RIS fixture mismatch เรื่อง
+  `AdmissionNo`/`PatientSsn`. ไม่มี live/DB/master-data write, commit หรือ push
+
+## [2026-10-09] audit | TOR X-ray ตรวจซ้ำกับฐานข้อมูลจริง — ขยับ 3 ข้อ
+- ผู้ใช้ตั้งกฎ: live `mongo-his` เป็น **read-only ทุกกรณี** (บันทึกเป็น memory แล้ว) · MCP ล้มตอนเริ่ม session จึงอ่านผ่าน pymongo ที่ครอบให้เรียกได้เฉพาะ method อ่าน · ไม่มีการเขียน live
+- ขยับ: §3.4.3.4 ผู้ป่วยใหม่ลงทะเบียนออนไลน์ → **ครบ** · §3.4.3.2 incident report → **ครบ** · §3.4.3.5 PDF ผลอ่าน → **บางส่วน** · ผลรวม **21 / 20 / 31 / 1** จาก 73 (≈ 42%)
+- ตัวกั้นที่ยังอยู่: ใบนัดยังไม่แปลงเป็นใบสั่ง · role `RIS`/`XRAY` · transport ล้ม 12 ใบ · RIS UAT · `zdata_xr_ris_outbox` pending 11 · Vital Sign · หมวดเอกสาร/Back office/รายงาน
+- อัปเดต `Form-Builder/SDForm/X-ray/spec.md` และ artifact `842038a1…` (v9) · ตรวจ tally ทุกหมวด = chip จริง รวม 73
+
+## [2026-10-16] note | Placeholder token/emails, topic commits, push blocked
+
+- User asked to replace the print-agent token and emails with placeholders, then commit and push.
+- Worktree: token → `__XRAY_LOCAL_AGENT_TOKEN__` in the X-ray/LAB worklist JSONs, X-ray generator and
+  its form test (assertion still forbids a blank token; reason dated in the test). Real value saved to
+  gitignored `.env` as `XRAY_LOCAL_AGENT_TOKEN`. Seven staff emails → `staffNN@example.invalid` in the
+  staff seed and its test. `lab-result-pdf-sensitive-v3.zip` rebuilt from the scrubbed folder.
+- Committed `0a36cdd` LAB, `7a7f497` EMR, `2bee278` X-ray, `1be1363` PIS, `23668f8` handoff zip.
+  Left out: `outputs/` (generated) and `.obsidian/` (editor state).
+- Verified: 46 pass / 10 fail (all pre-existing: 8 missing fixtures, `test_xray_order_ris_params`,
+  `test_xray_ris_team_apis`, stale `test_xray_pre_dispatch_seed_matrix`); SDForm validator OK on all
+  10 changed forms; final scan found no token, personal email or key in the files to commit.
+- Not pushed: commits `68caf35`..`7163b88` still contain the real token and `39338ec` an email.
+  The `git filter-branch` history rewrite was denied by the auto-mode classifier. Backup branch
+  `backup/pre-scrub-20261016` (local only, contains the token).

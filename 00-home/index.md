@@ -2,7 +2,7 @@
 type: synthesis
 title: Wiki Index
 created: 2026-07-16
-updated: 2026-09-28
+updated: 2026-10-02
 tags: [meta, index]
 ---
 
@@ -133,7 +133,8 @@ _User-approved artifact specifications outside the maintained knowledge-base lay
 - [LAB design decision record](../design/Lab_design-contract.md) — evidence, keep/change/do-not-copy boundaries, risks and quality gate. `2026-08-30`
 - [LAB implementation handoff](../design/Lab_implementation-handoff.md) — concise instructions for the first SDForm build. `2026-08-30`
 - [LAB CPOE integration checklist](../design/lab-cpoe-integration-checklist.md) — confirmed Order/Item decisions, panel evidence, worklist API contract, CPOE fixes, and staged path to the first real-data LAB SDForm. `2026-08-30`
-- [Immunology LAB NO flow](../02-his/ui/immunology-lab-no-flow.html) — interactive HTML decision artifact: order-time 1:1 LAB NO per IM/MI-OUT Item, one minimal HN-size 247 × 67 pt sticker per Order with patient name, HN, and up to 5 Item/LAB NO pairs, fail-closed Receive, API contract, and non-regression boundary for other LAB Sections. `2026-09-28`
+- [LAB Result Order-note popup proposal](../02-his/ui/lab-result-order-note-popup-mockup.html) — interactive confirmation artifact for top-level Agent `order_note`: one shared result dialog with Standard layout for every non-`MB` Section and the `MB`/MLab layout, plus a separate analyte-comment example. `2026-10-01`
+- [Protected LAB NO flow](../02-his/ui/immunology-lab-no-flow.html) — interactive confirmation artifact: the Order source owns `SSYYMMDDNNNN` issuance for IM/30, MI-OUT/31 and MB/40; LAB consumes the incoming number, blocks Receive when missing/invalid and never generates or overwrites it. Other Sections keep generate-on-receive. `2026-10-02`
 - [LAB SDForm working area](../Form-Builder/SDForm/Lab/README.md) — user-approved destination, JSON guardrails, and local CPOE Item status-sync state. `2026-09-02`
 - [X-ray design and functional specification](../design/Xray_design.md) — binding X-ray visual/workflow spec, modality dropdown contract, two-number rule (Order No. vs Accession No.), open decisions X2–X17. `2026-08-31`
 - [X-ray SDForm working area](../Form-Builder/SDForm/X-ray/design.md) — build spec plus the first artifact `xray-cpoe-worklist-v1.json`, its generator and behaviour test. `2026-08-31`

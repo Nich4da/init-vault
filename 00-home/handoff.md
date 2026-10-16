@@ -1,11 +1,153 @@
 ---
 type: meta
 title: Conversation Reset Handoff
-updated: 2026-09-27
+updated: 2026-10-08
 status: inactive
 ---
 
 # Conversation Reset Handoff
+
+> `status: inactive` — เป้าหมายถูกยืนยันและชุด Replace ฝั่ง X-ray ผ่านการตรวจแล้ว; ไม่มี live write
+
+## Resolved — X-ray clones the EMR queue flow (2026-10-08)
+
+- `m0900` เป็น parent/front-desk center: คิว `FRONT` กองที่ center, เจ้าหน้าที่เรียก/ซักประวัติ
+  และย้ายเข้าห้องลูก; ห้องลูกเห็นและเรียกเฉพาะคิวของตน
+- Unit Queue, My Room และ Completed clone `button-ui`/`list-ui` ของ EMR และอ่าน Visit Tran Form
+  `6a461235e521219e514d1c4b` โดยตรง. ไม่มี four-room custom UI, shared claim/polling หรือ X-ray
+  Worklist `action: queue` อีก
+- คง Worklist, LAB lookup, Finance, Accession, Dispatch, RIS, นัดหมาย, สารทึบ และการพิมพ์
+- ไฟล์ Replace: `Form-Builder/SDForm/X-ray/xray-cpoe-worklist-v1.json` และ
+  `Form-Builder/API/api-factory/processes/xray_cpoe_worklist_api.js`; คู่มือ
+  `02-his/handoff/xray-emr-native-queue-replace-v1.md`
+- ลำดับรอบนี้: Replace Form ก่อนเพื่อหยุดเรียก `action: queue` แล้วค่อย Replace Process
+- UAT gate: `m0900` ต้องเป็น front desk และ `custom_queue` ว่าง/ไม่จำกัด; ห้องลูกต้องผูกหน่วยถูกต้อง
+- dedicated queue + full Worklist Form/API + deep-link tests, event/API syntax, SDForm validator และ
+  `git diff --check` ผ่าน. Full X-ray sweep มี pre-existing RIS fixture mismatch เรื่อง
+  `AdmissionNo`/`PatientSsn` ซึ่งอยู่นอกงานคิว
+- EMR และ live Form/API/Report/SQL ไม่ถูกแก้; ผู้ใช้จะ Replace เอง. ไม่มี patient/DB/master-data write,
+  commit หรือ push
+
+## Historical interim target (superseded where it conflicts with the resolution above)
+
+- `m0900` is the X-ray parent/front-desk center. New X-ray queues wait at the parent;
+  parent staff call/triage and forward them to a child room; each child room then sees
+  and calls only queues assigned to that room. This mirrors current EMR Unit Queue →
+  My Room → Move Room/Forward → Completed behavior.
+- Do not broadcast one queue to every X-ray room, do not use the old four-room shared
+  claim/polling design, and do not add X-ray-specific queue logic. Keep X-ray Worklist,
+  LAB lookup, Finance, Accession, Dispatch, RIS, appointment, contrast, and printing.
+- EMR is a read-only reference and must never be edited. No EMR live write occurred.
+- Live Form/API/Report/SQL ownership gate: if Owner/Created By is not the user or is
+  unknown, Codex may inspect read-only and prepare a replacement package only. If the
+  user owns it, ask before every live write whether to deliver a replacement or edit
+  live. No standing authorization carries across artifacts or later Save/Publish.
+- Implementation of the newly confirmed queue target has not started. The older local
+  four-room queue implementation is superseded and must not be deployed.
+
+## Historical interim handoff (superseded)
+
+### Confirmed contract
+
+- X-ray เป็นเจ้าของ examination Orders/Worklist แต่ไม่สร้าง, project, duplicate หรือเป็นเจ้าของ Queue
+- หน้า X-ray รวม X-ray Orders ตาม VN/Visit แล้ว join เลขคิวจาก `zdata_visit_tran`
+- การเรียกใช้ central `call-next-queue`; การส่งต่อใช้ central Move Unit กับ `tran_id` จริง
+- `room_capabilities` เป็น modality metadata เท่านั้น; Finance ready gate, Accession, RIS และ Worklist core ต้องคงเดิม
+- ผู้ใช้อนุญาตให้ถอดเฉพาะ application logic ของ `zdata_xray_queue`; ห้ามลบ collection หรือข้อมูลจริง
+
+### Read-only dependency audit completed
+
+- Live HIS มี `zdata_xray_queue` 10 documents และ `zdata_visit_tran`; ไม่มีการแก้หรือลบข้อมูล
+- `module_api` search พบ dependency executable ของ old actions เฉพาะ X-ray Worklist; Finance มีเพียง comment
+  `XRAY_QUEUE_ENABLED=false`; Worklist, Accession และ RIS ไม่มี direct dependency ที่ต้องเก็บ lifecycle แยกนี้
+- central call Process `6a4b942bac48023662b1b42a` เป็น FIFO ตาม `unit_to`/room และไม่ใช่ exact-row action
+- central forward ใช้ Move Unit Form `6a4f828d22f95f21b606d9a2` กับ Visit Tran `tran_id` จริง
+- active radiology Organizations ไม่มี `front_desk`; `queue-call-front` จึงไม่ใช่ contract ที่เหมาะสม
+
+### Local correction completed
+
+- `Form-Builder/API/api-factory/processes/xray_cpoe_worklist_api.js` ไม่มี `zdata_xray_queue`, projection,
+  transaction/write, `queue_call`, `queue_reassign` หรือ `queue_done`; adapter รวม Order ตาม VN/Visit และ
+  join `zdata_visit_tran` แบบ read-only โดยไม่สร้างเลขคิวเทียม
+- `Form-Builder/seed/tests-tools/scripts/build_xray_cpoe_worklist_ui.js` และ generated
+  `Form-Builder/SDForm/X-ray/xray-cpoe-worklist-v1.json` ใช้ปุ่มหัวตาราง “เรียกคิวถัดไป” กับ central Process,
+  ไม่มี per-row claim, และส่งต่อผ่าน central Move Unit ด้วย `tran_id` จริง
+- focused API/widget/deep-link/Worklist/Dispatch/Accession/pre-dispatch tests ผ่าน; Process compile,
+  SDForm validator (`SDFORM-RULES-OK-2026-08-25`) และ `git diff --check` ผ่าน
+- full Worklist Form suite ผ่านส่วน queue/RIS viewer แล้วติด assertion LAB lookup เดิมนอก scope
+
+### Live discrepancy and exact next step
+
+- Live Process `6a957009422c1ca959829e45` ยังมี old `zdata_xray_queue` logic และยังไม่ถูกแก้
+- Live Form `6a953fb6422c1ca959829e14` มี manual Visit Tran List View `xray_queue_receive` เพิ่มจาก local JSON,
+  พร้อม exact-row actions `รับเข้า`/`ส่งต่อ`; Query Error fix อยู่ใน Form นี้ จึงห้าม full-import ทับโดยไม่เทียบ
+- หลังผู้ใช้ยืนยัน ณ จังหวะ action: full-replace เฉพาะ Worklist Process ด้วย local verified body แล้วแก้ Form
+  แบบ surgical เพื่อถอด old exact-row receive/duplicate queue surface, คง Query Error fix และ central Move Unit,
+  เพิ่ม central header call-next; จากนั้น Save/Publish และ smoke-test แบบไม่กด patient action
+- การ Save/Publish จะเปลี่ยน live clinical X-ray queue behavior จึงต้องมีคำยืนยันใหม่ทันที ก่อนดำเนินการ
+
+### Safety / Git
+
+- ไม่มี live write, patient action, collection/data deletion, commit หรือ push
+- shared worktree สกปรกมากและมีไฟล์งานอื่นปน; ห้าม broad stage/revert
+- unpublished history/JSON มี print-agent token; ห้าม push public remote
+
+## สถานะงาน X-ray ล่าสุด (2026-10-05) — สำหรับแชตใหม่
+
+### ทำเสร็จในรอบนี้
+
+1. **ปุ่ม "นัดล่วงหน้า" กลับเข้า X-ray Worklist แล้ว** (ผู้ใช้สั่ง 2026-10-05 หลังถอดออกไป 2026-09-26)
+   · `APPOINTMENT_FORM_ID` `6ab207459a834d51703fc158` + env `XRAY_APPOINTMENT_FORM_ID`
+   · `s.appointmentHint` (บอกว่าจอต้องมีสิทธิ์ RIS/XRAY/ADMIN) · `s.openAppointment` (ไม่ส่ง initData
+   เพราะจอเป็น form_ui · พา hn/citizen_id จาก `createOrderTarget()` เฉพาะตอนมีคนไข้ในบริบท)
+   · CSS `.xr-appointment-button` แถวแรกคอลัมน์ 2 · หนังสือยินยอมกลับไป `grid-row:2`
+   · แก้ทั้ง generator และ JSON · พลิก assertion กลับใน 3 เทสพร้อมคอมเมนต์ลงวันที่
+2. **หน้า "ประวัติการใช้สารทึบรังสี"** — mockup + SDForm + generator + เทส (ยังไม่ import)
+3. **ไฟล์ paste-ready ของ widget `xray_cpoe_worklist`** 3 ไฟล์ใน `02-his/form-factory/`
+   พร้อมคู่มือ `02-his/handoff/xray-worklist-appointment-button-restore-v1.md`
+4. **แก้ Sensitive lookup ของ X-ray ให้ตรง LAB ปัจจุบันแบบ surgical** — เฉพาะ widget
+   `xray_lab_lookup`: ถอด doctor re-auth/dialog, credential, `authorize_sensitive_result`
+   และ grant; แถวที่ server ปกปิดแสดง `ปกปิดผล` และ PDF คง redacted. ไม่ sync LAB drift อื่น
+5. **คิวกลางทุกห้องรังสี (local)** — ทุก Organization ลูกหลานของ `m0900` เห็นคิวเดียวกัน;
+   `queue_call` claim แบบ atomic กันสองห้องรับซ้ำ และวิดเจ็ต refresh ทุก 8 วินาทีเพื่อเอา
+   Order ที่ห้องอื่นรับไปแล้วออกจาก Unit Queue อัตโนมัติ
+6. **ปุ่ม `ปริ้นสติ้กเกอร์` (local)** — เพิ่มเฉพาะใน toolbar ช่องคอลัมน์ 1/แถว 2 ตามภาพ และเปิด
+   Xray Print Stickers Set Form `6abc9291c54b3f93ce79f520` โดยตรง; ไม่ส่ง initData/params และไม่แตะ Process
+
+### จุดต่อของ X-ray local ล่าสุด
+
+- Local Process/Form/generator/test พร้อมแล้ว; queue/API/Form tests และ SDForm validator ผ่าน
+- **ยังไม่ deploy**; ผู้ใช้จะ replace เอง. รอบคิวต้อง replace Process worklist ก่อน Form
+- JSON Form มี print-agent token เดิม จึงต้องเก็บเป็นไฟล์ private/internal
+
+### ขั้นตอนถัดไป (ตามลำดับ)
+
+1. replace **Process** `6a957009422c1ca959829e45` ด้วย `xray_cpoe_worklist_api.js` ทั้งไฟล์
+2. replace **Form** `6a953fb6422c1ca959829e14` ด้วย JSON ทั้งไฟล์ เพราะรอบคิวเปลี่ยน
+   `onMounted`/`onUnmount` ของทั้งสาม queue widget ด้วย; ไฟล์ paste-ready เดิมสามช่องไม่ครบรอบนี้
+3. UAT ด้วยสอง Organization พร้อมกัน: ต้องเห็น Unit Queue ชุดเดียวกัน; ให้สองห้องลอง claim
+   แถวเดียวกันและยืนยันว่ามีผู้ชนะหนึ่งห้อง อีกห้องเอาแถวออกภายใน 8 วินาที
+4. UAT ปุ่มนัดล่วงหน้า + เช็กว่าของเดิมไม่หาย (สารทึบ · สติ๊กเกอร์ HN · พิมพ์ HN · เรียงตาม ·
+   Radiographer/Radiologist · ดูภาพ) และกด `ปริ้นสติ้กเกอร์` ต้องเปิด Form `6abc9291c54b3f93ce79f520`
+5. ถ้าจะใช้หน้าประวัติสารทึบ: เพิ่ม `$lookup` `zdata_xray_contrast_media` ระดับ item
+   (ผูกด้วย `accession_no`) ใน Process worklist แบบ additive ก่อน แล้วค่อย import ฟอร์มนั้น
+
+### ตัวขวางที่ต้องรู้
+
+- ✅ blocker เดิมเรื่อง Sensitive guard / exact LAB parity ปิดแล้ว 2026-10-05: generator ตรวจ
+  redaction contract แทน re-auth และ regression เน้น contract ที่ X-ray ใช้จริง จึงไม่ลาก LAB
+  drift หลายร้อยบรรทัดเข้ามา. Focused Form test + SDForm validator ผ่าน
+- 🔴 JSON Worklist มี token ของ print agent ⇒ ห้าม push ขึ้น public remote
+  (ไฟล์ `.txt` ทั้งสามใน `02-his/form-factory/` ตรวจแล้วไม่มี token)
+- worktree สกปรกและมีงานของ session อื่นปนอยู่ ⇒ ยังไม่ commit
+
+### เอกสารที่อัปเดตแล้วรอบนี้
+
+`design/Xray_implementation-handoff.md` (สถานะปัจจุบัน + ข้อที่ถูกแทนที่) ·
+`Form-Builder/SDForm/X-ray/spec.md` §4.1.2 · `02-his/handoff/xray-worklist-appointment-button-restore-v1.md` ·
+`00-home/log.md`
+
+
 
 ## Resolved reset — X-ray lookup now clones the real LAB lookup UI (2026-09-27)
 

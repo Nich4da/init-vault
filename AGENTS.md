@@ -66,6 +66,71 @@ state may already exist:
 After the clean chat resolves the task, mark the handoff inactive and refresh Hot
 Cache. Do not trigger a reset for a minor wording issue resolved immediately.
 
+## MCP handshake and handoff continuity
+
+An MCP handshake, discovery, or tool-list failure is not permission to shut down
+or disable the integration. Do not set a server or plugin to `enabled = false`,
+remove or uninstall it, kill a persistent service, delete its runtime/cache/config,
+clear Keychain entries, rotate credentials, or close an in-app browser merely
+because one handshake failed. Preserve the last known configuration unless the
+user explicitly requests a shutdown/removal or continued operation presents a
+verified safety risk. For a safety risk, stop further calls and report it without
+silently mutating the configuration.
+
+Before declaring an MCP server unavailable, ending work, or handing the task off:
+
+1. verify the configured server name, command, transport, and enabled state with
+   read-only inspection, redacting credentials and connection strings;
+2. capture the first error in sanitized form and distinguish server launch,
+   authentication, dependency/runtime, client-session cache, and tool-discovery
+   failures;
+3. test the installed executable or health/version command and perform one
+   fresh-client handshake, such as MCP Inspector or a new Codex session;
+4. after an in-scope dependency repair, retry once and stop repeated loops if the
+   same failure remains; record the blocker and exact next safe test instead.
+
+Existing sessions may retain an earlier failed client or stale tool inventory.
+Keep the server enabled and record that a new session or app restart is required;
+do not disable a working server because the current session did not reload it.
+Use an available read-only fallback to continue diagnosis when possible.
+
+A handoff is a continuity checkpoint, not a shutdown instruction. Do not disable
+MCP servers, Computer Use, browser panels, plugins, or safe running services merely
+because a handoff is created. Unless the user explicitly asks to pause or disable
+them, preserve their state. Every MCP-related handoff must record the server name,
+enabled state, non-secret config/runtime paths, pinned version when known,
+transport and read-only mode, last successful check, sanitized failure, changes
+already made, reload requirement, and exact next read-only verification. Never
+copy a credential, URI, Keychain value, token, cookie, or session state into a
+handoff. The receiving session must read Hot Cache and the active handoff before
+changing MCP configuration and must resume from the recorded verification step
+instead of repeating destructive cleanup.
+
+## Live artifact ownership and write gate
+
+This rule applies to live initCraft **Form Factory, API Factory, Report Factory,
+and SQL Factory** artifacts.
+
+1. Resolve the artifact owner from the authoritative live `Owner`/`Created By`
+   metadata or from an explicit user confirmation. Do not infer ownership from
+   `updated_by`, the current editor, a filename, an app relationship, or the fact
+   that the artifact is used by X-ray/LAB/HIS. If ownership is unclear, treat the
+   artifact as not owned by the user.
+2. If the live artifact is **not owned by the user**, Codex is read-only. It may
+   inspect, compare, document, and copy the behavior into a local user-owned
+   replacement package, but must never Edit, Save, Publish, replace, delete, or
+   otherwise mutate the live artifact. Give the user the verified replacement
+   content/file so the user can apply it themselves.
+3. If the live artifact **is owned by the user**, both delivery modes are allowed:
+   prepare a replacement package for the user, or edit the live artifact. Before
+   every live mutation, ask which mode the user wants for that exact artifact and
+   wait for the answer. Ownership does not grant standing permission to write.
+4. Approval is artifact- and action-specific. A prior approval for one Form/API/
+   Report/SQL item does not authorize another item or a later Save/Publish.
+5. EMR or another team's artifacts are read-only unless their authoritative owner
+   is the user. Never change a source artifact merely because its behavior is being
+   cloned into X-ray.
+
 ## Storage boundaries
 
 - `01-knowledge-base/` is maintained synthesis. Update cross-references,
