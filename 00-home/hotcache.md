@@ -8,9 +8,7 @@ updated: 2026-10-16
 
 ## LAB / EMR
 
-- UAT covered `m1001`–`m1007`; BB/ML/BG lacked records.
-- Treat Summary/History mixed prior Visits with live results. Local fix preserves UI/HIV re-auth/audit; deploy/UAT remain.
-- MY fix for VN6900377 preserves specimen/site identity; tests pass. Deploy two APIs, then UAT.
+- 2026-10-18 LAB live check: processes match local. Judge by resulted orders (pending ≠ failure): 13/14 receipts processed, all matched. Open: `400305` in Agent catalog, critical decision, UAT corrected/duplicate, BB/ML/BG, backlog. UAT covered `m1001`–`m1007`.
 - MB Form split actions/date/time; tests pass. Reason migration is complete. MY form `6acc8587481c196fbb332c60` has a staged 37-row import; deploy/UAT remain.
 - EMR History “ดูผลทั้งใบ” is ready; not deployed.
 

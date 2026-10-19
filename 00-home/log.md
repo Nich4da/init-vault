@@ -5214,3 +5214,52 @@ Append-only, chronological. Newest at the bottom. Each entry header is
 - Not pushed: commits `68caf35`..`7163b88` still contain the real token and `39338ec` an email.
   The `git filter-branch` history rewrite was denied by the auto-mode classifier. Backup branch
   `backup/pre-scrub-20261016` (local only, contains the token).
+
+## [2026-10-18] audit | LAB go-live readiness recheck
+
+- Verdict unchanged from 2026-10-01: NO-GO. `mongo-his` MCP was disconnected, so live deployment
+  versions and record totals were not re-read this session.
+- Local: 35 LAB/EMR/HL7/X-ray worklist tests pass; 7 legacy tests fail only on missing fixtures
+  (same pre-existing set). All 10 `Form-Builder/SDForm/Lab/*.json` pass `check_sdform_json.py`.
+- Still open: deploy pending local fixes (Summary/History, MY specimen identity, MB actions/Reason,
+  OPD/IPD + order_note, EMR full-result dialog), then a version-matched HIS→Agent→LIS→HIS E2E
+  covering final/corrected/duplicate/retry, Finance, RBAC, EMR, PDF, reject/cancel/retest;
+  LISconnect hostname/key from admin; BB/ML/BG UAT records.
+
+## [2026-10-18] diagnose | mongo-his MCP disconnects
+
+- Read-only triage; no config changed, no credential echoed. The `~/.claude.json` connection string
+  authenticates (ping OK); `.env` `MDB_MCP_CONNECTION_STRING` holds a different, stale password
+  (auth code 18). The MCP does not read `.env`.
+- MCP logs: 10-08 `ERR_MODULE_NOT_FOUND` inside the npx cache (broken install); 10-16
+  `CONNECT_TIMEOUT` at 28 s. Cause: unpinned `npx -y mongodb-mcp-server` re-resolves from npm on start
+  (cache 3.0.5, registry 3.1.0), so start-up depends on network/download time.
+- Proposed fix (awaiting approval): install a pinned version once and point the MCP command at it;
+  sync `.env` with the working credential.
+- Follow-up: user updated `.env`; it now equals the MCP credential and pings OK. Pre-warmed npx
+  cache: first `npx -y mongodb-mcp-server` took 52 s (> 30 s MCP timeout, confirming the cause),
+  cached start 0.8 s (v3.1.0). Reconnect via `/mcp`; pinning still pending approval.
+
+## [2026-10-18] audit | LAB go-live live recheck (mongo-his reconnected)
+
+- Verdict: NO-GO, but code drift is resolved. Read-only `module_api` comparison: live
+  `lab_cpoe_worklist` (updated 10-18 12:40), `lab_cpoe_receive_api`, `lab_no_generate_api`,
+  `hl7_result_upsert_api`, `emr-lab-board-get`, `emr-summary-get` (= READY-v2), `emr-history-get`
+  (= RESTORE-v1) and `Lab Reject Specimen` match local character counts exactly. Agent Submit differs
+  by 49 chars because live holds the real Agent URL/key instead of placeholders (expected).
+- Runtime since Receive deploy 10-04 17:46: 8 Outbound — BC `106910060001` resulted (only full
+  HIS→Agent→LIS→HIS final); MB `406910040010/11`, `406910080001/2` in_progress with preliminary
+  only; MB `406910090002` queued since 10-09; MB `406910090001` 422 `order_rejected` (LIS catalog
+  lacks 400305 Stain for Campylobacter); MY `416910040001` still `new`, never sent. No Outbound after
+  10-09, so today's Worklist deploy has no runtime proof.
+- Totals: Outbound 111 (new 60, queued 37, in_progress 9, resulted 4, cancelled 1); Work Item 208;
+  Inbound 29 (corrected/partial only 09-07, pre-deploy; one preliminary `error` 10-04); Edit Log 2;
+  Revision Log 14; Cancellation 11; EMR sensitive log last 10-01.
+- Remaining: E2E on current versions incl. corrected/duplicate/retry, MB final, MY send, Finance/
+  RBAC/EMR/PDF, reject/cancel/retest; fix LIS catalog 400305; reconcile old new/queued backlog.
+- Correction (user): pending/queued/never-sent Outbound are limited manual Agent test sends, not
+  failures; readiness is judged from orders with results. Re-read the 14 receipts since 10-01:
+  13 processed, every item matched (0 unmatched); report_seq 2–4 revisions processed; the 10-04
+  `error` was the guard rejecting "same result_version, changed value", followed by seq 3 processed.
+  Final receipts warn `ไม่มี explicit critical decision` (102501CD, 102504CD, 102504IC).
+  `400305` 422 comes from the Agent/LISconnect catalog, not HIS.
