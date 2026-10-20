@@ -1,36 +1,32 @@
 ---
 type: meta
 title: Hot Cache
-updated: 2026-10-16
+updated: 2026-10-20
 ---
 
 # 🔥 Hot Cache — read this first
 
 ## LAB / EMR
 
-- 2026-10-18 LAB live check: processes match local. Judge by resulted orders (pending ≠ failure): 13/14 receipts processed, all matched. Open: `400305` in Agent catalog, critical decision, UAT corrected/duplicate, BB/ML/BG, backlog. UAT covered `m1001`–`m1007`.
-- MB Form split actions/date/time; tests pass. Reason migration is complete. MY form `6acc8587481c196fbb332c60` has a staged 37-row import; deploy/UAT remain.
-- EMR History “ดูผลทั้งใบ” is ready; not deployed.
+- 2026-10-18 live check: LAB/EMR matches local except the real Agent Submit URL/key. Of 14 receipts since 10-01, 13 processed and all items matched; one version-guard rejection was later accepted. Open: code `400305` unmapped (422), no explicit LIS critical decision, corrected/duplicate and BB/ML/BG UAT gaps, Outbound backlog 60 new/37 queued.
+- Approved LAB popup mockup: `02-his/ui/lab-result-history-table-popup-confirmation.html`. New local SDForm package: `Form-Builder/SDForm/form-factory/forms/lab-emr-result-history-popup-v1.json`; no live Form/API/EMR wiring change. The form reads `field.params.lab_result_payload` (or demo fallback), has no room selector inside the popup, and supports BC/HM/ML/HH/IM/MI-OUT/MB/MY/BB/BG/PA. Standard rooms use the long history table with sticky Test left and Ref/Current/Unit/Interpretation right, without divider shadow. MB retains the MLab raw-result/card layout and 1/5/10 dropdown. MY shows one Test with a `ตำแหน่ง Specimen` column. IM/MI-OUT retain a mock re-auth gate; real authentication must be wired later. SDForm validator passes and all room/state checks pass. LAB and X-ray Worklist popup files were not changed; all EMR result popup migration remains a later, separately approved step.
+- X-ray history uses read-only `emr-xray-history-get` (`6ad58d76481c196fbb339ae8`): Visit → Order → room/modality → exam, five prior results by HN + exact exam code. Guide: `02-his/handoff/emr-xray-result-history-v1-import.md`.
+- EMR History replacements preserve existing viewers, Sensitive/HIV re-auth, PDF/attachments, Order/Visit, and Treat Summary. APIs unchanged; 10 tests and syntax pass.
 
-## HIS local · LISconnect endpoint handoff
+## X-ray / UAT
 
-- Outbound Order: update only protected `LAB Agent Order Submit` configuration with the new complete LISconnect `/api/orders` URL and `X-Agent-Key`; never place the key in SDForm/Vue/repository.
-- Inbound Result: Agent calls local HIS action `POST https://<local-his-host>/api/v1/external/lis.receive`, header `x-api-key`, body `{ "params": <result JSON> }`. Admin must issue hostname/key; do not reuse the outbound key. Status callback remains unconfirmed.
+- CPOE writes Order/Item only, never Bill or Visit Tran. Finance bills by visit, marks paid items `ready`, and opens that Visit’s X-ray queue. Reject stores reason; cancel resends stored JSON with `IsDeleted:true`; audit is append-only.
+- UAT HN `6900031`, VN `6900444`; never press real `ส่งเข้าเครื่อง`. Guarded `xray_uat_seed_api.js` never calls Agent/RIS or creates outbound X-ray orders.
+- Treat Summary X-ray shows latest result/PDF and exact-exam history. Replacement: `02-his/form-factory/treat-summary-onCreated-FULL-v3-REPLACE.txt`; surgical block: `treat-summary-xray-board-load-replace-v1.txt`.
+- Verified Skull AP/RD020 history/filtering. Retest clears current reject fields but keeps audit; `VB001` appears after hard refresh; other units are read-only; LAB paste stays in LAB; X-ray never creates/copies/closes Visit Tran.
 
-## X-ray
+## Blood Bank exports 2026-10-20
 
-- X-ray audit (2026-10-16): Radio Exam `6a8fde8a4c725771c62b1bc1` matches all 1,825 QSNICH EXAM codes/names. Of 621 active masters, 571 resolve; 50 lack mapping. Candidates: `47508→D891`, `RD076→D076`, `RD117→RD117`; confirm clinically.
-- Mapping fix is local: Dispatch `6a967029422c1ca959829edc` sends the mapped value/label; Worklist preserves mapped/legacy codes. Focused suites pass; stale suites remain. RIS Order `6a8f1ef87632d182ef6914fe` passes `D891` unchanged, so `xray_api_order` needs no mapping change. Team issues: pre-trim `AccessionNo`, no auth header (prior 401), forced `xrstatx=1`, unnormalized `IsDeleted`, and policy for missing Exam fields. Not deployed; files overlap user changes.
-- CPOE UAT (HN6900049/VN6900438): live order `R2610160001` created 1 linked Order + 6 X-ray Items and its EMR card shows 6 items/sent/฿26,550. No duplicate order was created by Codex. Defects: Order destination remains `m01.p ห้องยาพรีเมี่ยม`; no separate creation status/audit record was found.
-- Shared user-owned clone `6a995d064744260ea8c9498c` is stale versus admin original `6a927860422c1ca959829d26`. X-ray entry still shows all categories and defaults to Lab. Proposed only after approval: rebase while preserving VN/insurance/LAB deltas; add `xray_scope` (all X-ray sections, no room split); add top `ส่งต่อ (กำหนดเอง)` using existing Move Unit `6a4f828d22f95f21b606d9a2`. Move Unit requires active Visit Tran `_id`, not Visit `_id`; APIs must return it. No live Form/API change yet.
-- Queue scope parked (staff pick X-ray rooms only); EMR read-only.
-- Local `ติดตามคิว` search covers HN/VN/queue/name; tests pass.
-- Local Worklist Finance: `sent` red unpaid; `ready` green paid. My Room has Check-in; Unit Queue keeps `ซักประวัติ`. Live Form unchanged.
-- Dispatch uses `RadiologistFName` only. Manual X-ray result (current + immutable log) not deployed. Unit Queue changes need ListView reload.
+- Live CPOE Blood Bank read-only extraction exported 103 tests; no selection/save/submit or patient data. Detailed and grouped Excel/PDF/HTML outputs remain under prior recorded paths; grouped counts are 8 frequent, 20 `Antigen*`, 8 `*- Gel method`, and 67 other.
+- Converted `backup-data-zdata_bb_product_type-Earn_admin-2026_10_20_16_08_00.json` into `outputs/01a15892-2903-7bc3-ab34-4fbd3fd16167/bb-product-types-readable.xlsx`.
+- Workbook has a Thai-readable `สินค้าเลือด` sheet (7 products) and exact flattened `ข้อมูลระบบ` sheet (33 columns). Verified source/output row counts, leading-zero codes, nested ObjectId handling, no spreadsheet errors after saved-file reimport, and visual layout on both sheets.
 
 ## Guardrails
 
-- Live `mongo-his` is read-only in every case (user rule 2026-10-09).
-- Live EMR and non-user-owned/unknown Form/API/Report/SQL remain read-only. Ask before each user-owned live mutation.
-- Worktree is heavily dirty; never broad-stage/revert/mix changes. No commit for incomplete/read-only work.
-- Origin is PUBLIC. Repo files use placeholders (`__XRAY_LOCAL_AGENT_TOKEN__`, `staffNN@example.invalid`); real token in gitignored `.env`. 2026-10-16 work committed `0a36cdd`..`23668f8`. **Push blocked:** older unpushed `68caf35`..`7163b88` still hold the token (`39338ec` an email); the approved history rewrite was denied by auto mode — user must allow it. Never push `backup/pre-scrub-20261016`.
+- Live HIS MongoDB is read-only. Live EMR and non-user-owned/unknown Factory artifacts are read-only; ask before every user-owned live mutation.
+- Dirty worktree has overlapping X-ray work. Never broad-stage/revert/commit. Never expose Agent/RIS tokens.
