@@ -1,0 +1,25 @@
+const s = this.vueState;
+const field = this;
+if (!s || typeof s.load !== 'function') return;
+let attempts = 0;
+const start = () => {
+  let form = null;
+  try {
+    form = typeof field.getFormRef === 'function' ? field.getFormRef() : null;
+  } catch (error) {
+    form = null;
+  }
+  const api = (form && form.userState) || field.globalUserState || null;
+  if (api && typeof api.runProcess === 'function') {
+    if (typeof s.syncSensitiveUsername === 'function') s.syncSensitiveUsername();
+    s.load();
+    return;
+  }
+  attempts += 1;
+  if (attempts < 10) {
+    setTimeout(start, 50);
+    return;
+  }
+  s.load();
+};
+start();

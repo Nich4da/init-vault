@@ -1,32 +1,31 @@
 ---
 type: meta
 title: Hot Cache
-updated: 2026-10-20
+updated: 2026-10-21
 ---
 
 # 🔥 Hot Cache — read this first
 
-## LAB / EMR
+## Current task — shared EMR LAB result popup
 
-- 2026-10-18 live check: LAB/EMR matches local except the real Agent Submit URL/key. Of 14 receipts since 10-01, 13 processed and all items matched; one version-guard rejection was later accepted. Open: code `400305` unmapped (422), no explicit LIS critical decision, corrected/duplicate and BB/ML/BG UAT gaps, Outbound backlog 60 new/37 queued.
-- Approved LAB popup mockup: `02-his/ui/lab-result-history-table-popup-confirmation.html`. Local SDForm `Form-Builder/SDForm/form-factory/forms/lab-emr-result-history-popup-v1.json` now requires EMR `visit_id` plus Order/section identifiers and calls `emr-lab-board-get` (`6ab3be31cec3020e8562a2c9`) directly; all demo/fallback clinical values were removed. Standard rooms use the long history table; MB preserves raw MLab cards; MY adds `ตำแหน่ง Specimen`; IM/MI-OUT use the API `open_sensitive` re-auth path. The API accepts `history_limit` 1/5/10 (default 5 for existing consumers) and returns Order comments. SDForm validation and popup/API regression tests pass. No live artifact, EMR caller, LAB Worklist, or X-ray Worklist was changed; importing/replacing the Form and wiring the EMR opener require separate ownership verification and approval.
-- X-ray history uses read-only `emr-xray-history-get` (`6ad58d76481c196fbb339ae8`): Visit → Order → room/modality → exam, five prior results by HN + exact exam code. Guide: `02-his/handoff/emr-xray-result-history-v1-import.md`.
-- EMR History replacements preserve existing viewers, Sensitive/HIV re-auth, PDF/attachments, Order/Visit, and Treat Summary. APIs unchanged; 10 tests and syntax pass.
+- Approved prototype: `02-his/ui/lab-result-history-table-popup-confirmation.html`.
+- User-owned live UI form exists as `lab_popup_result`, Form ID `6ad789a39291822e416c02e7`, Created By `Nichada Patcharasumransuk` (verified in live SDForm list 2026-10-21).
+- Root cause of the reported old popup/double scrollbar: EMR History and EMR Treatment Summary still opened their old inline LAB dialogs (`ehLabDialog` / `tsLabDialog`). The new form existed but the “ดูผลทั้งใบ” buttons were never wired to it.
+- Local replacement now routes only LAB “ดูผลทั้งใบ” in both EMR surfaces to `lab_popup_result` via `openForm`, passing `visit_id`, `source_order_id`, `section_code`, and `lab_no`, read-only. X-ray buttons and LAB/X-ray Worklist forms were not changed.
+- Paste-ready event files:
+  - `02-his/form-factory/emr-history-onCreated-FULL-v2-REPLACE.txt`
+  - `02-his/form-factory/treat-summary-onCreated-FULL-v3-REPLACE.txt`
+- Matching templates that must also be replaced:
+  - `02-his/form-factory/emr-history-template-FULL-v1.txt`
+  - `02-his/form-factory/treat-summary-template-FULL-v1.txt`
+- Canonical event sources are under `Form-Builder/API/form-factory/events/`; HTML/TXT template pairs remain byte-identical.
+- Verification passed: new popup wiring regression, popup API/form contract (standard table, MB, MY, Sensitive), EMR History LAB card, EMR LAB legacy regression, X-ray regression, Sensitive re-auth regression, SDForm validator, and `git diff --check`.
+- No live EMR Form was edited. User previously chose to replace live content herself. After replacement, hard reload and test one BC order from both EMR History and the EMR card. Expected: shared long-table form, dropdown 1/5/10, no row-level “ผลก่อนหน้า” buttons, and no old nested dialog scrollbar.
+- Fixed local replacement for `Cannot read properties of undefined (reading 'userState')`: `lab_popup_result` no longer probes the parent Form or loads LAB data in vue-ui `onCreated`. `onMounted` waits up to 10 × 50 ms for a guarded Form/API connector, then synchronizes the Sensitive username and loads once. Full form: `Form-Builder/SDForm/form-factory/forms/lab-emr-result-history-popup-v1.json`. Paste-ready events: `02-his/form-factory/lab-popup-result-onCreated-FULL-v2-REPLACE.txt` and `lab-popup-result-onMounted-FULL-v1-REPLACE.txt`. No EMR live Form, LAB/X-ray Worklist, template, or API contract was changed in this lifecycle fix. Validator passed; lifecycle/API/table/MB/MY/Sensitive plus EMR LAB/X-ray regressions passed. Runtime Builder verification remains for the user after replacing both event boxes.
 
-## X-ray / UAT
+## LAB UAT seed safety/state
 
-- CPOE writes Order/Item only, never Bill or Visit Tran. Finance bills by visit, marks paid items `ready`, and opens that Visit’s X-ray queue. Reject stores reason; cancel resends stored JSON with `IsDeleted:true`; audit is append-only.
-- UAT HN `6900031`, VN `6900444`; never press real `ส่งเข้าเครื่อง`. Guarded `xray_uat_seed_api.js` never calls Agent/RIS or creates outbound X-ray orders.
-- Treat Summary X-ray shows latest result/PDF and exact-exam history. Replacement: `02-his/form-factory/treat-summary-onCreated-FULL-v3-REPLACE.txt`; surgical block: `treat-summary-xray-board-load-replace-v1.txt`.
-- Verified Skull AP/RD020 history/filtering. Retest clears current reject fields but keeps audit; `VB001` appears after hard refresh; other units are read-only; LAB paste stays in LAB; X-ray never creates/copies/closes Visit Tran.
-
-## Blood Bank exports 2026-10-20
-
-- Live CPOE Blood Bank read-only extraction exported 103 tests; no selection/save/submit or patient data. Detailed and grouped Excel/PDF/HTML outputs remain under prior recorded paths; grouped counts are 8 frequent, 20 `Antigen*`, 8 `*- Gel method`, and 67 other.
-- Converted `backup-data-zdata_bb_product_type-Earn_admin-2026_10_20_16_08_00.json` into `outputs/01a15892-2903-7bc3-ab34-4fbd3fd16167/bb-product-types-readable.xlsx`.
-- Workbook has a Thai-readable `สินค้าเลือด` sheet (7 products) and exact flattened `ข้อมูลระบบ` sheet (33 columns). Verified source/output row counts, leading-zero codes, nested ObjectId handling, no spreadsheet errors after saved-file reimport, and visual layout on both sheets.
-
-## Guardrails
-
-- Live HIS MongoDB is read-only. Live EMR and non-user-owned/unknown Factory artifacts are read-only; ask before every user-owned live mutation.
-- Dirty worktree has overlapping X-ray work. Never broad-stage/revert/commit. Never expose Agent/RIS tokens.
+- User-owned seed API `test_lab_uat` ID `6ad79a3d9291822e416c03d5`; never call Agent/LIS, receive specimen, or mutate finance.
+- BC seed order `R2610210005` on test visit `6ad6daa7481c196fbb33ab1b` has 5 LAB NOs and 9 final results (Liver Function + Electrolyte). Transport attempt 0; `agent_called=false`, `lis_called=false`; no finance rows.
+- All-room `create_suite` remains prepared but not run.
+- Worktree is dirty with unrelated/user-owned changes. Never broad-stage, revert, or commit.

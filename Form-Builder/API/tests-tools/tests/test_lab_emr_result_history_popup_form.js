@@ -30,6 +30,9 @@ const form = JSON.parse(fs.readFileSync(FORM, 'utf8'))
 const widget = findVueUi(form)
 assert(widget, 'LAB result form must contain one vue-ui widget')
 assert(!/DEMO|demoMlab|baseRows|genericRows|isDemo|lab_result_payload/.test(JSON.stringify(widget)), 'production form must not contain demo clinical-result fallbacks')
+assert(!widget.options.onCreated.trim().endsWith('s.load();'), 'popup must not read the Form connector during onCreated')
+assert.match(widget.options.onMounted, /setTimeout\(start, 50\)/, 'popup must wait for the parent Form connector after mount')
+assert.match(widget.options.onMounted, /form && form\.userState/, 'mounted loader must guard userState behind an existing Form ref')
 
 const history = Array.from({ length: 10 }, (_, index) => ({
   value: String(100 + index),
@@ -88,8 +91,39 @@ const boot = ({ params = {}, response, onCall }) => {
     notify() {},
   }
   new Function(widget.options.onCreated).call(context)
+  assert.strictEqual(calls.length, 0, 'onCreated must only initialize state and must not call the LAB API')
+  new Function('setTimeout', widget.options.onMounted).call(context, callback => callback())
   return { state, calls }
 }
+
+const createdWithoutParent = { vueState: {}, params: {}, notify() {} }
+assert.doesNotThrow(() => new Function(widget.options.onCreated).call(createdWithoutParent), 'onCreated must tolerate a parent Form that is not ready yet')
+assert.strictEqual(typeof createdWithoutParent.vueState.load, 'function')
+
+let connectorChecks = 0
+let delayedCalls = 0
+const delayedApi = {
+  user: { username: 'doctor.test' },
+  runProcess(processId, payload, success) {
+    delayedCalls += 1
+    success({ success: true, current_vn: 'VN-DELAYED', lab_orders: [standardOrder] })
+  },
+}
+const delayedContext = {
+  vueState: {},
+  params: { visit_id: 'VISIT-DELAYED', source_order_id: 'ORDER-BC', section_code: 'BC' },
+  getFormRef() {
+    connectorChecks += 1
+    return connectorChecks < 3 ? undefined : { userState: delayedApi, subFormClose() {} }
+  },
+  globalUserState: null,
+  notify() {},
+}
+new Function(widget.options.onCreated).call(delayedContext)
+assert.strictEqual(connectorChecks, 0, 'onCreated must not probe the parent Form')
+new Function('setTimeout', widget.options.onMounted).call(delayedContext, callback => callback())
+assert.strictEqual(connectorChecks, 5, 'mounted loader must retry until both the Form and API are available, then reuse it for username and LAB load')
+assert.strictEqual(delayedCalls, 1, 'delayed connector must trigger exactly one LAB API load')
 
 const missing = boot({ params: {}, response: {} })
 assert.strictEqual(missing.calls.length, 0, 'form must not query without visit_id')
