@@ -71,6 +71,10 @@ const MAX_CPOE_ITEM = 200;
 const MAX_RESULT_ROW = 300;
 const MAX_XRAY_ROW = 60;
 const TREND_POINTS = 5; // จุดสูงสุดต่อ 1 ค่าตรวจในมุมมอง "ตามค่าตรวจ"
+// Popup ผล LAB ใน EMR เลือกดูย้อนหลังได้ 1/5/10 ครั้ง. ค่าเริ่มต้น 5
+// เพื่อคง contract เดิมของผู้เรียกที่ยังไม่ได้ส่ง history_limit.
+const requestedHistoryLimit = Number(params.history_limit);
+const historyLimit = [1, 5, 10].indexOf(requestedHistoryLimit) >= 0 ? requestedHistoryLimit : 5;
 // 2026-09-25 confirmed policy: only a DOCTOR credential may authorize
 // disclosure outside Immunology. The signed-in viewer and authorizing doctor
 // may be different people (for example a LAB user asking a doctor to confirm).
@@ -479,10 +483,11 @@ const mapResultRow = (r) => {
 		verified_at: String(r.verified_at || ''),
 		verified_by_source_name: personName(r, 'verified'),
 		// `previous` remains for backward-compatible cards. The doctor's full
-		// result popup consumes `previous_values` (newest -> oldest, max 5).
+		// Result popup consumes `previous_values` newest -> oldest. The caller may
+		// request 1/5/10 occurrences; callers that omit the option still receive 5.
 		previous: previousData(r.__previous),
 		previous_values: (Array.isArray(r.__previous_values) ? r.__previous_values : r.__previous ? [r.__previous] : [])
-			.slice(0, 5)
+			.slice(0, historyLimit)
 			.map(previousData)
 			.filter(Boolean),
 		visibility: publicPolicy(policy),
@@ -877,6 +882,7 @@ const buildGroup = (g) => {
 		lab_no: g.lab_no || '',
 		patient_hn: String(hn || ''),
 		patient_name: g.patient_name || currentPatientName || '',
+		order_comment: g.order_comment || '',
 		specimen_name: uniq([].concat(g.specimen_names || []).filter(Boolean)).join(' / '),
 		specimen_names: uniq([].concat(g.specimen_names || []).filter(Boolean)),
 		ordered_items: Array.isArray(g.ordered_items) ? g.ordered_items : [],
@@ -922,7 +928,7 @@ if (currentVn) {
 		// ทั้งสาม query ใช้ key ที่ทราบแล้วและไม่พึ่งผลกัน จึงยิงพร้อมกันเพื่อลดเวลารวมของ Tab LAB.
 		const [orderRows, workRows, resultRows] = await Promise.all([
 			orderIds.length
-				? findAll(CPOE_ORDER_TABLE, { _id: idsIn(orderIds), xrstatx: 1 }, { limit: orderIds.length, projection: { order_number: 1, created_at: 1, current_status: 1, order_to_location: 1 } })
+				? findAll(CPOE_ORDER_TABLE, { _id: idsIn(orderIds), xrstatx: 1 }, { limit: orderIds.length, projection: { order_number: 1, order_comment: 1, created_at: 1, current_status: 1, order_to_location: 1 } })
 				: Promise.resolve([]),
 			findAll(
 				WORK_ITEM_TABLE,
@@ -974,12 +980,14 @@ if (currentVn) {
 				section: (wi && (wi.section_name || wi.section_code)) || '',
 				lab_no: (wi && wi.lab_no) || '',
 				ordered_at: (order && order.created_at) || (wi && wi.ordered_at) || it.created_at || '',
+				order_comment: (order && order.order_comment) || '',
 				received_at: (wi && wi.received_at) || '',
 				cancel_reason: (wi && (wi.cancel_reason || wi.reject_reason_detail)) || '',
 				patient_name: (wi && wi.patient_name) || currentPatientName || '',
 			});
 			if (!g.lab_no && wi && wi.lab_no) g.lab_no = wi.lab_no;
 			if (!g.received_at && wi && wi.received_at) g.received_at = wi.received_at;
+			if (!g.order_comment && order && order.order_comment) g.order_comment = order.order_comment;
 			if (!g.cancel_reason && wi && (wi.cancel_reason || wi.reject_reason_detail)) g.cancel_reason = wi.cancel_reason || wi.reject_reason_detail;
 			if (!g.patient_name && wi && wi.patient_name) g.patient_name = wi.patient_name;
 			specimen.specimen_names.forEach((name) => { if (g.specimen_names.indexOf(name) < 0) g.specimen_names.push(name); });
@@ -1034,7 +1042,7 @@ if (currentVn) {
 			});
 			const oIds = uniq(wRows.map((w) => String(w.source_order_id || '')));
 			const oRows = oIds.length
-				? await findAll(CPOE_ORDER_TABLE, { _id: idsIn(oIds), xrstatx: 1 }, { limit: oIds.length, projection: { order_number: 1, created_at: 1 } })
+				? await findAll(CPOE_ORDER_TABLE, { _id: idsIn(oIds), xrstatx: 1 }, { limit: oIds.length, projection: { order_number: 1, order_comment: 1, created_at: 1 } })
 				: [];
 			const oById = {};
 			oRows.forEach((o) => {
@@ -1059,6 +1067,7 @@ if (currentVn) {
 					section: (wi && (wi.section_name || wi.section_code)) || r.lab_section || 'Lab',
 					lab_no: (wi && wi.lab_no) || r.filler_order_no || '',
 					ordered_at: (order && order.created_at) || (wi && wi.ordered_at) || '',
+					order_comment: (order && order.order_comment) || '',
 					received_at: (wi && wi.received_at) || '',
 					cancel_reason: '',
 				});
@@ -1188,7 +1197,7 @@ if (currentVn) {
 				r.__previous_values = Object.keys(latestByOccurrence)
 					.map((occurrenceKey) => latestByOccurrence[occurrenceKey])
 					.sort((a, b) => resultTime(b).localeCompare(resultTime(a)))
-					.slice(0, 5);
+					.slice(0, historyLimit);
 				r.__previous = r.__previous_values[0] || null;
 			});
 		});
@@ -1357,6 +1366,7 @@ if (currentVn) {
 
 return {
 	success: true,
+	history_limit: historyLimit,
 	current_vn: currentVn,
 	service_date: currentDay,
 	ordered_today: orderedToday,
