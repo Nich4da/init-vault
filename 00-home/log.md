@@ -6092,3 +6092,14 @@ Append-only, chronological. Newest at the bottom. Each entry header is
   `02-initcraft/skills/report-design/`, updated manifest/index/checksums, and verified recursive byte
   equality plus frontmatter, link, YAML and checksum structure. The bundled quick validator remains
   unavailable because the current Python environment lacks the `yaml` module. No Live artifact changed.
+
+## [2026-10-29] schema | Claude-only wiki-capture habit
+
+- Added `CLAUDE.md` §16: after every completed, verified repo task with durable knowledge,
+  Claude Code updates/creates `01-knowledge-base/` pages with links; Claude also back-fills
+  finished Codex work. Codex is explicitly exempt (one-line note in `AGENTS.md`).
+- Also: Obsidian `.obsidian/app.json` now excludes `outputs/`, `node_modules/`, `tmp/`, `.tmp/`,
+  `.codex-tmp/` — Codex-created `node_modules` symlinks in `outputs/` had flooded Graph view
+  with ~1,200 npm README/CHANGELOG/LICENSE notes.
+- Git hygiene: `.gitignore` now ignores `outputs/`, `.obsidian/graph.json`, `.obsidian/workspace.json`
+  (the two Obsidian files untracked but kept locally); deleted empty `Untitled.canvas`.

@@ -175,6 +175,8 @@ and SQL Factory** artifacts.
 
 - `01-knowledge-base/` is maintained synthesis. Update cross-references,
   frontmatter dates, the index, log, and hot cache when knowledge changes.
+- `CLAUDE.md` §16 (wiki-capture habit) applies to Claude Code only. Codex does not
+  need to summarize finished work into `01-knowledge-base/`; Claude Code owns that.
 - `02-initcraft/` contains platform-level skills, governance, and the migration
   manifest.
 - `design/` contains user-approved system design contracts and implementation

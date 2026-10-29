@@ -59,4 +59,4 @@ HTTP 202 once and remain `queued`. Do not resend; reconcile, then remove the ove
   `6a977ac8422c1ca959829f97`, not QSNICH Admin duplicate `6a97aaf2422c1ca959829fdc`.
 - Ten-room Manual suite is Final; UAT outbounds remain `uat_bypassed`, attempt 0, no Agent/LIS call.
 - Local/Live receive API copies only an exact CPOE Order Boolean with a type guard.
-- 2026-10-29: user-requested checkpoint commit + push; `outputs/`, `Untitled.canvas` left untracked.
+- 2026-10-29: `8454e01` pushed. CLAUDE.md §16: Claude-only wiki-capture habit; Git/Obsidian ignore `outputs/`.

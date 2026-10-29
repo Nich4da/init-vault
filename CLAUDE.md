@@ -526,3 +526,24 @@ a reset for a harmless wording issue that was resolved immediately.
    comparison อัปเดต `00-home/log.md` และ Hot Cache เมื่อเกิด durable knowledge หรือ state ใหม่
 5. การอัปเดต Skill เป็น checkpoint ด้านความรู้ ไม่ใช่สิทธิ์แก้ Live Form/API/Report/SQL;
    ownership และ write gate ของ artifact นั้นยังบังคับเหมือนเดิม
+
+---
+
+## 16. Wiki-capture habit — Claude Code เท่านั้น
+
+กฎที่ผู้ใช้ตั้งไว้ 2026-10-29: งานที่เสร็จและตรวจแล้วต้องถูกสรุปลง wiki เป็นนิสัย ไม่ใช่ค้างอยู่แค่
+Hot Cache/log/handoff — **ผู้รับผิดชอบคือ Claude Code คนเดียว Codex ไม่ต้องทำ** (Codex ยังทำตาม
+§1–§15 ตามปกติ แต่ข้อ 16 นี้ไม่บังคับกับ Codex)
+
+1. **เมื่อไหร่:** ตอนจบทุกงานใน repo ที่เสร็จและตรวจแล้ว และสร้างความรู้ที่คงทน เช่น workflow,
+   contract, การตัดสินใจ, ข้อจำกัด, pattern UI ที่ยืนยันแล้ว, live fact ที่ยืนยันแล้ว
+   งาน read-only, งานที่ยังไม่เสร็จ, หรือ state ชั่วคราว (รอ approve, กำลังเทส) ไม่ต้องทำ — เก็บใน Hot Cache พอ
+2. **ทำอะไร:** อัปเดตหน้าที่มีอยู่ก่อนเสมอ; สร้างหน้าใหม่ใน `01-knowledge-base/` เฉพาะหัวข้อที่ยังไม่มีหน้า
+   ตาม §4 page format พร้อม `[[ลิงก์]]` ไปยังหน้าที่เกี่ยวข้อง และอ้าง artifact จริง
+   (`design/`, `02-his/handoff/`, `Form-Builder/...`) ด้วย path
+3. **งานของ Codex:** เมื่อ Claude Code พบงานที่ Codex ทำเสร็จแล้ว (จาก log/Hot Cache/git) แต่ยังไม่มีหน้า wiki
+   ให้ Claude Code เป็นคนสรุปเข้า wiki ในงานถัดไปที่เกี่ยวข้อง ระบุ provenance ว่ามาจากงานไหน
+4. **ขอบเขต:** สรุปเฉพาะสิ่งที่มีหลักฐาน ห้ามเดา (§10) ห้ามใส่ credential/ข้อมูลผู้ป่วย และไม่ถือเป็นสิทธิ์แก้
+   artifact อื่น ต้องทำตาม §14 (ห้ามทำของเดิมหาย) — แก้หน้าเดิมแบบเพิ่ม/ปรับ ไม่ลบข้อเท็จจริงที่ยังจริง
+5. **ปิดงาน:** อัปเดต `00-home/index.md`, ต่อท้าย `00-home/log.md` และ Hot Cache ตามปกติ
+   ในข้อความส่งงานให้บอกว่าหน้า wiki ไหนถูกสร้าง/อัปเดต
