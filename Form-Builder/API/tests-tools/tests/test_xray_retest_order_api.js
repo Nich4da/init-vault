@@ -42,6 +42,11 @@ const makeHarness = ({ items = null, cancellation = null } = {}) => {
       cancel_reason: 'แพทย์ยกเลิกคำสั่ง', cancelled_at: '2026-09-01 19:00:00',
       cancelled_by: { name: 'หมอ ก' }, cancellation_record_id: ORDER,
       cancel_type: 'xray_order_cancelled',
+      /* จำลองข้อมูลเสียจาก flow จริง: เคยปฏิเสธแล้วตรวจใหม่โดยรุ่นเก่า ก่อนยกเลิกซ้ำ */
+      rejected_at: '2026-09-01 18:00:00', rejected_by: { name: 'เจ้าหน้าที่เดิม' },
+      reject_reason_code: 'XRAYR-00002', reject_reason_detail: 'รายละเอียดเดิม',
+      reject_reason: 'ผู้ป่วยไม่มาตามนัด', rejection_record_id: 'ddddddddddddddddddddddd1',
+      rejected_organization_code: 'M0901',
     },
     {
       _id: ITEM_B, xrstatx: 1, order_ref_id: ORDER, service_type: { value: 'xray' },
@@ -52,11 +57,15 @@ const makeHarness = ({ items = null, cancellation = null } = {}) => {
     { _id: ITEM_LAB, xrstatx: 1, order_ref_id: ORDER, service_type: { value: 'lab' }, current_status: 'cancelled' },
   ]
   const itemMap = new Map(rows.map(row => [row._id, clone(row)]))
-  const orders = new Map([[ORDER, { _id: ORDER, xrstatx: 1, order_number: 'R2609010003' }]])
-  const cancellations = new Map([[ORDER, clone(cancellation || {
-    _id: ORDER, xrstatx: 1, cancel_status: 'applied', cancel_reason: 'แพทย์ยกเลิกคำสั่ง',
-    cancelled_at: '2026-09-01 19:00:00', item_ids: [ITEM_A, ITEM_B],
-  })]])
+  const orders = new Map([[ORDER, { _id: ORDER, xrstatx: 1, order_number: 'R2609010003',
+    xparentx: 'visit-retest-1', xunitx: { code: 'M0901', label: 'งานรังสีวิทยา' } }]])
+  const cancellations = new Map()
+  if (cancellation !== false) {
+    cancellations.set(ORDER, clone(cancellation || {
+      _id: ORDER, xrstatx: 1, cancel_status: 'applied', cancel_reason: 'แพทย์ยกเลิกคำสั่ง',
+      cancelled_at: '2026-09-01 19:00:00', item_ids: [ITEM_A, ITEM_B],
+    }))
+  }
 
   const matchesLink = (row, query) => {
     if (!query.$or) return true
@@ -113,6 +122,11 @@ const makeHarness = ({ items = null, cancellation = null } = {}) => {
         zdata_cpoe_order_item: itemCollection,
         zdata_cpoe_order: { findOne: async query => clone(orders.get(String(query._id)) || null) },
         zdata_xray_order_cancellation: cancellationCollection,
+        zdata_fa_bill_item: {
+          find: () => ({ toArray: async () => [] }),
+          updateOne: async () => ({ matchedCount: 0, modifiedCount: 0 }),
+        },
+        zdata_fa_bill: { find: () => ({ toArray: async () => [] }) },
       })[name],
     },
   }
@@ -155,12 +169,22 @@ const retest = (h, extra, user) => Process(
     assert.strictEqual(a.cancel_reason, '')
     assert.strictEqual(a.cancelled_at, '')
     assert.strictEqual(a.cancellation_record_id, '')
+    assert.strictEqual(a.reject_reason_code, '')
+    assert.strictEqual(a.reject_reason_detail, '')
+    assert.strictEqual(a.reject_reason, '')
+    assert.strictEqual(a.rejected_at, '')
+    assert.strictEqual(a.rejected_by, '')
+    assert.strictEqual(a.rejection_record_id, '')
+    assert.strictEqual(a.rejected_organization_code, '')
     assert.strictEqual(a.retest_at, '2026-09-03 12:00:00')
     assert.strictEqual(a.retest_by.name, 'เจ้าหน้าที่ รังสี')
     assert.deepStrictEqual(
       a.retest_log.map(entry => [entry.from_status, entry.to_status, entry.cleared_accession_no]),
       [['cancelled', 'sent', 'SM20260901DX001']],
     )
+    assert.strictEqual(a.retest_log[0].cleared_reject_reason_code, 'XRAYR-00002')
+    assert.strictEqual(a.retest_log[0].cleared_reject_reason, 'ผู้ป่วยไม่มาตามนัด')
+    assert.strictEqual(a.retest_log[0].cleared_rejection_record_id, 'ddddddddddddddddddddddd1')
 
     const b = h.items.get(ITEM_B)
     assert.strictEqual(b.current_status, 'sent')
@@ -178,6 +202,27 @@ const retest = (h, extra, user) => Process(
     assert.strictEqual(record.reopen_log.length, 1)
     assert.strictEqual(record.reopen_log[0].reopened_item_count, 2)
     assert.deepStrictEqual(record.reopen_log[0].item_ids, [ITEM_A, ITEM_B])
+  }
+
+  /* ปฏิเสธแล้วตรวจใหม่โดยตรงไม่มี cancellation audit — ต้องไม่แจ้ง reconcile ค้าง */
+  {
+    const h = makeHarness({
+      items: [{
+        _id: ITEM_A, xrstatx: 1, order_ref_id: ORDER, service_type: { value: 'xray' },
+        current_status: 'rejected', item_code: 'RD015', item_name: 'Neck AP',
+        rejected_at: '2026-09-01 18:00:00', rejected_by: { name: 'เจ้าหน้าที่เดิม' },
+        reject_reason_code: 'XRAYR-00002', reject_reason_detail: 'รายละเอียดเดิม',
+        reject_reason: 'ผู้ป่วยไม่มาตามนัด', rejection_record_id: 'ddddddddddddddddddddddd1',
+      }],
+      cancellation: false,
+    })
+    const out = await retest(h, { item_ids: [ITEM_A] })
+    assert.strictEqual(out.success, true, out.message)
+    assert.strictEqual(out.data.audit_sync_pending, false)
+    assert(!out.message.includes('reconcile'))
+    assert.strictEqual(h.items.get(ITEM_A).current_status, 'sent')
+    assert.strictEqual(h.items.get(ITEM_A).reject_reason, '')
+    assert.strictEqual(h.items.get(ITEM_A).rejection_record_id, '')
   }
 
   /* 2026-09-18: ใบเดียวมีหลายรายการ ตรวจใหม่ A ต้องไม่ปลุก B หรือล้างเลข B */
@@ -241,6 +286,10 @@ const retest = (h, extra, user) => Process(
     assert.strictEqual(out.success, true, out.message)
     assert.strictEqual(out.data.audit_sync_pending, false, 'สถานะ reopened ต้องไม่ทำให้ค้าง reconcile')
     assert.strictEqual(h.items.get(ITEM_A).current_status, 'cancelled')
+    assert.strictEqual(h.items.get(ITEM_A).reject_reason, '', 'เหตุผลปฏิเสธรอบก่อนห้ามกลับมาปนหลังยกเลิกซ้ำ')
+    assert.strictEqual(h.items.get(ITEM_A).reject_reason_code, '')
+    assert.strictEqual(h.items.get(ITEM_A).rejection_record_id, '')
+    assert.strictEqual(h.items.get(ITEM_A).cancel_reason, 'ยกเลิกอีกรอบ')
     assert.strictEqual(h.cancellations.get(ORDER).cancel_status, 'applied')
   }
 

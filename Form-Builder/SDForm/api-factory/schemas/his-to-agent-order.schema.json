@@ -6,6 +6,7 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
+    "event_type",
     "order_no",
     "labno",
     "hn",
@@ -15,6 +16,11 @@
     "items"
   ],
   "properties": {
+    "event_type": {
+      "type": "string",
+      "const": "lab.order.submit",
+      "description": "Event discriminator for a normal LAB order submitted from HIS to Agent. Blood Bank uses a separate contract."
+    },
     "order_no": {
       "type": "string",
       "minLength": 1,
@@ -60,6 +66,14 @@
     "patient_last_name": {
       "type": "string",
       "maxLength": 200
+    },
+    "mother_name": {
+      "type": "string",
+      "description": "Mother name supplied by HIS for Agent/LAB use. Optional until the authoritative HIS source mapping is confirmed."
+    },
+    "is_maternal_blood": {
+      "type": "boolean",
+      "description": "Whether the submitted specimen is maternal blood. Optional and must not be inferred when the HIS source does not provide an explicit boolean."
     },
     "birth_date": {
       "type": "string",

@@ -26,6 +26,8 @@ const ITEM_A = 'bbbbbbbbbbbbbbbbbbbbbbb1'
 const ITEM_B = 'bbbbbbbbbbbbbbbbbbbbbbb2'
 const ITEM_LAB = 'bbbbbbbbbbbbbbbbbbbbbbb3'
 const MASTER_A = 'ddddddddddddddddddddddd1'
+const BILL = 'eeeeeeeeeeeeeeeeeeeeeee1'
+const BILL_ITEM = 'fffffffffffffffffffffff1'
 
 const clone = value => JSON.parse(JSON.stringify(value))
 const radiologyUser = {
@@ -35,7 +37,7 @@ const radiologyUser = {
 const wardUser = { roles: ['auth'], username: 'ward', employee_code: 'W1', unit: { code: '19.P' } }
 
 const makeHarness = ({ items = null, cancellation = null, raceOn = '', risOrders = [],
-  risResults = [], risReplies = [], masters = [] } = {}) => {
+  risResults = [], risReplies = [], masters = [], billItems = [], bills = [], financeRaceOn = '' } = {}) => {
   const rows = items || [
     { _id: ITEM_A, xrstatx: 1, order_ref_id: ORDER, service_type: { value: 'xray' },
       current_status: 'sent', item_code: 'RD015', item_name: 'Neck AP' },
@@ -45,11 +47,14 @@ const makeHarness = ({ items = null, cancellation = null, raceOn = '', risOrders
       current_status: 'sent', item_code: 'CBC' },
   ]
   const itemMap = new Map(rows.map(row => [row._id, clone(row)]))
-  const orders = new Map([[ORDER, { _id: ORDER, xrstatx: 1, order_number: 'R2609010003' }]])
+  const orders = new Map([[ORDER, { _id: ORDER, xrstatx: 1, order_number: 'R2609010003',
+    xparentx: 'visit-cancel-1', xunitx: { code: 'M0901', label: 'งานรังสีวิทยา' } }]])
   const cancellations = new Map(cancellation ? [[ORDER, clone(cancellation)]] : [])
   const risRows = risOrders.map(clone)
   const resultRows = risResults.map(clone)
   const masterRows = new Map(masters.map(row => [String(row._id), clone(row)]))
+  const billItemRows = new Map(billItems.map(row => [String(row._id), clone(row)]))
+  const billRows = new Map(bills.map(row => [String(row._id), clone(row)]))
   const risCalls = []
   const replies = risReplies.slice()
 
@@ -94,6 +99,26 @@ const makeHarness = ({ items = null, cancellation = null, raceOn = '', risOrders
       return { matchedCount: 1, modifiedCount: 1 }
     },
   }
+  const billItemCollection = {
+    find: query => ({ toArray: async () => [...billItemRows.values()].filter(row => {
+      if (row.xrstatx === 0 || row.xrstatx === 3) return false
+      const wanted = query['order_item.value'] && query['order_item.value'].$in || []
+      return wanted.some(value => String(value) === String(row.order_item && row.order_item.value))
+    }).map(clone) }),
+    updateOne: async (query, update) => {
+      const row = billItemRows.get(String(query._id))
+      if (!row || String(query._id) === String(financeRaceOn)) return { matchedCount: 0, modifiedCount: 0 }
+      Object.assign(row, clone(update.$set || {}))
+      return { matchedCount: 1, modifiedCount: 1 }
+    },
+  }
+  const billCollection = {
+    find: query => ({ toArray: async () => {
+      const wanted = query._id && query._id.$in || []
+      return [...billRows.values()].filter(row => row.xrstatx !== 0 && row.xrstatx !== 3 &&
+        wanted.some(value => String(value) === String(row._id))).map(clone)
+    } }),
+  }
 
   const app = {
     isAuth: () => true,
@@ -109,6 +134,8 @@ const makeHarness = ({ items = null, cancellation = null, raceOn = '', risOrders
         zdata_cpoe_order_item: itemCollection,
         zdata_cpoe_order: { findOne: async query => clone(orders.get(String(query._id)) || null) },
         zdata_xray_order_cancellation: cancellationCollection,
+        zdata_fa_bill_item: billItemCollection,
+        zdata_fa_bill: billCollection,
         zdata_xray_order: { findOne: async query => clone(
           risRows.find(row => row.AccessionNo === query.AccessionNo && row.xrstatx !== 0 && row.xrstatx !== 3) || null
         ) },
@@ -126,7 +153,7 @@ const makeHarness = ({ items = null, cancellation = null, raceOn = '', risOrders
       return { success: true, reply: { data: reply } }
     },
   }
-  return { app, items: itemMap, cancellations, risCalls, replies }
+  return { app, items: itemMap, cancellations, risCalls, replies, billItems: billItemRows, bills: billRows }
 }
 
 const RIS_SOURCE = {
@@ -149,10 +176,56 @@ const cancel = (h, extra, user) => Process(
 )
 
 ;(async () => {
+  /* Finance preflight อ่านเฉพาะ X-ray item ที่เลือก และยังไม่เปลี่ยนสถานะใด ๆ */
+  {
+    const h = makeHarness({
+      billItems: [{ _id: BILL_ITEM, xrstatx: 1, order_item: { value: ITEM_A }, bill_id: { value: BILL }, item_status: 'active' }],
+      bills: [{ _id: BILL, xrstatx: 1, bill_status: 'paid', receipt_number: 'RC2600001' }],
+    })
+    const out = await Process({ action: 'check_cancel_finance', order_id: ORDER,
+      order_number: 'R2609010003', item_ids: [ITEM_A] }, radiologyUser, h.app)
+    assert.strictEqual(out.success, true, out.message)
+    assert.strictEqual(out.data.can_cancel, false)
+    assert.strictEqual(out.data.finance_status, 'paid_receipt_active')
+    assert.deepStrictEqual(out.data.receipt_numbers, ['RC2600001'])
+    assert.strictEqual(h.items.get(ITEM_A).current_status, 'sent')
+    assert.strictEqual(h.cancellations.size, 0)
+  }
+
+  /* ใบเสร็จ active ต้องบล็อกซ้ำฝั่ง write แม้ client ข้าม popup */
+  {
+    const h = makeHarness({
+      billItems: [{ _id: BILL_ITEM, xrstatx: 1, order_item: { value: ITEM_A }, bill_id: { value: BILL }, item_status: 'active' }],
+      bills: [{ _id: BILL, xrstatx: 1, bill_status: 'paid', receipt_number: 'RC2600001' }],
+    })
+    const out = await cancel(h, { item_ids: [ITEM_A] })
+    assert.strictEqual(out.success, false)
+    assert.strictEqual(out.error, 'finance_receipt_active')
+    assert.strictEqual(h.items.get(ITEM_A).current_status, 'sent')
+    assert.strictEqual(h.cancellations.size, 0)
+  }
+
+  /* Bill ที่ยังไม่ชำระยกเลิกได้ และต้องปิด bill item ชุดเดียวกับ X-ray item */
+  {
+    const h = makeHarness({
+      billItems: [{ _id: BILL_ITEM, xrstatx: 1, order_item: { value: ITEM_A }, bill_id: { value: BILL }, item_status: 'active' }],
+      bills: [{ _id: BILL, xrstatx: 1, bill_status: 'open', receipt_number: '' }],
+    })
+    const out = await cancel(h, { item_ids: [ITEM_A] })
+    assert.strictEqual(out.success, true, out.message)
+    assert.strictEqual(out.data.finance_status, 'unpaid')
+    assert.strictEqual(out.data.finance_cancelled_item_count, 1)
+    assert.strictEqual(h.billItems.get(BILL_ITEM).item_status, 'cancelled')
+    assert.strictEqual(h.billItems.get(BILL_ITEM).cancel_source, 'xray_order')
+    assert.strictEqual(h.items.get(ITEM_A).current_status, 'cancelled')
+    assert.strictEqual(h.items.get(ITEM_B).current_status, 'sent')
+  }
+
   /* ── ยกเลิกสำเร็จ ────────────────────────────────────────────────────── */
   {
     const h = makeHarness()
-    const out = await cancel(h, { order_number: 'R2609010003' })
+    const out = await cancel(h, { order_number: 'R2609010003',
+      cancel_reason_code: 'PHYSICIAN_CANCELLED', cancel_reason_detail: 'ตามคำสั่งแพทย์' })
     assert.strictEqual(out.success, true, out.message)
     assert.strictEqual(out.data.cancelled_item_count, 2, 'both X-ray items cancel; the LAB item is untouched')
     assert.strictEqual(out.data.item_count, 2)
@@ -161,6 +234,8 @@ const cancel = (h, extra, user) => Process(
 
     assert.strictEqual(h.items.get(ITEM_A).current_status, 'cancelled')
     assert.strictEqual(h.items.get(ITEM_A).cancel_reason, 'แพทย์ยกเลิกคำสั่ง')
+    assert.strictEqual(h.items.get(ITEM_A).cancel_reason_code, 'PHYSICIAN_CANCELLED')
+    assert.strictEqual(h.items.get(ITEM_A).cancel_reason_detail, 'ตามคำสั่งแพทย์')
     assert.strictEqual(h.items.get(ITEM_A).cancel_type, 'xray_item_cancelled')
     assert.strictEqual(h.items.get(ITEM_A).cancelled_at, '2026-09-01 19:00:00')
     assert.strictEqual(h.items.get(ITEM_B).current_status, 'cancelled')
@@ -169,6 +244,8 @@ const cancel = (h, extra, user) => Process(
     const log = h.cancellations.get(ORDER)
     assert.strictEqual(log.cancel_status, 'applied')
     assert.strictEqual(log.source_order_number, 'R2609010003')
+    assert.strictEqual(log.cancel_reason_code, 'PHYSICIAN_CANCELLED')
+    assert.strictEqual(log.cancel_reason_detail, 'ตามคำสั่งแพทย์')
     assert.deepStrictEqual(log.item_ids, [ITEM_A, ITEM_B])
   }
 

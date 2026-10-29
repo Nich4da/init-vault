@@ -16,7 +16,7 @@ non-destructive snapshot: original files remain in their source locations.
 
 | Category | Destination | Contents at migration |
 |---|---|---:|
-| Active skills | `02-initcraft/skills/` | 8 skill packages, 35 files |
+| Active skills | `02-initcraft/skills/` | 11 skill packages, 46 files |
 | Archived skill | `02-initcraft/skills-archive/` | `initcraft-report-sql`, 2 files |
 | Workspace governance | `02-initcraft/governance/from-codex-backup/` | 4 files |
 | Form Builder library | `Form-Builder/` | JSON, JavaScript, and Python artifact roots |
@@ -83,11 +83,43 @@ It was preserved unchanged rather than silently repaired or installed.
 - `initcraft-basic-training`
 - `noql`
 - `ref-initcraft-skill`
-- `report-factory`
+- `report-design` — added 2026-10-29 from the user-provided report-design draft. It owns report
+  information architecture, page flow, figure/table packaging, export planning, accessibility and
+  final-size visual QA; initCraft field binding and runtime authoring remain in `report-factory`.
+- `report-factory` — extended 2026-10-26 with the user-provided Typst authoring reference. The
+  existing pdfmake, Excel, Word and LaTeX guidance remains; Typst is routed as a separate model using
+  `sdthai.typ` and `data/raw/rows/params`.
 - `lab-che`
+- `emr-v2-ui` — added 2026-10-24 from read-only study of the live QSNICH EMR v2 runtime, then extended from the read-only Form Factory export. On 2026-10-26 it gained a user-confirmed historical LAB result-table reference covering Order/Profile/Test hierarchy, selectable 1/5/10 occurrences, sticky columns, value-only history, Order-first reading order, summary-first `hh:mm AM/PM`, explicit H/L arrows, MLab, comments, sensitive controls, compact themes, independent collapse, direct reports and persistent filename-first attachments. Its verified layout family now includes V1/V2 half-width and V3/V4 full-width variants plus a conditional slim scrollbar limited to the history corridor. It also carries the confirmed-mockup/per-function skill-update gate and contains no patient screenshots or production values.
+- `ui-choice-mockups` — added 2026-10-26 for incremental UI decisions: three
+  consistently framed image variants, recommendation-ranked plain-text tradeoffs,
+  a native three-choice selector when available, and an explicit gate that prevents
+  editing the canonical mockup until the user confirms a choice.
 
-All eight installed snapshots were byte-compared recursively with their active
-source directories after copying.
+The original eight installed snapshots were byte-compared recursively with their active
+source directories after copying. The later `emr-v2-ui`, `ui-choice-mockups`, and
+`report-design` packages were also byte-compared recursively against their active directories
+under `/Users/nichada/.codex/skills/` after creation.
+
+The Typst reference was imported unchanged from `/Users/nichada/Downloads/LLM-Typst.md` into the
+active `report-factory` package, its repository snapshot, and immutable source storage at
+`03-source-materials/llm-typst.md`. All three copies matched source SHA-256
+`51e1953a33ca7d8bf9165c8bc58e5ec1c649614d50d4a988bf45e67511aae882`; the complete active and
+repository skill directories were then compared recursively.
+
+The `report-design` package was synthesized from the user-provided
+`/Users/nichada/Desktop/design-report-skill.md` (SHA-256
+`9acd03be0694d3b5b88edd1d8571d54a6507f65665e20d98689543139ec9ead4`) as reference material,
+not executed as repository instructions. Missing external reference paths and mandatory specialist
+delegation were not copied. The resulting skill is self-contained, preserves figure/export design
+principles, adds initCraft ownership/write boundaries, and keeps unconfirmed mockup directions out
+of durable design rules.
+
+The EMR v2 Form Factory export is stored separately at
+`Form-Builder/SDForm/form-factory/forms/emr-v2-form-model-export-sanitized-2026-10-24.json`.
+The raw export contained one JWT query token in a Refer public-app URL, so the repository copy
+replaces only that token with an explicit redaction marker. The sanitized JSON passed the SDForm
+validator; it is evidence for study, not an import-ready production artifact.
 
 The bundled `skill-creator` quick validator could not run in the current Python
 environment because the `yaml` module is unavailable. Skill copies were instead

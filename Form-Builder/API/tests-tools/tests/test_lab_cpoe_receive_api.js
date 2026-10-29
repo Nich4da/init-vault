@@ -14,7 +14,8 @@ const ids = {
   order: '333333333333333333333333',
   master: '444444444444444444444444',
   master2: '555555555555555555555555',
-  visit: '666666666666666666666666'
+  visit: '666666666666666666666666',
+  person: '777777777777777777777777'
 }
 const clone = value => value == null ? value : JSON.parse(JSON.stringify(value))
 
@@ -37,6 +38,11 @@ const makeHarness = ({
   visitGenderCode = '1',
   orderVisitAn = '',
   visitAn = '',
+  personRelate = [
+    { r_code: 'SPS', r_fname: 'คู่สมรส', r_lname: 'ทดสอบ' },
+    { r_code: 'MTH', r_fname: 'มารดา', r_lname: 'ทดสอบ' },
+    { r_code: 'FTH', r_fname: 'บิดา', r_lname: 'ทดสอบ' }
+  ],
   userUnitCode = 'M1001'
 } = {}) => {
   const item = {
@@ -76,6 +82,7 @@ const makeHarness = ({
       value: ids.visit,
       vn: 'VN0001',
       pid: {
+        value: ids.person,
         hn: 'HN0001',
         prename: clone(patientPrename),
         p_fname: 'ทดสอบ',
@@ -104,6 +111,7 @@ const makeHarness = ({
     ...clone(master2Patch)
   }
   const masters = new Map([[ids.master, master], [ids.master2, master2]])
+  const person = { _id: ids.person, xrstatx: 1, relate: clone(personRelate) }
   const workItems = new Map()
   if (workPatch) {
     workItems.set(ids.item, {
@@ -197,7 +205,8 @@ const makeHarness = ({
       collection: name => ({
         zdata_cpoe_order_item: itemCollection,
         zdata_cpoe_order: { findOne: async query => String(query._id) === ids.order ? clone(order) : null },
-        zdata_visit: { findOne: async query => String(query._id) === ids.visit ? { pid: { p_gender: visitGenderCode }, an: visitAn } : null },
+        zdata_visit: { findOne: async query => String(query._id) === ids.visit ? { pid: { value: ids.person, p_gender: visitGenderCode }, an: visitAn } : null },
+        zdata_person: { findOne: async query => String(query._id) === ids.person ? clone(person) : null },
         zdata_master_item_order: { findOne: async query => clone(masters.get(String(query._id)) || null) },
         zdata_lab_work_item: workCollection,
         zdata_lab_outband_order: outboundCollection,
@@ -338,6 +347,8 @@ const makeHarness = ({
     assert.strictEqual(harness.workItems.get(ids.item).lab_no_source, 'cpoe_order')
     assert.strictEqual(harness.workItems.get(ids.item).section_code, sourceRoom.code)
     const payload = JSON.parse(harness.outboundRows.get(ids.item).request_payload_json)
+    assert.strictEqual(payload.event_type, 'lab.order.submit')
+    assert.strictEqual(payload.mother_name, 'มารดา ทดสอบ')
     assert.strictEqual(payload.items[0].seq, 1, sourceRoom.code + ' must not reuse the source LAB NO. as item seq')
     assert.strictEqual(payload.items[0].comment, 'หมายเหตุจาก CPOE')
     assert.deepStrictEqual(payload.items[0].specimens, specimens)
@@ -581,7 +592,8 @@ const makeHarness = ({
       patientPrename: { value: '001', label: 'ด.ช.', prename_full_name: 'เด็กชาย' },
       patientBirthDate: null,
       visitBirthDate: '2020-03-04',
-      visitGenderCode: '2'
+      visitGenderCode: '2',
+      orderPatch: { is_maternal_blood: true }
     })
     const selectedIds = [ids.item, ids.item2]
     const deferred = await Process.call(
@@ -608,6 +620,10 @@ const makeHarness = ({
     assert.strictEqual(payload.birth_date, '20200304')
     assert.strictEqual(payload.sex, 'F', 'batch payload must use coded Visit gender 2')
     assert.strictEqual(payload.patient_prefix, 'ด.ช.', 'batch payload must use prefix text, not the stored code')
+    assert.strictEqual(payload.mother_name, 'มารดา ทดสอบ', 'batch payload must select only the MTH relation row')
+    // 2026-10-28 user requirement: remove the temporary Order-number rule and
+    // preserve only the explicit Boolean supplied by the CPOE Order.
+    assert.strictEqual(payload.is_maternal_blood, true, 'batch payload must preserve the CPOE maternal-blood Boolean')
     assert.strictEqual(payload.visit_type, 'OPD', 'batch payload without AN must send OPD in visit_type')
     assert.deepStrictEqual(payload.encounter, { class: 'OPD' })
     assert.deepStrictEqual(payload.items.map(row => row.test_code), ['1087CD', '1088CD'])
@@ -626,6 +642,8 @@ const makeHarness = ({
     assert.strictEqual(harness.calls().agentPayloads[0].birth_date, '20200304')
     assert.strictEqual(harness.calls().agentPayloads[0].sex, 'F')
     assert.strictEqual(harness.calls().agentPayloads[0].patient_prefix, 'ด.ช.')
+    assert.strictEqual(harness.calls().agentPayloads[0].mother_name, 'มารดา ทดสอบ')
+    assert.strictEqual(harness.calls().agentPayloads[0].is_maternal_blood, true)
     assert.strictEqual(harness.outboundRows.size, 1, 'batch retry must reuse the same Outbound')
   }
 
@@ -683,6 +701,7 @@ const makeHarness = ({
     const payload = JSON.parse(outbound.request_payload_json)
     assert.strictEqual(payload.order_no, ids.item)
     assert.strictEqual(payload.items[0].test_code, '1087CD')
+    assert.strictEqual(payload.mother_name, 'มารดา ทดสอบ')
     assert.strictEqual(payload.items[0].collected_at, '2026-08-31T08:10:00+07:00')
     assert.strictEqual(outbound.last_error_code, '')
     assert.strictEqual(harness.calls().generatorCalls, 0)
@@ -692,6 +711,58 @@ const makeHarness = ({
       { isAuth: () => true }
     )
     assert.strictEqual(contractCheck.error, 'not_configured', 'ready snapshot must pass Agent schema validation')
+  }
+
+  {
+    const harness = makeHarness({
+      workPatch: {},
+      personRelate: [
+        { r_code: 'SPS', r_fname: 'คู่สมรส', r_lname: 'ทดสอบ' },
+        { r_code: 'FTH', r_fname: 'บิดา', r_lname: 'ทดสอบ' }
+      ]
+    })
+    const result = await Process.call(harness.context, { item_id: ids.item }, harness.userInfo, harness.app)
+    assert.strictEqual(result.success, true)
+    const payload = JSON.parse(harness.outboundRows.get(ids.item).request_payload_json)
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(payload, 'mother_name'), false, 'non-MTH relation rows must not populate mother_name')
+    // 2026-10-28 user requirement: absence is no longer converted to false by
+    // comparing the Order number with a UAT-only constant.
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(payload, 'is_maternal_blood'), false, 'missing CPOE Boolean must remain omitted')
+  }
+
+  // 2026-10-28 user requirement: the adapter must copy only exact CPOE
+  // Booleans and must never infer maternal blood from an Order number.
+  for (const [sourceValue, expectedPresent, expectedValue] of [
+    [true, true, true],
+    [false, true, false],
+    [undefined, false, undefined],
+    ['true', false, undefined]
+  ]) {
+    const harness = makeHarness({
+      orderPatch: sourceValue === undefined ? {} : { is_maternal_blood: sourceValue },
+      workPatch: {}
+    })
+    const result = await Process.call(harness.context, { item_id: ids.item }, harness.userInfo, harness.app)
+    assert.strictEqual(result.success, true)
+    const payload = JSON.parse(harness.outboundRows.get(ids.item).request_payload_json)
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(payload, 'is_maternal_blood'), expectedPresent)
+    assert.strictEqual(payload.is_maternal_blood, expectedValue)
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(harness.calls().agentPayloads[0], 'is_maternal_blood'), expectedPresent)
+    assert.strictEqual(harness.calls().agentPayloads[0].is_maternal_blood, expectedValue)
+  }
+
+  {
+    // 2026-10-29 temporary production UAT: only this exact Order is forced
+    // to maternal blood; every other Order keeps the Boolean/omission contract above.
+    const harness = makeHarness({
+      orderPatch: { order_number: 'R2610290002', is_maternal_blood: false },
+      workPatch: {}
+    })
+    const result = await Process.call(harness.context, { item_id: ids.item }, harness.userInfo, harness.app)
+    assert.strictEqual(result.success, true)
+    const payload = JSON.parse(harness.outboundRows.get(ids.item).request_payload_json)
+    assert.strictEqual(payload.is_maternal_blood, true)
+    assert.strictEqual(harness.calls().agentPayloads[0].is_maternal_blood, true)
   }
 
   {
@@ -1186,6 +1257,7 @@ const makeHarness = ({
           const outbound = harness.outboundRows.get(ids.item)
           assert(outbound, room.code + '/' + scenario + ' must persist Outbound snapshot')
           const payload = JSON.parse(outbound.request_payload_json)
+          assert.strictEqual(payload.event_type, 'lab.order.submit')
           assert.strictEqual(payload.labno, labNo)
           assert(payload.items.every((row, index) => row.seq === index + 1))
           assert(payload.items.every(row => row.lab_code === room.code))

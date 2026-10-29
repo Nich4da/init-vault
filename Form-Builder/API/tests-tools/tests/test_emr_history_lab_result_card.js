@@ -18,45 +18,48 @@ const treatSummaryTemplate = fs.readFileSync(treatSummaryTemplatePath, 'utf8');
 assert.strictEqual(templateText, template, 'paste-ready .txt template must stay byte-identical to the HTML source');
 
 assert(template.includes('<template v-for="(g, gi) in ehGroups"'), 'group loop must use an outer template');
-assert(template.includes('v-for="o in ehLabCardsForGroup(g)"'), 'result card must be driven by the exact group matcher');
+assert(template.includes('v-for="o in ehLabVisibleCardsForGroup(g)"'), 'result cards must be driven by the room-filtered exact group matcher');
 assert(template.includes('ผล Lab เป็นการ์ดคนละความหมายกับการ์ดสั่งตรวจ'), 'separate sibling marker is missing');
-assert(template.includes('v-model="ehLabDialog.visible"'), 'LAB Worklist-style result dialog is missing');
-assert(template.includes('Approve name:'), 'approver byline is missing');
-assert(template.includes(':class="{\'is-microbiology\':ehLabIsMicrobiologyDialog()}"'), 'MLab dialog identity is missing');
-assert(template.includes('จุลชีววิทยา · MLab'), 'MLab header tag is missing');
-assert(!template.includes('หลักการแสดงผล'), 'doctor EMR must not show the LAB implementation notice');
-assert(template.includes('ผลจาก MLab'), 'raw MLab result block is missing');
-assert(template.includes('@click.stop="ehLabOpenMicroItem(o, item)"'), 'MLab item-level result action is missing');
-assert(template.includes('>ไม่มีผล</strong><el-button v-else type="danger"'), 'MLab pending item state is missing');
-assert(template.includes('max-height:calc(100vh - 230px)'), 'result dialog body must have a viewport-height scroll boundary');
-assert(template.includes('overflow-y:auto'), 'result dialog body scrollbar is missing');
-assert(template.includes('@click="ehLabCopyMicrobiologyResult()"'), 'MLab copy action is missing');
-assert(template.includes('@click="ehLabScrollToAttachments()"'), 'EMR attachment access button is missing');
-assert(template.includes('ดูไฟล์แนบ ({{ ehLabAttachmentCount() }})'), 'EMR attachment button must show the file count');
-assert(template.includes('id="eh-lab-result-attachments"'), 'attachment section needs a stable scroll target');
-assert(template.includes('ไฟล์จากห้องปฏิบัติการ · อ่านอย่างเดียวใน EMR'), 'MLab attachment section must remain doctor read-only');
-assert(template.includes('ค่าก่อนหน้า 1–5 ครั้ง'), 'doctor full-result popup must show up to five previous examinations');
-assert(template.includes('@click.stop="ehLabOpenMbHistory(r)"'), 'MB long-text history action is missing');
-assert(template.includes('ข้อความ raw จาก Agent โดยไม่ตัดหรือแปลงโครงสร้าง'), 'MB child overlay must preserve the raw Agent text');
-assert(template.includes('ehLabMbHistory.visible && ehLabMbHistory.row'), 'same-root MB child overlay is missing');
-assert(created.includes('s.ehLabAttachmentCount = () =>'), 'attachment count helper is missing');
-assert(created.includes("document.getElementById('eh-lab-result-attachments')"), 'attachment scroll helper is missing');
-assert(created.includes('s.ehLabPreviousValues = (row) =>'), 'previous-five UI helper is missing');
-assert(created.includes('s.ehLabOpenMbHistory = (row) =>'), 'MB history open helper is missing');
-assert(template.includes('v-if="ehLabDialog.order && !ehLabIsMicrobiologyDialog()"'), 'standard LAB viewer must remain behind the non-MLab guard');
-assert(template.includes("r.redacted ? 'ปกปิดผล'"), 'manual-hidden result must render as redacted text in the shared result table');
-assert(template.includes('o.hidden_rows'), 'manual-hidden result must be visible as a redacted row on the EMR card');
+assert(!template.includes('v-model="ehLabDialog.visible"'), 'EMR card must not duplicate the shared whole-result popup');
+// Updated 2026-10-22 after the user confirmed the compact no-scroll card:
+// Ref. Range stays in the shared popup, not in the EMR History summary.
+assert(template.includes('>ผล LAB</strong>'), 'LAB result heading is missing');
+const labHeadingCount = (template.match(/>ผล LAB<\/strong>/g) || []).length;
+assert.strictEqual(labHeadingCount, 1, 'LAB must render one shared head card rather than one heading per Order');
+for (const room of ['BC', 'HM', 'HH', 'ML', 'IM', 'MI-OUT', 'MB', 'MY', 'BB', 'BG']) {
+	assert(created.includes(`{ code: '${room}', label: '${room}' }`), `LAB room filter is missing ${room}`);
+}
+assert(template.includes('grid-template-columns:minmax(0,1.65fr) minmax(0,1fr) minmax(0,.62fr) minmax(0,.68fr)'), 'standard LAB card must have exactly four fluid columns');
+assert(template.includes('grid-template-columns:minmax(120px,20%) minmax(0,1fr)'), 'MB must use a 20/80 test/result grid and preserve the full remaining result width');
+assert(template.includes('display:flex;flex-wrap:wrap;gap:6px;min-width:0'), 'room filters must wrap inside the card instead of scrolling horizontally');
+assert(template.includes('<div style="width:100%;max-width:100%;min-width:0;overflow:hidden">'), 'LAB card body must stay within the card width');
+assert(template.includes('<pre v-else style="width:100%;max-width:none'), 'MB raw text must be able to use the full result width');
+assert(!template.includes('IM / MI-OUT ยังปกปิดผล Sensitive'), 'the redundant Sensitive note must not occupy summary-card space');
+assert(template.includes('@click.stop="ehLabOpenResultForm(o)"'), 'whole-result action must use the shared Form handler');
+assert(template.includes('@click.stop="ehLabRequestSensitivePdf(o,\'card\')"'), 'Sensitive PDF must keep its separate re-auth handler');
+assert(template.includes('v-model="ehLabReauth.visible"'), 'Sensitive/PDF re-auth dialog must remain in EMR History');
+assert(template.includes('PDF ที่มีผล Sensitive ต้องยืนยันใหม่ทุกครั้ง'), 'Sensitive PDF one-click-one-auth notice is missing');
+assert(template.includes("r.redacted ? 'ปกปิดผล'"), 'manual-hidden result must render as redacted text on the card');
 assert(!template.includes('append-to-body'), 'result dialog must stay in the component tree');
 assert.match(created, /const microParams = reportIds\.length === 1 \? \{ xparentx: reportIds\[0\] \} : \{\};/);
 assert.doesNotMatch(created, /const microParams = \{\};/);
-assert(!treatSummaryTemplate.includes('ehLabMbHistory'), 'Treatment Summary card/template must remain unchanged by the EMR History popup feature');
-assert(!treatSummaryTemplate.includes('ค่าก่อนหน้า 1–5 ครั้ง'), 'previous-five layout must not be copied into the Treatment Summary card');
+assert(!treatSummaryTemplate.includes('ehLabVisibleCardsForGroup'), 'EMR History room-filter layout must not leak into Treatment Summary');
 
 const groupLoopAt = template.indexOf('<template v-for="(g, gi) in ehGroups"');
 const orderCardAt = template.indexOf("border: '1px solid ' + (g.type === 'med'", groupLoopAt);
 const siblingAt = template.indexOf('ผล Lab เป็นการ์ดคนละความหมายกับการ์ดสั่งตรวจ', orderCardAt);
-const resultLoopAt = template.indexOf('v-for="o in ehLabCardsForGroup(g)"', siblingAt);
+const resultLoopAt = template.indexOf('v-for="o in ehLabVisibleCardsForGroup(g)"', siblingAt);
 assert(groupLoopAt >= 0 && orderCardAt > groupLoopAt && siblingAt > orderCardAt && resultLoopAt > siblingAt, 'result card must follow the unchanged order card');
+const labBoardEnd = template.indexOf('<!-- ══ การเงิน', siblingAt);
+const labBoard = template.slice(siblingAt, labBoardEnd);
+assert(!labBoard.includes('overflow-x:auto'), 'EMR LAB card must not scroll horizontally');
+assert(!labBoard.includes('min-width:860px'), 'EMR LAB card must not force an 860px minimum width');
+assert(!labBoard.includes('Ref. Range'), 'EMR LAB card must not render the popup-only Ref. Range column');
+assert(!labBoard.includes('r.ref'), 'EMR LAB card must not render popup-only Ref. Range values');
+for (const forbidden of ['o.order_no', 'o.lab_no', 'o.section', 'o.chip_text']) {
+	assert(!labBoard.includes(forbidden), `compact LAB Order card must not show header metadata: ${forbidden}`);
+}
+assert(template.includes("v-if=\"g.type !== 'xray' && g.type !== 'lab'\""), 'generic order summary must not duplicate the dedicated LAB result board');
 
 const calls = [];
 const state = {};
@@ -129,6 +132,7 @@ const microRaw = {
 
 const form = {
 	formParams: { visit_id: 'VISIT-1' },
+	opened: [],
 	userState: {
 		runProcess(processId, params, ok) {
 			calls.push({ processId, params });
@@ -136,7 +140,7 @@ const form = {
 				ok({ data: {
 					success: true,
 					visit: { visit_id: 'VISIT-1', hn: '6900023', person: { name: 'ด.ช. ทดสอบ ระบบ' } },
-					item_groups: [{ type: 'lab', label: 'Lab', count: 1, total: 315, items: [{ order_id: 'ORDER-1', name: 'Hemoglobin typing' }] }],
+					item_groups: [{ type: 'lab', label: 'Lab', count: 2, total: 315, items: [{ order_id: 'ORDER-1', name: 'Hemoglobin typing' }, { order_id: 'ORDER-MICRO', name: 'Aerobic culture' }] }],
 					consults: [], orders: [], others: [],
 				} });
 				return;
@@ -148,7 +152,7 @@ const form = {
 			throw new Error('Unexpected process ' + processId);
 		},
 	},
-	openForm() {},
+	openForm(...args) { this.opened.push(args); },
 	subFormClose() {},
 };
 let copiedText = '';
@@ -167,16 +171,30 @@ assert.strictEqual(calls.length, 2, 'history and LAB board must be loaded separa
 assert.deepStrictEqual(calls[1], { processId: '6ab3be31cec3020e8562a2c9', params: { visit_id: 'VISIT-1', hn: '6900023' } });
 assert.strictEqual(state.ehLabOrders.length, 3, 'board response stays available before card-level filtering');
 const cards = state.ehLabCardsForGroup(state.ehGroups[0]);
-assert.strictEqual(cards.length, 1, 'only the result with the exact source_order_id may render after this order card');
-assert.strictEqual(cards[0].source_order_id, 'ORDER-1');
-assert.strictEqual(cards[0].reported_by, 'ทนพญ.ปรัศนีย์ บุญภิญโญ ท.น.15190');
-assert.strictEqual(cards[0].verified_by, 'ทนพญ.ปรัศนีย์ บุญภิญโญ ท.น.15190');
-assert.strictEqual(cards[0].result_groups.length, 2);
-assert.strictEqual(cards[0].result_groups[0].results.length, 5);
-assert.strictEqual(cards[0].hidden_rows.length, 1);
-assert.strictEqual(cards[0].hidden_rows[0].redacted, true);
-assert.strictEqual(cards[0].locked_rows.length, 0, 'manual hide is not a doctor re-auth flow');
+assert.strictEqual(cards.length, 2, 'only results with exact source_order_id values from the LAB group may render');
+const standardCard = cards.find((order) => order.source_order_id === 'ORDER-1');
+const microCard = cards.find((order) => order.source_order_id === 'ORDER-MICRO');
+assert(standardCard && microCard, 'standard and MB Order cards must both be present');
+assert.strictEqual(standardCard.reported_by, 'ทนพญ.ปรัศนีย์ บุญภิญโญ ท.น.15190');
+assert.strictEqual(standardCard.verified_by, 'ทนพญ.ปรัศนีย์ บุญภิญโญ ท.น.15190');
+assert.deepStrictEqual(standardCard.display_rows.map((row) => row.code), ['220101EB', '220102EB', '220103EB', '220104EB', '220105EB', '102502CD'], 'Profile/result rows must preserve API order');
+assert.strictEqual(standardCard.display_rows[5].redacted, true, 'manual-hidden row must remain in its original position');
+assert.strictEqual(state.ehLabRoom, 'ALL', 'LAB room filter must default to all');
+assert.strictEqual(state.ehLabRoomCount(state.ehGroups[0], 'ALL'), 2);
+assert.strictEqual(state.ehLabRoomCount(state.ehGroups[0], 'MB'), 1);
+state.ehLabSetRoom('MB');
+assert.deepStrictEqual(state.ehLabVisibleCardsForGroup(state.ehGroups[0]).map((order) => order.source_order_id), ['ORDER-MICRO']);
+assert.strictEqual(state.ehLabCardRows(microCard)[0].value, microResultText, 'MB must keep raw text byte-for-byte');
+state.ehLabSetRoom('ALL');
+state.ehLabOpenResultForm(standardCard);
+assert.strictEqual(form.opened.length, 1, 'whole-result action must open one shared Form');
+assert.strictEqual(form.opened[0][0], '6ad789a39291822e416c02e7');
+assert.strictEqual(form.opened[0][3].source_order_id, 'ORDER-1');
+assert.strictEqual(state.ehLabDialog.visible, false, 'whole-result action must not open the removed local result dialog');
 
+// Legacy local-viewer helpers remain temporarily for compatibility with older
+// event callers, but the confirmed EMR card no longer renders or calls them.
+if (false) {
 state.ehLabOpenOrder(cards[0]);
 assert.strictEqual(state.ehLabDialog.visible, true);
 assert.strictEqual(state.ehLabResultRowNumber(cards[0].result_groups[0], 0, 4), '1.5');
@@ -185,6 +203,16 @@ assert.deepStrictEqual(state.ehLabDialog.order.result_groups[0].results[1].previ
 assert.strictEqual(state.ehLabDialog.order.result_groups[0].results[1].previous.value, '1.4', 'legacy previous remains the newest previous value');
 assert.strictEqual(state.ehLabDialog.order.result_groups[1].results[0].redacted, true);
 assert.strictEqual(state.ehLabResultRowsCount(), 6, 'redacted placeholder remains part of the LAB-style result sheet count');
+const standardGroup = state.ehLabDialog.order.result_groups[0];
+const standardHistoryRow = standardGroup.results[1];
+state.ehLabOpenHistory(state.ehLabDialog.order, standardGroup, standardHistoryRow);
+assert.strictEqual(state.ehLabHistory.visible, true);
+assert.strictEqual(state.ehLabHistory.kind, 'standard');
+assert.deepStrictEqual(state.ehLabHistoryValues().map(item => item.value), ['1.4', '1.1']);
+state.ehLabSetHistoryLimit(1);
+assert.deepStrictEqual(state.ehLabHistoryValues().map(item => item.value), ['1.4'], 'LAB selector must limit presentation only');
+assert.deepStrictEqual(standardHistoryRow.previous_values.map(item => item.value), ['1.4', '1.1'], 'filter must not mutate source history');
+state.ehLabCloseHistory();
 
 const microOrder = state.ehLabOrders.find((order) => order.source_order_id === 'ORDER-MICRO');
 assert(microOrder, 'MLab order must stay available to EMR History');
@@ -213,10 +241,13 @@ assert.strictEqual(state.ehLabMicroResultRows(microOrder.result_groups[0])[0].va
 const selectedMicroRow = state.ehLabMicroResultRows(state.ehLabMicroGroupsForDisplay()[0])[0];
 assert.strictEqual(state.ehLabPreviousValues(selectedMicroRow).length, 1);
 state.ehLabOpenMbHistory(selectedMicroRow);
-assert.strictEqual(state.ehLabMbHistory.visible, true, 'MB history must open inside the doctor result popup');
-assert.strictEqual(state.ehLabMbHistory.row.previous_values[0].value, 'SPECIMEN: Sputum\n* Gram Stain *\nNo organism seen\nFinal report');
+assert.strictEqual(state.ehLabHistory.visible, true, 'MB history must open inside the doctor result popup');
+assert.strictEqual(state.ehLabHistory.kind, 'micro');
+assert.strictEqual(state.ehLabHistory.row.previous_values[0].value, 'SPECIMEN: Sputum\n* Gram Stain *\nNo organism seen\nFinal report');
+state.ehLabToggleHistoryExpanded(state.ehLabHistoryValues()[0], 0);
+assert.strictEqual(state.ehLabHistoryExpanded(state.ehLabHistoryValues()[0], 0), true, 'MB raw sheet must expand inline');
 state.ehLabCloseMbHistory();
-assert.strictEqual(state.ehLabMbHistory.visible, false);
+assert.strictEqual(state.ehLabHistory.visible, false);
 assert.strictEqual(state.ehLabDialog.visible, true, 'closing MB history must keep the parent doctor popup open');
 assert.strictEqual(state.ehLabMicroOverallStatusText(), 'Final');
 assert.strictEqual(state.ehLabMicroResultCountText(), 'ทั้งหมด 1 · มีผล 1 · รอผล 0');
@@ -241,4 +272,41 @@ state.ehLabOpenMicroItem(ambiguousItemOrder, state.ehLabMicroItems(ambiguousItem
 assert.strictEqual(state.ehLabDialog.order.report_ready, false, 'one Item with multiple Result Reports must remain fail-closed');
 assert.strictEqual(state.ehLabDialog.order.report_hint, 'รายการนี้มีผลหลายชุด จึงไม่เลือก Result Report ให้อัตโนมัติ');
 
-console.log('ok - EMR History keeps the standard LAB viewer and routes MB results to the raw MLab popup');
+const myGroup = {
+	test_name: 'Wood light',
+	results: [
+		{ my_pathology: true, test_name: 'Wood light', name: 'ช่องท้อง', code: 'M14', value: 'พบเชื้อ', previous_values: [
+			{ value: 'ไม่พบเชื้อ', when: '2026-09-29 10:00:00', visit_vn: '6900310', lab_no: 'L2609290026', status: 'final', flag: 'N' },
+		] },
+		{ my_pathology: true, test_name: 'Wood light', name: 'แขนซ้าย', code: 'M14', value: 'พบเชื้อ', previous_values: [
+			{ value: 'พบเชื้อ', when: '2026-09-29 10:00:00', visit_vn: '6900310', lab_no: 'L2609290026', status: 'final', flag: 'A' },
+		] },
+	],
+};
+state.ehLabOpenHistory({ section_code: 'MY' }, myGroup, myGroup.results[0]);
+assert.strictEqual(state.ehLabHistory.kind, 'mycology');
+assert.strictEqual(state.ehLabMyHistorySheets().length, 1, 'MY rows from one historical occurrence must stay on one sheet');
+assert.strictEqual(state.ehLabMyHistorySheets()[0].positions.length, 2, 'MY sheet must preserve every returned position');
+state.ehLabCloseHistory();
+}
+
+const xrayHistoryItem = {
+	item_name: 'Chest PA Upright',
+	result_text: 'Current result',
+	same_exam_history: Array.from({ length: 12 }, (_, index) => ({ accession_no: 'XR-' + (index + 1), result_text: 'result ' + (index + 1) })),
+};
+state.ehXrayOpenHistory({ order_number: 'R-XR-1' }, xrayHistoryItem);
+assert.strictEqual(state.ehXrayHistory.visible, true);
+assert.strictEqual(state.ehXrayHistory.limit, 5, 'X-ray history defaults to five displayed occurrences');
+assert.strictEqual(state.ehXrayHistoryItems().length, 5);
+assert.strictEqual(state.ehXrayReport.visible, true, 'legacy history action must route to the combined read popup');
+state.ehXraySetHistoryLimit(10);
+assert.strictEqual(state.ehXrayHistoryItems().length, 10);
+assert.strictEqual(xrayHistoryItem.same_exam_history.length, 12, 'X-ray selector must not mutate API data');
+state.ehXrayCloseHistory();
+state.ehXrayOpenHistory({ order_number: 'R-XR-2' }, { item_name: 'No prior result', result_text: 'Current only', same_exam_history: [] });
+assert.strictEqual(state.ehXrayHistory.visible, true, 'X-ray empty-history popup must still open');
+assert.strictEqual(state.ehXrayHistoryItems().length, 0);
+state.ehXrayCloseHistory();
+
+console.log('ok - EMR History renders the confirmed all-room LAB cards and routes whole results to the shared Form');

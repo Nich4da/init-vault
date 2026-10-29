@@ -300,7 +300,7 @@
         </div>
 
         <template v-for="(g, gi) in ehGroups" :key="'grp' + gi">
-          <div
+          <div v-if="g.type !== 'xray' && g.type !== 'lab'"
             :style="{ padding: '12px 14px', borderRadius: '8px', background: 'var(--el-fill-color-blank)',
                       border: '1px solid ' + (g.type === 'med' ? 'var(--el-color-success-light-7)' : 'var(--el-border-color-light)') }">
             <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
@@ -333,6 +333,47 @@
               <div v-if="it.comment" style="font-size:11.5px;color:var(--el-text-color-placeholder);overflow-wrap:anywhere">หมายเหตุ: {{ it.comment }}</div>
             </div>
           </div>
+          <!-- X-ray แยกจากการ์ด generic เฉพาะแท็บนี้: Head card เดียว → Order sub-card → ห้อง/เครื่อง → รายการตรวจ -->
+          <template v-if="g.type === 'xray'">
+            <section style="overflow:hidden;border:1px solid var(--el-border-color-light);border-radius:10px;background:var(--el-bg-color)">
+              <header style="display:flex;align-items:center;gap:9px;padding:11px 13px;border-bottom:1px solid var(--el-border-color-lighter);background:var(--el-fill-color-lighter)">
+                <span style="width:3px;align-self:stretch;border-radius:2px;background:var(--el-color-primary)"></span>
+                <strong style="flex:1;min-width:0;color:var(--el-text-color-primary);font-size:14px;line-height:1.35">ผล X-RAY</strong>
+                <span v-if="!ehXrayLoading && !ehXrayError" style="flex:none;color:var(--el-text-color-secondary);font-size:11px">{{ ehXrayOrdersForGroup(g).length }} Order</span>
+              </header>
+              <div style="min-width:0;padding:10px">
+                <div v-if="ehXrayLoading" style="padding:10px 12px;border:1px dashed var(--el-border-color);border-radius:8px;background:var(--el-fill-color-blank);font-size:12px;color:var(--el-text-color-secondary)">กำลังโหลดผล X-ray…</div>
+                <el-alert v-if="ehXrayError" :title="ehXrayError" type="error" :closable="false" show-icon />
+                <div v-if="!ehXrayLoading && !ehXrayError && !ehXrayOrdersForGroup(g).length" style="padding:10px 12px;border:1px dashed var(--el-border-color);border-radius:8px;background:var(--el-fill-color-blank);font-size:12px;color:var(--el-text-color-placeholder)">— ยังไม่พบข้อมูลผล X-ray ของใบสั่งใน Visit นี้ —</div>
+
+                <article v-for="order in ehXrayOrdersForGroup(g)" :key="order.order_id || order.order_number" style="position:relative;overflow:hidden;margin-bottom:8px;border:1px solid var(--el-border-color-light);border-radius:8px;background:var(--el-bg-color)">
+                  <header role="button" tabindex="0" :aria-expanded="ehXrayOrderIsOpen(order)" style="display:flex;align-items:center;gap:8px;padding:9px 10px 9px 14px;background:var(--el-fill-color-extra-light);cursor:pointer" @click="ehXrayToggleOrder(order)" @keyup.enter="ehXrayToggleOrder(order)" @keyup.space.prevent="ehXrayToggleOrder(order)">
+                    <span style="position:absolute;inset:0 auto 0 0;width:3px;background:var(--el-color-primary)"></span>
+                    <strong style="flex:1;min-width:0;color:var(--el-text-color-regular);font-size:11.5px">{{ order.item_count || 0 }} รายการ</strong>
+                    <el-tag v-if="order.is_final" size="small" type="success" effect="plain">Final</el-tag>
+                    <span style="flex:none;color:var(--el-text-color-placeholder);font-size:13px">{{ ehXrayOrderIsOpen(order) ? '⌄' : '›' }}</span>
+                  </header>
+                  <div v-if="ehXrayOrderIsOpen(order)" style="padding:0 10px;border-top:1px solid var(--el-border-color-lighter)">
+                    <div v-for="room in order.rooms" :key="(room.room_code || '') + '|' + (room.modality || '')">
+                      <div v-for="item in room.items" :key="item.item_id || item.accession_no" style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;min-width:0;padding:10px 2px;border-top:1px solid var(--el-border-color-lighter)">
+                        <strong style="display:block;min-width:0;color:var(--el-text-color-primary);font-size:12.5px;line-height:1.4;overflow-wrap:anywhere">{{ item.item_name || item.exam_name || '-' }}</strong>
+                        <span style="display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;min-height:32px" @click.stop>
+                          <span style="display:inline-flex;min-width:72px;justify-content:flex-end">
+                            <sd-report v-if="ehXrayPdfReady(item)" :key="'eh-xray-pdf-' + item.result_id" :report-list="ehXrayPdfReportList" :params="ehXrayPdfParams(item)" size="small" />
+                            <el-button v-else size="small" type="danger" plain disabled title="ยังไม่มีผลสำหรับสร้าง PDF">PDF</el-button>
+                          </span>
+                          <el-button size="small" :disabled="!item.result_text" @click="ehXrayOpenReport(order,item)">ดูผลอ่าน</el-button>
+                          <a v-if="ehXrayViewerHref(item)" class="el-button el-button--primary is-plain el-button--small" :href="ehXrayViewerHref(item)" target="_blank" rel="noopener noreferrer" :title="ehXrayImageHint(item)" style="display:inline-flex;align-items:center;justify-content:center;text-decoration:none">ดูภาพ</a>
+                          <el-button v-else size="small" type="primary" plain :title="ehXrayImageHint(item)" @click="ehXrayOpenImage(item)">ดูภาพ</el-button>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              </div>
+            </section>
+            <div v-if="!ehXrayLoading" style="text-align:right;margin-top:-4px"><el-button text size="small" style="font-size:11px;height:22px;color:var(--el-text-color-secondary)" @click="ehXrayReload()">โหลดใหม่</el-button></div>
+          </template>
           <!-- ผล Lab เป็นการ์ดคนละความหมายกับการ์ดสั่งตรวจ จึงวางเป็น sibling ต่อท้าย ไม่ซ้อนในกรอบเดิม -->
           <div v-if="g.type === 'lab' && ehLabLoading"
             style="padding:10px 12px;border:1px dashed var(--el-border-color);border-radius:8px;background:var(--el-fill-color-blank);font-size:12px;color:var(--el-text-color-secondary)">
@@ -343,171 +384,76 @@
             style="padding:10px 12px;border:1px dashed var(--el-border-color);border-radius:8px;background:var(--el-fill-color-blank);font-size:12px;color:var(--el-text-color-placeholder)">
             — ยังไม่พบข้อมูลติดตามผลของใบสั่ง Lab นี้ —
           </div>
-          <div v-for="o in ehLabCardsForGroup(g)" :key="o.key"
-            :style="{ border:'1px solid ' + (o.criticals.length ? 'var(--el-color-danger-light-8)' : 'var(--el-border-color-lighter)'),
-                      borderRadius:'7px', marginBottom:'8px', overflow:'hidden',
-                      background:'var(--el-bg-color)', opacity: o.cancelled ? .6 : 1 }">
-
-            <!-- หัวก้อน 2 แถว — chip อยู่แถวเดียวกับข้อความของมัน ข้อความตัด … ก่อนถึง chip ไม่ทับกัน -->
-            <div style="display:flex;align-items:center;gap:8px;padding:8px 9px;cursor:pointer" @click="ehLabOgToggle(o.key)">
-              <span :style="{ flex:'none', width:'3px', alignSelf:'stretch', borderRadius:'2px', background:o.bar }"></span>
-
-              <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
-                <span style="display:flex;align-items:center;gap:6px;min-width:0">
-                  <span :style="{ flex:1, minWidth:0, fontSize:'12.5px', fontWeight:700, lineHeight:1.3,
-                                  whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
-                                  textDecoration: o.cancelled ? 'line-through' : 'none' }">{{ o.section }}</span>
-                  <el-tag :type="o.chip_type" size="small" effect="light" style="flex:none">{{ o.chip_text }}</el-tag>
-                </span>
-                <span v-if="o.time_text" style="font-size:10.5px;color:var(--el-text-color-secondary)">{{ o.time_text }}</span>
-                <span style="display:flex;align-items:center;gap:6px;min-width:0">
-                  <span style="flex:1;min-width:0;font-size:10.5px;color:var(--el-text-color-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.sub_text }}</span>
-                  <el-tag v-if="o.abn_text" :type="o.abn_type" size="small" effect="light" style="flex:none">{{ o.abn_text }}</el-tag>
-                </span>
-              </span>
-
-              <span style="flex:none;color:var(--el-text-color-placeholder);font-size:12px">{{ ehLabOgOpen[o.key] ? '⌄' : '›' }}</span>
+          <section v-if="g.type === 'lab' && !ehLabLoading && !ehLabError" style="overflow:hidden;border:1px solid var(--el-border-color-light);border-radius:10px;background:var(--el-bg-color)">
+            <header style="display:flex;align-items:center;gap:9px;padding:11px 13px;border-bottom:1px solid var(--el-border-color-lighter);background:var(--el-fill-color-lighter)">
+              <span style="width:3px;align-self:stretch;border-radius:2px;background:var(--el-color-primary)"></span>
+              <strong style="flex:1;min-width:0;color:var(--el-text-color-primary);font-size:14px;line-height:1.35">ผล LAB</strong>
+              <span style="flex:none;color:var(--el-text-color-secondary);font-size:11px">{{ ehLabCardsForGroup(g).length }} Order</span>
+            </header>
+            <div style="padding:10px 12px;border-bottom:1px solid var(--el-border-color-lighter);background:var(--el-fill-color-extra-light)">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:7px;font-size:10.5px"><strong style="color:var(--el-text-color-regular)">ผลตรวจ LAB</strong><span style="color:var(--el-text-color-secondary)">เลือกดูเฉพาะห้อง</span></div>
+              <div style="display:flex;flex-wrap:wrap;gap:6px;min-width:0;padding:1px 1px 4px">
+                <el-button v-for="room in ehLabRooms" :key="room.code" size="small" :type="ehLabRoom===room.code?'primary':''" :plain="ehLabRoom!==room.code" style="flex:none;margin-left:0" @click.stop="ehLabSetRoom(room.code)">
+                  {{ room.label }} <span style="display:inline-flex;min-width:18px;height:18px;align-items:center;justify-content:center;margin-left:4px;padding:0 5px;border-radius:9px;background:rgba(144,147,153,.12);font-size:9px">{{ ehLabRoomCount(g, room.code) }}</span>
+                </el-button>
+              </div>
             </div>
 
-            <!-- ค่าวิกฤติต้องเห็นตั้งแต่ก้อนยังไม่กาง — ไม่งั้นหมอเลื่อนผ่านค่าที่ต้องสั่งการทันที -->
-            <div v-for="(c, ci) in o.criticals" :key="'c' + ci"
-              style="display:flex;align-items:flex-start;gap:6px;margin:0 9px 8px;padding:5px 7px;border-radius:5px;
-                     background:var(--el-color-danger-light-9);border:1px solid var(--el-color-danger-light-8);
-                     font-size:11px;line-height:1.45;color:var(--el-color-danger)">
-              <span style="flex:none">🔴</span>
-              <span style="flex:1;min-width:0;overflow-wrap:anywhere">
-                <b>{{ c.name }}</b>
-                <template v-if="c.text"> · <b>มีรายงานผลวิกฤติ</b> — กางก้อนนี้เพื่ออ่านรายงาน</template>
-                <template v-else> · <b>{{ c.value }}<span v-if="c.unit"> {{ c.unit }}</span></b> {{ c.arrow }}
-                  <span v-if="c.ref" style="color:var(--el-text-color-secondary);white-space:nowrap">ปกติ {{ c.ref }}</span>
-                </template>
-              </span>
-            </div>
-
-            <!-- ก้อนที่กางแล้ว -->
-            <div v-if="ehLabOgOpen[o.key]" style="padding:0 9px 9px;border-top:1px dashed var(--el-border-color-lighter)">
-
-              <template v-if="o.micro">
-                  <div v-if="o.lab_no" style="padding:9px 3px 6px;font-size:11px;color:var(--el-text-color-secondary)">LAB NO. {{ o.lab_no }}</div>
-                  <div style="overflow:hidden;border:1px solid var(--el-border-color-light);border-radius:7px;background:var(--el-bg-color)">
-                    <div v-for="(item, itemIndex) in ehLabMicroItems(o)" :key="item.item_id || item.group_key || itemIndex" style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 12px;border-top:1px dashed var(--el-border-color-light)">
-                      <span style="min-width:0"><strong style="display:block;color:var(--el-text-color-primary);font-size:13px;line-height:1.4;overflow-wrap:anywhere">{{ item.item_name || '-' }}</strong><small style="display:block;margin-top:2px;color:var(--el-text-color-secondary);font-size:11px">{{ item.item_code || '-' }}</small></span>
-                      <span style="display:flex;align-items:center;gap:8px"><strong v-if="!item.has_result" style="color:var(--el-text-color-secondary);font-size:12px">ไม่มีผล</strong><el-button v-else type="danger" size="small" @click.stop="ehLabOpenMicroItem(o, item)">ดูผล</el-button></span>
-                    </div>
-                  </div>
-                </template>
-              <template v-else>
-                <div v-if="o.lab_no" style="padding:7px 0 1px;font-size:10px;color:var(--el-text-color-placeholder)">LAB NO. {{ o.lab_no }}</div>
-
-              <!-- ใบที่ถูกยกเลิก/ปฏิเสธ — ไม่ซ่อนทิ้ง หมออีกคนต้องเห็นว่าเคยมีใบนี้ ไม่งั้นสั่งซ้ำ -->
-              <div v-if="o.cancelled" style="padding:8px 0;font-size:11.5px;line-height:1.5;color:var(--el-text-color-secondary)">
-                ใบนี้ถูกยกเลิก<span v-if="o.cancel_reason"> · เหตุผล: {{ o.cancel_reason }}</span>
+            <div style="padding:12px 14px 16px">
+              <div style="display:flex;align-items:center;gap:5px;margin-bottom:8px;color:var(--el-text-color-secondary);font-size:10.5px">
+                <strong style="color:var(--el-text-color-regular)">{{ ehLabRoomLabel(ehLabRoom) }}</strong><span>· {{ ehLabVisibleCardsForGroup(g).length }} Order</span>
               </div>
 
-              <!-- ยังไม่มีผล → บอกว่าค้างตรงไหน (stepper ขึ้นเฉพาะกรณีนี้เท่านั้น) -->
-              <template v-else-if="o.pending">
-                <div style="display:flex;align-items:flex-start;margin:8px 0 4px">
-                  <div v-for="(st, si) in o.steps" :key="'s' + si" style="flex:1;min-width:0;text-align:center">
-                    <div style="display:flex;align-items:center;width:100%">
-                      <span :style="ehLabStepLine(o.steps, si, 'l')"></span>
-                      <span :style="ehLabStepDot(st)"></span>
-                      <span :style="ehLabStepLine(o.steps, si, 'r')"></span>
-                    </div>
-                    <div :style="{ marginTop:'3px', fontSize:'9.5px', lineHeight:1.25,
-                                   color: st.state === 'now' ? 'var(--el-color-warning)' : 'var(--el-text-color-secondary)',
-                                   fontWeight: st.state === 'now' ? 700 : 400 }">{{ st.label }}</div>
-                    <div style="font-size:9px;color:var(--el-text-color-placeholder)">{{ st.time || '—' }}</div>
-                  </div>
-                </div>
-                <div style="text-align:center;font-size:10.5px;color:var(--el-text-color-placeholder)">ยังไม่มีผล — ค่าจะขึ้นที่ก้อนนี้เมื่อห้องแลปออกผล</div>
-              </template>
+              <div style="width:100%;max-width:100%;min-width:0;overflow:hidden">
+                <div style="display:grid;gap:10px;min-width:0">
+                  <article v-for="o in ehLabVisibleCardsForGroup(g)" :key="o.key" style="position:relative;overflow:hidden;border:1px solid var(--el-border-color-light);border-radius:8px;background:var(--el-bg-color)">
+                    <div v-if="o.micro" style="display:grid;grid-template-columns:minmax(120px,20%) minmax(0,1fr);column-gap:12px;width:100%;max-width:100%;min-width:0;padding:8px 10px;border-bottom:1px solid var(--el-border-color-light);background:var(--el-fill-color-light);color:var(--el-text-color-secondary);font-size:10px;font-weight:700"><span>รายการตรวจ</span><span>ผล LAB</span></div>
+                    <div v-else style="display:grid;grid-template-columns:minmax(0,1.65fr) minmax(0,1fr) minmax(0,.62fr) minmax(0,.68fr);column-gap:8px;width:100%;max-width:100%;min-width:0;padding:8px 10px;border-bottom:1px solid var(--el-border-color-light);background:var(--el-fill-color-light);color:var(--el-text-color-secondary);font-size:10px;font-weight:700"><span>รายการตรวจ</span><span>ผล LAB</span><span>หน่วย</span><span>แปลผล</span></div>
 
-              <!-- มีผลแล้ว — โชว์เฉพาะค่าที่ผิดปกติ/วิกฤติ ค่าปกติพับไว้ (CBC ใบเดียว 15-20 บรรทัด) -->
-              <template v-else>
-                <div v-for="(r, ri) in o.hidden_rows" :key="'hidden' + ri" style="display:flex;align-items:center;gap:8px;margin:6px 0;padding:9px 10px;border:1px solid var(--el-color-danger-light-5);border-radius:7px;background:var(--el-color-danger-light-9)">
-                  <span style="flex:1;min-width:0">
-                    <strong style="display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</strong>
-                    <small v-if="r.code" style="display:block;margin-top:2px;color:var(--el-text-color-secondary)">{{ r.code }}</small>
-                  </span>
-                  <strong style="color:var(--el-color-danger);font-size:11px">ปกปิดผล</strong>
-                </div>
-                <div v-for="(r, ri) in o.locked_rows" :key="'locked' + ri" style="display:flex;align-items:center;gap:8px;margin:6px 0;padding:9px 10px;border:1px solid var(--el-color-warning-light-5);border-radius:7px;background:var(--el-color-warning-light-9)">
-                  <span style="flex:1;min-width:0">
-                    <strong style="display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</strong>
-                    <small style="display:block;margin-top:2px;color:var(--el-text-color-secondary)">{{ r.code ? r.code + ' · ' : '' }}Sensitive — ต้องยืนยันตัวตนก่อนดูผล</small>
-                  </span>
-                  <el-button v-if="r.reauth_required" size="small" type="warning" @click.stop="ehLabRequestSensitive(o, r)">ยืนยันตัวตนเพื่อดูผล</el-button>
-                  <el-tag v-else size="small" type="info" effect="plain">ยังเปิดดูไม่ได้</el-tag>
-                </div>
-                <div v-for="(r, ri) in o.abnormals" :key="'a' + ri" style="padding:5px 0;border-bottom:1px dashed var(--el-border-color-lighter)">
-                  <div style="display:flex;align-items:flex-start;gap:6px">
-                    <span style="flex:1;min-width:0;font-size:12px">
-                      <span style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</span>
-                      <small v-if="r.code" style="display:block;margin-top:1px;color:var(--el-text-color-placeholder);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.code }}</small>
-                      <small v-if="r.ref" style="display:block;margin-top:1px;color:var(--el-text-color-placeholder);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">ปกติ {{ r.ref }}</small>
-                    </span>
-                    <span :style="{ flex:'none', fontSize:'13px', fontWeight:800,
-                                    color: r.flag === 'C' ? 'var(--el-color-danger)' : 'var(--el-color-warning)' }">{{ r.value }}</span>
-                    <small v-if="r.unit" style="flex:none;color:var(--el-text-color-secondary)">{{ r.unit }}</small>
-                    <span :style="{ flex:'none', fontSize:'10px', fontWeight:800,
-                                    color: r.flag === 'C' ? 'var(--el-color-danger)' : 'var(--el-color-warning)' }">{{ r.arrow }}<span v-if="r.flag === 'C'"> วิกฤติ</span></span>
-                  </div>
-                </div>
+                    <template v-if="o.micro">
+                      <div v-for="(r,rowIndex) in ehLabCardRows(o)" :key="r.result_item_id || r.code || rowIndex" style="display:grid;grid-template-columns:minmax(120px,20%) minmax(0,1fr);column-gap:12px;width:100%;max-width:100%;min-width:0;align-items:start;padding:10px;border-top:1px solid var(--el-border-color-lighter)">
+                        <strong style="min-width:0;color:var(--el-text-color-primary);font-size:12.5px;line-height:1.45;overflow-wrap:anywhere">{{ r.name || '-' }}</strong>
+                        <div style="min-width:0;width:100%">
+                          <template v-if="r.locked">
+                            <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap"><el-tag size="small" type="warning" effect="plain">ปกปิดผล Sensitive</el-tag><el-button v-if="r.reauth_required" size="small" type="warning" plain @click.stop="ehLabRequestSensitive(o,r)">ยืนยันตัวตนเพื่อดู</el-button></div>
+                          </template>
+                          <strong v-else-if="r.redacted" style="color:var(--el-color-danger);font-size:11.5px">ปกปิดผล</strong>
+                          <pre v-else style="width:100%;max-width:none;margin:0;color:var(--el-text-color-regular);font:12px/1.65 'Noto Sans Thai','Leelawadee UI',Tahoma,Arial,sans-serif;white-space:pre-wrap;overflow-wrap:anywhere">{{ r.value || '—' }}</pre>
+                        </div>
+                      </div>
+                    </template>
 
-                <!-- ผลที่เป็นรายงานความเรียง (MB / MLab) — ค่าเดี่ยวใส่ท้ายบรรทัดไม่ได้
-                     🔴 ต้องเห็นเสมอ ไม่พับรวมกับค่าปกติ เพราะ LIS ไม่ได้บอกว่าปกติ -->
-                <div v-for="(r, ti) in o.texts" :key="'t' + ti" style="padding:6px 0;border-bottom:1px dashed var(--el-border-color-lighter)">
-                  <div style="display:flex;align-items:baseline;gap:6px">
-                    <span style="flex:1;min-width:0;font-size:12px;font-weight:700">
-                      <span style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</span>
-                      <small v-if="r.code" style="display:block;margin-top:1px;font-weight:400;color:var(--el-text-color-placeholder);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.code }}</small>
-                    </span>
-                    <el-tag size="small" type="info" effect="plain" style="flex:none">รายงาน</el-tag>
-                  </div>
-                  <div :style="ehLabTxtClamp(o.key + '|' + ti)">{{ r.value }}</div>
-                  <el-button text size="small" style="width:100%;margin-top:2px;font-size:10.5px;height:22px;color:var(--el-text-color-secondary)"
-                    @click.stop="ehLabOgToggle('r|' + o.key + '|' + ti)">
-                    {{ ehLabOgOpen['r|' + o.key + '|' + ti] ? 'ย่อรายงาน' : 'อ่านรายงานเต็ม' }}
-                  </el-button>
-                </div>
+                    <template v-else>
+                      <div v-for="(r,rowIndex) in ehLabCardRows(o)" :key="r.result_item_id || r.code || rowIndex" style="display:grid;grid-template-columns:minmax(0,1.65fr) minmax(0,1fr) minmax(0,.62fr) minmax(0,.68fr);column-gap:8px;width:100%;max-width:100%;min-width:0;align-items:start;padding:9px 10px;border-top:1px solid var(--el-border-color-lighter)">
+                        <strong style="min-width:0;color:var(--el-text-color-primary);font-size:12.5px;line-height:1.45;overflow-wrap:anywhere">{{ r.name || '-' }}</strong>
+                        <div style="min-width:0">
+                          <template v-if="r.locked"><div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap"><el-tag size="small" type="warning" effect="plain">ปกปิดผล Sensitive</el-tag><el-button v-if="r.reauth_required" size="small" type="warning" plain @click.stop="ehLabRequestSensitive(o,r)">ยืนยันตัวตนเพื่อดู</el-button></div></template>
+                          <strong v-else :style="ehLabCardValueStyle(r)" style="font-size:13px;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere">{{ r.redacted ? 'ปกปิดผล' : (r.value || '—') }}</strong>
+                        </div>
+                        <span style="min-width:0;font-size:11.5px">{{ r.locked || r.redacted ? '—' : (r.unit || '—') }}</span>
+                        <span style="min-width:0"><el-tag v-if="!r.locked && !r.redacted" size="small" :type="ehLabCardFlagType(r)" effect="plain">{{ ehLabFlagLabel(r) }}</el-tag><span v-else>—</span></span>
+                      </div>
+                    </template>
 
-                <div v-if="ehLabOgOpen['n|' + o.key]">
-                  <div v-for="(r, ri) in o.normals" :key="'n' + ri" style="padding:5px 0;border-bottom:1px dashed var(--el-border-color-lighter)">
-                    <div style="display:flex;align-items:flex-start;gap:6px">
-                      <span style="flex:1;min-width:0;font-size:12px">
-                        <span style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</span>
-                        <small v-if="r.code" style="display:block;margin-top:1px;color:var(--el-text-color-placeholder);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.code }}</small>
-                        <small v-if="r.ref" style="display:block;margin-top:1px;color:var(--el-text-color-placeholder);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">ปกติ {{ r.ref }}</small>
+                    <div v-if="!ehLabCardRows(o).length" style="padding:22px 16px;color:var(--el-text-color-placeholder);text-align:center">ยังไม่มีผล LAB ใน Order นี้</div>
+                    <div style="display:grid;grid-template-columns:72px 104px;justify-content:end;align-items:center;gap:6px;min-height:40px;padding:7px 10px 8px;border-top:1px solid var(--el-border-color-lighter);background:var(--el-fill-color-extra-light)" @click.stop>
+                      <span style="display:inline-flex;width:72px;min-width:72px;justify-content:flex-end">
+                        <sd-report v-if="o.report_ready && !o.has_sensitive" :key="ehLabReportInstanceKey(o,'card')" :report-list="o.report_list" :params="o.report_params" size="small" />
+                        <el-button v-else-if="o.report_ready" size="small" @click.stop="ehLabRequestSensitivePdf(o,'card')">PDF</el-button>
+                        <el-button v-if="!o.report_ready" size="small" disabled :title="o.report_hint || 'ยังไม่มี Result Report'">PDF</el-button>
                       </span>
-                      <span style="flex:none;font-size:13px;font-weight:800">{{ r.value }}</span>
-                      <small v-if="r.unit" style="flex:none;color:var(--el-text-color-secondary)">{{ r.unit }}</small>
+                      <span v-if="o.report_ready && o.has_sensitive && ehLabPdfGrantReady(o,'card')" :id="ehLabPdfHostId(o,'card')" style="display:none"><sd-report :key="ehLabPdfReportInstanceKey(o,'card')" :report-list="o.report_list" :params="ehLabPdfParams(o,'card')" size="small" /></span>
+                      <el-button size="small" style="width:104px;margin-left:0" :disabled="!ehLabOrderTarget(o)" @click.stop="ehLabOpenResultForm(o)">ดูผลทั้งใบ</el-button>
                     </div>
-                  </div>
+                  </article>
                 </div>
-
-                <el-button v-if="o.normals.length" text size="small" style="width:100%;margin-top:6px;font-size:10.5px;height:24px;color:var(--el-text-color-secondary)"
-                  @click.stop="ehLabOgToggle('n|' + o.key)">
-                  {{ ehLabOgOpen['n|' + o.key] ? 'ซ่อนค่าปกติ' : 'ค่าปกติอีก ' + o.normals.length + ' รายการ' }}
-                </el-button>
-
-                <!-- รายงานผล PDF — คอมโพเนนต์และ Report ชุดเดียวกับ LAB Worklist
-                     🔴 ผูกกับ Result Report (`xparentx`) ไม่ใช่ใบสั่ง · ใบที่มีผลหลายชุดไม่พิมพ์ให้อัตโนมัติ
-                     🔴 ปุ่มที่กดแล้วไม่เกิดอะไร แย่กว่าไม่มีปุ่ม ⇒ ไม่พร้อมก็บอกเหตุแทน -->
-                <div style="display:flex;gap:6px;margin-top:8px" @click.stop>
-                  <sd-report v-if="o.report_ready && !o.has_sensitive" :key="ehLabReportInstanceKey(o, 'card')" :report-list="o.report_list" :params="o.report_params" size="small" />
-                  <el-button v-else-if="o.report_ready" size="small" @click.stop="ehLabRequestSensitivePdf(o, 'card')">PDF</el-button>
-                  <span v-if="o.report_ready && o.has_sensitive && ehLabPdfGrantReady(o, 'card')" :id="ehLabPdfHostId(o, 'card')" style="display:none"><sd-report :key="ehLabPdfReportInstanceKey(o, 'card')" :report-list="o.report_list" :params="ehLabPdfParams(o, 'card')" size="small" /></span>
-                  <el-button v-if="ehLabOrderTarget(o)" size="small" :type="o.report_ready ? 'default' : 'primary'" style="flex:1" @click.stop="ehLabOpenOrder(o)">ดูผลทั้งใบ</el-button>
-                </div>
-                <div v-if="o.report_hint" style="margin-top:4px;font-size:10px;line-height:1.45;color:var(--el-text-color-placeholder)">{{ o.report_hint }}</div>
-              </template>
-                </template>
-
+              </div>
             </div>
-          </div>
+          </section>
           <div v-if="g.type === 'lab' && !ehLabLoading" style="text-align:right;margin-top:-4px">
             <el-button text size="small" style="font-size:11px;height:22px;color:var(--el-text-color-secondary)" @click="ehLabReload()">โหลดใหม่</el-button>
           </div>
+          <!-- /EMR History LAB result board -->
         </template>
       </div>
     </div>
@@ -578,190 +524,47 @@
 
   </template>
 
-  <!-- popup อ่านผลทั้งใบ: pattern เดียวกับ LAB Worklist / Treat Summary -->
-  <el-dialog v-model="ehLabDialog.visible" class="lab-result-dialog" :class="{'is-microbiology':ehLabIsMicrobiologyDialog()}" :width="ehLabIsMicrobiologyDialog() ? 'min(1180px,calc(100vw - 32px))' : 'min(1320px,calc(100vw - 48px))'"
-    top="24px" :close-on-click-modal="false" destroy-on-close @closed="ehLabCloseLabDialog()"
-    style="max-height:calc(100vh - 48px);overflow:hidden;border-radius:12px;font-family:'Noto Sans Thai','Leelawadee UI',Tahoma,Arial,sans-serif">
-    <template #header>
-      <div v-if="ehLabDialog.order" class="lab-result-dialog-head" style="display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding-right:42px">
-        <div style="min-width:0">
-          <div class="lab-result-title-row" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <strong style="color:var(--el-text-color-primary);font-size:20px;line-height:1.25">ผลตรวจทางห้องปฏิบัติการ</strong>
-            <span v-if="ehLabIsMicrobiologyDialog()" style="display:inline-flex;min-height:23px;align-items:center;padding:2px 8px;border:1px solid #a0cfff;border-radius:999px;background:#ecf5ff;color:#337ecc;font-size:10px;font-weight:700">จุลชีววิทยา · MLab</span>
-            <span class="lab-result-mode" style="display:inline-flex;min-height:23px;align-items:center;padding:2px 8px;border:1px solid #a0cfff;border-radius:999px;background:#ecf5ff;color:#337ecc;font-size:10px;font-weight:700">โหมดดูอย่างเดียว</span>
-            <span v-if="ehLabResultStatusValue() !== 'pending'" class="lab-result-summary-tag" :class="'is-' + ehLabResultStatusValue()"
-              :style="ehLabResultStatusValue() === 'final' ? {borderColor:'#b3e19d',background:'#f0f9eb',color:'#529b2e'} : {borderColor:'#f3d19e',background:'#fdf6ec',color:'#b88230'}"
-              style="display:inline-flex;min-height:23px;align-items:center;padding:2px 8px;border:1px solid;border-radius:999px;font-size:10px;font-weight:700">{{ ehLabResultStatusText() }}</span>
-            <span v-if="ehLabResultCriticalCount()" class="lab-result-summary-tag is-critical" style="display:inline-flex;min-height:23px;align-items:center;padding:2px 8px;border:1px solid #fab6b6;border-radius:999px;background:#fef0f0;color:#c45656;font-size:10px;font-weight:700">วิกฤติ {{ ehLabResultCriticalCount() }}</span>
-            <span v-if="ehLabResultAbnormalCount()" class="lab-result-summary-tag is-abnormal" style="display:inline-flex;min-height:23px;align-items:center;padding:2px 8px;border:1px solid #f3d19e;border-radius:999px;background:#fdf6ec;color:#b88230;font-size:10px;font-weight:700">ผิดปกติ {{ ehLabResultAbnormalCount() }}</span>
-          </div>
-          <small style="display:block;margin-top:5px;color:var(--el-text-color-secondary);font-size:12px"><span class="lab-mono">{{ ehLabDialog.order.patient_hn || ehLabHn || '-' }}</span> · {{ ehLabResultTestCount() }} tests · ผลล่าสุด</small>
-          <div v-if="ehLabDialog.order.reported_by || ehLabDialog.order.verified_by || ehLabDialog.order.reported_at || ehLabDialog.order.resulted_at" class="lab-result-byline"
-            style="display:flex;align-items:center;gap:6px 14px;flex-wrap:wrap;margin-top:7px;color:var(--el-text-color-regular);font-size:11px">
-            <span v-if="ehLabDialog.order.reported_by" style="display:inline-flex;gap:4px"><b style="color:var(--el-text-color-secondary);font-size:10px">Reported by:</b><strong>{{ ehLabDialog.order.reported_by }}</strong></span>
-            <span v-if="ehLabDialog.order.verified_by" style="display:inline-flex;gap:4px"><b style="color:var(--el-text-color-secondary);font-size:10px">Approve name:</b><strong>{{ ehLabDialog.order.verified_by }}</strong></span>
-            <span v-if="ehLabDialog.order.reported_at || ehLabDialog.order.resulted_at" style="display:inline-flex;gap:4px"><b style="color:var(--el-text-color-secondary);font-size:10px">ออกผลเมื่อ:</b><strong class="lab-mono">{{ ehLabCompactDateTime(ehLabDialog.order.reported_at || ehLabDialog.order.resulted_at) }}</strong></span>
-          </div>
-        </div>
-        <span style="display:flex;width:94px;min-width:94px;max-width:94px;flex:0 0 94px;align-items:flex-start;justify-content:flex-end">
-          <sd-report v-if="ehLabDialog.order.report_ready && !ehLabDialog.order.has_sensitive" :key="ehLabReportInstanceKey(ehLabDialog.order, 'dialog')" class="lab-result-report-action" :report-list="ehLabDialog.order.report_list" :params="ehLabDialog.order.report_params" size="small" />
-          <el-button v-else-if="ehLabDialog.order.report_ready" class="lab-result-report-action" type="danger" size="small" @click.stop="ehLabRequestSensitivePdf(ehLabDialog.order, 'dialog')">PDF</el-button>
-          <span v-if="ehLabDialog.order.report_ready && ehLabDialog.order.has_sensitive && ehLabPdfGrantReady(ehLabDialog.order, 'dialog')" :id="ehLabPdfHostId(ehLabDialog.order, 'dialog')" style="display:none"><sd-report :key="ehLabPdfReportInstanceKey(ehLabDialog.order, 'dialog')" :report-list="ehLabDialog.order.report_list" :params="ehLabPdfParams(ehLabDialog.order, 'dialog')" size="small" /></span>
-          <el-button v-if="!ehLabDialog.order.report_ready" class="lab-result-report-action" type="danger" size="small" disabled :title="ehLabDialog.order.report_hint || 'ยังไม่มีรายงานผล'">PDF</el-button>
-        </span>
-      </div>
-    </template>
-
-    <template v-if="ehLabIsMicrobiologyDialog()">
-
-      <div v-if="ehLabDialog.order" class="lab-micro-result-viewer" style="display:grid;gap:14px;max-height:calc(100vh - 230px);min-height:300px;overflow-y:auto;padding-right:4px;color:var(--el-text-color-regular)">
-        <section style="display:grid;grid-template-columns:minmax(220px,1.5fr) repeat(4,minmax(120px,1fr));gap:1px;overflow:hidden;border:1px solid var(--el-border-color);border-radius:9px;background:var(--el-border-color)">
-          <div style="padding:11px 13px;background:var(--el-bg-color)"><small style="display:block;color:var(--el-text-color-secondary)">ผู้ป่วย</small><strong style="display:block;margin-top:3px;color:var(--el-text-color-primary)">{{ ehLabMicroPatientName() || '-' }}</strong></div>
-          <div style="padding:11px 13px;background:var(--el-bg-color)"><small style="display:block;color:var(--el-text-color-secondary)">HN</small><strong class="lab-mono" style="display:block;margin-top:3px">{{ ehLabDialog.order.patient_hn || ehLabHn || '-' }}</strong></div>
-          <div style="padding:11px 13px;background:var(--el-bg-color)"><small style="display:block;color:var(--el-text-color-secondary)">LAB NO.</small><strong class="lab-mono" style="display:block;margin-top:3px">{{ ehLabDialog.order.lab_no || '-' }}</strong></div>
-          <div style="padding:11px 13px;background:var(--el-bg-color)"><small style="display:block;color:var(--el-text-color-secondary)">สิ่งส่งตรวจ</small><strong style="display:block;margin-top:3px">{{ ehLabMicroSpecimenName() || '-' }}</strong></div>
-          <div style="padding:11px 13px;background:var(--el-bg-color)"><small style="display:block;color:var(--el-text-color-secondary)">สถานะรวม</small><strong :style="ehLabMicroOverallStatusStyle()" style="display:inline-flex;margin-top:3px;padding:2px 8px;border:1px solid;border-radius:999px">{{ ehLabMicroOverallStatusText() }}</strong></div>
-        </section>
-
-        <el-alert v-if="ehLabResultCriticalCount()" type="error" :closable="false" show-icon :title="'พบผลวิกฤติ ' + ehLabResultCriticalCount() + ' รายการ'" />
-
-        <section style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">
-          <div style="padding:10px 12px;border:1px solid var(--el-border-color-light);border-radius:8px;background:var(--el-fill-color-blank)"><small style="display:block;color:var(--el-text-color-secondary)">เก็บสิ่งส่งตรวจ</small><strong class="lab-mono" style="display:block;margin-top:3px">{{ ehLabCompactDateTime(ehLabMicroCollectedAt()) || '-' }}</strong></div>
-          <div style="padding:10px 12px;border:1px solid var(--el-border-color-light);border-radius:8px;background:var(--el-fill-color-blank)"><small style="display:block;color:var(--el-text-color-secondary)">ห้องแลปรับ</small><strong class="lab-mono" style="display:block;margin-top:3px">{{ ehLabCompactDateTime(ehLabDialog.order.received_at) || '-' }}</strong></div>
-          <div style="padding:10px 12px;border:1px solid var(--el-border-color-light);border-radius:8px;background:var(--el-fill-color-blank)"><small style="display:block;color:var(--el-text-color-secondary)">ออกผลล่าสุด</small><strong class="lab-mono" style="display:block;margin-top:3px">{{ ehLabCompactDateTime(ehLabMicroLatestReportedAt()) || '-' }}</strong></div>
-        </section>
-
-        <section>
-          <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:9px"><strong style="font-size:16px">รายการตรวจ</strong><small style="color:var(--el-text-color-secondary)">{{ ehLabMicroResultCountText() }}</small></div>
-          <div style="display:grid;gap:12px">
-            <article v-for="(group, groupIndex) in ehLabMicroGroupsForDisplay()" :key="ehLabMicroGroupKey(group, groupIndex)" style="overflow:hidden;border:1px solid #79bbff;border-radius:10px;background:#ecf5ff">
-              <header style="display:grid;grid-template-columns:48px minmax(220px,1fr) minmax(150px,auto) auto;gap:12px;align-items:center;padding:14px 16px;border-bottom:1px solid #a0cfff">
-                <span class="lab-mono" style="color:var(--el-text-color-secondary);font-size:14px">{{ String(groupIndex + 1).padStart(2, '0') }}</span>
-                <span style="min-width:0"><strong style="display:block;color:var(--el-text-color-primary);font-size:15px;overflow-wrap:anywhere">{{ group.test_name || '-' }}</strong><small style="display:block;margin-top:2px;color:var(--el-text-color-secondary)">รหัสรายการ HIS {{ group.test_code || '-' }}</small></span>
-                <span><small style="display:block;color:var(--el-text-color-secondary)">เวลารายงาน</small><strong class="lab-mono" style="display:block;margin-top:2px">{{ ehLabCompactDateTime(ehLabMicroGroupReportedAt(group)) || '-' }}</strong></span>
-                <span :style="ehLabMicroGroupStatusStyle(group)" style="display:inline-flex;padding:3px 9px;border:1px solid;border-radius:999px;font-size:11px;font-weight:700">{{ ehLabMicroGroupStatusText(group) }}</span>
-              </header>
-              <div v-if="ehLabMicroGroupHasResult(group)" style="display:grid;gap:10px;padding:14px 16px;background:var(--el-bg-color)">
-                <section v-for="(r, rowIndex) in ehLabMicroResultRows(group)" :key="r.result_item_id || r.code || rowIndex" style="overflow:hidden;border:1px solid var(--el-border-color-light);border-radius:8px;background:var(--el-fill-color-blank)">
-                  <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--el-border-color-light)">
-                    <span style="padding:9px 11px;background:var(--el-bg-color)"><small style="display:block;color:var(--el-text-color-secondary)">รหัสผลที่บันทึกใน HIS</small><strong class="lab-mono" style="display:block;margin-top:2px">{{ r.code || '-' }}</strong></span>
-                    <span style="padding:9px 11px;background:var(--el-bg-color)"><small style="display:block;color:var(--el-text-color-secondary)">ชื่อ/รหัสที่มากับผล</small><strong style="display:block;margin-top:2px;overflow-wrap:anywhere">{{ r.name || group.test_name || '-' }}</strong></span>
-                    <span style="padding:9px 11px;background:var(--el-bg-color)"><small style="display:block;color:var(--el-text-color-secondary)">สถานะผล</small><strong style="display:block;margin-top:2px">{{ r.status || '-' }}</strong></span>
-                    <span style="padding:9px 11px;background:var(--el-bg-color)"><small style="display:block;color:var(--el-text-color-secondary)">เวลารายงาน</small><strong class="lab-mono" style="display:block;margin-top:2px">{{ ehLabCompactDateTime(r.reported_at) || '-' }}</strong></span>
-                  </div>
-                  <div style="padding:13px 16px;background:var(--el-bg-color)">
-                    <strong style="display:block;margin-bottom:9px;color:var(--el-text-color-primary)">ผลจาก MLab</strong>
-                    <pre style="margin:0;min-height:72px;overflow:auto;color:var(--el-text-color-regular);font:13px/1.75 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere">{{ r.value }}</pre>
-                    <p v-if="r.comment" style="margin:10px 0 0;padding-top:9px;border-top:1px dashed var(--el-border-color);white-space:pre-wrap;overflow-wrap:anywhere">{{ r.comment }}</p>
-                    <div v-if="ehLabPreviousValues(r).length" style="display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:12px;padding:10px 12px;border:1px solid #a0cfff;border-radius:8px;background:#ecf5ff">
-                      <span style="min-width:0"><strong style="display:block;color:#337ecc;font-size:12px">มีค่าก่อนหน้า {{ ehLabPreviousValues(r).length }} ครั้ง</strong><small style="display:block;margin-top:2px;color:var(--el-text-color-secondary)">ข้อความจาก Agent แบบเต็ม · ล่าสุด → เก่าสุด</small></span>
-                      <el-button type="primary" plain size="small" @click.stop="ehLabOpenMbHistory(r)">ดูผลย้อนหลัง</el-button>
-                    </div>
-                    <div v-else style="margin-top:12px;padding:9px 12px;border:1px dashed var(--el-border-color);border-radius:8px;color:var(--el-text-color-placeholder);font-size:11px;text-align:center">ยังไม่มีประวัติของรายการนี้</div>
-                  </div>
-                </section>
-              </div>
-              <div v-else style="padding:26px 16px;background:var(--el-bg-color);color:var(--el-text-color-placeholder);text-align:center">รอผลจาก MLab</div>
-            </article>
-          </div>
-        </section>
-
-        <section id="eh-lab-result-attachments" class="lab-result-attachments" style="display:grid;gap:10px;margin-top:2px;padding:10px 12px;border:1px solid var(--el-border-color-light);border-radius:7px;background:#f7f9fc">
-          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px"><div style="display:grid;gap:3px"><strong style="font-size:13px">ไฟล์แนบผลตรวจ</strong><small style="color:var(--el-text-color-secondary);font-size:10px">ไฟล์จากห้องปฏิบัติการ · อ่านอย่างเดียวใน EMR</small></div><span style="color:var(--el-text-color-secondary);font-size:11px">{{ ehLabAttachmentCount() }}</span></div>
-          <div v-if="ehLabAttachmentCount()" style="display:grid;gap:6px"><a v-for="(file, fi) in ehLabDialog.order.attachments" :key="'lab-micro-file-' + fi" :href="ehLabFileUrl(file)" target="_blank" rel="noopener" style="display:grid;grid-template-columns:58px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--el-border-color-light);border-radius:6px;background:var(--el-bg-color);color:var(--el-text-color-regular);text-decoration:none"><span style="color:#337ecc;font-size:10px;font-weight:700">ดูไฟล์</span><strong style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ ehLabFileName(file) }}</strong><small style="color:var(--el-text-color-secondary);font-size:10px">{{ ehLabFileSize(file) }}</small></a></div>
-          <div v-else style="padding:8px 10px;border:1px dashed var(--el-border-color);border-radius:6px;color:var(--el-text-color-placeholder);font-size:11px;text-align:center">ไม่มีไฟล์แนบผลตรวจ</div>
-        </section>
-      </div>
-    </template>
-    <div v-if="ehLabDialog.order && !ehLabIsMicrobiologyDialog()" class="lab-manual-form lab-result-viewer" style="max-height:calc(100vh - 230px);min-height:300px;overflow-y:auto;padding-right:4px;color:var(--el-text-color-regular)">
-      <div class="lab-result-profile-toolbar" style="display:flex;align-items:center;gap:10px;margin:2px 0 9px">
-        <div style="display:flex;min-width:0;align-items:baseline;gap:10px"><strong style="font-size:15px">รายการผลตรวจ</strong><small style="color:var(--el-text-color-secondary);font-size:11px">{{ ehLabResultTestCount() }} รายการสั่งตรวจ · {{ ehLabResultRowsCount() }} ผลย่อย<span v-if="ehLabLockedResultCount()"> · ปิดบัง {{ ehLabLockedResultCount() }}</span></small></div>
-        <div v-if="ehLabResultProfileCount()" class="lab-result-section-actions" style="display:flex;align-items:center;gap:2px;margin-left:auto">
-          <el-button text type="primary" size="small" @click="ehLabExpandAllResultGroups()">กาง Profile ทั้งหมด</el-button>
-          <el-button text type="primary" size="small" @click="ehLabCollapseAllResultGroups()">พับทั้งหมด</el-button>
-        </div>
+  <!-- X-ray read popup: ผลปัจจุบันและผลก่อนหน้าของรายการเดียวกันอยู่ใน popup เดียว -->
+  <el-dialog v-model="ehXrayReport.visible" width="min(1080px,calc(100vw - 40px))" top="28px" :close-on-click-modal="false" destroy-on-close @closed="ehXrayCloseReport()">
+    <template #header><div v-if="ehXrayReport.item" style="min-width:0;padding-right:36px"><strong style="display:block;color:var(--el-text-color-primary);font-size:20px;line-height:1.3">ผลอ่าน X-RAY · {{ ehXrayReport.item.item_name || ehXrayReport.item.exam_name || '-' }}</strong><small style="display:block;margin-top:4px;color:var(--el-text-color-secondary);font-size:12px">ผลปัจจุบันและผลก่อนหน้าของรายการตรวจเดียวกัน</small></div></template>
+    <div v-if="ehXrayReport.item" style="display:grid;gap:12px;max-height:calc(100vh - 190px);padding-right:2px;overflow-y:auto">
+      <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;overflow:hidden;border:1px solid var(--el-border-color);border-radius:8px;background:var(--el-border-color)">
+        <div style="padding:10px 12px;background:var(--el-bg-color)"><small style="display:block;color:var(--el-text-color-secondary)">HN</small><strong style="display:block;margin-top:3px">{{ ehXrayHn || '-' }}</strong></div>
+        <div style="padding:10px 12px;background:var(--el-bg-color)"><small style="display:block;color:var(--el-text-color-secondary)">VN ปัจจุบัน</small><strong style="display:block;margin-top:3px">{{ ehXrayReport.item.vn || ehXrayVn || '-' }}</strong></div>
+        <div style="padding:10px 12px;background:var(--el-bg-color)"><small style="display:block;color:var(--el-text-color-secondary)">Accession No.</small><strong style="display:block;margin-top:3px">{{ ehXrayReport.item.accession_no || '-' }}</strong></div>
+        <div style="padding:10px 12px;background:var(--el-bg-color)"><small style="display:block;color:var(--el-text-color-secondary)">วันเวลารายงาน</small><strong style="display:block;margin-top:3px">{{ ehWhen(ehXrayReport.item.resulted_at) || '-' }}</strong></div>
       </div>
 
-      <div v-if="ehLabLockedResultCount()" class="lab-sensitive-locked-list" style="display:grid;gap:8px;margin-bottom:12px">
-        <div v-for="(r, ri) in ehLabDialog.order.locked_rows" :key="'dialog-locked-' + (r.visibility && r.visibility.item_id || ri)" style="display:flex;align-items:center;gap:12px;padding:11px 12px;border:1px solid var(--el-color-warning-light-5);border-radius:8px;background:var(--el-color-warning-light-9)">
-          <span style="flex:1;min-width:0">
-            <strong style="display:block;color:var(--el-text-color-primary);font-size:13px;overflow-wrap:anywhere">{{ r.name || 'ผลตรวจ Sensitive' }}</strong>
-            <small style="display:block;margin-top:2px;color:var(--el-text-color-secondary);font-size:10px">{{ r.code ? r.code + ' · ' : '' }}Sensitive — ปิดบังค่าผลจนกว่าจะยืนยันตัวตน</small>
+      <section style="overflow:hidden;border:1px solid var(--el-border-color-light);border-radius:8px;background:var(--el-bg-color)">
+        <header style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border-bottom:1px solid var(--el-border-color-lighter);background:var(--el-fill-color-lighter)"><strong>ผลอ่านปัจจุบัน</strong><el-tag size="small" :type="ehXrayReport.item.is_final ? 'success' : 'warning'" effect="plain">{{ ehXrayReport.item.is_final ? 'Final' : (ehXrayReport.item.result_status || 'Partial') }}</el-tag></header>
+        <pre style="margin:0;min-height:150px;padding:15px 16px;color:var(--el-text-color-regular);font:13px/1.75 'Noto Sans Thai','Leelawadee UI',Tahoma,Arial,sans-serif;white-space:pre-wrap;overflow-wrap:anywhere">{{ ehXrayReport.item.result_text }}</pre>
+        <footer style="display:flex;justify-content:flex-end;gap:6px;padding:8px 10px;border-top:1px solid var(--el-border-color-lighter);background:var(--el-fill-color-extra-light)" @click.stop>
+          <sd-report v-if="ehXrayPdfReady(ehXrayReport.item)" :key="'eh-xray-dialog-pdf-' + ehXrayReport.item.result_id" :report-list="ehXrayPdfReportList" :params="ehXrayPdfParams(ehXrayReport.item)" size="small" />
+          <el-button v-else size="small" disabled>PDF</el-button>
+          <a v-if="ehXrayViewerHref(ehXrayReport.item)" class="el-button el-button--primary is-plain el-button--small" :href="ehXrayViewerHref(ehXrayReport.item)" target="_blank" rel="noopener noreferrer" :title="ehXrayImageHint(ehXrayReport.item)" style="display:inline-flex;align-items:center;justify-content:center;text-decoration:none">ดูภาพ</a>
+          <el-button v-else size="small" type="primary" plain :title="ehXrayImageHint(ehXrayReport.item)" @click="ehXrayOpenImage(ehXrayReport.item)">ดูภาพ</el-button>
+        </footer>
+      </section>
+
+      <section style="overflow:hidden;border:1px solid #a0cfff;border-radius:8px;background:var(--el-bg-color)">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 12px;background:#ecf5ff"><span><strong style="display:block;color:#337ecc;font-size:12px">ผลก่อนหน้า</strong><small style="display:block;margin-top:2px;color:var(--el-text-color-secondary)">HN เดียวกัน + รายการตรวจเดียวกัน · ล่าสุด → เก่าสุด</small></span><label style="display:flex;align-items:center;gap:8px"><b style="font-size:11px">แสดง</b><el-select :model-value="ehXrayHistory.limit" size="small" style="width:100px" @change="ehXraySetHistoryLimit"><el-option :value="1" label="1 ครั้ง" /><el-option :value="5" label="5 ครั้ง" /><el-option :value="10" label="10 ครั้ง" /></el-select></label></div>
+        <div v-if="!ehXrayHistoryItems().length" style="padding:34px 16px;color:var(--el-text-color-placeholder);text-align:center">ไม่มีผลก่อนหน้า</div>
+        <article v-for="(historyItem,index) in ehXrayHistoryItems()" :key="historyItem.accession_no || index" style="display:grid;grid-template-columns:minmax(125px,.7fr) minmax(0,1.8fr) auto;gap:12px;align-items:center;padding:11px 13px;border-top:1px solid #d9ecff;background:var(--el-bg-color)">
+          <span><strong style="display:block;color:var(--el-text-color-primary)">{{ ehWhen(historyItem.resulted_at) || '-' }}</strong><small style="display:block;margin-top:2px;color:var(--el-text-color-secondary)">{{ historyItem.vn || '-' }} · {{ historyItem.accession_no || '-' }}</small></span>
+          <span style="min-width:0;overflow:hidden;color:var(--el-text-color-regular);font-size:12px;line-height:1.45;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2">{{ historyItem.result_text || '-' }}</span>
+          <span style="display:flex;gap:6px" @click.stop>
+            <sd-report v-if="ehXrayPdfReady(historyItem)" :key="'eh-xray-history-pdf-' + historyItem.result_id" :report-list="ehXrayPdfReportList" :params="ehXrayPdfParams(historyItem)" size="small" />
+            <el-button v-else size="small" disabled>PDF</el-button>
+            <a v-if="ehXrayViewerHref(historyItem)" class="el-button el-button--primary is-plain el-button--small" :href="ehXrayViewerHref(historyItem)" target="_blank" rel="noopener noreferrer" :title="ehXrayImageHint(historyItem)" style="display:inline-flex;align-items:center;justify-content:center;text-decoration:none">ดูภาพ</a>
+            <el-button v-else size="small" type="primary" plain :title="ehXrayImageHint(historyItem)" @click="ehXrayOpenImage(historyItem)">ดูภาพ</el-button>
           </span>
-          <el-button v-if="r.reauth_required" size="small" type="warning" @click="ehLabRequestSensitive(ehLabDialog.order, r)">ยืนยันตัวตนเพื่อดูผล</el-button>
-          <el-tag v-else size="small" type="info" effect="plain">ยังเปิดดูไม่ได้</el-tag>
-        </div>
-      </div>
-
-      <div class="lab-result-values" style="overflow-x:auto;border:1px solid var(--el-border-color);border-radius:8px">
-        <div class="lab-result-value-head" style="display:grid;grid-template-columns:44px 34px minmax(230px,1.25fr) minmax(130px,.75fr) 92px 115px minmax(460px,2fr);min-width:1180px;min-height:42px;align-items:center;background:#f5f7fa;color:var(--el-text-color-secondary);font-size:11px;font-weight:700">
-          <span style="padding:10px">#</span><span></span><span style="padding:10px">รายการ</span><span style="padding:10px">ค่าปัจจุบัน</span><span style="padding:10px">หน่วย</span><span style="padding:10px">แปลผล</span><span style="padding:10px">ค่าก่อนหน้า 1–5 ครั้ง <span style="font-weight:400">(ล่าสุด → เก่าสุด)</span></span>
-        </div>
-        <template v-for="(group, groupIndex) in ehLabResultGroups()" :key="ehLabResultGroupKey(group, groupIndex)">
-          <button v-if="ehLabResultGroupIsProfile(group)" type="button" class="lab-result-profile-row" :aria-expanded="ehLabResultGroupExpanded(group, groupIndex)" @click="ehLabToggleResultGroup(group, groupIndex)"
-            :style="{background:ehLabResultGroupExpanded(group,groupIndex)?'#f2f7ff':'#f7f9fc'}"
-            style="display:grid;width:100%;grid-template-columns:32px minmax(260px,1fr) 28px;gap:10px;min-width:1180px;min-height:54px;align-items:center;padding:10px 13px;border:0;border-top:1px solid var(--el-border-color);color:var(--el-text-color-regular);font:inherit;text-align:left;cursor:pointer">
-            <span class="lab-result-profile-index lab-mono" style="color:var(--el-text-color-secondary)">{{ groupIndex + 1 }}</span>
-            <span class="lab-result-profile-main" style="display:block;min-width:0"><strong style="display:block;overflow:hidden;color:var(--el-text-color-primary);font-size:13px;text-overflow:ellipsis;white-space:nowrap">{{ group.test_name || '-' }}</strong><small style="display:block;margin-top:2px;color:var(--el-text-color-secondary);font-size:10px">Profile · คลิกเพื่อ{{ ehLabResultGroupExpanded(group, groupIndex) ? 'พับ' : 'กาง' }}ผลย่อย {{ group.results.length }} รายการ</small></span>
-            <i aria-hidden="true" :style="{transform:ehLabResultGroupExpanded(group,groupIndex)?'rotate(180deg)':'none'}" style="justify-self:end;color:var(--el-text-color-secondary);font-size:17px;font-style:normal">⌄</i>
-          </button>
-          <template v-if="!ehLabResultGroupIsProfile(group) || ehLabResultGroupExpanded(group, groupIndex)">
-            <div v-for="(r, rowIndex) in group.results" :key="r.result_item_id || r.code || rowIndex" class="lab-result-value-row" :class="{'is-profile-child':ehLabResultGroupIsProfile(group),'is-critical':r.flag==='C'}"
-              :style="{paddingLeft:ehLabResultGroupIsProfile(group)?'16px':'0',background:r.flag==='C'?'#fff8f8':'var(--el-bg-color)'}"
-              style="display:grid;grid-template-columns:44px 34px minmax(230px,1.25fr) minmax(130px,.75fr) 92px 115px minmax(460px,2fr);min-width:1180px;min-height:72px;align-items:stretch;border-top:1px solid var(--el-border-color-light)">
-              <div class="lab-result-index lab-mono" style="min-width:0;padding:10px 6px;color:var(--el-text-color-secondary);white-space:nowrap">{{ ehLabResultRowNumber(group, groupIndex, rowIndex) }}</div>
-              <div style="min-width:0;padding:10px"><i v-if="ehLabHasResultValue(r)" class="lab-result-signal" :class="ehLabResultSignalClass(r)" :style="ehLabResultSignalStyle(r)" :title="ehLabResultSignalText(r)"></i></div>
-              <div class="lab-result-test-name" style="min-width:0;padding:10px;color:var(--el-text-color-primary);font-size:13px;font-weight:700"><strong style="display:block;overflow-wrap:anywhere">{{ r.name || group.test_name || '-' }}</strong><small style="display:block;margin-top:2px;color:var(--el-text-color-secondary);font-size:10px;font-weight:400">{{ r.code || group.test_code || '-' }}<template v-if="ehLabResultSourceText(r.source)"> · ผลจาก {{ ehLabResultSourceText(r.source) }}</template></small></div>
-              <div style="min-width:0;padding:10px"><strong class="lab-result-measured" :class="ehLabResultMeasuredClass(r)" :style="ehLabResultMeasuredStyle(r)">{{ r.redacted ? 'ปกปิดผล' : (r.value || 'รอผล') }}</strong><small v-if="!r.redacted && r.ref" class="lab-mono" style="display:block;margin-top:4px;color:var(--el-text-color-placeholder);font-size:9.5px">ค่าปกติ {{ r.ref }}</small></div>
-              <div style="min-width:0;padding:10px">{{ r.redacted ? '-' : (r.unit || '-') }}</div>
-              <div style="min-width:0;padding:10px"><span v-if="!r.redacted" class="lab-result-interpretation" :class="ehLabResultInterpretationClass(r)" :style="ehLabResultInterpretationStyle(r)">{{ ehLabFlagLabel(r) }}</span><span v-else>-</span></div>
-              <div class="lab-result-history" style="min-width:0;padding:8px 10px">
-                <div v-if="!ehLabPreviousValues(r).length" style="display:flex;min-height:54px;align-items:center;justify-content:center;border:1px dashed var(--el-border-color);border-radius:7px;color:var(--el-text-color-placeholder);font-size:10.5px">ยังไม่มีประวัติของรายการนี้</div>
-                <div v-else style="display:flex;gap:7px;max-width:100%;overflow-x:auto;padding-bottom:3px">
-                  <article v-for="(previous, previousIndex) in ehLabPreviousValues(r)" :key="(previous.visit_vn || '') + '|' + (previous.lab_no || '') + '|' + previousIndex" style="display:grid;flex:0 0 126px;gap:3px;padding:7px 8px;border:1px solid var(--el-border-color-light);border-radius:7px;background:var(--el-fill-color-blank)">
-                    <span style="display:flex;align-items:center;justify-content:space-between;gap:5px;color:var(--el-color-primary);font-size:9px;font-weight:700"><b>ครั้งที่ {{ previousIndex + 1 }}</b><small v-if="previousIndex===0" style="font-weight:400">ล่าสุด</small></span>
-                    <strong class="lab-mono" style="color:var(--el-text-color-primary);font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere">{{ previous.value }}</strong>
-                    <small v-if="ehLabPreviousSnapshot(previous)" style="color:var(--el-text-color-secondary);font-size:9px;overflow-wrap:anywhere">{{ ehLabPreviousSnapshot(previous) }}</small>
-                    <small class="lab-mono" style="color:var(--el-text-color-placeholder);font-size:8.5px">{{ ehLabCompactDateTime(previous.when) || '-' }}</small>
-                    <small v-if="previous.lab_no" class="lab-mono" style="color:var(--el-text-color-placeholder);font-size:8.5px">LAB {{ previous.lab_no }}</small>
-                  </article>
-                </div>
-              </div>
-              <div v-if="r.comment && !r.redacted" class="lab-result-comment" role="note" style="grid-column:3/-1;display:grid;gap:3px;align-self:stretch;padding:0 10px 10px"><span style="color:var(--el-text-color-secondary);font-size:10px;font-weight:700">หมายเหตุผลตรวจ</span><p style="margin:0;padding:8px 10px;border-left:3px solid var(--el-color-primary);border-radius:4px;background:var(--el-color-primary-light-9);font-size:12px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere">{{ r.comment }}</p></div>
-            </div>
-          </template>
-        </template>
-      </div>
-
-      <section id="eh-lab-result-attachments" class="lab-result-attachments" style="display:grid;gap:10px;margin-top:12px;padding:10px 12px;border:1px solid var(--el-border-color-light);border-radius:7px;background:#f7f9fc">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px"><div style="display:grid;gap:3px"><strong style="font-size:13px">ไฟล์แนบผลตรวจ</strong><small style="color:var(--el-text-color-secondary);font-size:10px">PDF / JPG / JPEG / PNG · ไม่เกิน 10 MB ต่อไฟล์ · สูงสุด 10 ไฟล์</small></div><span style="color:var(--el-text-color-secondary);font-size:11px">{{ ehLabDialog.order.attachments.length }}/10</span></div>
-        <div v-if="ehLabDialog.order.attachments.length" style="display:grid;gap:6px"><a v-for="(file, fi) in ehLabDialog.order.attachments" :key="'lab-file-' + fi" :href="ehLabFileUrl(file)" target="_blank" rel="noopener" style="display:grid;grid-template-columns:58px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--el-border-color-light);border-radius:6px;background:var(--el-bg-color);color:var(--el-text-color-regular);text-decoration:none"><span style="color:#337ecc;font-size:10px;font-weight:700">เอกสาร</span><strong style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ ehLabFileName(file) }}</strong><small style="color:var(--el-text-color-secondary);font-size:10px">{{ ehLabFileSize(file) }}</small></a></div>
+        </article>
       </section>
     </div>
-
-      <!-- MB only: raw Agent history stays inside this doctor popup. It is an
-         inline child overlay (not a teleported nested el-dialog), so closing it
-         preserves the parent popup, scroll position, and selected MLab Item. -->
-    <div v-if="ehLabMbHistory.visible && ehLabMbHistory.row" tabindex="-1" @vue:mounted="$event.el.focus()" @keydown.esc.stop="ehLabCloseMbHistory()"
-      style="position:fixed;inset:0;z-index:3200;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(31,41,55,.58);outline:none">
-      <section role="dialog" aria-modal="true" aria-label="ผลย้อนหลังจาก Agent" style="display:flex;width:min(900px,calc(100vw - 48px));max-height:calc(100vh - 64px);flex-direction:column;overflow:hidden;border:1px solid var(--el-border-color);border-radius:12px;background:var(--el-bg-color);box-shadow:0 18px 55px rgba(15,23,42,.28)">
-        <header style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:16px 18px;border-bottom:1px solid var(--el-border-color-light)">
-          <span style="min-width:0"><strong style="display:block;color:var(--el-text-color-primary);font-size:17px">ผลย้อนหลัง · {{ ehLabMbHistory.row.code || '-' }} {{ ehLabMbHistory.row.name || '' }}</strong><small style="display:block;margin-top:4px;color:var(--el-text-color-secondary)">{{ ehLabPreviousValues(ehLabMbHistory.row).length }} ครั้งล่าสุดก่อนผลปัจจุบัน · ข้อความ raw จาก Agent โดยไม่ตัดหรือแปลงโครงสร้าง</small></span>
-          <el-button circle size="small" aria-label="ปิดผลย้อนหลัง" @click="ehLabCloseMbHistory()">×</el-button>
-        </header>
-        <div style="display:grid;gap:10px;overflow-y:auto;padding:14px 18px;background:var(--el-fill-color-lighter)">
-          <article v-for="(previous, previousIndex) in ehLabPreviousValues(ehLabMbHistory.row)" :key="(previous.visit_vn || '') + '|' + (previous.lab_no || '') + '|' + previousIndex" style="overflow:hidden;border:1px solid var(--el-border-color-light);border-radius:8px;background:var(--el-bg-color)">
-            <header style="display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;padding:9px 12px;border-bottom:1px solid var(--el-border-color-light);background:var(--el-fill-color-light);font-size:10.5px"><b style="color:var(--el-color-primary)">ครั้งที่ {{ previousIndex + 1 }}<template v-if="previousIndex===0"> · ล่าสุด</template></b><strong class="lab-mono">{{ ehLabCompactDateTime(previous.when) || '-' }}</strong><strong v-if="previous.lab_no" class="lab-mono">LAB {{ previous.lab_no }}</strong><span style="margin-left:auto;padding:2px 7px;border:1px solid var(--el-border-color);border-radius:999px;color:var(--el-text-color-secondary)">ข้อความจาก Agent</span></header>
-            <pre style="margin:0;min-height:78px;overflow:auto;padding:13px 15px;color:var(--el-text-color-regular);font:12.5px/1.75 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere">{{ previous.value }}</pre>
-          </article>
-        </div>
-        <footer style="display:flex;justify-content:flex-end;padding:11px 18px;border-top:1px solid var(--el-border-color-light)"><el-button @click="ehLabCloseMbHistory()">ปิดผลย้อนหลัง</el-button></footer>
-      </section>
-    </div>
-
-    <template #footer><el-button v-if="ehLabAttachmentCount()" type="primary" plain @click="ehLabScrollToAttachments()">ดูไฟล์แนบ ({{ ehLabAttachmentCount() }})</el-button><el-button v-if="ehLabIsMicrobiologyDialog()" @click="ehLabCopyMicrobiologyResult()">คัดลอกผลที่แสดง</el-button><el-button @click="ehLabCloseLabDialog()">ปิด</el-button></template>
+    <template #footer><el-button @click="ehXrayCloseReport()">ปิด</el-button></template>
   </el-dialog>
 
+  <!-- ยืนยันตัวตน Sensitive/PDF เท่านั้น; ผลทั้งใบเปิดผ่าน Form กลาง lab_popup_result -->
   <el-dialog v-model="ehLabReauth.visible" :title="ehLabReauth.mode==='pdf' ? 'ยืนยันตัวตนอีกครั้งเพื่อเปิด PDF' : 'ยืนยันตัวตนเพื่อดูผล Sensitive'" width="460px" :close-on-click-modal="false" destroy-on-close @closed="ehLabCloseReauth()">
     <div style="display:grid;gap:12px">
       <el-alert type="warning" :closable="false" show-icon title="ระบบจะตรวจสิทธิ์ที่ server และบันทึก Access Log ทุกครั้ง" />

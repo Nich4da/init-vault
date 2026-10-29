@@ -163,7 +163,9 @@ const makeApp = (captures, {
     vtran_status: 'waiting',
     visit_date: '2026-08-31',
     checkin_at: '2026-08-31 08:10:00',
-    vid: { value: 'VISIT-TODAY-1' },
+    vid: { value: 'VISIT-TODAY-1', visit_priority: '8' },
+    unit_to: { value: 'M1001', label: 'LAB' },
+    room_to: { value: 'LAB-1', label: 'ห้อง LAB' },
   }],
 } = {}) => ({
   isAuth: () => true,
@@ -304,7 +306,7 @@ const makeApp = (captures, {
     if (provider.from === 'zdata_section') {
       return { success: true, reply: { data: sections } }
     }
-    if (provider.from === 'zdata_zdata_lab_reject_cancel_reason') {
+    if (provider.from === 'zdata_lab_reject_cancel_reason') {
       return { success: true, reply: { data: reasonRows } }
     }
     if (provider.from === 'zdata_lab_spec') {
@@ -580,7 +582,7 @@ const makeFinalizeApp = (captures, {
       { value: 'LABR-00001', label: 'เหตุผลเฉพาะห้อง', display_order: 1, section_code: 'BC' },
       { value: 'LABR-00002', label: 'เหตุผลลำดับสอง', display_order: 2, section_code: 'ALL' },
     ])
-    const reasonProvider = captures.find(provider => provider.from === 'zdata_zdata_lab_reject_cancel_reason')
+    const reasonProvider = captures.find(provider => provider.from === 'zdata_lab_reject_cancel_reason')
     assert(reasonProvider, 'reason options must read the imported LAB Reason Settings collection')
     assert.deepStrictEqual(reasonProvider.nosql.query.reason_type, { $in: ['SPECIMEN_REJECT', 'BOTH'] })
     assert.deepStrictEqual(reasonProvider.nosql.query.xrstatx, { $nin: [0, 3] })
@@ -1199,6 +1201,10 @@ const makeFinalizeApp = (captures, {
     assert.strictEqual(result.data.visit_date, '2026-08-31')
     assert.strictEqual(result.data.total, 1)
     assert.strictEqual(result.data.visits[0].vn, 'VN-TODAY-1')
+    assert.strictEqual(result.data.visits[0].visit_tran_count, 1)
+    assert.strictEqual(result.data.visits[0].visit_tran_id, 'VTRAN-1')
+    assert.strictEqual(result.data.visits[0].current_unit.value, 'M1001')
+    assert.strictEqual(result.data.visits[0].visit_priority, '8')
     assert.deepStrictEqual(result.data.section_codes, ['BC'])
     assert.strictEqual(result.data.organization_code, 'M1001')
 
@@ -1232,6 +1238,21 @@ const makeFinalizeApp = (captures, {
   {
     const captures = []
     const result = await Process(
+      { action: 'list_open_visits', organization_code: 'm1001' },
+      userAt('m1001'),
+      makeApp(captures, { visitTranRows: [
+        { _id: 'VTRAN-A', vtran_status: 'waiting', visit_date: '2026-08-31', vid: { value: 'VISIT-TODAY-1' }, unit_to: { value: 'M1001' } },
+        { _id: 'VTRAN-B', vtran_status: 'called', visit_date: '2026-08-31', vid: { value: 'VISIT-TODAY-1' }, unit_to: { value: 'M1001' } },
+      ] }),
+    )
+    assert.strictEqual(result.data.visits[0].visit_tran_count, 2)
+    assert.strictEqual(result.data.visits[0].visit_tran_ambiguous, true)
+    assert.strictEqual(result.data.visits[0].visit_tran_id, undefined, 'the API must not guess which open queue to move')
+  }
+
+  {
+    const captures = []
+    const result = await Process(
       { action: 'list_open_visits', organization_code: 'm1001', hn: '6900001' },
       userAt('m1001'),
       makeApp(captures),
@@ -1256,6 +1277,8 @@ const makeFinalizeApp = (captures, {
     assert.strictEqual(result.data.source, 'visit_day')
     assert.strictEqual(result.data.visit_tran_total, 0)
     assert.strictEqual(result.data.visits[0].vn, 'VN-TODAY-1')
+    assert.strictEqual(result.data.visits[0].visit_tran_count, 0)
+    assert.strictEqual(result.data.visits[0].visit_tran_id, undefined)
 
     const visitProvider = captures.find(provider => provider.from === 'zdata_visit')
     assert.deepStrictEqual(visitProvider.nosql.query, {
@@ -2667,6 +2690,64 @@ const makeFinalizeApp = (captures, {
     assert.strictEqual(save.data.lab_section, 'BC')
     assert.strictEqual(save.data.result_value, '98')
     assert.strictEqual(save.data.result_source, 'manual')
+  }
+
+  {
+    const captures = []
+    const resultItemId = '454545454545454545454546'
+    const resultReportId = '565656565656565656565657'
+    const result = await Process(
+      {
+        action: 'save_manual_result',
+        organization_code: '10',
+        item_id: manualItemId,
+        manual_result: { result_value: '98', unit: 'mg/dL', interpretation: 'N', reference_range: '70-100' },
+      },
+      userAt('10'),
+      makeApp(captures, {
+        manualSectionCode: 'BC',
+        manualStatus: 'accepted',
+        canonicalReports: [{
+          _id: resultReportId,
+          order_no: '999999999999999999999999',
+          report_key: 'manual-order|' + manualOrderId + '|BC',
+          internal_overall_status: 'processing',
+          source_channel: 'manual',
+        }],
+        canonicalCurrent: [{
+          _id: resultItemId,
+          result_report_id: resultReportId,
+          order_no: '999999999999999999999999',
+          hn: 'HN-TEST',
+          visit_id: 'VN-NEW',
+          obs_code: 'MY-CULTURE',
+          obs_name: 'Fungal culture',
+          result_value: '98',
+          units: 'mg/dL',
+          interpretation_code: 'N',
+          reference_range_snapshot: '70-100',
+          result_status: 'draft',
+          result_source: 'manual',
+          entered_at: '',
+          entered_by: '',
+        }],
+      }),
+    )
+    assert.strictEqual(result.success, true, result.message)
+    assert.strictEqual(result.data.result_status, 'entered', 'a non-empty canonical draft must become entered even when the clinical values are unchanged')
+    const reportSave = captures.find(entry => entry.type === 'sdformSetOne' && entry.formId === RESULT_REPORT_FORM_ID && entry.id === resultReportId)
+    assert(reportSave, 'draft recovery must promote the linked Result Report')
+    assert.strictEqual(reportSave.data.internal_overall_status, 'partial')
+    assert.strictEqual(reportSave.data.reported_at, '2026-08-31 10:20:30')
+    const resultSave = captures.find(entry => entry.type === 'sdformSetOne' && entry.formId === RESULT_ITEM_FORM_ID && entry.id === resultItemId)
+    assert(resultSave, 'draft recovery must update the existing canonical Result Item')
+    assert.strictEqual(resultSave.data.result_status, 'entered')
+    assert.strictEqual(resultSave.data.entered_at, '2026-08-31 10:20:30')
+    assert.strictEqual(resultSave.data.entered_by, 'lab-test')
+    const statusUpdate = captures.find(entry => entry.type === 'update' && entry.from === 'zdata_lab_work_item')
+    assert(statusUpdate, 'draft recovery must move the Lab Work Item to resulted')
+    assert.strictEqual(statusUpdate.data.work_status, 'resulted')
+    assert(!captures.some(entry => entry.type === 'correctionLog'), 'unchanged draft recovery must not create a correction audit')
   }
 
   {

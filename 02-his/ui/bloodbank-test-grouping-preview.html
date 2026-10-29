@@ -1,0 +1,667 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Blood Bank — Test Grouping Preview</title>
+  <style>
+    :root {
+      --ink: #17352d;
+      --muted: #66736f;
+      --line: #d9e3df;
+      --paper: #fffefa;
+      --canvas: #f3f7f4;
+      --green: #087f5b;
+      --green-soft: #e6f7ef;
+      --blue: #2f6f8f;
+      --blue-soft: #eaf4f8;
+      --amber: #b96b16;
+      --amber-soft: #fff3dd;
+      --slate: #59656c;
+      --slate-soft: #eef1f2;
+      --shadow: 0 14px 38px rgba(24, 54, 45, .08);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        linear-gradient(rgba(8, 127, 91, .025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(8, 127, 91, .025) 1px, transparent 1px),
+        var(--canvas);
+      background-size: 28px 28px;
+      font-family: "Sarabun", "Noto Sans Thai", "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.45;
+    }
+
+    button, input { font: inherit; }
+
+    .shell {
+      width: min(1480px, calc(100% - 36px));
+      margin: 0 auto;
+      padding: 30px 0 56px;
+    }
+
+    .masthead {
+      position: relative;
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 28px;
+      align-items: end;
+      padding: 30px 32px;
+      color: white;
+      background: #0a5f49;
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+    }
+
+    .masthead::after {
+      content: "BB";
+      position: absolute;
+      right: 32px;
+      top: -34px;
+      color: rgba(255,255,255,.07);
+      font-size: 164px;
+      font-weight: 900;
+      letter-spacing: -.08em;
+      line-height: 1;
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      margin: 0 0 7px;
+      color: #bcebd9;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(28px, 4vw, 48px);
+      line-height: 1.08;
+      letter-spacing: -.035em;
+    }
+
+    .lede {
+      max-width: 760px;
+      margin: 13px 0 0;
+      color: #dff7ee;
+      font-size: 15px;
+    }
+
+    .total {
+      position: relative;
+      z-index: 1;
+      min-width: 142px;
+      padding: 16px 18px;
+      text-align: right;
+      background: rgba(255,255,255,.1);
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 16px;
+      backdrop-filter: blur(5px);
+    }
+
+    .total strong {
+      display: block;
+      font-size: 34px;
+      line-height: 1;
+    }
+
+    .total span {
+      display: block;
+      margin-top: 6px;
+      color: #ccebdd;
+      font-size: 13px;
+    }
+
+    .toolbar {
+      position: sticky;
+      top: 12px;
+      z-index: 20;
+      display: grid;
+      grid-template-columns: minmax(280px, 1fr) auto;
+      gap: 16px;
+      align-items: center;
+      margin: 18px 0;
+      padding: 14px;
+      background: rgba(255, 254, 250, .92);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 8px 26px rgba(24, 54, 45, .07);
+      backdrop-filter: blur(12px);
+    }
+
+    .search-wrap { position: relative; }
+
+    .search-wrap svg {
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      width: 19px;
+      height: 19px;
+      color: #6d7a75;
+      transform: translateY(-50%);
+      pointer-events: none;
+    }
+
+    #search {
+      width: 100%;
+      height: 48px;
+      padding: 0 52px 0 46px;
+      color: var(--ink);
+      background: #f7faf8;
+      border: 1px solid #cfdad6;
+      border-radius: 13px;
+      outline: none;
+      transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+    }
+
+    #search:focus {
+      background: white;
+      border-color: var(--green);
+      box-shadow: 0 0 0 4px rgba(8, 127, 91, .12);
+    }
+
+    #clear-search {
+      position: absolute;
+      right: 8px;
+      top: 8px;
+      width: 32px;
+      height: 32px;
+      display: none;
+      place-items: center;
+      color: #66736f;
+      background: transparent;
+      border: 0;
+      border-radius: 9px;
+      cursor: pointer;
+    }
+
+    #clear-search:hover,
+    #clear-search:focus-visible { background: #e9efec; outline: none; }
+
+    .rule-note {
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .stat {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-width: 0;
+      padding: 13px 15px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+    }
+
+    .stat-label {
+      overflow: hidden;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .stat-count {
+      display: grid;
+      min-width: 35px;
+      height: 28px;
+      padding: 0 8px;
+      place-items: center;
+      color: white;
+      background: var(--slate);
+      border-radius: 9px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .stat[data-group="frequent"] .stat-count { background: var(--green); }
+    .stat[data-group="antigen"] .stat-count { background: var(--blue); }
+    .stat[data-group="gel"] .stat-count { background: var(--amber); }
+
+    .groups {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+      align-items: start;
+    }
+
+    .group-card {
+      --group: var(--slate);
+      --group-soft: var(--slate-soft);
+      overflow: hidden;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-top: 4px solid var(--group);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .group-card[data-group="frequent"] { --group: var(--green); --group-soft: var(--green-soft); }
+    .group-card[data-group="antigen"] { --group: var(--blue); --group-soft: var(--blue-soft); }
+    .group-card[data-group="gel"] { --group: var(--amber); --group-soft: var(--amber-soft); }
+    .group-card[data-group="other"] { grid-column: 1 / -1; }
+
+    summary {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto auto;
+      gap: 13px;
+      align-items: center;
+      padding: 18px 20px;
+      cursor: pointer;
+      list-style: none;
+      user-select: none;
+    }
+
+    summary::-webkit-details-marker { display: none; }
+    summary:focus-visible { outline: 3px solid color-mix(in srgb, var(--group) 28%, transparent); outline-offset: -3px; }
+
+    .group-mark {
+      width: 11px;
+      height: 34px;
+      background: var(--group);
+      border-radius: 999px;
+    }
+
+    .group-name {
+      font-size: 19px;
+      font-weight: 850;
+      letter-spacing: -.015em;
+    }
+
+    .group-desc {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .group-count {
+      padding: 5px 10px;
+      color: var(--group);
+      background: var(--group-soft);
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 850;
+      white-space: nowrap;
+    }
+
+    .chevron {
+      width: 9px;
+      height: 9px;
+      border-right: 2px solid var(--group);
+      border-bottom: 2px solid var(--group);
+      transform: rotate(45deg);
+      transition: transform .2s ease;
+    }
+
+    details[open] .chevron { transform: rotate(225deg); }
+
+    .item-list {
+      display: grid;
+      gap: 1px;
+      padding: 0 12px 12px;
+      background: var(--line);
+      border-top: 1px solid var(--line);
+    }
+
+    .test-item {
+      display: grid;
+      grid-template-columns: 76px minmax(0, 1fr) auto;
+      gap: 14px;
+      align-items: center;
+      min-height: 58px;
+      padding: 10px 11px;
+      background: var(--paper);
+      transition: background .16s ease, transform .16s ease;
+    }
+
+    .test-item:hover {
+      position: relative;
+      z-index: 1;
+      background: color-mix(in srgb, var(--group-soft) 64%, white);
+      transform: translateX(2px);
+    }
+
+    .test-code {
+      display: inline-flex;
+      width: fit-content;
+      padding: 5px 8px;
+      color: var(--group);
+      background: var(--group-soft);
+      border-radius: 8px;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .02em;
+    }
+
+    .test-name {
+      min-width: 0;
+      font-size: 14px;
+      font-weight: 650;
+    }
+
+    .test-price {
+      color: #52605b;
+      font-size: 13px;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .empty {
+      display: none;
+      padding: 24px;
+      color: var(--muted);
+      text-align: center;
+      background: var(--paper);
+    }
+
+    .page-note {
+      margin: 18px 2px 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    mark {
+      padding: 0 2px;
+      color: inherit;
+      background: #ffe39c;
+      border-radius: 3px;
+    }
+
+    [hidden] { display: none !important; }
+
+    @media (max-width: 900px) {
+      .masthead { grid-template-columns: 1fr; }
+      .total { width: fit-content; text-align: left; }
+      .toolbar { grid-template-columns: 1fr; }
+      .rule-note { white-space: normal; }
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      .groups { grid-template-columns: 1fr; }
+      .group-card[data-group="other"] { grid-column: auto; }
+    }
+
+    @media (max-width: 560px) {
+      .shell { width: min(100% - 20px, 1480px); padding-top: 10px; }
+      .masthead { padding: 24px 20px; border-radius: 18px; }
+      .stats { grid-template-columns: 1fr; }
+      summary { grid-template-columns: auto minmax(0, 1fr) auto; padding: 15px; }
+      .chevron { display: none; }
+      .test-item { grid-template-columns: 68px minmax(0, 1fr); gap: 10px; }
+      .test-price { grid-column: 2; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="masthead">
+      <div>
+        <p class="eyebrow">CPOE Order App · Lab</p>
+        <h1>Blood Bank test groups</h1>
+        <p class="lede">ต้นแบบจัดกลุ่มรายการตรวจตามกติกาที่กำหนด เพื่อทบทวนก่อนนำไปใช้ในระบบจริง</p>
+      </div>
+      <div class="total" aria-label="จำนวนรายการทั้งหมด">
+        <strong id="total-count">103</strong>
+        <span>รายการทั้งหมด</span>
+      </div>
+    </header>
+
+    <section class="toolbar" aria-label="เครื่องมือค้นหา">
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m21 21-4.35-4.35m2.35-5.15a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <input id="search" type="search" placeholder="ค้นหารหัสหรือชื่อรายการ เช่น BB67, Antigen, HLA" autocomplete="off">
+        <button id="clear-search" type="button" aria-label="ล้างคำค้น">×</button>
+      </div>
+      <div class="rule-note" id="result-note" aria-live="polite">แสดงครบ 103 รายการ</div>
+    </section>
+
+    <section class="stats" id="stats" aria-label="สรุปจำนวนรายการแต่ละกลุ่ม"></section>
+    <section class="groups" id="groups" aria-label="รายการ Blood Bank แยกตามกลุ่ม"></section>
+
+    <p class="page-note">หมายเหตุ: เป็นหน้า preview แบบอ่านอย่างเดียว การจัดกลุ่มนี้ยังไม่แก้ไข CPOE หรือข้อมูลรายการตรวจจริง</p>
+  </main>
+
+  <script>
+    const tests = [
+      ["BB508", "Unrelated stem cell donor search request", 3000],
+      ["BB514", "Crossmatched Single Donor Platelet (SDP)", 2200],
+      ["BB515", "HLA/HPA Matched Single Donor Platelet (SDP)", 2200],
+      ["BB519", "ค่าปั่นแยก Bone Marrow/PBSC", 20000],
+      ["BB520", "ค่า Freeze Bone Marrow", 7500],
+      ["BB521", "ค่า Freeze PBSC", 7500],
+      ["BB522", "ค่า Freeze DLI", 7300],
+      ["BB523", "ค่าเก็บรักษา Stem Cell (ต่อปี)", 5000],
+      ["BB524", "บริการ Reinfuse Stem Cell และรับส่ง Stem Cell (กรุงเทพฯและปริมณฑล)", 4000],
+      ["BB525", "CD34 Enumeration", 2000],
+      ["BB526", "CD3/CD4/CD8 Enumeration", 750],
+      ["BB528", "Preliminary Search-UBMD", 3000],
+      ["BB529", "ค่าบริหารจัดการขั้น Preliminary Search", 900],
+      ["BB530", "ค่าบริหารจัดการขั้น Extended HLA Typing", null],
+      ["BB531", "TSCDR Standard IDMsa-UBMD", 7500],
+      ["BB532", "VT+TSCDR Standard IDMsa-UBMD", 29500],
+      ["BB533", "SampleVT+TSCDR Standard IDMsa-UBMD", 11000],
+      ["BB534", "ค่าบริหารจัดการ ขั้น VT", null],
+      ["BB535", "Donor Work-Up+TSCDR Standard IDMsa-UBMD", 22500],
+      ["BB536", "ค่าบริหารจัดการขั้น Donor Work-Up", null],
+      ["BB537", "ค่าบริการเก็บ Bone Marrow-UBMD", 180000],
+      ["BB538", "ค่าบริหารจัดการเก็บ Bone Marrow", null],
+      ["BB539", "ค่าบริการเก็บ PBSC-UBMD", 180000],
+      ["BB540", "ค่าบริหารจัดการเก็บ PBSC", null],
+      ["BB516", "Screen for Platelet Antibody", 3000],
+      ["BB517", "HLA Class I typing (สำหรับ HLA Match Platelet)", 6000],
+      ["BB1", "ABO group & Rh typing", 200],
+      ["BB2", "Direct Coombs' test", 110],
+      ["BB296", "ค่าตรวจวิเคราะห์เลือดมารดาของผู้ป่วยทารกแรกเกิด + Repeat ABO", 320],
+      ["BB4", "Antibody screening test", 130],
+      ["BB401", "Antibody Screening Test - Gel Method", 210],
+      ["BB402", "Direct Coomb's test - Gel method", 140],
+      ["BB503", "HLA-C [Type] by High resolution typing", 3500],
+      ["BB505", "HLA-DRB3/4/5 DNA typing in Blood or Tissue by High resolution", 3500],
+      ["BB509", "HLA-A DNA Typing (Intermediate Resolution)", 2500],
+      ["BB510", "HLA-B DNA Typing (Intermediate Resolution)", 3500],
+      ["BB511", "HLA-C DNA Typing (Intermediate Resolution)", 1500],
+      ["BB512", "HLA-DR DNA Typing (Intermediate Resolution)", 3000],
+      ["BB513", "HLA-DQB1 DNA Typing (Intermediate Resolution)", 1500],
+      ["BB518", "HPA DNA Typing", 2000],
+      ["BB527", "Red Cell Genotyping", 7500],
+      ["BB541", "HLA Crossmatch (Flow Cytometry)", 10000],
+      ["BB67", "ABO cell and serum grouping", 100],
+      ["BB7", "Antibody identification (tube method)", 520],
+      ["BB70", "Rh. (D) Typing - Tube method", 60],
+      ["BB71", "Rh. Tying (Complete)", 440],
+      ["BB8", "Eluate identification", 330],
+      ["BB9", "Antibody titration", 540],
+      ["BB91", "Antibody Titration(Rh)", 540],
+      ["BB92", "Blood group (ABO) - Gel method (BB)", 160],
+      ["BB93", "ABO Cell grouping - Slide method (กรณีตรวจหมู่เลือดซ้ำ)", 40],
+      ["BB94", "Rh. (D) Typing - Gel method", 110],
+      ["BB00", "BB Lab test investigation", null],
+      ["BB501", "HLA-A [Type] by High resolution", 4000],
+      ["BB502", "HLA-B [Type] by High resolution", 5000],
+      ["BB504", "*HLA-DRB1 [Type] by High resolution", 6000],
+      ["BB506", "*HLA-DQB1 [Type] by High resolution", 3500],
+      ["BB507", "HLA-DPB1 [Type] by High resolution", 3500],
+      ["BB542", "ค่าบริการตรวจคัดกรองโลหิตตามมาตรฐาน (Serology+Grouping)", 310],
+      ["BB543", "ค่าบริการตรวจคัดกรองโลหิตด้วยวิธี NAT (HIV/HCV/HBV)", 250],
+      ["BB281", "Leukocyte Depleted Platelet Concentrate", 1600],
+      ["BB290", "Pl Psorelen-treated Plateletpheresis PAS-C", 13500],
+      ["BB38", "ค่าตรวจ NAT (Nucleic Acid Testing)", 500],
+      ["BB403", "Type and screen -Gel method", 520],
+      ["BB404", "Cross matching - Gel method", 170],
+      ["BB405", "Antibody identification - Gel method", 560],
+      ["BB406", "Absorption test", 330],
+      ["BB407", "Antigen C", 200],
+      ["BB408", "Antigen Di(a)", 340],
+      ["BB409", "Antigen E", 280],
+      ["BB410", "Antigen e", 270],
+      ["BB411", "Antigen Fy(a)", 460],
+      ["BB412", "Antigen Fy(b)", 470],
+      ["BB413", "Antigen Jk(a)", 660],
+      ["BB414", "Antigen Jk(b)", 680],
+      ["BB415", "Antigen K", 210],
+      ["BB416", "Antigen k", 280],
+      ["BB417", "Antigen Le(a)", 580],
+      ["BB418", "Antigen Le(b)", 580],
+      ["BB419", "Antigen Le(a) +Le(b)", 1200],
+      ["BB42", "(>1ปี) Precrossmatch PRC (ค่าตรวจ ABO, Rh, Ab screening) + repeat ABO", 320],
+      ["BB420", "Antigen M", 280],
+      ["BB421", "Antigen Mi(a)", 280],
+      ["BB422", "Antigen N", 280],
+      ["BB423", "Antigen P1", 410],
+      ["BB424", "Antigen S", 320],
+      ["BB425", "Antigen s", 640],
+      ["BB426", "Direct antiglobulin (Coomb's test) monospecific 5 ชนิดIgG, IgM, IgA, C3c และC3d - Gel method", 445],
+      ["BB427", "Direct antiglobulin (Coomb's test) monospecific 2 ชนิดIgG และ C3c - Gel method", 200],
+      ["BB428", "Neutralization 32: ABH substance in saliva", 290],
+      ["BB47", "(>1ปี) Precrossmatch FFP (ค่าตรวจ ABO, Rh) + repeat ABO", 190],
+      ["BB48", "(>1ปี) Cryo-Removed Plasma (ค่าตรวจ ABO, Rh)", 150],
+      ["BB5", "Type & Screen ( T&S ) - Tube method", 290],
+      ["BB544", "ค่าบริการเตรียมสารรักษาสภาพด้วย 20% human albumin", 900],
+      ["BB56", "(<1ปี) Precrossmatch PRC, FFP (ค่าตรวจ ABO, Rh) + repeat ABO", 190],
+      ["BB6", "Cross matching - Tube method", 110],
+      ["BB61", "(<1ปี) (SDR) - non Filter (ค่าตรวจ ABO, Rh)", 90],
+      ["BB611", "ค่า cross match PRC", 110],
+      ["BB622", "ค่า cross match FFP", 110],
+      ["BB633", "ค่า cross match LPRC", 80],
+      ["BB644", "ค่า cross match exchange transfusion", 80],
+      ["BB95", "Antigen c", 280],
+      ["BB999", "รายการจองเลือด", 100]
+    ].map(([code, name, price], sourceIndex) => ({ code, name, price, sourceIndex }));
+
+    const frequentOrder = ["BB67", "BB70", "BB93", "BB2", "BB4", "BB7", "BB8", "BB9"];
+    const frequentSet = new Set(frequentOrder);
+
+    function groupFor(item) {
+      if (frequentSet.has(item.code)) return "frequent";
+      if (/^Antigen\b/i.test(item.name)) return "antigen";
+      if (/-\s*Gel method$/i.test(item.name)) return "gel";
+      return "other";
+    }
+
+    const definitions = [
+      { id: "frequent", label: "ใช้งานบ่อย", desc: "8 รหัสที่กำหนด", open: true },
+      { id: "antigen", label: "Antigen", desc: "ชื่อรายการขึ้นต้นด้วย Antigen", open: true },
+      { id: "gel", label: "Gel Method", desc: "ชื่อรายการลงท้ายด้วย - Gel method", open: true },
+      { id: "other", label: "Outlab และอื่นๆ", desc: "รายการทั้งหมดที่ไม่เข้า 3 กลุ่มแรก", open: false }
+    ];
+
+    const grouped = Object.fromEntries(definitions.map(group => [group.id, []]));
+    tests.forEach(item => grouped[groupFor(item)].push(item));
+    grouped.frequent.sort((a, b) => frequentOrder.indexOf(a.code) - frequentOrder.indexOf(b.code));
+
+    const formatPrice = price => price == null ? "—" : `฿${price.toLocaleString("th-TH")}`;
+
+    function createItem(item, groupId) {
+      const row = document.createElement("div");
+      row.className = "test-item";
+      row.dataset.search = `${item.code} ${item.name}`.toLocaleLowerCase("th-TH");
+      row.dataset.group = groupId;
+
+      const code = document.createElement("span");
+      code.className = "test-code";
+      code.textContent = item.code;
+
+      const name = document.createElement("span");
+      name.className = "test-name";
+      name.textContent = item.name;
+
+      const price = document.createElement("span");
+      price.className = "test-price";
+      price.textContent = formatPrice(item.price);
+
+      row.append(code, name, price);
+      return row;
+    }
+
+    function render() {
+      const stats = document.querySelector("#stats");
+      const groups = document.querySelector("#groups");
+
+      definitions.forEach(group => {
+        const stat = document.createElement("div");
+        stat.className = "stat";
+        stat.dataset.group = group.id;
+        stat.innerHTML = `<span class="stat-label">${group.label}</span><span class="stat-count">${grouped[group.id].length}</span>`;
+        stats.append(stat);
+
+        const details = document.createElement("details");
+        details.className = "group-card";
+        details.dataset.group = group.id;
+        details.open = group.open;
+        details.innerHTML = `
+          <summary>
+            <span class="group-mark" aria-hidden="true"></span>
+            <span class="group-name">${group.label}<span class="group-desc">${group.desc}</span></span>
+            <span class="group-count"><span data-visible-count>${grouped[group.id].length}</span> รายการ</span>
+            <span class="chevron" aria-hidden="true"></span>
+          </summary>
+          <div class="item-list"></div>
+          <div class="empty">ไม่พบรายการที่ตรงกับคำค้น</div>`;
+
+        const list = details.querySelector(".item-list");
+        grouped[group.id].forEach(item => list.append(createItem(item, group.id)));
+        groups.append(details);
+      });
+    }
+
+    function filterItems(query) {
+      const q = query.trim().toLocaleLowerCase("th-TH");
+      let totalVisible = 0;
+
+      document.querySelectorAll(".group-card").forEach(card => {
+        let groupVisible = 0;
+        card.querySelectorAll(".test-item").forEach(item => {
+          const visible = !q || item.dataset.search.includes(q);
+          item.hidden = !visible;
+          if (visible) groupVisible++;
+        });
+        totalVisible += groupVisible;
+        card.querySelector("[data-visible-count]").textContent = groupVisible;
+        card.querySelector(".item-list").hidden = groupVisible === 0;
+        card.querySelector(".empty").style.display = groupVisible === 0 ? "block" : "none";
+        if (q && groupVisible > 0) card.open = true;
+      });
+
+      document.querySelector("#result-note").textContent = q
+        ? `พบ ${totalVisible} จาก 103 รายการ`
+        : "แสดงครบ 103 รายการ";
+      document.querySelector("#clear-search").style.display = q ? "grid" : "none";
+    }
+
+    render();
+
+    const search = document.querySelector("#search");
+    search.addEventListener("input", event => filterItems(event.target.value));
+    document.querySelector("#clear-search").addEventListener("click", () => {
+      search.value = "";
+      filterItems("");
+      search.focus();
+    });
+
+    if (tests.length !== 103) console.error(`Expected 103 tests, found ${tests.length}`);
+    const groupTotal = definitions.reduce((sum, group) => sum + grouped[group.id].length, 0);
+    if (groupTotal !== tests.length) console.error("Group totals do not match source data");
+  </script>
+</body>
+</html>

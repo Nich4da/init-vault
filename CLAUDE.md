@@ -506,3 +506,23 @@ a reset for a harmless wording issue that was resolved immediately.
 
 การเขียนทับ `spec.md` / `design.md` / `hotcache.md` ต้องรักษาข้อมูลเดิมที่ยังจริงอยู่
 บีบให้สั้นได้ แต่ห้ามทำให้ข้อเท็จจริงที่ยังใช้ได้หายไป และห้ามลบบันทึกของ session อื่น
+
+---
+
+## 15. Confirmed mockup → Design Skill → implementation
+
+กฎที่ผู้ใช้ตั้งไว้ 2026-10-26 สำหรับงาน UI:
+
+1. ถือว่า mockup ได้รับการยืนยันต่อเมื่อผู้ใช้ตอบรับทิศทาง เลือกแบบ หรือสั่งให้เดินหน้าจาก
+   mockup นั้นโดยชัดเจน การเปิดดูเฉย ๆ ความเงียบ หรือรอบที่ยังแก้ feedback ไม่จบไม่นับว่า confirm
+2. หลัง confirm และ **ก่อนเริ่มเขียน implementation จริง** ไม่ว่าจะเป็น frontend, SDForm JSON,
+   replacement package หรือการทำงานกับ live artifact ต้องอัปเดต UI/Design Skill ที่เกี่ยวข้องก่อน
+   โดยบันทึกเฉพาะ pattern ที่ผู้ใช้ยืนยันแล้ว พร้อม provenance, ขอบเขต, responsive/accessibility
+   และสิ่งที่ยังไม่ยืนยัน ห้ามยกระดับการเดากฎ clinical/backend ให้เป็น design rule
+3. เมื่อทำ user-visible function หรือ UI component หนึ่งส่วนเสร็จและตรวจสอบแล้ว ให้ reconcile
+   ผลกลับเข้า Skill ก่อนเริ่มฟังก์ชันถัดไป บันทึก behavior ที่ยืนยันแล้ว หลักฐานการตรวจ และข้อจำกัด
+   ถ้าฟังก์ชันนั้นเพียงทำตามกฎเดิม ให้เพิ่ม evidence/status แทนการคัดลอกกฎเดิมซ้ำ
+4. อัปเดตทั้ง active skill และ snapshot ใต้ `02-initcraft/skills/` ให้ตรงกัน แล้วตรวจด้วย recursive
+   comparison อัปเดต `00-home/log.md` และ Hot Cache เมื่อเกิด durable knowledge หรือ state ใหม่
+5. การอัปเดต Skill เป็น checkpoint ด้านความรู้ ไม่ใช่สิทธิ์แก้ Live Form/API/Report/SQL;
+   ownership และ write gate ของ artifact นั้นยังบังคับเหมือนเดิม

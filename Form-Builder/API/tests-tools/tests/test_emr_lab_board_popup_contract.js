@@ -13,6 +13,9 @@ assert.match(source, /\[1, 5, 10\]\.indexOf\(requestedHistoryLimit\)/, 'API must
 assert.match(source, /requestedHistoryLimit : 5/, 'API must retain five as the default for existing consumers')
 assert.strictEqual((source.match(/\.slice\(0, historyLimit\)/g) || []).length, 2, 'both history serialization paths must respect history_limit')
 assert.match(source, /projection: \{ order_number: 1, order_comment: 1, created_at: 1/, 'CPOE Order comment must be projected')
+assert.match(source, /order_note: 1/, 'Result Report/LIS Order comment must be projected')
+assert.match(source, /reportOrderNotes = uniq/, 'Result Report/LIS Order comments must be deduplicated')
+assert.match(source, /g\.order_comment = reportOrderNotes\.join\('\\n'\)/, 'Result Report/LIS Order comment must override the CPOE fallback without losing line breaks')
 assert.match(source, /order_comment: g\.order_comment \|\| ''/, 'LAB order response must expose the Order comment')
 assert.match(source, /history_limit: historyLimit/, 'response must report the applied history limit')
 

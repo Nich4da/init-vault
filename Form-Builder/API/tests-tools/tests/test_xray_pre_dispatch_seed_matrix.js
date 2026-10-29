@@ -68,6 +68,7 @@ const item = (id, status, extra = {}) => Object.assign({
 
 const order = (id, items, finance = {}) => ({
   order_id: id,
+  can_action: true,
   order_number: id,
   requested_at: '2026-10-06T09:00:00+07:00',
   priority: '1',
@@ -182,7 +183,7 @@ const run = async () => {
 
   const content = widgetNamed('xray_cpoe_worklist').content
   assert(
-    content.includes(':disabled="row.dispatching||row.rejecting||row.retesting||!row.dispatch_ready"'),
+    content.includes(':disabled="!row.can_action||row.dispatching||row.rejecting||row.retesting||!row.dispatch_ready"'),
     'the real button must bind its disabled state to dispatch_ready',
   )
   assert(dispatchApi.includes("const WAITING_STATUS = 'sent'"))
@@ -195,7 +196,7 @@ const run = async () => {
   )
 
   assert(worklistApi.includes("sent: 'waiting'") && worklistApi.includes("ready: 'waiting'"))
-  assert(worklistApi.includes("const queueActiveOrderStatuses = statusVocabulary"),
+  assert(worklistApi.includes("current_status: { $in: statusVocabulary }"),
     'Order aggregation keeps both sent and ready visible without changing the Finance gate')
 
   const missingRoom = bootQueue({ unit: { code: 'RA-301' }, room: null })

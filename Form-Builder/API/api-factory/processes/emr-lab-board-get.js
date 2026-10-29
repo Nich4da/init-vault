@@ -61,6 +61,7 @@ const CPOE_ITEM_TABLE = 'zdata_cpoe_order_item';
 const CPOE_ORDER_TABLE = 'zdata_cpoe_order';
 const ITEM_MASTER_TABLE = 'zdata_master_item_order';
 const RESULT_REPORT_TABLE = 'zdata_lab_report_manual_entry';
+const RESULT_REVISION_TABLE = 'zdata_lab_result_revision_log';
 const CORE_USER_TABLE = 'core_user';
 const SENSITIVE_ACCESS_LOG_TABLE = 'zdata_emr_sensitive_access_log';
 const SENSITIVE_ACCESS_GRANT_TABLE = 'zdata_emr_sensitive_access_grant';
@@ -193,18 +194,37 @@ const idsIn = (list) => ({
 });
 
 const RESULT_FIELDS = {
-	obs_name: 1, obs_code: 1, test_name: 1, test_code: 1, panel_name: 1, result_value: 1, unit_symbol_snapshot: 1, units: 1,
+	obs_name: 1, obs_code: 1, test_name: 1, test_code: 1, panel_code: 1, panel_name: 1, group_role: 1, organism: 1,
+	result_value: 1, unit_symbol_snapshot: 1, units: 1,
 	reference_range_snapshot: 1, ref_range: 1, interpretation_code: 1, is_critical: 1, result_status: 1,
 	result_sequence: 1, result_definition_id: 1, result_comment: 1, result_source: 1, result_version: 1, result_uid: 1, obx_status: 1,
+	change_kind: 1, receipt_seq: 1, previous_value: 1, critical_low_rule: 1, critical_high_rule: 1,
+	entered_at: 1, entered_by: 1, last_edited_at: 1, last_edited_by: 1,
 	// 🌸 เพิ่มเฉพาะ MY: freestyle identity. Other sections keep the existing mapper and
 	// response shape; these fields are exposed only when `myPathologyMeta` matches.
 	pathology_row_key: 1, pathology_sub_index: 1, source_item_id: 1, specimen_index: 1,
 	specimen_code_snapshot: 1, specimen_name_snapshot: 1,
 	ordered_site_code_snapshot: 1, ordered_site_name_snapshot: 1,
 	actual_site_code: 1, actual_site_name: 1, actual_site_detail: 1,
-	order_no: 1, filler_order_no: 1, lab_section: 1, visit_id: 1, hn: 1, created_at: 1, entered_at: 1, xupdatx: 1,
+	order_no: 1, filler_order_no: 1, lab_section: 1, visit_id: 1, hn: 1, created_at: 1, updated_at: 1, xupdatx: 1,
 	result_report_id: 1, xparentx: 1, reported_at: 1, reported_by_source_id: 1, reported_by_source_name: 1,
 	verified_at: 1, verified_by_source_id: 1, verified_by_source_name: 1,
+};
+const REPORT_FIELDS = {
+	order_no: 1, filler_order_no: 1, report_key: 1, result_uid: 1, result_attachments: 1, order_note: 1,
+	report_seq: 1, stage: 1, agent_overall_status: 1, internal_overall_status: 1,
+	receipt_status: 1, source_channel: 1, schema_version: 1, record_kind: 1,
+	received_at: 1, processed_at: 1, confirmed_at: 1, confirmed_by: 1,
+	reported_at: 1, reported_by_source_id: 1, reported_by_source_name: 1,
+	verified_at: 1, verified_by_source_id: 1, verified_by_source_name: 1,
+	item_count: 1, critical_count: 1, matched_item_count: 1, unmatched_item_count: 1,
+	created_at: 1, updated_at: 1, xupdatx: 1,
+};
+const REVISION_FIELDS = {
+	revision_id: 1, previous_revision_id: 1, result_uid: 1, report_id: 1, order_no: 1,
+	report_seq: 1, receipt_seq: 1, stage: 1, source_reported_at: 1, received_at: 1,
+	item_count: 1, changed_item_count: 1, ingest_status: 1, schema_version: 1,
+	created_at: 1, updated_at: 1, xupdatx: 1,
 };
 
 // Visibility มี 2 policy คนละความหมาย:
@@ -220,7 +240,7 @@ const loadResultPolicies = async (itemIds) => {
 		{
 			limit: ids.length,
 			projection: {
-				item_data_id: 1, item_code: 1, item_name: 1, order_id: 1, service_type: 1,
+				item_data_id: 1, item_code: 1, item_name: 1, comment: 1, order_id: 1, service_type: 1,
 				is_hide_result: 1, result_visibility_action: 1, result_visibility_reason: 1,
 				result_visibility_by: 1, result_visibility_at: 1,
 			},
@@ -287,6 +307,7 @@ const loadResultPolicies = async (itemIds) => {
 				item_id: itemId,
 				item_code: itemCode,
 				item_name: (item && item.item_name) || '',
+				item_comment: String((item && item.comment) || ''),
 				source_order_id: sourceOrderId,
 				visit_id: sourceVisitId,
 				master_id: masterId,
@@ -306,6 +327,7 @@ const loadResultPolicies = async (itemIds) => {
 			item_id: itemId,
 			item_code: refText(master.item_code) || itemCode,
 			item_name: item.item_name || master.item_name || '',
+			item_comment: String(item.comment || ''),
 			result_code: resultCode,
 			result_codes: resultComponentCodesForOrderCode(resultCode),
 			group_id: parentCode ? 'panel:' + parentCode : itemId,
@@ -418,6 +440,12 @@ const previousData = (r) =>
 				visit_vn: String(r.visit_id || r.visit_vn || ''),
 				lab_no: String(r.filler_order_no || ''),
 				status: String(r.result_status || r.obx_status || ''),
+				obx_status: String(r.obx_status || ''),
+				result_version: String(r.result_version || ''),
+				change_kind: String(r.change_kind || ''),
+				result_uid: String(r.result_uid || ''),
+				is_critical: criticalDecision(r.is_critical),
+				critical_state: criticalState(r.is_critical),
 				entered_at: resultTime(r),
 		  }
 		: null;
@@ -449,6 +477,8 @@ const publicPolicy = (policy) => ({
 	master_id: policy.master_id || '',
 	master_updated_at: policy.master_updated_at || '',
 });
+const criticalDecision = (value) => (value === true ? true : value === false ? false : null);
+const criticalState = (value) => (value === true ? 'critical' : value === false ? 'not_critical' : 'unknown');
 
 const mapResultRow = (r) => {
 	const raw = r.result_value == null ? '' : String(r.result_value);
@@ -463,12 +493,30 @@ const mapResultRow = (r) => {
 		// เพื่อให้ผล 1 test หลายตำแหน่งไม่กลายเป็น Wood light ซ้ำแบบแยกไม่ออก.
 		name: pathology ? pathology.display_name : clinicalName,
 		code: r.obs_code || r.test_code || '',
+		obs_code: String(r.obs_code || ''),
+		obs_name: obs,
+		test_code: String(r.test_code || ''),
+		test_name: tst || clinicalName,
+		panel_code: String(r.panel_code || ''),
+		panel_name: String(r.panel_name || ''),
+		group_role: String(r.group_role || ''),
+		organism: String(r.organism || ''),
+		result_definition_id: String(r.result_definition_id || ''),
+		result_sequence: r.result_sequence == null ? '' : String(r.result_sequence),
 		value: raw,
+		result_value: raw,
 		text: raw.indexOf('\n') >= 0 || raw.length > NARRATIVE_MIN,
 		unit: r.unit_symbol_snapshot || r.units || '',
+		units: String(r.unit_symbol_snapshot || r.units || ''),
 		ref: r.reference_range_snapshot || r.ref_range || '',
+		reference_range: String(r.reference_range_snapshot || r.ref_range || ''),
 		flag: r.interpretation_code || '',
+		interpretation_code: String(r.interpretation_code || ''),
+		// `critical` is retained for old consumers. New UI must use the tri-state
+		// `is_critical`/`critical_state` contract and must not turn missing into false.
 		critical: !!r.is_critical,
+		is_critical: criticalDecision(r.is_critical),
+		critical_state: criticalState(r.is_critical),
 		result_item_id: String(r._id || ''),
 		result_report_id: String(r.result_report_id || r.xparentx || ''),
 		result_comment: String(r.result_comment || ''),
@@ -476,8 +524,39 @@ const mapResultRow = (r) => {
 		// จึงใช้ owner/group ที่ resolve จาก selected_items + Item Master ก่อนเสมอ
 		group_id: String(policy.group_id || policy.item_id || r.__source_item_id || r.order_no || ''),
 		group_name: String(policy.group_name || r.__item || policy.item_name || ''),
+		ordered_item_id: String(policy.item_id || r.__source_item_id || r.order_no || ''),
+		ordered_item_code: String(policy.item_code || ''),
+		ordered_item_name: String(policy.item_name || r.__item || ''),
+		ordered_item_comment: String(policy.item_comment || ''),
 		result_source: String(r.result_source || ''),
 		result_status: String(r.result_status || ''),
+		obx_status: String(r.obx_status || ''),
+		result_version: String(r.result_version || ''),
+		change_kind: String(r.change_kind || ''),
+		receipt_seq: String(r.receipt_seq || ''),
+		result_uid: String(r.result_uid || ''),
+		previous_value: r.previous_value == null ? '' : String(r.previous_value),
+		critical_rule_snapshot: {
+			low: String(r.critical_low_rule || ''),
+			high: String(r.critical_high_rule || ''),
+		},
+		correction: {
+			is_corrected:
+				String(r.obx_status || '').toUpperCase() === 'C' ||
+				String(r.result_status || '').toLowerCase() === 'corrected' ||
+				String(r.change_kind || '').toLowerCase() === 'corrected' ||
+				(Number(r.result_version) > 1),
+			change_kind: String(r.change_kind || ''),
+			result_version: String(r.result_version || ''),
+			receipt_seq: String(r.receipt_seq || ''),
+			previous_value: r.previous_value == null ? '' : String(r.previous_value),
+			last_edited_at: String(r.last_edited_at || ''),
+			last_edited_by: String(r.last_edited_by || ''),
+		},
+		entered_at: String(r.entered_at || ''),
+		entered_by: String(r.entered_by || ''),
+		last_edited_at: String(r.last_edited_at || ''),
+		last_edited_by: String(r.last_edited_by || ''),
 		reported_at: String(r.reported_at || r.entered_at || r.created_at || ''),
 		reported_by_source_name: personName(r, 'reported'),
 		verified_at: String(r.verified_at || ''),
@@ -827,6 +906,61 @@ const groupStatus = (stages, hasResult) => {
 	return hasResult && STAGE_RANK[slowest] < STAGE_RANK.resulted ? 'resulted' : slowest;
 };
 
+// Result Report / Revision metadata is returned as a safe UI contract only.
+// Raw payload, payload hash and item snapshots remain server-side audit data.
+const metadataTime = (row) => String((row && (row.reported_at || row.source_reported_at || row.received_at || row.processed_at || row.updated_at || row.xupdatx || row.created_at)) || '');
+const sequenceValue = (value) => {
+	if (value === '' || value == null) return null;
+	const n = Number(value);
+	return Number.isFinite(n) ? n : null;
+};
+const nullableNumber = (value) => (value === '' || value == null || !Number.isFinite(Number(value)) ? null : Number(value));
+const latestMetadataFirst = (a, b) => {
+	const left = sequenceValue(a && (a.report_seq || a.receipt_seq));
+	const right = sequenceValue(b && (b.report_seq || b.receipt_seq));
+	if (left !== null && right !== null && left !== right) return right - left;
+	return metadataTime(b).localeCompare(metadataTime(a));
+};
+const mapReportMetadata = (report) => ({
+	report_id: String((report && report._id) || ''),
+	result_uid: String((report && report.result_uid) || ''),
+	report_seq: String((report && report.report_seq) || ''),
+	stage: String((report && report.stage) || ''),
+	agent_overall_status: String((report && report.agent_overall_status) || ''),
+	internal_overall_status: String((report && report.internal_overall_status) || ''),
+	receipt_status: String((report && report.receipt_status) || ''),
+	source_channel: String((report && report.source_channel) || ''),
+	schema_version: String((report && report.schema_version) || ''),
+	record_kind: String((report && report.record_kind) || ''),
+	received_at: String((report && report.received_at) || ''),
+	reported_at: String((report && report.reported_at) || ''),
+	reported_by_source_id: String((report && report.reported_by_source_id) || ''),
+	reported_by_source_name: String((report && report.reported_by_source_name) || ''),
+	verified_at: String((report && report.verified_at) || ''),
+	verified_by_source_id: String((report && report.verified_by_source_id) || ''),
+	verified_by_source_name: String((report && report.verified_by_source_name) || ''),
+	confirmed_at: String((report && report.confirmed_at) || ''),
+	confirmed_by: String((report && report.confirmed_by) || ''),
+	item_count: nullableNumber(report && report.item_count),
+	critical_count: nullableNumber(report && report.critical_count),
+	matched_item_count: nullableNumber(report && report.matched_item_count),
+	unmatched_item_count: nullableNumber(report && report.unmatched_item_count),
+});
+const mapRevisionMetadata = (revision) => ({
+	revision_id: String((revision && revision.revision_id) || ''),
+	previous_revision_id: String((revision && revision.previous_revision_id) || ''),
+	result_uid: String((revision && revision.result_uid) || ''),
+	report_seq: String((revision && revision.report_seq) || ''),
+	receipt_seq: String((revision && revision.receipt_seq) || ''),
+	stage: String((revision && revision.stage) || ''),
+	source_reported_at: String((revision && revision.source_reported_at) || ''),
+	received_at: String((revision && revision.received_at) || ''),
+	item_count: nullableNumber(revision && revision.item_count),
+	changed_item_count: nullableNumber(revision && revision.changed_item_count),
+	ingest_status: String((revision && revision.ingest_status) || ''),
+	schema_version: String((revision && revision.schema_version) || ''),
+});
+
 const buildGroup = (g) => {
 	const rows = g.rows.slice().sort((a, b) => {
 		const left = Number(a && a.result_sequence);
@@ -841,6 +975,28 @@ const buildGroup = (g) => {
 	// Attachment ยังปิดทั้งใบเมื่อมี protected item; PDF ใช้ Result Report id
 	// แยกต่างหากและให้ Report SQL blank เฉพาะแถว Sensitive ที่ยังไม่มี grant.
 	const reports = hasProtected ? [] : Array.isArray(g.reports) ? g.reports : [];
+	const reportHistory = reports.map(mapReportMetadata).sort(latestMetadataFirst);
+	const revisionHistory = (hasProtected ? [] : Array.isArray(g.revisions) ? g.revisions : []).map(mapRevisionMetadata).sort(latestMetadataFirst);
+	const currentReport = reportHistory.find(
+		(report) => report.stage || report.report_seq || report.agent_overall_status || report.internal_overall_status,
+	) || reportHistory[0] || null;
+	const latestRevision = revisionHistory[0] || null;
+	const hasItemCorrection = visibleRows.some(
+		(row) =>
+			String(row.obx_status || '').toUpperCase() === 'C' ||
+			String(row.result_status || '').toLowerCase() === 'corrected' ||
+			String(row.change_kind || '').toLowerCase() === 'corrected' ||
+			Number(row.result_version) > 1,
+	);
+	const hasReportCorrection = reportHistory.some((report) => String(report.stage || '').toLowerCase() === 'corrected');
+	const criticalSummary = visibleRows.reduce(
+		(summary, row) => {
+			const key = row.is_critical === true ? 'true' : row.is_critical === false ? 'false' : 'unknown';
+			summary[key] += 1;
+			return summary;
+		},
+		{ true: 0, false: 0, unknown: 0 },
+	);
 	const metaRows = (hasProtected ? visibleRows : rows.concat(reports)).sort((a, b) => resultTime(b).localeCompare(resultTime(a)));
 	const firstMeta = (field, prefix) => {
 		const found = metaRows.find((r) => (prefix ? personName(r, prefix) : String((r && r[field]) || '').trim()));
@@ -882,7 +1038,12 @@ const buildGroup = (g) => {
 		lab_no: g.lab_no || '',
 		patient_hn: String(hn || ''),
 		patient_name: g.patient_name || currentPatientName || '',
+		// Keep the legacy merged/fallback key for old consumers, but expose each
+		// comment level separately so the redesigned UI does not conflate authorship.
 		order_comment: g.order_comment || '',
+		cpoe_order_comment: g.cpoe_order_comment || '',
+		result_order_note: (g.result_order_notes || []).join('\n'),
+		report_order_notes: uniq([].concat(g.result_order_notes || []).filter(Boolean)),
 		specimen_name: uniq([].concat(g.specimen_names || []).filter(Boolean)).join(' / '),
 		specimen_names: uniq([].concat(g.specimen_names || []).filter(Boolean)),
 		ordered_items: Array.isArray(g.ordered_items) ? g.ordered_items : [],
@@ -898,6 +1059,30 @@ const buildGroup = (g) => {
 		reported_by_source_name: firstMeta('', 'reported'),
 		verified_at: firstMeta('verified_at'),
 		verified_by_source_name: firstMeta('', 'verified'),
+		result_stage: currentReport ? currentReport.stage : '',
+		report_seq: currentReport ? currentReport.report_seq : '',
+		result_uid: currentReport ? currentReport.result_uid : '',
+		agent_overall_status: currentReport ? currentReport.agent_overall_status : '',
+		internal_overall_status: currentReport ? currentReport.internal_overall_status : '',
+		item_count: currentReport ? currentReport.item_count : null,
+		critical_count: currentReport ? currentReport.critical_count : null,
+		critical_summary: criticalSummary,
+		critical_summary_complete: !hasProtected,
+		revision_count: revisionHistory.length,
+		report: currentReport,
+		report_history: reportHistory,
+		revision_history: revisionHistory,
+		correction_summary: {
+			has_correction:
+				hasItemCorrection ||
+				hasReportCorrection ||
+				(!!latestRevision &&
+					(revisionHistory.length > 1 || String(latestRevision.stage || '').toLowerCase() === 'corrected' || Number(latestRevision.changed_item_count) > 0)),
+			revision_count: revisionHistory.length,
+			latest_revision_id: latestRevision ? latestRevision.revision_id : '',
+			previous_revision_id: latestRevision ? latestRevision.previous_revision_id : '',
+			changed_item_count: latestRevision ? latestRevision.changed_item_count : null,
+		},
 		attachments,
 		items: displayItems,
 	};
@@ -907,7 +1092,7 @@ if (currentVn) {
 	const groups = {}; // key -> ก้อน
 	const snapshotTestCodeByItemId = {};
 	const touch = (key, seed) => {
-		if (!groups[key]) groups[key] = Object.assign({ key, rows: [], reports: [], item_ids: [], stages: [], names: [], ordered_items: [], specimen_names: [], collected_ats: [], scope: 'visit' }, seed);
+		if (!groups[key]) groups[key] = Object.assign({ key, rows: [], reports: [], revisions: [], result_order_notes: [], item_ids: [], stages: [], names: [], ordered_items: [], specimen_names: [], collected_ats: [], scope: 'visit' }, seed);
 		return groups[key];
 	};
 
@@ -918,7 +1103,7 @@ if (currentVn) {
 		{
 			sort: { _id: 1 },
 			limit: MAX_CPOE_ITEM,
-			projection: { order_id: 1, service_type: 1, item_data_id: 1, item_code: 1, item_name: 1, current_status: 1, lab_data: 1, created_at: 1 },
+			projection: { order_id: 1, service_type: 1, item_data_id: 1, item_code: 1, item_name: 1, comment: 1, current_status: 1, lab_data: 1, created_at: 1 },
 		},
 	);
 	const labItems = cpoeItems.filter((r) => String(codeOf(r.service_type) || '').toLowerCase() === 'lab');
@@ -981,6 +1166,7 @@ if (currentVn) {
 				lab_no: (wi && wi.lab_no) || '',
 				ordered_at: (order && order.created_at) || (wi && wi.ordered_at) || it.created_at || '',
 				order_comment: (order && order.order_comment) || '',
+				cpoe_order_comment: (order && order.order_comment) || '',
 				received_at: (wi && wi.received_at) || '',
 				cancel_reason: (wi && (wi.cancel_reason || wi.reject_reason_detail)) || '',
 				patient_name: (wi && wi.patient_name) || currentPatientName || '',
@@ -1000,6 +1186,7 @@ if (currentVn) {
 					item_id: itemId,
 					item_code: String(codeOf(it.item_code) || ''),
 					item_name: String(it.item_name || ''),
+					comment: String(it.comment || ''),
 					result_code: String(snapshotTestCodeByItemId[itemId] || ''),
 					status: itemStage(codeOf(it.current_status), wi),
 					specimen_name: specimen.specimen_name,
@@ -1068,6 +1255,7 @@ if (currentVn) {
 					lab_no: (wi && wi.lab_no) || r.filler_order_no || '',
 					ordered_at: (order && order.created_at) || (wi && wi.ordered_at) || '',
 					order_comment: (order && order.order_comment) || '',
+					cpoe_order_comment: (order && order.order_comment) || '',
 					received_at: (wi && wi.received_at) || '',
 					cancel_reason: '',
 				});
@@ -1141,7 +1329,14 @@ if (currentVn) {
 			ref: String(r.reference_range_snapshot || r.ref_range || ''),
 			flag: String(r.interpretation_code || ''),
 			critical: !!r.is_critical,
+			is_critical: criticalDecision(r.is_critical),
+			critical_state: criticalState(r.is_critical),
 			status: String(codeOf(r.result_status) || ''),
+			obx_status: String(r.obx_status || ''),
+			result_version: String(r.result_version || ''),
+			change_kind: String(r.change_kind || ''),
+			receipt_seq: String(r.receipt_seq || ''),
+			result_uid: String(r.result_uid || ''),
 			when: String(r.entered_at || r.created_at || ''),
 			visit_id: String(r.visit_id || ''),
 		});
@@ -1225,11 +1420,7 @@ if (currentVn) {
 			{
 				sort: { xupdatx: -1 },
 				limit: Math.max(100, reportOr.length * 20),
-				projection: {
-					order_no: 1, filler_order_no: 1, report_key: 1, result_uid: 1, result_attachments: 1,
-					reported_at: 1, reported_by_source_id: 1, reported_by_source_name: 1,
-					verified_at: 1, verified_by_source_id: 1, verified_by_source_name: 1, xupdatx: 1,
-				},
+				projection: REPORT_FIELDS,
 			},
 		);
 		reportGroups.forEach((g) => {
@@ -1247,6 +1438,12 @@ if (currentVn) {
 			});
 			if (g.source_order_id && g.section_code) wantedKeys['attachment-order|' + g.source_order_id + '|' + g.section_code] = true;
 			g.reports = reportRows.filter((report) => wantedIds[String(report._id || '')] || wantedOrders[String(report.order_no || '')] || wantedKeys[String(report.report_key || '')]);
+			// Comment ระดับ Order ที่มาพร้อมผลจาก Report/LIS เป็นข้อมูลของผลจริง
+			// จึงมาก่อน comment ใบสั่ง CPOEใน legacy `order_comment`; API ใหม่ส่งทั้งสองระดับ
+			// แยกใน `cpoe_order_comment` และ `result_order_note` ด้วย.
+			const reportOrderNotes = uniq(g.reports.map((report) => String(report.order_note || '').trim()).filter(Boolean));
+			g.result_order_notes = reportOrderNotes;
+			if (reportOrderNotes.length) g.order_comment = reportOrderNotes.join('\n');
 			g.rows.forEach((row) => {
 				const parent = g.reports.find((report) => String(report._id || '') === String(row.result_report_id || row.xparentx || '')) || g.reports.find((report) => String(report.order_no || '') === String(row.order_no || ''));
 				if (!parent) return;
@@ -1256,6 +1453,33 @@ if (currentVn) {
 				if (!row.verified_by_source_name) row.verified_by_source_name = parent.verified_by_source_name;
 			});
 		});
+
+		const revisionResultUids = uniq(reportRows.map((report) => String(report.result_uid || '')).filter(Boolean));
+		const revisionOr = [];
+		if (reportIds.length) revisionOr.push({ report_id: { $in: reportIds } });
+		if (itemIds.length) revisionOr.push({ order_no: { $in: itemIds } });
+		if (revisionResultUids.length) revisionOr.push({ result_uid: { $in: revisionResultUids } });
+		if (revisionOr.length) {
+			const revisionRows = await findAll(
+				RESULT_REVISION_TABLE,
+				{ $or: revisionOr, xrstatx: 1 },
+				{ sort: { received_at: -1, _id: -1 }, limit: Math.max(200, revisionOr.length * 50), projection: REVISION_FIELDS },
+			);
+			reportGroups.forEach((g) => {
+				const wantedIds = {};
+				g.rows.forEach((row) => { wantedIds[String(row.result_report_id || row.xparentx || '')] = true; });
+				const wantedOrders = {};
+				(g.item_ids || []).forEach((id) => { wantedOrders[String(id)] = true; });
+				const wantedUids = {};
+				(g.reports || []).forEach((report) => { if (report.result_uid) wantedUids[String(report.result_uid)] = true; });
+				g.revisions = revisionRows.filter(
+					(revision) =>
+						wantedIds[String(revision.report_id || '')] ||
+						wantedOrders[String(revision.order_no || '')] ||
+						wantedUids[String(revision.result_uid || '')],
+				);
+			});
+		}
 	}
 
 	labOrders = Object.keys(groups).map((k) => buildGroup(groups[k]));

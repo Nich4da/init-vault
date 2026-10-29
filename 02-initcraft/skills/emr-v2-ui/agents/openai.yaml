@@ -1,0 +1,4 @@
+interface:
+  display_name: "EMR v2 UI"
+  short_description: "QSNICH EMR v2 interface patterns"
+  default_prompt: "Use $emr-v2-ui to design an initCraft clinical screen that follows the observed QSNICH EMR v2 patterns."

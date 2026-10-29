@@ -26,6 +26,8 @@ const payload = () => ({
   patient_prefix: 'ด.ช.',
   patient_first_name: 'ผู้ป่วย',
   patient_last_name: 'ทดสอบ',
+  mother_name: 'ทดสอบ มารดา',
+  is_maternal_blood: false,
   birth_date: '20200101',
   sex: 'M',
   visit_type: 'OPD',
@@ -140,6 +142,9 @@ const appWith = handler => {
     assert.strictEqual(calls[0][0], 'http://agent.test:8080/api/orders')
     assert.strictEqual(calls[0][2].timeout, 5000)
     assert.strictEqual(calls[0][2].headers['X-Agent-Key'], 'test-only-key')
+    assert.strictEqual(calls[0][1].event_type, 'lab.order.submit')
+    assert.strictEqual(calls[0][1].mother_name, 'ทดสอบ มารดา')
+    assert.strictEqual(calls[0][1].is_maternal_blood, false)
     assert.strictEqual(calls[0][1].items[0].test_code, 'HIS-CODE-001')
     assert.strictEqual(calls[0][1].items[0].lab_code, 'CHEM')
     assert.strictEqual(calls[0][1].items[0].comment, 'เก็บก่อนให้ยา')
@@ -153,8 +158,67 @@ const appWith = handler => {
     assert.strictEqual(outbound.attempt_count, 1)
     assert.strictEqual(outbound.agent_http_status, 202)
     assert.strictEqual(outbound.dispatch_id, 'DISPATCH-UAT')
+    assert.strictEqual(JSON.parse(outbound.request_payload_json).event_type, 'lab.order.submit')
+    assert.strictEqual(JSON.parse(outbound.request_payload_json).mother_name, 'ทดสอบ มารดา')
+    assert.strictEqual(JSON.parse(outbound.request_payload_json).is_maternal_blood, false)
     assert.strictEqual(result.data.outbound_order_id, outbound._id)
     assert.strictEqual(result.data.attempt_count, 1)
+  }
+
+  {
+    const withoutMaternalFields = payload()
+    delete withoutMaternalFields.mother_name
+    delete withoutMaternalFields.is_maternal_blood
+    let sentBody = null
+    const result = await Process({ payload: withoutMaternalFields }, userInfo, appWith(async (_url, body) => {
+      sentBody = body
+      return { status: 202, data: { ok: true, order_no: withoutMaternalFields.order_no, duplicate: false } }
+    }))
+    assert.strictEqual(result.success, true)
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(sentBody, 'mother_name'), false)
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(sentBody, 'is_maternal_blood'), false)
+  }
+
+  for (const [field, invalidValue] of [['mother_name', 123], ['is_maternal_blood', 'false']]) {
+    let called = false
+    const bad = payload()
+    bad[field] = invalidValue
+    const testApp = appWith(async () => { called = true; return { status: 202, data: {} } })
+    const result = await Process({ payload: bad }, userInfo, testApp)
+    assert.strictEqual(result.error, 'invalid_payload')
+    assert(result.errors.some(error => error.includes('payload.' + field)))
+    assert.strictEqual(called, false)
+    assert.strictEqual(testApp.outboundRows.size, 0)
+  }
+
+  for (const exampleName of [
+    'lab-agent-order-submit-uat-item-a.json',
+    'lab-agent-order-submit-uat-item-b-same-order.json',
+  ]) {
+    const example = JSON.parse(fs.readFileSync(
+      path.join(__dirname, '../../../SDForm/api-factory/examples', exampleName),
+      'utf8',
+    ))
+    let sentBody = null
+    const result = await Process(example, userInfo, appWith(async (_url, body) => {
+      sentBody = body
+      return { status: 202, data: { ok: true, order_no: body.order_no, duplicate: false } }
+    }))
+    assert.strictEqual(result.success, true, exampleName + ' must pass the Agent submit boundary')
+    assert.strictEqual(sentBody.mother_name, 'ทดสอบ มารดา')
+    assert.strictEqual(sentBody.is_maternal_blood, false)
+  }
+
+  {
+    let called = false
+    const bad = payload()
+    bad.event_type = 'bloodbank.order.submit'
+    const testApp = appWith(async () => { called = true; return { status: 202, data: {} } })
+    const result = await Process({ payload: bad }, userInfo, testApp)
+    assert.strictEqual(result.error, 'invalid_payload')
+    assert(result.errors.some(error => error.includes('payload.event_type')))
+    assert.strictEqual(called, false)
+    assert.strictEqual(testApp.outboundRows.size, 0)
   }
 
   {

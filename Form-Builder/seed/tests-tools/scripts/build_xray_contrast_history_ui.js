@@ -12,11 +12,12 @@
  * (บล็อก `form.formConfig.cssCode` ของ .xray-cpoe) เปลี่ยนเฉพาะชื่อ root scope
  * เป็น .xray-contrast-history ⇒ หน้าตาเหมือน X-ray CPOE Worklist ทุกประการ
  *
- * ต่างจาก Worklist สองข้อ (ผู้ใช้สั่ง 2026-10-02):
+ * ต่างจาก Worklist สองข้อ (ผู้ใช้สั่ง 2026-10-02 และ 2026-10-18):
  *   1. กรองเหลือเฉพาะใบที่มีบันทึกการใช้สารทึบอย่างน้อย 1 รายการ
  *   2. ไม่มีปุ่มสั่งงานและไม่มี chip กรองสถานะ — หน้านี้ไม่ได้มาดูผลหรือสถานะ
- *      ตัด checkbox เลือกรายการ · dropdown Radiographer/Radiologist · สติ๊กเกอร์ HN ·
+ *      ตัด checkbox เลือกรายการ · เวลาส่งเข้าเครื่อง · สถานะ · สติ๊กเกอร์ HN ·
  *      ส่งเข้าเครื่อง · ยกเลิก · ปฏิเสธ · ตรวจใหม่ · สร้างรายการใหม่ · หนังสือยินยอม
+ *      แต่คง Radiographer/Radiologist เป็นข้อความอ่านอย่างเดียวตาม Worklist
  *
  * 🔴 ข้อจำกัดที่ต้องรู้ก่อนใช้งานจริง
  *   ข้อมูลสารทึบอ่านจาก payload ของ Process worklist (item.contrast หรือ item.contrast_*)
@@ -134,8 +135,9 @@ form.formConfig.cssCode = `.xray-contrast-history{--primary:var(--el-color-prima
 .xray-contrast-history .xr-notice.is-warning{border-color:#f3d19e;background:#fdf6ec;color:#b88230}
 .xray-contrast-history .xr-list-summary{margin:0 0 8px;color:var(--muted);font-size:12px}.xray-contrast-history .xr-list-summary.is-error{color:var(--danger)}
 .xray-contrast-history .xr-worklist-shell{overflow-x:auto;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
-.xray-contrast-history .xr-worklist{min-width:1173px;background:var(--white)}
-.xray-contrast-history .xr-list-head,.xray-contrast-history .xr-patient-row{display:grid;grid-template-columns:30px minmax(165px,1.3fr) minmax(142px,1fr) 92px 94px 126px minmax(110px,.95fr) 108px 196px;gap:10px;align-items:center;padding:10px 12px}
+.xray-contrast-history .xr-worklist{min-width:1055px;background:var(--white)}
+/* Worklist เดิม 9 tracks; หน้านี้ตัดเฉพาะสถานะ 108px ออก จึงเหลือ 8 tracks เดิมตามลำดับ */
+.xray-contrast-history .xr-list-head,.xray-contrast-history .xr-patient-row{display:grid;grid-template-columns:30px minmax(165px,1.3fr) minmax(142px,1fr) 92px 94px 126px minmax(110px,.95fr) 196px;gap:10px;align-items:center;padding:10px 12px}
 .xray-contrast-history .xr-list-head{color:var(--muted);font-size:11px;font-weight:650;border-bottom:1px solid var(--border);letter-spacing:.02em}
 .xray-contrast-history .xr-patient-block{position:relative;border-bottom:1px solid var(--border-lighter);content-visibility:auto;contain-intrinsic-size:84px}.xray-contrast-history .xr-patient-block:last-child{border-bottom:0}
 .xray-contrast-history .xr-patient-row{min-height:84px;background:var(--white);cursor:pointer;transition:background-color .15s}.xray-contrast-history .xr-patient-row:hover{background:var(--fill-light)}.xray-contrast-history .xr-patient-block.is-open>.xr-patient-row{background:var(--fill)}
@@ -168,7 +170,6 @@ form.formConfig.cssCode = `.xray-contrast-history{--primary:var(--el-color-prima
 /* เครื่องต้องไม่ชิดคอลัมน์เวลา — กันที่ด้านขวาไว้ 26px ส่วนคอลัมน์กว้างขึ้นชดเชย
    ทำให้ tag ยังมีเนื้อที่เท่าเดิม (130-26 = 104 เท่ากับของเดิม 118-14) */
 .xray-contrast-history .xr-modality-cell,.xray-contrast-history .xr-item-modality{padding-right:26px}
-.xray-contrast-history .xr-item-grid>[data-label="เวลาส่งเข้าเครื่อง"]{padding-left:2px}
 .xray-contrast-history .xr-test-code{display:block;margin-top:1px;color:var(--muted);font-size:10px}
 /* แสดงแค่ตัวย่อ (DX, CT) ชื่อเต็มดูได้ตอน hover — ผู้ใช้ขอ 2026-09-01
    สั้นแล้วจึงไม่ต้องตัดคำอีก และ 1 order มีได้หลายเครื่องจึงเรียงต่อกันแบบ wrap ได้ */
@@ -202,7 +203,7 @@ form.formConfig.cssCode = `.xray-contrast-history{--primary:var(--el-color-prima
 .xray-contrast-history .xr-status-step.is-done.xr-dot-resulted .xr-status-check{color:#3f7d22}
 .xray-contrast-history .xr-status-step.is-on.xr-dot-cancelled .xr-status-dot{background:#fab6b6}
 .xray-contrast-history .xr-status-step.is-on.xr-dot-cancelled .xr-status-count{color:#c45656}
-.xray-contrast-history .xr-row-actions{display:flex;align-items:center;justify-content:flex-end;gap:6px;min-width:0}
+.xray-contrast-history .xr-row-actions{display:flex;align-items:center;justify-content:flex-start;gap:6px;min-width:0}
 .xray-contrast-history .xr-plain-action{margin:0!important;padding:5px 7px!important;flex:none;font-size:11px}
 /* ปุ่มพิมพ์ผ่าน print-agent — สูงเท่าปุ่ม sd-report ข้าง ๆ และห้ามตัดคำ */
 .xray-contrast-history .xr-hn-print{white-space:nowrap}
@@ -211,31 +212,14 @@ form.formConfig.cssCode = `.xray-contrast-history{--primary:var(--el-color-prima
 .xray-contrast-history .xr-detail-tab{height:42px;padding:0;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:650;cursor:pointer}
 .xray-contrast-history .xr-detail-tab.is-active{border-bottom-color:var(--primary);color:var(--primary)}.xray-contrast-history .xr-detail-tab:disabled{color:var(--placeholder);cursor:not-allowed}
 .xray-contrast-history .xr-bulk-actions{display:flex;align-items:center;gap:6px;margin-left:auto;padding-bottom:6px}.xray-contrast-history .xr-bulk-actions .el-button+.el-button{margin-left:0}.xray-contrast-history .xr-dispatch-tooltip{display:inline-flex}
-/* ผู้ใช้แก้ 2026-09-11: หัวตารางสีฟ้าต้องชิดเส้นใต้ tab ทันที จึงไม่มี padding ด้านบน
-   และขยายพื้นที่ scroll เข้า gutter ซ้าย 42px เพื่อให้ checkbox ไปยึดอยู่ริม panel ได้ */
+/* Clone layout ของ Worklist: คง gutter 42px ไว้ให้หัวสีฟ้าเริ่มตรงขอบเดิม แต่ไม่มี checkbox
+   แล้วตัดเฉพาะเวลาส่งเข้าเครื่อง, สถานะ และสติ๊กเกอร์ HN ออกจาก tracks */
 .xray-contrast-history .xr-item-grid-wrap{overflow-x:auto;margin-left:-42px;padding-top:0}
-/* ผู้ใช้ปรับ 2026-09-11: ช่อง sticky กว้าง 42px ให้เส้นแบ่งขวาตรงแนวเริ่มคำว่า order
-   min-width คือผลรวม minimum tracks + gaps จริง พื้นหลังหัวตารางจึงคลุมทุกคอลัมน์ไม่ขาด
-   2026-09-23 ผู้ใช้เลือกตัวเลือก A: เพิ่มคอลัมน์ที่ 12 "สารทึบ" 130px + gap 10px
-   ⇒ 1481px → 1621px · คอลัมน์ 1–11 เดิมคงสัดส่วนเท่าเดิมทุกตัว ไม่มีตัวไหนถูกบีบ */
-.xray-contrast-history .xr-item-grid{display:grid;grid-template-columns:42px 150px minmax(215px,1.9fr) 78px 132px 150px 150px 108px minmax(125px,1.1fr) minmax(105px,.9fr) 126px 130px;gap:10px;align-items:center;min-width:1621px;padding:6px 0}
-.xray-contrast-history .xr-item-radiologist .el-select,.xray-contrast-history .xr-item-radiographer .el-select{width:100%}
+.xray-contrast-history .xr-item-grid{display:grid;grid-template-columns:42px 150px minmax(215px,1.9fr) 78px 150px 150px minmax(125px,1.1fr) minmax(105px,.9fr) 130px;gap:10px;align-items:center;min-width:1225px;padding:6px 0}
+.xray-contrast-history .xr-item-gutter{align-self:stretch}
 .xray-contrast-history .xr-item-head{min-height:44px;color:var(--ink);font-size:11px;font-weight:650;border-top:1px solid var(--el-color-primary-light-7,#c6e2ff);border-bottom:1px solid var(--el-color-primary-light-7,#c6e2ff);background:var(--primary-50)}
 .xray-contrast-history .xr-item-row{min-height:52px;border-bottom:1px dashed var(--border-lighter);font-size:12px;transition:background-color .12s}.xray-contrast-history .xr-item-row:last-child{border-bottom:0}
-.xray-contrast-history .xr-item-row.is-selectable{cursor:pointer}
-.xray-contrast-history .xr-item-row.is-selectable:hover{background:var(--fill-light)}
-.xray-contrast-history .xr-item-row.is-selected{background:var(--primary-50)}
-.xray-contrast-history .xr-item-row.is-selected:hover{background:var(--primary-50)}
-/* checkbox หัวตารางและระดับ item ต้องมองเห็นตลอดเมื่อเลื่อนแนวนอน
-   พื้นหลังของ cell ทึบตามสถานะแถว เพื่อไม่ให้ข้อความที่ scroll ผ่านด้านหลังซ้อนกับ checkbox */
-.xray-contrast-history .xr-item-check-cell{position:sticky;left:0;z-index:2;align-self:stretch;display:flex;align-items:center;padding-left:12px;background:var(--fill-lighter);box-shadow:1px 0 0 var(--border-lighter)}
-.xray-contrast-history .xr-item-head>.xr-item-check-cell{z-index:3;background:var(--primary-50);box-shadow:1px 0 0 var(--el-color-primary-light-7,#c6e2ff)}
-.xray-contrast-history .xr-item-row.is-selectable:hover>.xr-item-check-cell{background:var(--fill-light)}
-.xray-contrast-history .xr-item-row.is-selected>.xr-item-check-cell,.xray-contrast-history .xr-item-row.is-selected:hover>.xr-item-check-cell{background:var(--primary-50)}
-.xray-contrast-history .xr-item-sticker-action{display:flex;align-items:center;justify-content:flex-end;min-width:0}
-/* คอลัมน์ "สารทึบ" (2026-09-23) — ยังไม่บันทึก = ปุ่มจาง ๆ "+ บันทึก"
-   บันทึกแล้ว = ชิปบอกยี่ห้อกับปริมาณ กดซ้ำเพื่อเปิดฟอร์มเดิมขึ้นมาแก้
-   ทรง flex ชุดเดียวกับ .xr-item-sticker-action เพื่อให้สองคอลัมน์สุดท้ายเรียงเท่ากัน */
+/* คอลัมน์ "สารทึบ" clone จาก Worklist: ชิปเดียวในคอลัมน์เดิม กดเปิด record เดิม */
 .xray-contrast-history .xr-item-contrast{display:flex;align-items:center;justify-content:flex-end;min-width:0}
 .xray-contrast-history .xr-contrast-chip{display:inline-flex;max-width:100%;min-height:22px;align-items:center;padding:1px 8px;overflow:hidden;border:1px solid #b7ddc4;border-radius:4px;background:#eaf6ee;color:#3a8a56;font-family:inherit;font-size:10px;font-weight:650;line-height:1.5;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
 .xray-contrast-history .xr-contrast-chip:hover{border-color:#8fcaa4;background:#dff0e6}
@@ -280,25 +264,19 @@ form.formConfig.cssCode = `.xray-contrast-history{--primary:var(--el-color-prima
 .xr-report-doc .xr-mono{font-family:"SFMono-Regular","Roboto Mono",Consolas,monospace;font-variant-numeric:tabular-nums}
 @media(max-width:680px){.xray-contrast-history .xr-toolbar{gap:8px}.xray-contrast-history .xr-search-control,.xray-contrast-history .xr-toolbar .xr-date-control{flex-basis:100%;max-width:none}.xray-contrast-history .xr-modality-field{flex:1 1 100%;width:100%}.xray-contrast-history .xr-modality-select{flex:1 1 auto;width:100%!important}.xray-contrast-history .xr-sort-field{flex:1 1 100%;width:100%}.xray-contrast-history .xr-sort-select{flex:1 1 auto;width:100%}}
 @media(max-width:480px){.xray-contrast-history .xr-modality-field.is-multirow .xr-modality-select .el-select__selection{grid-template-columns:repeat(2,max-content)!important}.xray-contrast-history .xr-modality-field.is-multirow .xr-modality-select .el-select__input-wrapper:nth-child(2n+1){grid-column:1/-1}.xray-contrast-history .xr-modality-field.is-multirow .xr-modality-select .el-select__input-wrapper:nth-child(2n){grid-column:2}}
-@media(max-width:900px){.xray-contrast-history .xr-item-grid-wrap{overflow:visible;margin-left:0}.xray-contrast-history .xr-item-head{display:none}.xray-contrast-history .xr-item-grid.xr-item-row{display:grid;grid-template-columns:1fr 1fr;gap:0 14px;min-width:0;padding:10px 0}.xray-contrast-history .xr-item-grid.xr-item-row>.xr-item-check-cell{position:static;z-index:auto;padding-left:0;background:transparent;box-shadow:none}.xray-contrast-history .xr-item-row>div{display:grid;grid-template-columns:minmax(104px,.42fr) minmax(0,1fr);align-items:center;gap:8px;min-height:34px;padding:3px 0;border-bottom:1px dashed var(--border-lighter)}.xray-contrast-history .xr-item-row>div:before{display:block;content:attr(data-label);color:var(--muted);font-size:10px;font-weight:650}.xray-contrast-history .xr-item-row>div:last-child{border-bottom:0}.xray-contrast-history .xr-result-list{margin-left:0}.xray-contrast-history .xr-result-list-head,.xray-contrast-history .xr-result-list-row{min-width:956px;padding:6px 0}}
+@media(max-width:900px){.xray-contrast-history .xr-item-grid-wrap{overflow:visible;margin-left:0}.xray-contrast-history .xr-item-head{display:none}.xray-contrast-history .xr-item-grid.xr-item-row{display:grid;grid-template-columns:1fr 1fr;gap:0 14px;min-width:0;padding:10px 0}.xray-contrast-history .xr-item-row>div{display:grid;grid-template-columns:minmax(104px,.42fr) minmax(0,1fr);align-items:center;gap:8px;min-height:34px;padding:3px 0;border-bottom:1px dashed var(--border-lighter)}.xray-contrast-history .xr-item-row>div:before{display:block;content:attr(data-label);color:var(--muted);font-size:10px;font-weight:650}.xray-contrast-history .xr-item-row>div:last-child{border-bottom:0}.xray-contrast-history .xr-result-list{margin-left:0}.xray-contrast-history .xr-result-list-head,.xray-contrast-history .xr-result-list-row{min-width:956px;padding:6px 0}}
 @media(max-width:680px){.xray-contrast-history .xr-status-strip{flex-wrap:nowrap;overflow-x:auto;padding-bottom:3px}.xray-contrast-history .xr-status-chip{flex:0 0 auto}.xray-contrast-history .xr-status-legend{flex:0 0 auto}.xray-contrast-history .xr-detail-panel{padding:0 8px 12px}.xray-contrast-history .xr-detail-top{align-items:flex-start;flex-wrap:wrap}.xray-contrast-history .xr-bulk-actions{width:100%;margin:0;padding-bottom:7px;flex-wrap:wrap}.xray-contrast-history .xr-item-grid.xr-item-row{grid-template-columns:1fr}.xray-contrast-history .xr-pagination{justify-content:flex-start;overflow-x:auto}.xr-report-head{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){.xray-contrast-history *{scroll-behavior:auto!important;transition-duration:.001ms!important}}
 
-/* ── ส่วนที่เพิ่มเฉพาะหน้านี้ — ไม่แก้ค่าของ Worklist สักตัว ────────────────────
-   1. ตาราง item เหลือ 10 คอลัมน์ (ตัด checkbox · Radiologist · สติ๊กเกอร์ HN ของฝั่งเขียน)
-   2. ป้ายสารทึบระดับใบ และข้อความกำกับโหมดอ่านอย่างเดียว                        */
-.xray-contrast-history .xr-item-grid{grid-template-columns:150px minmax(215px,1.9fr) 78px 132px 150px 108px minmax(125px,1.1fr) minmax(105px,.9fr) minmax(190px,1.3fr) 118px;min-width:1340px}
+/* ── ส่วนที่เพิ่มเฉพาะหน้านี้: โหมดอ่านอย่างเดียวและ rollup ระดับ order ─────── */
 .xray-contrast-history .xr-readonly-hint{display:inline-flex;align-items:center;min-height:30px;margin-left:auto;padding:0 10px;border:1px dashed var(--border);border-radius:5px;color:var(--muted);font-size:11px;font-weight:600;white-space:nowrap}
 .xray-contrast-history .xr-hidden-note{display:inline-flex;align-items:center;margin-left:8px;padding:1px 8px;border:1px solid var(--border-light);border-radius:999px;background:var(--fill-light);font-size:11px}
 .xray-contrast-history .xr-contrast-rollup{display:inline-flex;align-items:center;min-height:22px;padding:1px 9px;border:1px solid #b7ddc4;border-radius:999px;background:#eaf6ee;color:#3a8a56;font-family:var(--mono);font-size:10px;font-weight:650;white-space:nowrap}
 .xray-contrast-history .xr-contrast-adverse{display:inline-flex;align-items:center;min-height:20px;padding:0 6px;border:1px solid #fab6b6;border-radius:4px;background:#fef0f0;color:#c45656;font-size:10px;font-weight:650;white-space:nowrap}
-.xray-contrast-history .xr-contrast-cell{display:grid;gap:2px;min-width:0;justify-items:start}
-.xray-contrast-history .xr-contrast-sub{color:var(--muted);font-size:10px;overflow-wrap:anywhere}
 /* 🔴 ไม่มีข้อมูล = "ยังไม่ได้บันทึก" เท่านั้น ห้ามอ่านว่า "ไม่ได้ฉีด" */
 .xray-contrast-history .xr-contrast-none{color:var(--placeholder)}
-.xray-contrast-history .xr-detail-note{margin-left:auto;color:var(--muted);font-size:11px;font-weight:600;white-space:nowrap}
 .xray-contrast-history .xr-detail-top .xr-detail-tab.is-active{cursor:default}
-@media(max-width:900px){.xray-contrast-history .xr-item-grid{grid-template-columns:1fr 1fr;min-width:0}.xray-contrast-history .xr-readonly-hint{margin-left:0}}`
+@media(max-width:900px){.xray-contrast-history .xr-item-gutter{display:none!important}.xray-contrast-history .xr-item-grid{grid-template-columns:1fr 1fr;min-width:0}.xray-contrast-history .xr-readonly-hint{margin-left:0}}`
 
 widget.options.content = `<div class="xray-contrast-history">
   <section aria-label="สืบค้นประวัติการใช้สารทึบรังสี">
@@ -312,18 +290,6 @@ widget.options.content = `<div class="xray-contrast-history">
       <el-date-picker class="xr-date-control" :model-value="filters.dates" size="small" type="daterange"
         range-separator="ถึง" start-placeholder="Date Range" end-placeholder="Date Range"
         value-format="YYYY-MM-DD" format="DD/MM/YYYY" @update:model-value="setDates" />
-
-      <div class="xr-modality-field" :class="{'is-picked':modality.length}">
-        <span class="xr-modality-label">เครื่อง</span>
-        <el-select class="xr-modality-select" :model-value="modality" size="small"
-          multiple filterable clearable collapse-tags placeholder="ทุกเครื่อง"
-          aria-label="กรองตามเครื่อง" @change="setModality">
-          <el-option v-for="m in modalityOptions()" :key="m.value" :label="m.value" :value="m.value">
-            <span class="xr-opt-label" :title="m.label">{{ m.value }}</span>
-            <span class="xr-opt-count">{{ m.count }}</span>
-          </el-option>
-        </el-select>
-      </div>
 
       <el-button size="small" type="primary" :loading="loading" @click="search">Search</el-button>
       <span class="xr-readonly-hint">อ่านอย่างเดียว · ไม่มีปุ่มสั่งงานในหน้านี้</span>
@@ -348,7 +314,7 @@ widget.options.content = `<div class="xray-contrast-history">
       <div class="xr-worklist">
         <div class="xr-list-head" aria-hidden="true">
           <div></div><div>ผู้ป่วย</div><div></div><div>รายการตรวจ</div><div>เครื่อง</div>
-          <div>เวลาสั่ง / Order No.</div><div>แพทย์ / Diagnosis</div><div>สถานะ</div><div>สารทึบ</div>
+          <div>เวลาสั่ง / Order No.</div><div>แพทย์ / Diagnosis</div><div>สารทึบ</div>
         </div>
 
         <article v-for="row in visibleRows()" :key="row.id" class="xr-patient-block"
@@ -373,8 +339,13 @@ widget.options.content = `<div class="xray-contrast-history">
             </div>
 
             <div class="xr-context-tags">
+              <div v-if="row.alert_text" class="xr-alert-box" role="alert" :title="row.alert_full">
+                <span>{{ row.alert_text }}</span>
+              </div>
               <div class="xr-context-top">
                 <span v-if="row.room" class="xr-inline-tag xr-meta-pill xr-source-pill">{{ row.room }}</span>
+                <span v-if="row.show_payment_status" class="xr-inline-tag xr-meta-pill xr-payment-pill"
+                  :class="{'is-unpaid':!row.finance_passed}">{{ row.finance_passed ? 'ชำระเงินแล้ว' : 'ยังไม่ได้ชำระเงิน' }}</span>
                 <span v-if="row.coverage" class="xr-inline-tag xr-meta-pill xr-coverage-pill">{{ row.coverage }}</span>
               </div>
             </div>
@@ -407,8 +378,6 @@ widget.options.content = `<div class="xray-contrast-history">
               </el-tooltip>
             </div>
 
-            <div data-label="สถานะ"><span class="xr-state-tag" :class="row.status_class">{{ row.status_label }}</span></div>
-
             <!-- ช่องสุดท้ายของ Worklist เป็นปุ่มสั่งงาน — หน้านี้ไม่มีปุ่มใด ๆ
                  ใช้บอกแทนว่าใบนี้มีใบบันทึกสารทึบแนบอยู่กี่รายการ -->
             <div class="xr-row-actions">
@@ -419,41 +388,31 @@ widget.options.content = `<div class="xray-contrast-history">
           </div>
 
           <div v-if="isExpanded(row.id)" class="xr-detail-panel">
-            <div class="xr-detail-top">
-              <span class="xr-detail-tab is-active">รายการตรวจ</span>
-              <span class="xr-detail-note">อ่านอย่างเดียว — ไม่มีปุ่มส่งเข้าเครื่อง ยกเลิก หรือปฏิเสธในหน้านี้</span>
+            <div class="xr-detail-top" role="tablist">
+              <button class="xr-detail-tab is-active" type="button" role="tab" aria-selected="true">order</button>
             </div>
             <div class="xr-item-grid-wrap">
               <div class="xr-item-grid xr-item-head" aria-hidden="true">
-                <div>Accession No.</div><div>รายการตรวจ</div><div>เครื่อง</div><div>เวลาส่งเข้าเครื่อง</div>
-                <div>Radiographer</div><div>สถานะ</div><div>ปฏิเสธ</div><div>คนปฏิเสธ</div><div>สารทึบ</div><div></div>
+                <div class="xr-item-gutter"></div>
+                <div>Accession No.</div><div>รายการตรวจ</div><div>เครื่อง</div>
+                <div>Radiographer</div><div>Radiologist</div><div>ปฏิเสธ</div><div>คนปฏิเสธ</div><div>สารทึบ</div>
               </div>
               <div v-for="item in row.items" :key="item.id" class="xr-item-grid xr-item-row">
+                <div class="xr-item-gutter" aria-hidden="true"></div>
                 <div data-label="Accession No." class="xr-mono">{{ item.accession_no }}</div>
-                <div data-label="รายการตรวจ" class="xr-test-name">
-                  {{ item.name }}<span class="xr-mono xr-test-code-inline">{{ item.code }}</span>
-                </div>
+                <div data-label="รายการตรวจ" class="xr-test-name">{{ item.name }}</div>
                 <div data-label="เครื่อง" class="xr-item-modality">
                   <span v-if="item.modality" class="xr-modality-tag" :title="item.modality_label">{{ item.modality }}</span>
                 </div>
-                <div data-label="เวลาส่งเข้าเครื่อง" class="xr-mono">{{ item.dispatched_text }}</div>
                 <div data-label="Radiographer">{{ item.radiographer }}</div>
-                <div data-label="สถานะ"><span class="xr-state-tag" :class="item.status_class">{{ item.status_label }}</span></div>
+                <div data-label="Radiologist">{{ item.radiologist }}</div>
                 <div data-label="ปฏิเสธ">{{ item.reject_reason }}</div>
                 <div data-label="คนปฏิเสธ">{{ item.rejected_by }}</div>
                 <!-- 🔴 ไม่มีข้อมูล = "ยังไม่ได้บันทึก" เท่านั้น ห้ามอ่านว่า "ไม่ได้ฉีด" -->
                 <div data-label="สารทึบ" class="xr-item-contrast">
-                  <div v-if="item.has_record" class="xr-contrast-cell" :title="item.contrast_title">
-                    <span class="xr-contrast-chip">{{ item.contrast_label }}</span>
-                    <span class="xr-contrast-sub">{{ item.contrast_sub }}</span>
-                    <span v-if="item.adverse" class="xr-contrast-adverse">มีอาการไม่พึงประสงค์</span>
-                  </div>
+                  <button v-if="item.has_record" type="button" class="xr-contrast-chip"
+                    :title="item.contrast_title" @click="openRecord(row,item)">{{ item.contrast_label }}</button>
                   <span v-else class="xr-contrast-none" :title="item.contrast_title">ยังไม่ได้บันทึก</span>
-                </div>
-                <div data-label="ใบบันทึก">
-                  <el-button class="xr-plain-action" size="small" :disabled="!item.has_record"
-                    :title="item.has_record?'เปิดใบบันทึกการใช้สารทึบรังสีของรายการนี้':'ยังไม่ได้บันทึกของรายการนี้'"
-                    @click="openRecord(row,item)">ดูบันทึก</el-button>
                 </div>
               </div>
             </div>
@@ -462,7 +421,7 @@ widget.options.content = `<div class="xray-contrast-history">
 
         <div v-if="!visibleRows().length" class="xr-empty">
           <strong>ไม่พบใบที่มีบันทึกการใช้สารทึบ</strong><br>
-          หน้านี้แสดงเฉพาะ order ที่มีคนแนบใบบันทึกไว้แล้วอย่างน้อย 1 รายการ · ลองเปลี่ยน HN ช่วงวันที่ หรือเครื่อง
+          หน้านี้แสดงเฉพาะ order ที่มีคนแนบใบบันทึกไว้แล้วอย่างน้อย 1 รายการ · ลองเปลี่ยน HN หรือช่วงวันที่
         </div>
       </div>
     </section>
@@ -478,11 +437,31 @@ const WORKLIST_PROCESS_ID='${worklistProcessId}';
    ค่าว่าง = ปุ่มยังกดได้แต่บอกตรง ๆ ว่ายังไม่เชื่อม (decision X17 ห้ามปุ่มตาย) */
 const CONTRAST_FORM_ID='${contrastFormId}';
 s.rows=[];s.loading=false;s.errorMessage='';s.searched=false;
-s.filters={hn:'',dates:[]};s.modality=[];s.page={current:1,size:50,total:0};
+s.filters={hn:'',dates:[]};s.page={current:1,size:50,total:0};
 s.expanded={};s.loadSeq=0;s.scopedCount=0;
 s.text=v=>{if(v==null)return '';if(typeof v==='object')return s.text(v.label||v.name||v.display_name||v.full_name||v.code||v.value||v._id||'');return String(v).trim();};
 s.items=o=>o&&Array.isArray(o.items)?o.items:[];
-s.personName=v=>{if(!v)return '';if(typeof v==='object')return s.text(v.full_name||v.name||[s.text(v.prename),s.text(v.first_name||v.p_fname),s.text(v.last_name||v.p_lname)].filter(Boolean).join(' '));return s.text(v);};
+s.stripEmail=v=>String(v||'')
+  .replace(/\\s*[\\(<\\[]?[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}[\\)>\\]]?\\s*/ig,' ')
+  .replace(/\\(\\s*\\)|\\[\\s*\\]|<\\s*>/g,' ')
+  .replace(/\\s{2,}/g,' ')
+  .trim();
+s.personName=v=>{if(!v)return '';if(typeof v==='object'){const parts=[s.text(v.prename||v.prefix||v.title),s.text(v.first_name||v.p_fname||v.firstname),s.text(v.last_name||v.p_lname||v.lastname)].filter(Boolean);if(parts.length>=2)return s.stripEmail(parts.join(' '));return s.stripEmail(s.text(v.display_name||v.full_name||v.name||v.label||v.username||''));}return s.stripEmail(v);};
+s.patientName=o=>[s.text(o&&o.patient&&o.patient.prename),s.text(o&&o.patient&&o.patient.first_name),s.text(o&&o.patient&&o.patient.last_name)].filter(Boolean).join(' ');
+s.coverageAbbrev=o=>{const raw=o&&o.finance&&o.finance.coverage;let list=[];if(Array.isArray(raw))list=raw;else if(typeof raw==='string'&&['[','{'].includes(raw.trim().charAt(0))){try{const parsed=JSON.parse(raw);list=Array.isArray(parsed)?parsed:[parsed];}catch(e){list=[raw];}}else if(raw!=null&&raw!=='')list=[raw];for(let index=0;index<list.length;index++){const item=list[index],main=item&&typeof item==='object'&&item.inscl_item_main;const code=s.text(main&&typeof main==='object'?(main.value||main.code||main.id):(item&&typeof item==='object'?(item.value||item.code||item.id):item));if(code)return code.toUpperCase()==='CASH'?'':code;}return '';};
+s.requesterName=o=>{const r=(o&&o.requester)||{};return s.personName(r.cosign_user)||s.personName(r.visit_doctor);};
+s.sourceRoom=o=>s.text(o&&o.visit&&(o.visit.clinic||o.visit.ward));
+s.isPaid=o=>{const f=(o&&o.finance)||{};const total=Number(f.total_amount||0);return total>0&&Number(f.paid_amount||0)>=total;};
+s.showPaymentStatus=o=>{const f=(o&&o.finance)||{};return Number(f.total_amount||0)>0||!!s.coverageAbbrev(o);};
+s.isFinancePassed=o=>{const terminal=['cancelled','rejected','returned','reversed'];const passed=['ready','accepted','prepared','dispensed','dispatched','in_progress','resulted','completed'];const items=s.items(o);const active=items.filter(item=>!terminal.includes(s.text(item&&item.current_status).toLowerCase()));return active.length?active.every(item=>passed.includes(s.text(item&&item.current_status).toLowerCase())):s.isPaid(o);};
+const PRIORITY_LABEL={'2':'ด่วน','3':'ด่วนที่สุด','4':'ด่วน OR','5':'ด่วน อุบัติเหตุ'};
+s.priorityCode=o=>s.text(o&&o.priority).toLowerCase();
+s.isUrgent=o=>{const p=s.priorityCode(o);return p.indexOf('urgent')>=0||p.indexOf('stat')>=0||p.indexOf('ด่วน')>=0||['2','3','4','5'].indexOf(p)>=0;};
+s.urgentLabel=o=>{if(!s.isUrgent(o))return '';const p=s.priorityCode(o);if(PRIORITY_LABEL[p])return PRIORITY_LABEL[p];const raw=s.text(o&&o.priority);return raw.indexOf('ด่วน')>=0?raw:'เร่งด่วน';};
+s.orderAgeText=o=>{const raw=o&&o.patient&&o.patient.age;if(raw==null||raw==='')return '';let year='',month='',day='';if(typeof raw==='object'){const value=(...keys)=>{for(let i=0;i<keys.length;i++){const candidate=raw[keys[i]];if(candidate!=null&&candidate!=='')return s.text(candidate);}return '';};year=value('year','years','y');month=value('month','months','m');day=value('day','days','d');}else{const value=s.text(raw).trim(),yearMatch=value.match(/(-?[0-9]+(?:[.][0-9]+)?)[ \\t]*(?:y|ปี)/i),monthMatch=value.match(/(-?[0-9]+(?:[.][0-9]+)?)[ \\t]*(?:m|เดือน)/i),dayMatch=value.match(/(-?[0-9]+(?:[.][0-9]+)?)[ \\t]*(?:d|วัน)/i);if(yearMatch||monthMatch||dayMatch){year=yearMatch?yearMatch[1]:'';month=monthMatch?monthMatch[1]:'';day=dayMatch?dayMatch[1]:'';}else if(/^-?[0-9]+(?:[.][0-9]+)?$/.test(value))year=value;}if(!year&&!month&&!day)return '';return year+' ปี '+month+' เดือน '+day+' วัน';};
+s.diagnosisText=o=>s.text(o&&(o.diagnosis||(o.emr_context&&o.emr_context.diagnosis)));
+s.alertList=o=>{const alerts=(o&&o.patient&&o.patient.alerts)||{},out=[];if(alerts.covid===true)out.push(s.text(alerts.covid_label)||'COVID');const allergies=Array.isArray(alerts.allergies)?alerts.allergies.map(s.text).filter(Boolean):[];if(allergies.length)out.push('แพ้ '+allergies.join(', '));return out;};
+s.shorten=(v,limit)=>{const t=s.text(v);return t.length>limit?t.slice(0,limit-1)+'…':t;};
 s.fmt=(v,opts)=>{const raw=s.text(v);if(!raw)return '';const d=new Date(raw);if(Number.isNaN(d.getTime()))return raw;return new Intl.DateTimeFormat('th-TH',Object.assign({timeZone:'Asia/Bangkok'},opts)).format(d);};
 s.datePart=v=>s.fmt(v,{day:'2-digit',month:'2-digit',year:'2-digit'});
 s.timePart=v=>s.fmt(v,{hour:'2-digit',minute:'2-digit',hour12:false});
@@ -526,6 +505,7 @@ s.buildItem=i=>{
     modality_label:s.modalityLabel(i),
     dispatched_text:s.compactDateTime(i&&i.dispatched_at)||'–',
     radiographer:s.text(i&&i.radiographer)||'–',
+    radiologist:s.text(i&&i.radiologist)||'–',
     status_label:s.ITEM_LABEL[state]||'',
     status_class:s.ITEM_CLASS[state]||'xr-st-waiting',
     reject_reason:s.text(i&&(i.cancel_reason||i.reject_reason))||'–',
@@ -542,28 +522,33 @@ s.buildRow=o=>{
   const items=raw.map(s.buildItem);
   const state=s.orderState(o);
   const p=(o&&o.patient)||{};
-  const dx=s.text(o&&o.diagnosis&&(o.diagnosis.text||o.diagnosis.name))||s.text(o&&o.diagnosis_text)||s.text(o&&o.diagnosis);
+  const dx=s.diagnosisText(o);
   const modalities=[];
   items.forEach(i=>{if(i.modality&&!modalities.some(m=>m.code===i.modality))modalities.push({code:i.modality,label:i.modality_label});});
   return {
     id:s.text(o&&o.row_key)||s.text(o&&o.order_id)||s.text(o&&o._id)||s.text(o&&o.order_number),
     raw:o,
     hn:s.text(p.hn),
-    name:s.personName(p)||s.text(p.patient_name),
+    name:s.patientName(o)||s.text(p.patient_name),
     gender:s.text(p.gender_text),
-    age:s.text(p.age_text||p.age),
-    urgent:!!(o&&(o.urgent||o.is_urgent)),
-    urgent_label:s.text(o&&o.urgent_label)||'เร่งด่วน',
-    room:s.text(o&&o.source_unit)||s.text(o&&o.visit&&o.visit.clinic)||s.text(o&&o.ordering_unit),
-    coverage:s.text(o&&o.finance&&o.finance.coverage)||s.text(o&&o.coverage),
+    age:s.orderAgeText(o),
+    urgent:s.isUrgent(o),
+    urgent_label:s.urgentLabel(o),
+    room:s.sourceRoom(o),
+    show_payment_status:s.showPaymentStatus(o),
+    finance_passed:s.isFinancePassed(o),
+    coverage:s.coverageAbbrev(o),
+    alert_text:s.shorten(s.alertList(o).join(' · '),42),
+    alert_full:s.alertList(o).join(' · '),
     item_count:items.length,
+    test_count:items.length,
     test_summary:items.length?(items.length+' รายการ'):'',
-    test_list:items.map(i=>[i.name,i.code].filter(Boolean).join(' · ')).filter(Boolean),
+    test_list:items.map(i=>i.name).filter(Boolean),
     modalities:modalities,
     order_no:s.text(o&&o.order_number),
     ordered_date:s.datePart(o&&o.requested_at),
     ordered_time:s.timePart(o&&o.requested_at),
-    doctor:s.personName(o&&(o.requester||o.doctor))||s.text(o&&o.requester_name),
+    doctor:s.requesterName(o),
     dx_short:'Diagnosis: '+dx,
     dx_full:dx,
     dx_has:!!dx,
@@ -576,28 +561,14 @@ s.buildRow=o=>{
 };
 /* ── ตัวกรองของหน้านี้: เหลือเฉพาะใบที่มีใบบันทึกสารทึบแนบไว้แล้ว ─────────────
    ใบที่ยังไม่มีบันทึกถูกซ่อน แต่บอกจำนวนไว้ที่บรรทัดสรุป ไม่ให้เข้าใจว่าไม่มีใบอื่น */
-s.visibleRows=()=>{
-  const picked=Array.isArray(s.modality)?s.modality:[];
-  return s.rows.filter(r=>!picked.length||r.items.some(i=>picked.indexOf(i.modality)>=0));
-};
+s.visibleRows=()=>s.rows;
 s.hiddenCount=()=>Math.max(0,s.scopedCount-s.rows.length);
-s.modalityOptions=()=>{
-  const out=[];
-  s.rows.forEach(r=>r.items.forEach(i=>{
-    if(!i.modality)return;
-    const found=out.find(m=>m.value===i.modality);
-    if(found){found.count+=1;return;}
-    out.push({value:i.modality,label:i.modality_label||i.modality,count:1});
-  }));
-  return out.sort((a,b)=>a.value<b.value?-1:1);
-};
 s.scopeText=()=>(s.filters.dates&&s.filters.dates.length===2)?'ช่วงวันที่ที่เลือก':'ทุกช่วงเวลา';
 s.isExpanded=id=>!!s.expanded[id];
 s.toggle=id=>{s.expanded=Object.assign({},s.expanded,{[id]:!s.expanded[id]});};
 s.toggleFromRow=(row,event)=>{const t=event&&event.target;if(t&&t.closest&&t.closest('button,a,input,.el-button,.el-select'))return;s.toggle(row.id);};
 s.setHn=v=>{s.filters=Object.assign({},s.filters,{hn:s.text(v)});};
 s.setDates=v=>{s.filters=Object.assign({},s.filters,{dates:Array.isArray(v)?v:[]});};
-s.setModality=v=>{s.modality=Array.isArray(v)?v:[];};
 s.clearScope=()=>{s.setHn('');if(!(s.filters.dates&&s.filters.dates.length===2)){s.searched=false;s.rows=[];s.scopedCount=0;s.page=Object.assign({},s.page,{current:1,total:0});}};
 s.extractProcess=out=>{const c=[out,out&&out.data,out&&out.data&&out.data.data,out&&out.reply&&out.reply.data];for(let i=0;i<c.length;i++){const x=c[i];if(x&&typeof x==='object'&&(typeof x.success==='boolean'||(x.data&&Array.isArray(x.data.orders))))return x;}return out||{};};
 s.extractPayload=out=>{const p=s.extractProcess(out);const c=[p&&p.data,p,out&&out.data&&out.data.data,out&&out.data];for(let i=0;i<c.length;i++){if(c[i]&&Array.isArray(c[i].orders))return c[i];}return null;};

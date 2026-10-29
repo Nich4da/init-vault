@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Choice mockup — VN context tags</title>
+  <style>
+    :root {
+      --page: #eef1f5;
+      --surface: #fff;
+      --surface-2: #f7f8fa;
+      --text: #303133;
+      --regular: #606266;
+      --muted: #909399;
+      --line: #dcdfe6;
+      --dash: #e4e7ed;
+      --accent: #5f68e8;
+      --accent-soft: #eef0ff;
+      --danger: #e34f55;
+      --danger-soft: #fff0f0;
+      --warning: #a96b18;
+      --warning-soft: #fff6e8;
+      --success: #4d8f32;
+      --success-soft: #f1f8ed;
+      --font: "Helvetica Neue", Helvetica, Arial, "Noto Sans Thai", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--text); background: var(--page); font-family: var(--font); }
+    .board { width: min(1480px, 100%); margin: 0 auto; padding: 30px; }
+    .board-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 18px; }
+    h1 { margin: 0; font-size: 24px; line-height: 1.2; }
+    .board-head p { max-width: 680px; margin: 6px 0 0; color: var(--regular); font-size: 14px; }
+    .pending { flex: 0 0 auto; padding: 5px 9px; border: 1px solid var(--line); border-radius: 5px; color: var(--regular); background: var(--surface); font-size: 12px; font-weight: 600; }
+    .choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+    .choice { overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); box-shadow: 0 8px 26px rgba(27, 39, 69, .08); }
+    .choice.is-recommended { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(95, 104, 232, .12), 0 8px 26px rgba(27, 39, 69, .08); }
+    .choice-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 14px; border-bottom: 1px solid var(--line); background: var(--surface-2); }
+    .choice-number { font-size: 15px; font-weight: 700; }
+    .choice-label { padding: 3px 7px; border-radius: 4px; color: var(--accent); background: var(--accent-soft); font-size: 10px; font-weight: 700; }
+    .mock-popover { margin: 14px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); }
+    .popover-head { display: flex; align-items: center; justify-content: space-between; min-height: 38px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+    .popover-head strong { font-size: 12px; }
+    .popover-head span { color: var(--muted); font-size: 10px; }
+    .visit { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 7px; padding: 9px 9px; border-bottom: 1px dashed var(--dash); }
+    .visit:last-child { border-bottom: 0; }
+    .check { width: 14px; height: 14px; margin-top: 2px; border: 1px solid var(--muted); border-radius: 2px; }
+    .visit-main { min-width: 0; }
+    .visit-top { display: grid; grid-template-columns: max-content minmax(0, 1fr) max-content; align-items: center; gap: 6px; }
+    .vn { font-size: 11px; font-weight: 700; }
+    .date { color: var(--regular); font-size: 10px; font-weight: 600; white-space: nowrap; }
+    .tag-zone { display: flex; min-width: 0; align-items: center; gap: 3px; overflow: hidden; }
+    .tag { overflow: hidden; max-width: 96px; padding: 2px 5px; border: 1px solid var(--line); border-radius: 4px; color: var(--regular); background: var(--surface-2); font-size: 8.5px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+    .tag.accent { border-color: #cfd3ff; color: #4954cc; background: var(--accent-soft); }
+    .tag.warning { border-color: #f0d8b3; color: var(--warning); background: var(--warning-soft); }
+    .tag.success { border-color: #cfe4c5; color: var(--success); background: var(--success-soft); }
+    .visit-bottom { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 4px; }
+    .orders { overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+    .abnormal { flex: 0 0 auto; padding: 1px 5px; border-radius: 3px; color: var(--danger); background: var(--danger-soft); font-size: 8.5px; font-weight: 700; }
+    .choice-copy { min-height: 98px; padding: 0 14px 14px; }
+    .choice-copy h2 { margin: 0 0 4px; font-size: 14px; }
+    .choice-copy p { margin: 0; color: var(--regular); font-size: 12px; line-height: 1.45; }
+    .choice-copy .tradeoff { margin-top: 5px; color: var(--muted); }
+    @media (max-width: 1050px) {
+      .board { padding: 18px; }
+      .choices { grid-template-columns: 1fr; }
+      .choice-copy { min-height: 0; }
+    }
+  </style>
+</head>
+<body>
+  <main class="board">
+    <header class="board-head">
+      <div>
+        <h1>ข้อมูลเสริมตรงช่องว่างของแต่ละ Visit</h1>
+        <p>ทั้ง 3 แบบคง VN, วันที่, รายการ LAB และจำนวนผลผิดปกติเดิม เปลี่ยนเฉพาะ tag ตรงกลางเพื่อช่วยแพทย์เลือก Visit ที่เกี่ยวข้องเร็วขึ้น</p>
+      </div>
+      <span class="pending">ยังไม่ใช้กับ mockup หลัก</span>
+    </header>
+
+    <section class="choices" aria-label="ตัวเลือก tag สำหรับ Visit">
+      <article class="choice is-recommended">
+        <header class="choice-head"><span class="choice-number">Choice 1 · บริบท Visit</span><span class="choice-label">แนะนำ</span></header>
+        <div class="mock-popover">
+          <div class="popover-head"><strong>Visit ที่มีการสั่ง LAB</strong><span>เลือกได้ไม่จำกัด</span></div>
+          <div class="visit">
+            <span class="check"></span>
+            <div class="visit-main">
+              <div class="visit-top"><span class="vn">VN6901021</span><span class="tag-zone"><span class="tag accent">OPD</span><span class="tag">กุมารเวช</span><span class="tag warning">Dx: ไข้</span></span><span class="date">21 ต.ค. 2569</span></div>
+              <div class="visit-bottom"><span class="orders">Electrolyte · Liver Function Test · Glucose</span><span class="abnormal">ผิดปกติ 3 รายการ</span></div>
+            </div>
+          </div>
+          <div class="visit">
+            <span class="check"></span>
+            <div class="visit-main">
+              <div class="visit-top"><span class="vn">VN6901018</span><span class="tag-zone"><span class="tag accent">IPD</span><span class="tag">โลหิตวิทยา</span><span class="tag warning">Dx: ซีด</span></span><span class="date">18 ต.ค. 2569</span></div>
+              <div class="visit-bottom"><span class="orders">Complete Blood Count · Electrolyte</span><span class="abnormal">ผิดปกติ 2 รายการ</span></div>
+            </div>
+          </div>
+          <div class="visit">
+            <span class="check"></span>
+            <div class="visit-main">
+              <div class="visit-top"><span class="vn">VN6901014</span><span class="tag-zone"><span class="tag accent">OPD</span><span class="tag">อายุรกรรม</span><span class="tag success">นัดติดตาม</span></span><span class="date">14 ต.ค. 2569</span></div>
+              <div class="visit-bottom"><span class="orders">Liver Function Test · Urinalysis</span><span class="abnormal">ผิดปกติ 1 รายการ</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="choice-copy">
+          <h2>ประเภท Visit + คลินิก + Dx สั้น</h2>
+          <p>ช่วยแยกบริบทของ Visit ได้เร็วที่สุด โดยยังเห็นวันที่และรายการ LAB ครบ</p>
+          <p class="tradeoff">ต้องมี contract ที่เชื่อถือได้สำหรับประเภท Visit, คลินิก และ diagnosis สั้น</p>
+        </div>
+      </article>
+
+      <article class="choice">
+        <header class="choice-head"><span class="choice-number">Choice 2 · Diagnosis เด่น</span><span class="choice-label">ข้อมูลน้อย</span></header>
+        <div class="mock-popover">
+          <div class="popover-head"><strong>Visit ที่มีการสั่ง LAB</strong><span>เลือกได้ไม่จำกัด</span></div>
+          <div class="visit">
+            <span class="check"></span>
+            <div class="visit-main">
+              <div class="visit-top"><span class="vn">VN6901021</span><span class="tag-zone"><span class="tag warning">Dx: ไข้ไม่ทราบสาเหตุ</span></span><span class="date">21 ต.ค. 2569</span></div>
+              <div class="visit-bottom"><span class="orders">Electrolyte · Liver Function Test · Glucose</span><span class="abnormal">ผิดปกติ 3 รายการ</span></div>
+            </div>
+          </div>
+          <div class="visit">
+            <span class="check"></span>
+            <div class="visit-main">
+              <div class="visit-top"><span class="vn">VN6901018</span><span class="tag-zone"><span class="tag warning">Dx: ภาวะซีด</span></span><span class="date">18 ต.ค. 2569</span></div>
+              <div class="visit-bottom"><span class="orders">Complete Blood Count · Electrolyte</span><span class="abnormal">ผิดปกติ 2 รายการ</span></div>
+            </div>
+          </div>
+          <div class="visit">
+            <span class="check"></span>
+            <div class="visit-main">
+              <div class="visit-top"><span class="vn">VN6901014</span><span class="tag-zone"><span class="tag warning">Dx: ติดตามการทำงานตับ</span></span><span class="date">14 ต.ค. 2569</span></div>
+              <div class="visit-bottom"><span class="orders">Liver Function Test · Urinalysis</span><span class="abnormal">ผิดปกติ 1 รายการ</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="choice-copy">
+          <h2>แสดง Diagnosis หลักอย่างเดียว</h2>
+          <p>อ่านง่ายและชี้เหตุผลของ Visit ตรงที่สุด เหมาะเมื่อพื้นที่ต้องกระชับ</p>
+          <p class="tradeoff">Diagnosis อาจยาวหรือยังไม่ final และไม่บอกว่ามาจากคลินิก/ประเภท Visit ใด</p>
+        </div>
+      </article>
+
+      <article class="choice">
+        <header class="choice-head"><span class="choice-number">Choice 3 · ข้อมูลปฏิบัติการ</span><span class="choice-label">ไม่ใช้ Dx</span></header>
+        <div class="mock-popover">
+          <div class="popover-head"><strong>Visit ที่มีการสั่ง LAB</strong><span>เลือกได้ไม่จำกัด</span></div>
+          <div class="visit">
+            <span class="check"></span>
+            <div class="visit-main">
+              <div class="visit-top"><span class="vn">VN6901021</span><span class="tag-zone"><span class="tag accent">OPD</span><span class="tag">กุมารเวช</span><span class="tag success">ครั้งแรก</span></span><span class="date">21 ต.ค. 2569</span></div>
+              <div class="visit-bottom"><span class="orders">Electrolyte · Liver Function Test · Glucose</span><span class="abnormal">ผิดปกติ 3 รายการ</span></div>
+            </div>
+          </div>
+          <div class="visit">
+            <span class="check"></span>
+            <div class="visit-main">
+              <div class="visit-top"><span class="vn">VN6901018</span><span class="tag-zone"><span class="tag accent">IPD</span><span class="tag">หอ 5</span><span class="tag success">จำหน่ายแล้ว</span></span><span class="date">18 ต.ค. 2569</span></div>
+              <div class="visit-bottom"><span class="orders">Complete Blood Count · Electrolyte</span><span class="abnormal">ผิดปกติ 2 รายการ</span></div>
+            </div>
+          </div>
+          <div class="visit">
+            <span class="check"></span>
+            <div class="visit-main">
+              <div class="visit-top"><span class="vn">VN6901014</span><span class="tag-zone"><span class="tag accent">OPD</span><span class="tag">อายุรกรรม</span><span class="tag success">นัดติดตาม</span></span><span class="date">14 ต.ค. 2569</span></div>
+              <div class="visit-bottom"><span class="orders">Liver Function Test · Urinalysis</span><span class="abnormal">ผิดปกติ 1 รายการ</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="choice-copy">
+          <h2>ประเภท Visit + จุดบริการ + สถานะ</h2>
+          <p>ใช้ข้อมูล workflow ที่มักคงที่กว่า diagnosis และช่วยแยก OPD/IPD/นัดติดตาม</p>
+          <p class="tradeoff">บอกเหตุผลทางคลินิกได้น้อยกว่า Choice 1–2</p>
+        </div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

@@ -43,6 +43,14 @@ const need = name => {
 const labels = w => (w.options.optionItems || []).map(o => o.label)
 const values = w => (w.options.optionItems || []).map(o => o.value)
 
+/* ข้อความแนะนำผู้ใช้ต้องสั้นและตรงกับ flow เปิด record ที่บันทึกแล้ว */
+const headerContent = need('cmr_header').options.content
+assert(headerContent.includes(
+  'เปิดจากคอลัมน์ที่มีการบันทึกการใช้สารทึบไว้แล้ว สามารถดูสรุปบันทึกการใช้สารทึบรังสีดูได้ด้านล่าง',
+))
+assert(!headerContent.includes('ยังไม่ได้เชื่อม API ประวัติย้อนหลัง'),
+  'ห้ามแสดงข้อความสถานะพัฒนาเก่ากับผู้ใช้')
+
 /* ── 1 ตัวเลือกต่อบรรทัด + responsive (ผู้ใช้สั่ง 2026-09-10) ───────────────
    เดิมบีบ 2–3 คอลัมน์แล้ว label ภาษาไทยทับกันจนอ่านไม่ออกในหน้า Builder */
 /* 🔴 แก้ assertion เดิม 2026-09-10 (ผู้ใช้สั่งหลังส่งภาพ Builder ที่ checkbox หายทั้ง 5 กลุ่ม)
@@ -334,11 +342,46 @@ assert(summaryScript.includes("chosen==='radiation_dose'"),
 /* ── ข้อ 4–6. สารทึบรังสี ───────────────────────────────────────────────── */
 const kinds = need('contrast_types')
 assert.deepStrictEqual(labels(kinds), ['Non-Ionic contrast', 'Barium Sulphate'])
+assert.strictEqual(kinds.component, 'checkbox-input', 'คงหน้าตา checkbox และ schema Array เดิม')
+assert.strictEqual(kinds.fieldType, 'Array', 'ห้ามเปลี่ยน payload contract ของ record เดิม')
+assert(kinds.options.onChange.includes('this.setValue(selected)'),
+  'ประเภทสารทึบรังสีต้องเหลือตัวเลือกล่าสุดเพียงหนึ่งค่า')
 ;['contrast_brand', 'contrast_concentration', 'contrast_lot_no'].forEach(name => {
   assert.strictEqual(need(name).options.hidden, true, name + ' shows only after Non-Ionic is ticked')
   assert(kinds.options.onChange.includes(name), 'onChange must reveal ' + name)
 })
-assert.deepStrictEqual(labels(need('route_types')), ['กิน', 'สวน', 'ฉีด'])
+const routes = need('route_types')
+assert.deepStrictEqual(labels(routes), ['กิน', 'สวน', 'ฉีด'])
+assert.strictEqual(routes.component, 'checkbox-input', 'คงหน้าตา checkbox และ schema Array เดิม')
+assert.strictEqual(routes.fieldType, 'Array', 'ห้ามเปลี่ยน payload contract ของ record เดิม')
+assert(routes.options.onChange.includes('this.setValue(selected)'),
+  'วิธีการใช้ต้องเหลือตัวเลือกล่าสุดเพียงหนึ่งค่า')
+
+/* รัน Event Setting จริง: เลือกใหม่ต้องยกเลิกตัวเดิม โดยไม่เปลี่ยนชนิดข้อมูล Array */
+const contrastVisibility = {}
+const contrastFieldRefs = {}
+;['contrast_brand', 'contrast_concentration', 'contrast_lot_no'].forEach(name => {
+  contrastFieldRefs[name] = {
+    options: { hidden: true },
+    field: { options: { hidden: true } },
+    setHidden(hidden) { contrastVisibility[name] = hidden },
+  }
+})
+let selectedKinds = null
+const kindRuntime = {
+  getFormRef() { return { getFieldRef(name) { return contrastFieldRefs[name] } } },
+  setValue(value) { selectedKinds = value },
+}
+new Function('value', kinds.options.onChange).call(kindRuntime, ['non_ionic', 'barium_sulphate'])
+assert.deepStrictEqual(selectedKinds, ['barium_sulphate'])
+;['contrast_brand', 'contrast_concentration', 'contrast_lot_no']
+  .forEach(name => assert.strictEqual(contrastVisibility[name], true,
+    'เลือก Barium ล่าสุดต้องซ่อน ' + name))
+let selectedRoutes = null
+new Function('value', routes.options.onChange).call({
+  setValue(value) { selectedRoutes = value },
+}, ['oral', 'enema', 'injection'])
+assert.deepStrictEqual(selectedRoutes, ['injection'])
 const volume = need('contrast_volume_ml')
 assert.strictEqual(volume.component, 'number-input', 'เอกสารสั่ง "อาจจะ number input"')
 assert.strictEqual(volume.options.suffixText, 'ml.')

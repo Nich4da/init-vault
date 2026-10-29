@@ -1,0 +1,797 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EMR Treatment Summary — X-ray Card Confirmation</title>
+  <style>
+    :root {
+      --bg: #f3f6fa;
+      --surface: #fff;
+      --surface-soft: #f8fafc;
+      --line: #e2e8f1;
+      --line-strong: #d5deea;
+      --text: #252b35;
+      --muted: #8b95a5;
+      --blue: #409eff;
+      --blue-soft: #ecf5ff;
+      --green: #67c23a;
+      --green-soft: #f0f9eb;
+      --orange: #e6a23c;
+      --orange-soft: #fdf6ec;
+      --shadow: 0 14px 42px rgba(31,52,84,.11);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--text);
+      background: var(--bg);
+      font-family: Inter, "Noto Sans Thai", "Leelawadee UI", Tahoma, sans-serif;
+      font-size: 14px;
+    }
+    button { font: inherit; }
+    button:focus-visible { outline: 3px solid rgba(64,158,255,.28); outline-offset: 2px; }
+
+    .page { min-height: 100vh; padding: 28px; }
+    .page-head {
+      max-width: 1080px;
+      margin: 0 auto 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 20px;
+    }
+    .eyebrow {
+      color: var(--blue);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    h1 { margin: 5px 0 6px; font-size: 27px; line-height: 1.25; }
+    .lead { margin: 0; color: #687385; line-height: 1.65; }
+    .mock-badge {
+      flex: none;
+      padding: 8px 12px;
+      border: 1px solid #b9dcff;
+      border-radius: 999px;
+      color: #2e83d7;
+      background: #eef7ff;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .workspace {
+      max-width: 1080px;
+      margin: auto;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 390px;
+      gap: 22px;
+      align-items: start;
+    }
+    .review {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--surface);
+      box-shadow: 0 8px 26px rgba(31,52,84,.06);
+      overflow: hidden;
+    }
+    .review-head { padding: 18px 20px; border-bottom: 1px solid var(--line); }
+    .review-head h2 { margin: 0 0 4px; font-size: 18px; }
+    .review-head p { margin: 0; color: var(--muted); font-size: 12px; }
+    .review-body { padding: 20px; }
+    .decision {
+      display: grid;
+      grid-template-columns: 32px minmax(0,1fr);
+      gap: 11px;
+      padding: 13px 0;
+      border-bottom: 1px dashed var(--line);
+    }
+    .decision:last-child { border-bottom: 0; }
+    .number {
+      width: 28px; height: 28px;
+      display: grid; place-items: center;
+      border-radius: 8px;
+      color: #2f83d5;
+      background: var(--blue-soft);
+      font-size: 12px; font-weight: 850;
+    }
+    .decision h3 { margin: 1px 0 3px; font-size: 13px; }
+    .decision p { margin: 0; color: #6f7a8b; font-size: 12px; line-height: 1.6; }
+    .scope {
+      margin-top: 17px;
+      padding: 12px 14px;
+      border: 1px solid #c9e3ff;
+      border-radius: 10px;
+      background: #f1f8ff;
+      color: #3977b7;
+      font-size: 11.5px;
+      line-height: 1.6;
+    }
+
+    .stage { position: sticky; top: 18px; }
+    .stage-note {
+      margin: 0 0 9px;
+      text-align: center;
+      color: #798496;
+      font-size: 12px;
+    }
+    .summary-card {
+      width: 390px;
+      max-height: calc(100vh - 80px);
+      display: flex;
+      flex-direction: column;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .card-head {
+      padding: 16px 17px 12px;
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      border-bottom: 1px solid var(--line);
+    }
+    .heart {
+      width: 44px; height: 44px; flex: none;
+      display: grid; place-items: center;
+      color: var(--blue); background: var(--blue-soft);
+      border-radius: 12px; font-size: 22px;
+    }
+    .card-head h2 { margin: 0; font-size: 19px; line-height: 1.15; }
+    .card-head .en { color: #9aa3b2; font-size: 12px; font-weight: 800; letter-spacing: .09em; }
+    .chevron { margin-left: auto; color: #667085; font-size: 18px; }
+    .previous-visit {
+      padding: 12px 17px 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      color: #8b95a5;
+      font-size: 12px;
+    }
+    .previous-visit strong { display: block; margin-bottom: 2px; color: #646f80; }
+    .btn {
+      border: 1px solid var(--line-strong);
+      border-radius: 7px;
+      background: #fff;
+      color: #5e6877;
+      padding: 6px 9px;
+      cursor: pointer;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .btn:hover { border-color: #9acbff; color: #3388df; }
+    .btn.primary { border-color: #a8d4ff; color: #3286db; background: #f3f9ff; }
+    .btn.sm { padding: 5px 8px; font-size: 11px; }
+
+    .tabs {
+      margin: 0 17px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      border-bottom: 2px solid #e8edf4;
+    }
+    .tab {
+      position: relative;
+      border: 0;
+      background: transparent;
+      padding: 9px 3px 10px;
+      color: #7c8696;
+      font-weight: 800;
+    }
+    .tab.active { color: var(--blue); }
+    .tab.active::after {
+      content: "";
+      position: absolute;
+      left: 7px; right: 7px; bottom: -2px;
+      height: 2px;
+      border-radius: 2px;
+      background: var(--blue);
+    }
+    .tab-count {
+      display: inline-grid;
+      place-items: center;
+      min-width: 18px; height: 18px;
+      padding: 0 5px;
+      margin-left: 2px;
+      border-radius: 9px;
+      color: #2e83d7;
+      background: #eaf5ff;
+      font-size: 10px;
+    }
+    .card-body {
+      min-height: 410px;
+      padding: 12px 12px 18px;
+      overflow: auto;
+      scrollbar-width: thin;
+    }
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 3px 4px 9px;
+      color: #606b7b;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .section-title::after { content: ""; height: 1px; flex: 1; background: var(--line); }
+
+    .order {
+      margin-bottom: 10px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: #fff;
+      overflow: hidden;
+    }
+    .order-head {
+      width: 100%;
+      padding: 11px 11px 9px;
+      display: grid;
+      grid-template-columns: 4px minmax(0,1fr) auto;
+      gap: 9px;
+      align-items: start;
+      border: 0;
+      background: #fff;
+      text-align: left;
+      cursor: pointer;
+    }
+    .order-head:hover { background: #fbfdff; }
+    .bar { width: 4px; height: 40px; border-radius: 4px; background: var(--blue); }
+    .bar.orange { background: var(--orange); }
+    .order-title { font-size: 13px; font-weight: 850; line-height: 1.35; }
+    .head-right { display: flex; align-items: center; gap: 5px; }
+    .fold { color: #9099a8; font-size: 13px; transition: transform .18s ease; }
+    .order.open .fold { transform: rotate(180deg); }
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      padding: 2px 6px;
+      border: 1px solid #b3e19d;
+      border-radius: 6px;
+      color: #56a62f;
+      background: var(--green-soft);
+      font-size: 10px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .tag.orange { color: #ca8423; border-color: #f3d19e; background: var(--orange-soft); }
+    .order-time {
+      padding: 0 11px 10px 24px;
+      color: #778294;
+      font-size: 10.5px;
+      line-height: 1.45;
+    }
+    .order-time strong { color: #566274; font-weight: 800; }
+    .order-body { display: none; border-top: 1px dashed var(--line); }
+    .order.open .order-body { display: block; }
+    .room-head {
+      padding: 8px 9px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      color: #626e7f;
+      background: #f7f9fc;
+      font-size: 10.5px;
+      font-weight: 800;
+    }
+    .exam { padding: 10px 9px; border-top: 1px dashed #e5eaf1; }
+    .exam:first-of-type { border-top: 0; }
+    .exam-name { font-size: 11.5px; font-weight: 850; }
+    .exam-meta { margin-top: 2px; color: #949eac; font-size: 9.5px; }
+    .report-preview {
+      margin-top: 8px;
+      padding-left: 8px;
+      border-left: 3px solid #9ecfff;
+      color: #596577;
+      font-size: 10px;
+      line-height: 1.55;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .exam-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; margin-top: 8px; }
+    .btn.history { border-color: var(--blue); color: #fff; background: var(--blue); }
+    .btn.history:hover { border-color: #66b1ff; color: #fff; background: #66b1ff; }
+    .btn.pdf { border-color: #f5b8b8; color: #d95c5c; background: #fff8f8; }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      display: none;
+      place-items: center;
+      padding: 20px;
+      background: rgba(31,41,55,.42);
+    }
+    .modal-backdrop.show { display: grid; }
+    .modal {
+      width: min(580px, 96vw);
+      border-radius: 14px;
+      background: #fff;
+      box-shadow: 0 24px 70px rgba(18,29,46,.28);
+      overflow: hidden;
+    }
+    .modal.history { width: min(1040px, 95vw); }
+    .modal.report-viewer { width: min(1180px, 96vw); }
+    .modal.report-viewer .doc-icon { display: none; }
+    .modal-head {
+      padding: 16px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      border-bottom: 1px solid var(--line);
+    }
+    .modal-head h3 { margin: 0; font-size: 17px; }
+    .modal-head p { margin: 3px 0 0; color: var(--muted); font-size: 11px; }
+    .modal-title-wrap { display: flex; align-items: flex-start; gap: 11px; }
+    .doc-icon { color: #34c98f; font-size: 24px; line-height: 1; }
+    .close-modal { border: 0; color: #8c95a2; background: transparent; font-size: 24px; cursor: pointer; }
+    .modal-body { padding: 18px; color: #5c6778; line-height: 1.7; }
+    .impression {
+      padding: 12px;
+      border-left: 4px solid var(--orange);
+      background: #fff9ef;
+      color: #765522;
+    }
+    .modal-foot { padding: 12px 18px; display: flex; justify-content: flex-end; border-top: 1px solid var(--line); }
+    .image-placeholder {
+      min-height: 240px;
+      display: grid;
+      place-items: center;
+      border: 1px dashed #b9c7d8;
+      border-radius: 10px;
+      color: #778294;
+      background: #f5f7fa;
+      text-align: center;
+    }
+    .pdf-placeholder {
+      min-height: 280px;
+      display: grid;
+      place-items: center;
+      border: 1px solid #e1e6ee;
+      border-radius: 10px;
+      color: #697588;
+      background: linear-gradient(#fff, #f8fafc);
+      text-align: center;
+    }
+    .history-controls {
+      margin: 0 0 11px;
+      padding: 10px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      border: 1px solid #b3d8ff;
+      border-radius: 7px;
+      background: var(--blue-soft);
+      color: #3977b7;
+      font-size: 11.5px;
+    }
+    .history-current {
+      margin: 0 0 11px;
+      padding: 12px;
+      display: grid;
+      grid-template-columns: 135px minmax(0, 1fr) auto;
+      gap: 14px;
+      align-items: start;
+      border: 1px solid #b3e19d;
+      border-radius: 7px;
+      background: var(--green-soft);
+    }
+    .history-current-label strong {
+      display: block;
+      color: #4f962f;
+      font-size: 12px;
+    }
+    .history-current-label span {
+      display: block;
+      margin-top: 3px;
+      color: #7c8c76;
+      font-size: 9.5px;
+    }
+    .history-current-text {
+      color: #405044;
+      font-size: 11px;
+      line-height: 1.6;
+      white-space: pre-line;
+      overflow-wrap: anywhere;
+    }
+    .history-current-badge {
+      padding: 3px 8px;
+      border: 1px solid #b3e19d;
+      border-radius: 6px;
+      color: #56a62f;
+      background: #fff;
+      font-size: 10px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .history-filter { display: inline-flex; align-items: center; gap: 6px; color: #566274; }
+    .history-counts { display: inline-flex; overflow: hidden; border: 1px solid #a9d2ff; border-radius: 7px; background: #fff; }
+    .history-count {
+      min-width: 34px;
+      border: 0;
+      border-right: 1px solid #d9eaff;
+      padding: 6px 8px;
+      color: #566274;
+      background: #fff;
+      cursor: pointer;
+      font-weight: 800;
+    }
+    .history-count:last-child { border-right: 0; }
+    .history-count.active { color: #fff; background: var(--blue); }
+    .history-list { border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+    .history-row {
+      display: grid;
+      grid-template-columns: 105px 165px minmax(220px,1fr) auto;
+      gap: 12px;
+      align-items: start;
+      min-height: 72px;
+      padding: 11px 12px;
+      border-bottom: 1px dashed var(--line);
+      font-size: 11px;
+    }
+    .history-row:last-child { border-bottom: 0; }
+    .history-date, .history-vn { font-weight: 800; color: #374151; }
+    .history-sub { display: block; margin-top: 2px; color: #97a0ae; font-size: 9.5px; font-weight: 500; }
+    .history-text {
+      color: #596577;
+      line-height: 1.6;
+      white-space: pre-line;
+      overflow-wrap: anywhere;
+    }
+    .history-actions { display: flex; gap: 5px; }
+    .report-summary-grid {
+      display: grid;
+      grid-template-columns: .8fr 1.25fr .65fr 1.35fr 1.3fr 1.2fr;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #f7f9fc;
+      overflow: hidden;
+    }
+    .report-summary-cell {
+      min-width: 0;
+      padding: 12px 13px;
+      border-right: 1px solid #e8edf3;
+    }
+    .report-summary-cell:last-child { border-right: 0; }
+    .report-summary-cell span {
+      display: block;
+      margin-bottom: 5px;
+      color: #9099a8;
+      font-size: 10px;
+      font-weight: 800;
+    }
+    .report-summary-cell strong {
+      display: block;
+      color: #303744;
+      font-size: 12px;
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+    }
+    .readonly-pill {
+      display: inline-flex;
+      padding: 3px 8px;
+      border: 1px solid #d5dbe3;
+      border-radius: 999px;
+      color: #677181;
+      background: #fff;
+      font-size: 10px;
+      font-weight: 800;
+    }
+    .report-section-title {
+      margin: 17px 0 8px;
+      color: #303744;
+      font-size: 13px;
+      font-weight: 850;
+    }
+    .report-latest-box {
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      color: #4d596b;
+      background: #fff;
+    }
+    .report-main-text { white-space: pre-line; }
+    .report-impression {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-left: 4px solid var(--orange);
+      color: #765522;
+      background: #fff9ef;
+    }
+    .report-impression strong { display: block; margin-bottom: 2px; }
+    .report-footer-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 18px;
+      margin-top: 8px;
+      color: #8d97a6;
+      font-size: 10.5px;
+    }
+
+    @media (max-width: 820px) {
+      .workspace { grid-template-columns: 1fr; }
+      .stage { position: static; order: -1; }
+      .summary-card { margin: auto; max-height: none; }
+      .report-summary-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .report-summary-cell { border-bottom: 1px solid #e8edf3; }
+    }
+    @media (max-width: 480px) {
+      .page { padding: 14px; }
+      .page-head { display: block; }
+      .mock-badge { display: inline-block; margin-top: 12px; }
+      .summary-card { width: 100%; }
+      .history-current { grid-template-columns: 1fr; }
+      .history-controls { align-items: flex-start; flex-direction: column; }
+      .history-row { grid-template-columns: 1fr 1fr; }
+      .history-text, .history-actions { grid-column: 1 / -1; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="page-head">
+      <div>
+        <div class="eyebrow">X-ray only · UI confirmation</div>
+        <h1>Card สรุปการรักษา — X-ray</h1>
+        <p class="lead">รอบนี้ตัดตัวอย่าง LAB ออกทั้งหมด เพื่อคอนเฟิร์มลำดับข้อมูลของ X-ray อย่างเดียว</p>
+      </div>
+      <div class="mock-badge">Mockup เท่านั้น · ไม่แก้ระบบจริง</div>
+    </header>
+
+    <div class="workspace">
+      <section class="review" aria-label="จุดที่ปรับใน X-ray Card">
+        <div class="review-head">
+          <h2>สิ่งที่ปรับตามรูป</h2>
+          <p>เปลี่ยนเฉพาะ presentation ของตัวอย่าง Card</p>
+        </div>
+        <div class="review-body">
+          <div class="decision">
+            <div class="number">1</div>
+            <div><h3>หัว Order เหลือเฉพาะข้อมูลจำเป็น</h3><p>แสดง Order No. และสถานะเท่านั้น ไม่แสดงแพทย์ผู้สั่งบน Card</p></div>
+          </div>
+          <div class="decision">
+            <div class="number">2</div>
+            <div><h3>แทนแถวที่ขีดออกด้วยเวลา</h3><p>แสดง “เวลาสั่ง” และ “เวลาออกผล” ในแถวสรุปใต้หัว Order; ใบที่ยังไม่ออกผลแสดงเป็นขีด</p></div>
+          </div>
+          <div class="decision">
+            <div class="number">3</div>
+            <div><h3>ห้อง/เครื่องอยู่ภายใน Order</h3><p>เมื่อกาง Order จึงเห็น DX · General X-ray, Unit และจำนวนรายการ ไม่วางข้อมูลชุดนี้ซ้ำเหนือหัวห้อง</p></div>
+          </div>
+          <div class="decision">
+            <div class="number">4</div>
+            <div><h3>เพิ่มผลก่อนหน้าและ PDF ต่อรายการตรวจ</h3><p>แต่ละ Item คง “ดูผลอ่าน / ดูภาพ” และเพิ่ม “ผลก่อนหน้า / PDF”; ผลก่อนหน้าเปิด popup ที่เลือกดู 1–5 ครั้งของรหัสตรวจเดียวกัน</p></div>
+          </div>
+          <div class="scope"><strong>LAB ยังไม่แก้:</strong> ตัวอย่าง LAB, MLab, PDF และ popup ค่าก่อนหน้า ถูกนำออกจาก HTML นี้แล้ว เพื่อไม่ให้การคอนเฟิร์ม X-ray ไปปนกับ flow LAB</div>
+        </div>
+      </section>
+
+      <aside class="stage">
+        <p class="stage-note">กดหัว Order เพื่อพับ/กาง · แท็บอื่นเป็นเพียงบริบทของ Card เดิม</p>
+        <section class="summary-card">
+          <div class="card-head">
+            <div class="heart">♥</div>
+            <div><h2>สรุปการรักษา</h2><div class="en">HISTORY</div></div>
+            <div class="chevron">⌄</div>
+          </div>
+          <div class="previous-visit">
+            <div><strong>การรักษาครั้งก่อน</strong>18/10/2569 · VN 6900441</div>
+            <button class="btn" type="button">ดูทั้งใบ</button>
+          </div>
+          <nav class="tabs" aria-label="หมวดสรุปการรักษา">
+            <span class="tab">ยา</span>
+            <span class="tab">Lab</span>
+            <span class="tab active">X-Ray <span class="tab-count">2</span></span>
+            <span class="tab">หัตถการ</span>
+          </nav>
+
+          <div class="card-body">
+            <div class="section-title">ใบสั่ง X-ray ของ VN นี้</div>
+
+            <article class="order open">
+              <button class="order-head" type="button" aria-expanded="true">
+                <span class="bar"></span>
+                <span>
+                  <span class="order-title">Order No. R2610192001</span>
+                </span>
+                <span class="head-right"><span class="tag">Final</span><span class="fold">⌄</span></span>
+              </button>
+              <div class="order-time"><strong>เวลาสั่ง</strong> 18/10/69 13:45 · <strong>เวลาออกผล</strong> 18/10/69 14:27</div>
+              <div class="order-body">
+                <div class="room-head"><span>DX · General X-ray</span><span>RA-11 · 2 รายการ</span></div>
+                <div class="exam">
+                  <div class="exam-name">Chest PA Upright</div>
+                  <div class="exam-meta">RD101 · XR69044103 · รังสีแพทย์ Nichada P.</div>
+                  <div class="report-preview">FINDINGS: No active pulmonary disease. ตัวอย่างแสดงข้อความจากผลอ่านจริงและตัดตามจำนวนบรรทัด โดยไม่สรุปความหมายใหม่</div>
+                  <div class="exam-actions">
+                    <button class="btn pdf sm" type="button" data-modal="pdf" data-exam="chest">PDF</button>
+                    <button class="btn sm" type="button" data-modal="report" data-exam="chest">ดูผลอ่าน</button>
+                    <button class="btn primary sm" type="button" data-modal="image" data-exam="chest">ดูภาพ</button>
+                    <button class="btn history sm" type="button" data-modal="history" data-exam="chest">ผลก่อนหน้า</button>
+                  </div>
+                </div>
+                <div class="exam">
+                  <div class="exam-name">Skull AP, Lateral</div>
+                  <div class="exam-meta">RD052 · XR69044104 · รังสีแพทย์ Nichada P.</div>
+                  <div class="report-preview">IMPRESSION: No displaced calvarial fracture is identified on the submitted views.</div>
+                  <div class="exam-actions">
+                    <button class="btn pdf sm" type="button" data-modal="pdf" data-exam="skull">PDF</button>
+                    <button class="btn sm" type="button" data-modal="report" data-exam="skull">ดูผลอ่าน</button>
+                    <button class="btn primary sm" type="button" data-modal="image" data-exam="skull">ดูภาพ</button>
+                    <button class="btn history sm" type="button" data-modal="history" data-exam="skull">ผลก่อนหน้า</button>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <article class="order">
+              <button class="order-head" type="button" aria-expanded="false">
+                <span class="bar orange"></span>
+                <span>
+                  <span class="order-title">Order No. R2610192002</span>
+                </span>
+                <span class="head-right"><span class="tag orange">รอผลอ่าน</span><span class="fold">⌄</span></span>
+              </button>
+              <div class="order-time"><strong>เวลาสั่ง</strong> 18/10/69 14:02 · <strong>เวลาออกผล</strong> —</div>
+              <div class="order-body">
+                <div class="room-head"><span>CT</span><span>RA-1206 · 1 รายการ</span></div>
+                <div class="exam">
+                  <div class="exam-name">CT Brain without Contrast</div>
+                  <div class="exam-meta">CT001 · XR69044105 · ยังไม่มีผลอ่าน</div>
+                </div>
+              </div>
+            </article>
+          </div>
+        </section>
+      </aside>
+    </div>
+  </main>
+
+  <div class="modal-backdrop" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal">
+      <div class="modal-head">
+        <div class="modal-title-wrap"><span class="doc-icon">▤</span><div><h3 id="modalTitle">รายละเอียด</h3><p id="modalMeta"></p></div></div>
+        <button class="close-modal" type="button" data-close aria-label="ปิด">×</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-foot"><button class="btn" type="button" data-close>ปิด</button></div>
+    </div>
+  </div>
+
+  <script>
+    document.querySelectorAll('.order-head').forEach((head) => {
+      head.addEventListener('click', () => {
+        const order = head.closest('.order');
+        const open = order.classList.toggle('open');
+        head.setAttribute('aria-expanded', String(open));
+      });
+    });
+
+    const modal = document.getElementById('modal');
+    const title = document.getElementById('modalTitle');
+    const meta = document.getElementById('modalMeta');
+    const body = document.getElementById('modalBody');
+    const examConfig = {
+      chest: {
+        name: 'Chest PA Upright', code: 'RD101', modality: 'DX', accession: 'XR69044103',
+        hn: '6900031', order: 'R2610192001', captured: '18/10/69 14:02:11', resulted: '18/10/69 14:20:00',
+        radiologist: 'RAD-NICHADA', severity: 'NORMAL',
+        report: 'FINDINGS: No active pulmonary disease. Cardiomediastinal silhouette is within normal limits.',
+        impression: 'No active pulmonary disease.'
+      },
+      skull: {
+        name: 'Skull AP, Lateral', code: 'RD052', modality: 'DX', accession: 'XR69044104',
+        hn: '6900031', order: 'R2610192001', captured: '18/10/69 14:08:32', resulted: '18/10/69 14:27:00',
+        radiologist: 'RAD-NICHADA', severity: 'NORMAL',
+        report: 'FINDINGS: No acute osseous abnormality is identified on the submitted views.',
+        impression: 'No displaced calvarial fracture is identified on the submitted views.'
+      }
+    };
+    const historyConfig = {
+      chest: {
+        name: 'Chest PA Upright', code: 'RD101',
+        rows: [
+          ['09/10/2569 10:05', 'VN 6900421', 'XR69042103', 'FINDINGS: Cardiomediastinal silhouette is within normal limits. No focal airspace opacity, pleural effusion or pneumothorax.\nIMPRESSION: No active pulmonary disease.'],
+          ['27/09/2569 09:22', 'VN 6900368', 'XR69036811', 'FINDINGS: Both lungs are clear. No focal pulmonary infiltration. Costophrenic angles are sharp.\nIMPRESSION: No acute cardiopulmonary abnormality.'],
+          ['12/09/2569 14:18', 'VN 6900297', 'XR69029708', 'FINDINGS: Mild enlargement of the cardiac silhouette. Pulmonary vasculature is not congested. No pleural effusion.\nIMPRESSION: Mild cardiomegaly.'],
+          ['30/08/2569 08:40', 'VN 6900208', 'XR69020805', 'FINDINGS: Lungs are well expanded and clear. No focal consolidation or pleural effusion.\nIMPRESSION: No acute cardiopulmonary abnormality.'],
+          ['15/08/2569 11:32', 'VN 6900119', 'XR69011902', 'FINDINGS: Clear lungs. Cardiomediastinal silhouette is within normal limits. Bony thorax is unremarkable.\nIMPRESSION: No active pulmonary disease.']
+        ]
+      },
+      skull: {
+        name: 'Skull AP, Lateral', code: 'RD052',
+        rows: [
+          ['11/10/2569 13:20', 'VN 6900430', 'XR69043007', 'FINDINGS: AP and lateral skull radiographs demonstrate preserved calvarial contour. No displaced fracture is seen.\nIMPRESSION: No displaced calvarial fracture.'],
+          ['28/09/2569 15:05', 'VN 6900372', 'XR69037212', 'FINDINGS: No focal lytic or sclerotic lesion is demonstrated. Visualized paranasal sinuses are clear.\nIMPRESSION: No focal destructive osseous lesion.'],
+          ['14/09/2569 10:48', 'VN 6900304', 'XR69030403', 'FINDINGS: Skull series demonstrates intact calvarium without acute bony abnormality.\nIMPRESSION: No acute osseous abnormality.'],
+          ['01/09/2569 09:12', 'VN 6900227', 'XR69022704', 'FINDINGS: No fracture line or calvarial depression is identified on the submitted views.\nIMPRESSION: No acute fracture is identified.'],
+          ['19/08/2569 16:30', 'VN 6900146', 'XR69014609', 'FINDINGS: Calvarial mineralization and contour are maintained. No focal abnormality is seen.\nIMPRESSION: No significant calvarial abnormality.']
+        ]
+      }
+    };
+    let activeHistory = 'chest';
+    const historyHtml = (key, limit) => {
+      const item = historyConfig[key];
+      const current = examConfig[key] || examConfig.chest;
+      const currentText = current.report + '\nIMPRESSION: ' + current.impression;
+      const currentBox = '<div class="history-current"><div class="history-current-label"><strong>ผลปัจจุบัน</strong><span>' + current.resulted + '<br>' + current.accession + '</span></div><div class="history-current-text">' + currentText + '</div><span class="history-current-badge">Current</span></div>';
+      const rows = item.rows.slice(0, limit).map((row, index) => '<div class="history-row"><div class="history-date">' + row[0] + '<span class="history-sub">ครั้งก่อนหน้า ' + (index + 1) + '</span></div><div class="history-vn">' + row[1] + '<span class="history-sub">' + row[2] + '</span></div><div class="history-text">' + row[3] + '</div><div class="history-actions"><button class="btn primary sm" type="button" data-history-action="image">ดูภาพ</button></div></div>').join('');
+      const counts = [1,2,3,4,5].map((count) => '<button class="history-count' + (count === limit ? ' active' : '') + '" type="button" data-history-count="' + count + '">' + count + '</button>').join('');
+      return currentBox + '<div class="history-controls"><div><strong>จำนวนผลก่อนหน้าที่ใช้เปรียบเทียบ</strong><br><small>HN เดียวกัน + ExamUid เดียวกัน · ไม่นับผลปัจจุบัน</small></div><div class="history-filter"><span>แสดง</span><span class="history-counts">' + counts + '</span><span>ครั้ง</span></div></div><div class="history-list">' + rows + '</div>';
+    };
+    const reportHtml = (item) => '<div class="report-summary-grid">' +
+      '<div class="report-summary-cell"><span>โหมด</span><em class="readonly-pill">โหมดดูอย่างเดียว</em></div>' +
+      '<div class="report-summary-cell"><span>รายการตรวจ</span><strong>' + item.name + '<br><small>' + item.code + '</small></strong></div>' +
+      '<div class="report-summary-cell"><span>เครื่อง</span><strong>' + item.modality + '</strong></div>' +
+      '<div class="report-summary-cell"><span>Accession No.</span><strong>' + item.accession + '</strong></div>' +
+      '<div class="report-summary-cell"><span>HN / Order No.</span><strong>' + item.hn + ' /<br>' + item.order + '</strong></div>' +
+      '<div class="report-summary-cell"><span>เวลาถ่าย</span><strong>' + item.captured + '</strong><span style="margin-top:9px">เวลาออกผล</span><strong>' + item.resulted + '</strong></div>' +
+      '</div><div class="report-section-title">ผลอ่าน</div>' +
+      '<div class="report-latest-box"><div class="report-main-text">' + item.report + '</div>' +
+      '<div class="report-impression"><strong>IMPRESSION</strong>' + item.impression + '</div></div>' +
+      '<div class="report-footer-meta"><span>รหัสรังสีแพทย์: ' + item.radiologist + '</span><span>Severity: ' + item.severity + '</span><span>' + item.resulted + '</span></div>';
+    const openReport = (key) => {
+      const item = examConfig[key] || examConfig.chest;
+      modal.querySelector('.modal').classList.remove('history');
+      modal.querySelector('.modal').classList.add('report-viewer');
+      title.textContent = 'ผลอ่าน';
+      meta.textContent = 'ผลล่าสุด';
+      body.innerHTML = reportHtml(item);
+      modal.classList.add('show');
+    };
+    const openStandard = (kind, key) => {
+      if (kind === 'report') {
+        openReport(key);
+        return;
+      }
+      const item = examConfig[key] || examConfig.chest;
+      modal.querySelector('.modal').classList.remove('history', 'report-viewer');
+      title.textContent = kind === 'image' ? 'ภาพ X-ray' : 'PDF ผล X-ray';
+      meta.textContent = item.accession + ' · ' + item.name;
+      body.innerHTML = kind === 'image'
+        ? '<div class="image-placeholder">พื้นที่เปิดภาพ/PACS ตาม flow เดิม<br><small>Mockup ไม่เชื่อมระบบภาพจริง</small></div>'
+        : '<div class="pdf-placeholder"><div><strong>ตัวอย่าง PDF ผล X-ray</strong><br><small>ใช้ไฟล์ผลเดิมตามสิทธิ์ของระบบจริง</small></div></div>';
+      modal.classList.add('show');
+    };
+    const openHistory = (key, limit) => {
+      activeHistory = key;
+      const item = historyConfig[key];
+      modal.querySelector('.modal').classList.remove('report-viewer');
+      modal.querySelector('.modal').classList.add('history');
+      title.textContent = 'ผลก่อนหน้า · ' + item.name;
+      meta.textContent = 'HN 6900031 · ' + item.code + ' · พบ ' + limit + ' ครั้งก่อนหน้า';
+      body.innerHTML = historyHtml(key, limit);
+      modal.classList.add('show');
+    };
+    document.querySelectorAll('[data-modal]').forEach((button) => {
+      button.addEventListener('click', () => {
+        if (button.dataset.modal === 'history') {
+          openHistory(button.dataset.exam, 5);
+          return;
+        }
+        openStandard(button.dataset.modal, button.dataset.exam);
+      });
+    });
+    body.addEventListener('click', (event) => {
+      const countButton = event.target.closest('[data-history-count]');
+      if (countButton) {
+        openHistory(activeHistory, Number(countButton.dataset.historyCount));
+        return;
+      }
+      const actionButton = event.target.closest('[data-history-action]');
+      if (actionButton) openStandard(actionButton.dataset.historyAction, activeHistory);
+    });
+    document.querySelectorAll('[data-close]').forEach((button) => button.addEventListener('click', () => modal.classList.remove('show')));
+    modal.addEventListener('click', (event) => { if (event.target === modal) modal.classList.remove('show'); });
+    document.addEventListener('keydown', (event) => { if (event.key === 'Escape') modal.classList.remove('show'); });
+  </script>
+</body>
+</html>

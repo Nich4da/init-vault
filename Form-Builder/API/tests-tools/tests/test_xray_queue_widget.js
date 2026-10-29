@@ -95,7 +95,9 @@ assert.deepStrictEqual(unitList.options.orderBy, [
   { column: 'queue_ts', sort: 'ASC' }
 ])
 assert.deepStrictEqual(roomList.options.orderBy, unitList.options.orderBy)
-assert.deepStrictEqual(unitList.options.buttonsRow.map(item => item.label), ['เรียก', 'ซักประวัติ', 'ย้ายห้อง', 'ส่งต่อ'])
+/* 2026-10-18: ผู้ใช้สั่งลบ action “ซักประวัติ” ออกจาก X-ray Unit Queue;
+   assertion ยังตรึงปุ่มที่เหลือและลำดับเดิมครบทุกตัว */
+assert.deepStrictEqual(unitList.options.buttonsRow.map(item => item.label), ['เรียก', 'ย้ายห้อง', 'ส่งต่อ'])
 /* 2026-10-15: ผู้ใช้สั่งลบเฉพาะ action “ซักประวัติ” ใน My Room;
    assertion ยังตรึงปุ่มที่เหลือและลำดับเดิมครบทุกตัว */
 assert.deepStrictEqual(roomList.options.buttonsRow.map(item => item.label), ['X-ray', 'ข้าม/เรียกกลับ', 'ย้ายห้อง', 'ส่งต่อ'])

@@ -46,6 +46,9 @@
 const ITEM_COLLECTION = 'zdata_cpoe_order_item'
 const ORDER_COLLECTION = 'zdata_cpoe_order'
 const ITEM_MASTER_COLLECTION = 'zdata_master_item_order'
+const ORGANIZATION_COLLECTION = 'zdata_organization'
+const ROOM_COLLECTION = 'zdata_room'
+const VISIT_TRAN_COLLECTION = 'zdata_visit_tran'
 const XRAY_SERVICE_TYPE = 'xray'
 
 const ACCESSION_PROCESS_ID = '6a95cd58422c1ca959829e8d'
@@ -98,7 +101,8 @@ const RIS_FIELD_LABEL = {
        └─ CT    CT scan / CT-MRI SCAN  = CT/MRI
    นี่เป็น "ประตู" เท่านั้น ไม่ได้กรองข้อมูล — ทุก org ที่ผ่านเข้ามาเห็นรายการรังสี
    ทั้งหมดเหมือนกัน (ผู้ใช้ยืนยัน 2026-09-01 ว่ายังไม่ต้องแยกตาม org) */
-const XRAY_ORGANIZATION_CODES = ['m0900', 'm0901', 'CT']
+const XRAY_ORGANIZATION_CODES = ['m0900', 'm0901', 'CT', 'RA-11', 'RA-1206', 'RA-309', 'CT-MRI']
+const XRAY_ORGANIZATION_ROOT_CODES = ['m0900']
 
 /* สถานะหลังรับเข้าห้องรังสี — อยู่ในกลุ่ม dispatched ของ worklist */
 const DISPATCH_STATUS = 'dispatched'
@@ -124,6 +128,127 @@ const valueText = value => {
   return String(value)
 }
 const trimmed = value => valueText(value).trim()
+const isObjectId = value => /^[a-f0-9]{24}$/i.test(trimmed(value))
+
+const readOrganizationRows = async () => {
+  if (!app.dbFindAll) return []
+  try {
+    const found = await app.dbFindAll({
+      from: ORGANIZATION_COLLECTION,
+      nosql: {
+        type: 'query', collection: ORGANIZATION_COLLECTION,
+        query: { xrstatx: { $nin: [0, 3] }, enable: { $ne: false } },
+        projection: { _id: 1, unit_code: 1, unit_parent: 1, enable: 1 }
+      }
+    }, false, false)
+    return found && found.success !== false && found.reply && Array.isArray(found.reply.data)
+      ? found.reply.data : []
+  } catch (error) {
+    return []
+  }
+}
+
+const readRoomRows = async organizationIds => {
+  if (!app.dbFindAll || !organizationIds.length) return []
+  try {
+    const found = await app.dbFindAll({
+      from: ROOM_COLLECTION,
+      nosql: {
+        type: 'query', collection: ROOM_COLLECTION,
+        query: {
+          xrstatx: { $nin: [0, 3] }, enable: { $ne: false },
+          'unit_id.value': { $in: organizationIds }
+        },
+        projection: { _id: 1, code: 1, unit_id: 1, enable: 1 }
+      }
+    }, false, false)
+    return found && found.success !== false && found.reply && Array.isArray(found.reply.data)
+      ? found.reply.data : []
+  } catch (error) {
+    return []
+  }
+}
+
+/* ทุกหน่วยรังสีเห็น Order เดียวกัน แต่ส่งเข้าเครื่องได้เฉพาะหน่วยผู้สร้าง Order
+   หรือหน่วยที่ถือคิว Visit ล่าสุดเท่านั้น ห้องตรวจถูก normalize กลับเป็นหน่วยแม่ */
+const radiologyOrganizationContext = async () => {
+  const allowed = new Set(XRAY_ORGANIZATION_CODES.concat(XRAY_ORGANIZATION_ROOT_CODES)
+    .map(code => String(code).trim().toUpperCase()).filter(Boolean))
+  const organizations = (await readOrganizationRows()).filter(row => row && row.enable !== false)
+  const codeById = new Map()
+  organizations.forEach(row => {
+    const id = trimmed(row && row._id).toUpperCase()
+    const code = trimmed(row && row.unit_code).toUpperCase()
+    if (id && code) codeById.set(id, code)
+  })
+  for (let pass = 0; pass < organizations.length; pass += 1) {
+    let changed = false
+    organizations.forEach(row => {
+      const code = trimmed(row && row.unit_code).toUpperCase()
+      const parent = row && row.unit_parent
+      const parentId = trimmed(parent && parent.value).toUpperCase()
+      const parentCode = (codeById.get(parentId) || trimmed(
+        parent && (parent.unit_code || parent.code || parent.label || parent)
+      )).toUpperCase()
+      if (code && parentCode && allowed.has(parentCode) && !allowed.has(code)) {
+        allowed.add(code); changed = true
+      }
+    })
+    if (!changed) break
+  }
+  const organizationIds = organizations
+    .filter(row => allowed.has(trimmed(row && row.unit_code).toUpperCase()))
+    .map(row => row && row._id).filter(Boolean)
+  const rooms = (await readRoomRows(organizationIds)).filter(row => row && row.enable !== false)
+  const roomParentByCode = new Map()
+  const roomParentById = new Map()
+  rooms.forEach(row => {
+    const parentId = trimmed(row && row.unit_id && row.unit_id.value).toUpperCase()
+    const parentCode = codeById.get(parentId) || ''
+    if (!allowed.has(parentCode)) return
+    const code = trimmed(row && row.code).toUpperCase()
+    const id = trimmed(row && row._id).toUpperCase()
+    if (code) { allowed.add(code); roomParentByCode.set(code, parentCode) }
+    if (id) roomParentById.set(id, parentCode)
+  })
+  return { allowed, codeById, roomParentByCode, roomParentById }
+}
+
+const normalizeActionUnit = (raw, context) => {
+  let code = trimmed(raw).toUpperCase()
+  if (!code) return ''
+  code = context.codeById.get(code) || context.roomParentById.get(code) || code
+  return context.roomParentByCode.get(code) || code
+}
+const referenceActionUnit = (reference, context) => {
+  if (!reference) return ''
+  if (typeof reference === 'object') {
+    const explicit = trimmed(reference.code || reference.unit_code)
+    if (explicit) return normalizeActionUnit(explicit, context)
+    const id = trimmed(reference.value || reference._id || reference.id)
+    if (id) return normalizeActionUnit(id, context)
+  }
+  return normalizeActionUnit(reference, context)
+}
+const latestQueueUnit = async (order, context) => {
+  const visitId = trimmed(order && order.xparentx)
+  if (!visitId) return ''
+  const ids = [visitId]
+  if (isObjectId(visitId)) ids.push(app.dbObjectId(visitId))
+  let rows = []
+  try {
+    rows = await app.db.collection(VISIT_TRAN_COLLECTION).find({
+      xrstatx: { $nin: [0, 3] },
+      vtran_status: { $in: ['waiting', 'called', 'in_progress'] },
+      'vid.value': { $in: ids }
+    }).sort({ checkin_at: -1, updated_at: -1, _id: -1 }).toArray()
+  } catch (error) {
+    rows = []
+  }
+  const latest = rows[0] || null
+  return referenceActionUnit(latest && (latest.room_to || latest.unit_to), context) ||
+    referenceActionUnit(latest && latest.unit_to, context)
+}
 
 /* standalone MongoDB โยน error สองแบบนี้เมื่อขอ session — ไม่ใช่ความผิดของข้อมูล
    ระบบนี้เป็น standalone จริง (เหมือน LAB) จึงต้องมีเส้นทางไม่มี transaction เสมอ
@@ -343,10 +468,8 @@ if (!app.isAuth(userInfo.roles || [])) {
 }
 
 const organizationCode = trimmed(userInfo.unit && userInfo.unit.code).toUpperCase()
-const allowedOrganizations = XRAY_ORGANIZATION_CODES
-  .map(code => String(code).trim().toUpperCase())
-  .filter(Boolean)
-if (!organizationCode || !allowedOrganizations.includes(organizationCode)) {
+const organizationContext = await radiologyOrganizationContext()
+if (!organizationCode || !organizationContext.allowed.has(organizationCode)) {
   return {
     success: false,
     message: 'Organization "' + (organizationCode || '-') + '" ไม่ใช่หน่วยงานรังสี จึงส่งเข้าเครื่องไม่ได้'
@@ -363,6 +486,22 @@ const masterCollection = app.db.collection(ITEM_MASTER_COLLECTION)
 
 const order = await orderCollection.findOne({ _id: orderObjectId, xrstatx: { $nin: [0, 3] } })
 if (!order) return { success: false, message: 'ไม่พบ Order ที่ต้องการส่งเข้าเครื่อง' }
+
+const currentActionUnit = normalizeActionUnit(organizationCode, organizationContext)
+const creatorActionUnit = referenceActionUnit(order && order.xunitx, organizationContext)
+const queueActionUnit = await latestQueueUnit(order, organizationContext)
+if (!currentActionUnit || (currentActionUnit !== creatorActionUnit && currentActionUnit !== queueActionUnit)) {
+  const facts = []
+  if (queueActionUnit) facts.push('คิวของ HN ' +
+    (trimmed(order && order.vid && order.vid.pid && order.vid.pid.hn) || '-') + ' อยู่ที่ ' + queueActionUnit)
+  if (creatorActionUnit) facts.push('Order นี้ถูกสร้างที่ ' + creatorActionUnit)
+  return {
+    success: false,
+    error: 'action_unit_denied',
+    message: (facts.length ? facts.join(' · ') + ' · ' : '') +
+      'ห้องนี้ดูข้อมูลได้อย่างเดียว จึงส่งเข้าเครื่องไม่ได้'
+  }
+}
 
 /* ลิงก์ item → order: บางชุดข้อมูลเก็บ order_ref_id เป็น ObjectId บางชุดเก็บเป็น string
    worklist ใช้ $lookup ซึ่งยอมทรงเดียว แต่ find ที่นี่ต้องรับทั้งสองไม่งั้นหาไม่เจอ

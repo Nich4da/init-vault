@@ -1,18 +1,18 @@
 ---
 type: concept
-title: Report Factory (PDF/Excel/Word/LaTeX reports)
+title: Report Factory (PDF/Excel/Word/LaTeX/Typst reports)
 created: 2026-07-17
-updated: 2026-08-27
-tags: [initcraft, report-factory, pdfmake, his, deploy-pipeline]
-sources: ["[[report-factory-skill]]", "[[his-med-dispense-voucher-report]]", "[[his-medical-record-report]]"]
+updated: 2026-10-26
+tags: [initcraft, report-factory, pdfmake, latex, typst, his, deploy-pipeline]
+sources: ["[[report-factory-skill]]", "[[report-typst-reference]]", "[[his-med-dispense-voucher-report]]", "[[his-medical-record-report]]"]
 ---
 
-# Report Factory (PDF/Excel/Word/LaTeX reports)
+# Report Factory (PDF/Excel/Word/LaTeX/Typst reports)
 
 The fourth [[initcraft|initCraft]] [[form-factory|factory]] (`/module/report-factory`). A
 **report = one record** (seed model `sdform/report-model.json`); the renderer `SdReport.vue`
 reads it, runs a [[sql-factory|SQL Factory]] query for rows, and builds a pdfmake `docDefinition`
-→ **PDF / Excel / Word / LaTeX**. Authoritative reference = [[report-factory-skill]] (from the
+→ **PDF / Excel / Word / LaTeX / Typst**. Authoritative reference = [[report-factory-skill]] (from the
 actual source); this page is the working summary + the **hands-on html gotchas** from the
 [[his-med-dispense-voucher-report|ใบฎีกาจ่ายยา report]].
 
@@ -26,6 +26,25 @@ missing, prompt dialog) → `typeReport` splits by output:
 | **Excel** | client (XLSX) | **only `table` / `subtable` / `sub_report`** (text/image/qr/barcode skipped) |
 | **Word** | server, from `pdf_temp` `.docx` template | template merge |
 | **LaTeX** | server (Tectonic) | separate model → [[report-latex]] |
+| **Typst** | server (`typst` CLI) | separate code-template model → PDF; see [[report-typst-reference]] |
+
+## Typst authoring model
+
+Type = **Typst** keeps the SQL provider and Report permissions/parameters, but does not use
+`pdf_content`, `pdf_column`, pdfmake `{{field}}`, or LaTeX Nunjucks substitution. The server writes
+`data.json`; a template imports `sdthai.typ` and reads:
+
+- `data.<field>` — first-row values converted through the linked form schema;
+- `raw.<field>` — first-row raw values for calculations, dates, IDs, and structured originals;
+- `rows` — all result rows, with each row's raw values available at `_raw`;
+- `params` — Report Parameters, also passed to SQL providers.
+
+Use `#show: gov` for Thai government documents, `#show: report-page()` to inherit Report Setting,
+or `#show: sdthai` for custom page control. The helper layer includes Thai formatting, long/grouped
+tables, form-widget images, HTML, diagrams/charts, multiple permission-checked datasets, and role-aware
+redaction. Save once before Validate so the server has a reportId for SQL loading and permission checks.
+These capabilities are documented by the imported reference; deployment-specific timing, packages,
+and helper behavior still require live verification.
 
 ## 🔑 Binding = `{{column}}` (the heart)
 The SQL rows become a dict `{ '{{hn}}':'123', … }` (via `value2Path`); every `content_value`
@@ -122,9 +141,12 @@ first.
 7. **Saving in Report Factory ≠ live** — a "Report Items" widget bound to a form's ListView (and
    the deployed app beyond it) can keep serving a stale cached template; see the publish-chain
    section above. Preview inside Report Factory itself is not proof the live app matches.
+8. Typst uses `data/raw/rows/params`, not `{{field}}` or `\VAR{}`. The current older field catalog
+   does not identify the raw persisted Typst Code key, so do not guess it when editing Report JSON.
 
 ## Related
-- Source of truth: [[report-factory-skill]] · LaTeX model: [[report-latex]].
+- Source of truth: [[report-factory-skill]] · LaTeX model: [[report-latex]] · Typst model:
+  [[report-typst-reference]].
 - Worked example: [[his-med-dispense-voucher-report]] · data: [[sql-factory]] / [[erp-mongodb]] (`his`).
 - Skill: `initcraft-report-factory` (+ `initcraft-build-report`). Platform: [[initcraft]].
 - Publish-chain + still-open template-cache bug, in practice: [[his-medical-record-report]].

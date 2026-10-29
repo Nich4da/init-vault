@@ -1,0 +1,282 @@
+[
+  {
+    "_id": {
+      "$oid": "6ab0a1c4d0c3ef2e97911e55"
+    },
+    "created_at": "2026-09-18 11:05:46",
+    "created_by": {
+      "id": {
+        "$oid": "6a75b1f50796231c653df997"
+      },
+      "name": "Parinya Tumchay (parinyatumchay@gmail.com)"
+    },
+    "nosql_collections": "[\"zdata_lab_report_manual_entry\",\"zdata_lab_result_item\",\"zdata_cpoe_order_item\",\"zdata_master_item_order\",\"zdata_emr_sensitive_access_grant\"]",
+    "nosql_filter": null,
+    "nosql_options": null,
+    "nosql_pipeline": "[{\"$match\":{\"$expr\":{\"$and\":[{\"$eq\":[\"$xparentx\",{\"$convert\":{\"input\":{\"$trim\":{\"input\":\"{{xparentx}}\"}},\"to\":\"objectId\",\"onError\":null,\"onNull\":null}}]},{\"$eq\":[\"$xrstatx\",1]}]}}},{\"$lookup\":{\"from\":\"zdata_visit\",\"let\":{\"v\":\"$visit_id\"},\"pipeline\":[{\"$match\":{\"$expr\":{\"$eq\":[\"$vn\",\"$$v\"]}}},{\"$limit\":1},{\"$project\":{\"_id\":0,\"xparentx\":1,\"ward\":1}}],\"as\":\"_v\"}},{\"$addFields\":{\"_visit\":{\"$first\":\"$_v\"}}},{\"$lookup\":{\"from\":\"zdata_person\",\"let\":{\"pid\":\"$_visit.xparentx\"},\"pipeline\":[{\"$match\":{\"$expr\":{\"$eq\":[\"$_id\",\"$$pid\"]}}},{\"$limit\":1},{\"$project\":{\"_id\":0,\"prename\":1,\"p_fname\":1,\"p_lname\":1,\"age\":1,\"p_gender\":1,\"birth_date\":1}}],\"as\":\"_p\"}},{\"$addFields\":{\"_per\":{\"$first\":\"$_p\"}}},{\"$lookup\":{\"from\":\"zdata_organization\",\"let\":{\"sid\":\"$lab_section\"},\"pipeline\":[{\"$match\":{\"$expr\":{\"$and\":[{\"$eq\":[\"$unit_type\",\"lab\"]},{\"$in\":[\"$$sid\",{\"$map\":{\"input\":{\"$split\":[{\"$ifNull\":[\"$unit_initial_en\",\"\"]},\",\"]},\"as\":\"t\",\"in\":{\"$trim\":{\"input\":\"$$t\"}}}}]}]}}},{\"$limit\":1},{\"$project\":{\"_id\":0,\"unit_name\":1,\"floor\":1,\"loc\":1}}],\"as\":\"_o\"}},{\"$addFields\":{\"_org\":{\"$first\":\"$_o\"}}},{\"$lookup\":{\"from\":\"zdata_section\",\"let\":{\"sid\":\"$lab_section\"},\"pipeline\":[{\"$match\":{\"$expr\":{\"$eq\":[\"$code\",\"$$sid\"]}}},{\"$limit\":1},{\"$project\":{\"_id\":0,\"name\":1,\"name_th\":1,\"unit\":1}}],\"as\":\"_sc\"}},{\"$addFields\":{\"_sec\":{\"$first\":\"$_sc\"}}},{\"$addFields\":{\"_secNo\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$_sec.unit.value\",\"\"]}}}},\"_secTh\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$_sec.name_th\",\"\"]}}}},\"_secEn\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$lab_section_name\",{\"$ifNull\":[\"$_sec.name\",\"\"]}]}}}}}},{\"$lookup\":{\"from\":\"zdata_cpoe_order_item\",\"let\":{\"sid\":{\"$toString\":{\"$ifNull\":[\"$order_status_id\",\"\"]}},\"ono\":{\"$toString\":{\"$ifNull\":[\"$order_no\",\"\"]}}},\"pipeline\":[{\"$match\":{\"$expr\":{\"$or\":[{\"$and\":[{\"$ne\":[\"$$sid\",\"\"]},{\"$eq\":[{\"$toString\":\"$_id\"},\"$$sid\"]}]},{\"$and\":[{\"$ne\":[\"$$ono\",\"\"]},{\"$eq\":[{\"$toString\":\"$_id\"},\"$$ono\"]}]}]}}},{\"$addFields\":{\"_pri\":{\"$cond\":[{\"$eq\":[{\"$toString\":\"$_id\"},\"$$sid\"]},0,1]}}},{\"$sort\":{\"_pri\":1}},{\"$limit\":1},{\"$project\":{\"_id\":0,\"order_ref\":\"$order_id.value\"}}],\"as\":\"_oi\"}},{\"$addFields\":{\"_item\":{\"$first\":\"$_oi\"}}},{\"$lookup\":{\"from\":\"zdata_cpoe_order\",\"let\":{\"orid\":{\"$toString\":{\"$ifNull\":[\"$_item.order_ref\",\"\"]}},\"ono\":{\"$toString\":{\"$ifNull\":[\"$order_no\",\"\"]}}},\"pipeline\":[{\"$match\":{\"$expr\":{\"$or\":[{\"$and\":[{\"$ne\":[\"$$orid\",\"\"]},{\"$eq\":[{\"$toString\":\"$_id\"},\"$$orid\"]}]},{\"$and\":[{\"$ne\":[\"$$ono\",\"\"]},{\"$eq\":[{\"$toString\":\"$_id\"},\"$$ono\"]}]}]}}},{\"$addFields\":{\"_pri\":{\"$cond\":[{\"$eq\":[{\"$toString\":\"$_id\"},\"$$orid\"]},0,1]}}},{\"$sort\":{\"_pri\":1}},{\"$limit\":1},{\"$project\":{\"_id\":0,\"created_at\":1,\"order_clinic\":1,\"order_number\":1}}],\"as\":\"_or\"}},{\"$addFields\":{\"_ord\":{\"$first\":\"$_or\"}}},{\"$lookup\":{\"from\":\"core_user\",\"let\":{\"uid\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$reported_by_source_id\",\"\"]}}}}},\"pipeline\":[{\"$match\":{\"$expr\":{\"$and\":[{\"$ne\":[\"$$uid\",\"\"]},{\"$or\":[{\"$eq\":[\"$_id\",{\"$convert\":{\"input\":\"$$uid\",\"to\":\"objectId\",\"onError\":null,\"onNull\":null}}]},{\"$eq\":[\"$username\",\"$$uid\"]},{\"$eq\":[\"$profile.person_code\",\"$$uid\"]},{\"$eq\":[\"$profile.provider_code\",\"$$uid\"]}]}]}}},{\"$limit\":1},{\"$project\":{\"_id\":0,\"prename\":\"$profile.prename\",\"fname\":\"$profile.fname\",\"lname\":\"$profile.lname\",\"position\":\"$profile.position\",\"cert\":\"$profile.certificate_code\"}}],\"as\":\"_ru\"}},{\"$addFields\":{\"_rep_user\":{\"$first\":\"$_ru\"}}},{\"$lookup\":{\"from\":\"core_user\",\"let\":{\"uid\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$verified_by_source_id\",\"\"]}}}}},\"pipeline\":[{\"$match\":{\"$expr\":{\"$and\":[{\"$ne\":[\"$$uid\",\"\"]},{\"$or\":[{\"$eq\":[\"$_id\",{\"$convert\":{\"input\":\"$$uid\",\"to\":\"objectId\",\"onError\":null,\"onNull\":null}}]},{\"$eq\":[\"$username\",\"$$uid\"]},{\"$eq\":[\"$profile.person_code\",\"$$uid\"]},{\"$eq\":[\"$profile.provider_code\",\"$$uid\"]}]}]}}},{\"$limit\":1},{\"$project\":{\"_id\":0,\"prename\":\"$profile.prename\",\"fname\":\"$profile.fname\",\"lname\":\"$profile.lname\",\"position\":\"$profile.position\",\"cert\":\"$profile.certificate_code\"}}],\"as\":\"_vu\"}},{\"$addFields\":{\"_app_user\":{\"$first\":\"$_vu\"}}},{\"$lookup\":{\"from\":\"zdata_lab_result_item\",\"let\":{\"rid\":\"$xparentx\",\"report_id\":\"$xparentx\"},\"pipeline\":[{\"$match\":{\"$expr\":{\"$and\":[{\"$eq\":[\"$xrstatx\",1]},{\"$or\":[{\"$eq\":[{\"$toString\":\"$xparentx\"},{\"$toString\":\"$$report_id\"}]},{\"$eq\":[{\"$toString\":\"$result_report_id\"},{\"$toString\":\"$$report_id\"}]}]}]}}},{\"$addFields\":{\"_seq\":{\"$convert\":{\"input\":\"$result_sequence\",\"to\":\"int\",\"onError\":9999,\"onNull\":9999}}}},{\"$sort\":{\"_seq\":1,\"_id\":1}},{\"$setWindowFields\":{\"partitionBy\":\"$order_no\",\"sortBy\":{\"_seq\":1},\"output\":{\"_profile_row_no\":{\"$documentNumber\":{}},\"_profile_count\":{\"$count\":{}}}}},{\"$project\":{\"_id\":1,\"test_name\":1,\"obs_name\":1,\"result_value\":1,\"units\":1,\"unit_symbol_snapshot\":1,\"interpretation_code\":1,\"ref_range\":1,\"reference_range_snapshot\":1,\"result_comment\":1,\"order_no\":1,\"result_report_id\":1,\"actual_site_name\":1,\"ordered_site_name_snapshot\":1,\"_profile_row_no\":1,\"_profile_count\":1}}],\"as\":\"_items\"}},{\"$addFields\":{\"_hasSite\":{\"$anyElementTrue\":[{\"$map\":{\"input\":{\"$ifNull\":[\"$_items\",[]]},\"as\":\"it\",\"in\":{\"$ne\":[{\"$let\":{\"vars\":{\"a\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$$it.actual_site_name\",\"\"]}}}},\"o\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$$it.ordered_site_name_snapshot\",\"\"]}}}}},\"in\":{\"$cond\":[{\"$ne\":[\"$$a\",\"\"]},\"$$a\",\"$$o\"]}}},\"\"]}}}]}}},{\"$unwind\":{\"path\":\"$_items\",\"preserveNullAndEmptyArrays\":true}},{\"$lookup\":{\"from\":\"zdata_cpoe_order_item\",\"let\":{\"row_order_item_id\":{\"$toString\":\"$_items.order_no\"}},\"pipeline\":[{\"$match\":{\"$expr\":{\"$and\":[{\"$ne\":[\"$$row_order_item_id\",\"\"]},{\"$eq\":[{\"$toString\":\"$_id\"},\"$$row_order_item_id\"]}]}}},{\"$limit\":1},{\"$project\":{\"_id\":1,\"item_data_id\":1,\"parent_order_id\":\"$order_id.value\",\"item_name\":1,\"item_code\":1}}],\"as\":\"_sensitive_gate_order_item\"}},{\"$addFields\":{\"_sensitive_gate_order_item_row\":{\"$first\":\"$_sensitive_gate_order_item\"}}},{\"$lookup\":{\"from\":\"zdata_master_item_order\",\"let\":{\"item_data_id\":\"$_sensitive_gate_order_item_row.item_data_id\"},\"pipeline\":[{\"$match\":{\"$expr\":{\"$eq\":[{\"$toString\":\"$_id\"},{\"$toString\":\"$$item_data_id\"}]}}},{\"$limit\":1},{\"$project\":{\"_id\":1,\"is_hide_result\":1,\"item_name\":1,\"item_code\":1}}],\"as\":\"_sensitive_gate_master\"}},{\"$addFields\":{\"_sensitive_gate_master_row\":{\"$first\":\"$_sensitive_gate_master\"}}},{\"$lookup\":{\"from\":\"zdata_emr_sensitive_access_grant\",\"let\":{\"requested_token\":{\"$trim\":{\"input\":\"{{grant_token}}\"}},\"parent_order_id\":{\"$toString\":\"$_sensitive_gate_order_item_row.parent_order_id\"},\"report_section\":{\"$toString\":\"$lab_section\"},\"now_epoch\":{\"$toLong\":\"$$NOW\"}},\"pipeline\":[{\"$match\":{\"$expr\":{\"$and\":[{\"$ne\":[\"$$requested_token\",\"\"]},{\"$eq\":[\"$grant_token\",\"$$requested_token\"]},{\"$eq\":[{\"$toString\":\"$source_order_id\"},\"$$parent_order_id\"]},{\"$eq\":[{\"$toString\":\"$section_code\"},\"$$report_section\"]},{\"$gte\":[\"$expires_at_epoch\",\"$$now_epoch\"]},{\"$eq\":[\"$xrstatx\",1]}]}}},{\"$limit\":1},{\"$project\":{\"_id\":1}}],\"as\":\"_sensitive_gate_grant\"}},{\"$addFields\":{\"_sensitive_gate_redact_current\":{\"$and\":[{\"$eq\":[\"$_sensitive_gate_master_row.is_hide_result\",true]},{\"$eq\":[{\"$size\":\"$_sensitive_gate_grant\"},0]}]}}},{\"$project\":{\"_id\":{\"$ifNull\":[\"$_items._id\",\"$_id\"]},\"hn\":{\"$ifNull\":[\"$hn\",\"\"]},\"patient_name\":{\"$trim\":{\"input\":{\"$concat\":[{\"$ifNull\":[\"$_per.prename.label\",\"\"]},\" \",{\"$ifNull\":[\"$_per.p_fname\",\"\"]},\" \",{\"$ifNull\":[\"$_per.p_lname\",\"\"]}]}}},\"age\":{\"$let\":{\"vars\":{\"v\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$_per.age\",\"\"]}}}}},\"in\":{\"$cond\":[{\"$eq\":[\"$$v\",\"\"]},\"-\",\"$$v\"]}}},\"sex\":{\"$let\":{\"vars\":{\"g\":{\"$toString\":{\"$ifNull\":[\"$_per.p_gender\",\"\"]}}},\"in\":{\"$switch\":{\"branches\":[{\"case\":{\"$eq\":[\"$$g\",\"1\"]},\"then\":\"M\"},{\"case\":{\"$eq\":[\"$$g\",\"2\"]},\"then\":\"F\"}],\"default\":\"-\"}}}},\"ward\":{\"$let\":{\"vars\":{\"v\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$_visit.ward\",\"\"]}}}}},\"in\":{\"$cond\":[{\"$eq\":[\"$$v\",\"\"]},\"-\",\"$$v\"]}}},\"lno\":{\"$let\":{\"vars\":{\"v\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$filler_order_no\",\"\"]}}}}},\"in\":{\"$cond\":[{\"$eq\":[\"$$v\",\"\"]},\"-\",\"$$v\"]}}},\"specimen\":{\"$let\":{\"vars\":{\"v\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[null,\"\"]}}}}},\"in\":{\"$cond\":[{\"$eq\":[\"$$v\",\"\"]},\"-\",\"$$v\"]}}},\"collected\":{\"$let\":{\"vars\":{\"v\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[null,\"\"]}}}}},\"in\":{\"$cond\":[{\"$eq\":[\"$$v\",\"\"]},\"-\",\"$$v\"]}}},\"received\":{\"$let\":{\"vars\":{\"v\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[{\"$let\":{\"vars\":{\"s\":{\"$toString\":{\"$ifNull\":[\"$received_at\",\"\"]}}},\"in\":{\"$cond\":[{\"$gte\":[{\"$strLenCP\":\"$$s\"},16]},{\"$concat\":[{\"$substrCP\":[\"$$s\",8,2]},\"-\",{\"$substrCP\":[\"$$s\",5,2]},\"-\",{\"$substrCP\":[\"$$s\",0,4]},\" \",{\"$substrCP\":[\"$$s\",11,5]}]},\"\"]}}},\"\"]}}}}},\"in\":{\"$cond\":[{\"$eq\":[\"$$v\",\"\"]},\"-\",\"$$v\"]}}},\"reported\":{\"$let\":{\"vars\":{\"v\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[{\"$let\":{\"vars\":{\"s\":{\"$toString\":{\"$ifNull\":[\"$reported_at\",\"\"]}}},\"in\":{\"$cond\":[{\"$gte\":[{\"$strLenCP\":\"$$s\"},16]},{\"$concat\":[{\"$substrCP\":[\"$$s\",8,2]},\"-\",{\"$substrCP\":[\"$$s\",5,2]},\"-\",{\"$substrCP\":[\"$$s\",0,4]},\" \",{\"$substrCP\":[\"$$s\",11,5]}]},\"\"]}}},\"\"]}}}}},\"in\":{\"$cond\":[{\"$eq\":[\"$$v\",\"\"]},\"-\",\"$$v\"]}}},\"reported_by\":{\"$let\":{\"vars\":{\"full\":{\"$trim\":{\"input\":{\"$concat\":[{\"$ifNull\":[\"$_rep_user.prename.label\",{\"$ifNull\":[\"$_rep_user.prename.prename_full_name\",\"\"]}]},{\"$ifNull\":[\"$_rep_user.fname\",\"\"]},\" \",{\"$ifNull\":[\"$_rep_user.lname\",\"\"]}]}}}},\"in\":{\"$cond\":[{\"$eq\":[\"$$full\",\"\"]},{\"$let\":{\"vars\":{\"v\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$reported_by_source_name\",\"\"]}}}}},\"in\":{\"$cond\":[{\"$eq\":[\"$$v\",\"\"]},\"-\",\"$$v\"]}}},\"$$full\"]}}},\"approved_by\":{\"$let\":{\"vars\":{\"full\":{\"$trim\":{\"input\":{\"$concat\":[{\"$ifNull\":[\"$_app_user.prename.label\",{\"$ifNull\":[\"$_app_user.prename.prename_full_name\",\"\"]}]},{\"$ifNull\":[\"$_app_user.fname\",\"\"]},\" \",{\"$ifNull\":[\"$_app_user.lname\",\"\"]}]}}}},\"in\":{\"$cond\":[{\"$eq\":[\"$$full\",\"\"]},{\"$let\":{\"vars\":{\"v\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$verified_by_source_name\",\"\"]}}}}},\"in\":{\"$cond\":[{\"$eq\":[\"$$v\",\"\"]},\"-\",\"$$v\"]}}},\"$$full\"]}}},\"lab_section_name\":{\"$let\":{\"vars\":{\"v\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$lab_section_name\",\"\"]}}}}},\"in\":{\"$cond\":[{\"$eq\":[\"$$v\",\"\"]},\"-\",\"$$v\"]}}},\"lab_section_no\":{\"$let\":{\"vars\":{\"v\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$_secNo\",\"\"]}}}}},\"in\":{\"$cond\":[{\"$eq\":[\"$$v\",\"\"]},\"-\",\"$$v\"]}}},\"lab_section_name_th\":{\"$let\":{\"vars\":{\"v\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$_secTh\",\"\"]}}}}},\"in\":{\"$cond\":[{\"$eq\":[\"$$v\",\"\"]},\"-\",\"$$v\"]}}},\"lab_section_line\":{\"$let\":{\"vars\":{\"s\":{\"$trim\":{\"input\":{\"$concat\":[{\"$cond\":[{\"$eq\":[\"$_secNo\",\"\"]},\"\",{\"$concat\":[\"$_secNo\",\" \"]}]},\"$_secEn\",{\"$cond\":[{\"$eq\":[\"$_secTh\",\"\"]},\"\",{\"$concat\":[\" \",\"$_secTh\"]}]}]}}}},\"in\":{\"$cond\":[{\"$eq\":[\"$$s\",\"\"]},\"-\",\"$$s\"]}}},\"section_detail\":{\"$let\":{\"vars\":{\"th\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$_org.unit_name\",\"\"]}}}},\"room\":{\"$let\":{\"vars\":{\"f\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$_org.floor\",\"\"]}}}},\"l\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$_org.loc\",\"\"]}}}}},\"in\":{\"$cond\":[{\"$and\":[{\"$ne\":[\"$$f\",\"\"]},{\"$ne\":[\"$$l\",\"\"]}]},{\"$concat\":[\"$$f\",\"$$l\"]},\"\"]}}}},\"in\":{\"$switch\":{\"branches\":[{\"case\":{\"$and\":[{\"$eq\":[\"$$th\",\"\"]},{\"$eq\":[\"$$room\",\"\"]}]},\"then\":\"\"},{\"case\":{\"$eq\":[\"$$room\",\"\"]},\"then\":{\"$concat\":[\" (\",\"$$th\",\")\"]}},{\"case\":{\"$eq\":[\"$$th\",\"\"]},\"then\":{\"$concat\":[\" (ห้อง \",\"$$room\",\")\"]}}],\"default\":{\"$concat\":[\" (\",\"$$th\",\" ห้อง \",\"$$room\",\")\"]}}}}},\"printed\":{\"$dateToString\":{\"date\":\"$$NOW\",\"format\":\"%d-%m-%Y %H:%M:%S\",\"timezone\":\"+07:00\"}},\"order_date\":{\"$let\":{\"vars\":{\"v\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[{\"$let\":{\"vars\":{\"s\":{\"$toString\":{\"$ifNull\":[\"$_ord.created_at\",\"\"]}}},\"in\":{\"$cond\":[{\"$gte\":[{\"$strLenCP\":\"$$s\"},16]},{\"$concat\":[{\"$substrCP\":[\"$$s\",8,2]},\"-\",{\"$substrCP\":[\"$$s\",5,2]},\"-\",{\"$substrCP\":[\"$$s\",0,4]},\" \",{\"$substrCP\":[\"$$s\",11,5]}]},\"\"]}}},\"\"]}}}}},\"in\":{\"$cond\":[{\"$eq\":[\"$$v\",\"\"]},\"-\",\"$$v\"]}}},\"approve_date\":{\"$let\":{\"vars\":{\"v\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[{\"$let\":{\"vars\":{\"s\":{\"$toString\":{\"$ifNull\":[\"$verified_at\",\"\"]}}},\"in\":{\"$cond\":[{\"$gte\":[{\"$strLenCP\":\"$$s\"},16]},{\"$concat\":[{\"$substrCP\":[\"$$s\",8,2]},\"-\",{\"$substrCP\":[\"$$s\",5,2]},\"-\",{\"$substrCP\":[\"$$s\",0,4]},\" \",{\"$substrCP\":[\"$$s\",11,5]}]},\"\"]}}},\"\"]}}}}},\"in\":{\"$cond\":[{\"$eq\":[\"$$v\",\"\"]},\"-\",\"$$v\"]}}},\"reported_lic\":{\"$let\":{\"vars\":{\"pos\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$_rep_user.position.label\",{\"$ifNull\":[\"$_rep_user.position.name\",\"\"]}]}}}},\"cert\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$_rep_user.cert\",\"\"]}}}}},\"in\":{\"$switch\":{\"branches\":[{\"case\":{\"$and\":[{\"$eq\":[\"$$pos\",\"\"]},{\"$eq\":[\"$$cert\",\"\"]}]},\"then\":\"\"},{\"case\":{\"$eq\":[\"$$cert\",\"\"]},\"then\":\"$$pos\"},{\"case\":{\"$eq\":[\"$$pos\",\"\"]},\"then\":{\"$concat\":[\"ทน.\",\"$$cert\"]}}],\"default\":{\"$concat\":[\"$$pos\",\" ทน.\",\"$$cert\"]}}}}},\"approve_lic\":{\"$let\":{\"vars\":{\"pos\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$_app_user.position.label\",{\"$ifNull\":[\"$_app_user.position.name\",\"\"]}]}}}},\"cert\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$_app_user.cert\",\"\"]}}}}},\"in\":{\"$switch\":{\"branches\":[{\"case\":{\"$and\":[{\"$eq\":[\"$$pos\",\"\"]},{\"$eq\":[\"$$cert\",\"\"]}]},\"then\":\"\"},{\"case\":{\"$eq\":[\"$$cert\",\"\"]},\"then\":\"$$pos\"},{\"case\":{\"$eq\":[\"$$pos\",\"\"]},\"then\":{\"$concat\":[\"ทน.\",\"$$cert\"]}}],\"default\":{\"$concat\":[\"$$pos\",\" ทน.\",\"$$cert\"]}}}}},\"dob\":{\"$let\":{\"vars\":{\"v\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[{\"$let\":{\"vars\":{\"s\":{\"$toString\":{\"$ifNull\":[\"$_per.birth_date\",\"\"]}}},\"in\":{\"$cond\":[{\"$gte\":[{\"$strLenCP\":\"$$s\"},10]},{\"$concat\":[{\"$substrCP\":[\"$$s\",8,2]},\"-\",{\"$substrCP\":[\"$$s\",5,2]},\"-\",{\"$substrCP\":[\"$$s\",0,4]}]},\"\"]}}},\"\"]}}}}},\"in\":{\"$cond\":[{\"$eq\":[\"$$v\",\"\"]},\"-\",\"$$v\"]}}},\"clinic\":{\"$let\":{\"vars\":{\"lbl\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$_ord.order_clinic.label\",\"\"]}}}},\"code\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$_ord.order_clinic.value\",\"\"]}}}}},\"in\":{\"$let\":{\"vars\":{\"nm\":{\"$cond\":[{\"$and\":[{\"$ne\":[\"$$code\",\"\"]},{\"$eq\":[{\"$indexOfCP\":[\"$$lbl\",\"$$code\"]},0]}]},{\"$trim\":{\"input\":{\"$substrCP\":[\"$$lbl\",{\"$strLenCP\":\"$$code\"},200]}}},\"$$lbl\"]}},\"in\":{\"$cond\":[{\"$eq\":[\"$$nm\",\"\"]},\"-\",{\"$concat\":[\"clinic-\",\"$$nm\"]}]}}}}},\"test_name\":{\"$let\":{\"vars\":{\"v\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$_items.test_name\",{\"$ifNull\":[\"$_items.obs_name\",\"\"]}]}}}}},\"in\":{\"$cond\":[{\"$eq\":[\"$$v\",\"\"]},\"- no result items -\",\"$$v\"]}}},\"result_value\":{\"$cond\":[\"$_sensitive_gate_redact_current\",\"ปกปิดผล\",{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$_items.result_value\",\"\"]}}}}]},\"unit\":{\"$cond\":[\"$_sensitive_gate_redact_current\",\"\",{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$_items.units\",{\"$ifNull\":[\"$_items.unit_symbol_snapshot\",\"\"]}]}}}}]},\"result_unit\":{\"$cond\":[\"$_sensitive_gate_redact_current\",\"ปกปิดผล\",{\"$let\":{\"vars\":{\"v\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$_items.result_value\",\"\"]}}}},\"u\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$_items.units\",{\"$ifNull\":[\"$_items.unit_symbol_snapshot\",\"\"]}]}}}}},\"in\":{\"$cond\":[{\"$or\":[{\"$eq\":[\"$$v\",\"\"]},{\"$eq\":[\"$$u\",\"\"]}]},{\"$concat\":[\"$$v\",\"$$u\"]},{\"$concat\":[\"$$v\",\" \",\"$$u\"]}]}}}]},\"interpretation\":{\"$cond\":[\"$_sensitive_gate_redact_current\",\"\",{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$_items.interpretation_code\",\"\"]}}}}]},\"ref_range\":{\"$cond\":[\"$_sensitive_gate_redact_current\",\"\",{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$_items.ref_range\",{\"$ifNull\":[\"$_items.reference_range_snapshot\",\"\"]}]}}}}]},\"comment_row\":{\"$cond\":[\"$_sensitive_gate_redact_current\",\"\",{\"$let\":{\"vars\":{\"c\":{\"$replaceAll\":{\"input\":{\"$replaceAll\":{\"input\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$_items.result_comment\",\"\"]}}}},\"find\":\"\\r\\n\",\"replacement\":\"<br>\"}},\"find\":\"\\n\",\"replacement\":\"<br>\"}}},\"in\":{\"$cond\":[{\"$eq\":[\"$$c\",\"\"]},\"\",{\"$concat\":[{\"$concat\":[\"<tr><td colspan=\\\"\",{\"$cond\":[\"$_hasSite\",\"5\",\"4\"]},\"\\\" style=\\\"border:none;\\\">\"]},\"<div data-pdfmake=\\\"{'margin':[14,0,0,0]}\\\">\",\"<span style=\\\"font-size:14px;\\\">\",\"$$c\",\"</span></div></td></tr>\"]}]}}}]},\"sensitive_redacted\":\"$_sensitive_gate_redact_current\",\"site\":{\"$let\":{\"vars\":{\"a\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$_items.actual_site_name\",\"\"]}}}},\"o\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$_items.ordered_site_name_snapshot\",\"\"]}}}}},\"in\":{\"$cond\":[{\"$ne\":[\"$$a\",\"\"]},\"$$a\",\"$$o\"]}}},\"result_cols\":{\"$cond\":[\"$_hasSite\",\"<colgroup><col style=\\\"width:27.291%;\\\"><col style=\\\"width:18.330%;\\\"><col style=\\\"width:24.440%;\\\"><col style=\\\"width:11.405%;\\\"><col style=\\\"width:18.534%;\\\"></colgroup>\",\"<colgroup><col style=\\\"width:35.438%;\\\"><col style=\\\"width:34.623%;\\\"><col style=\\\"width:11.405%;\\\"><col style=\\\"width:18.534%;\\\"></colgroup>\"]},\"head_site_cell\":{\"$cond\":[\"$_hasSite\",\"<td style=\\\"border:none; text-align:left;\\\"><span style=\\\"font-size:18.6667px;\\\"><b>ตำแหน่ง</b></span></td>\",\"\"]},\"site_cell\":{\"$cond\":[\"$_hasSite\",{\"$concat\":[\"<td style=\\\"border:none; text-align:left;\\\"><span style=\\\"font-size:16px;\\\">\",{\"$let\":{\"vars\":{\"s\":{\"$replaceAll\":{\"input\":{\"$replaceAll\":{\"input\":{\"$replaceAll\":{\"input\":{\"$let\":{\"vars\":{\"a\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$_items.actual_site_name\",\"\"]}}}},\"o\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$_items.ordered_site_name_snapshot\",\"\"]}}}}},\"in\":{\"$cond\":[{\"$ne\":[\"$$a\",\"\"]},\"$$a\",\"$$o\"]}}},\"find\":\"&\",\"replacement\":\"&amp;\"}},\"find\":\"<\",\"replacement\":\"&lt;\"}},\"find\":\">\",\"replacement\":\"&gt;\"}}},\"in\":{\"$cond\":[{\"$eq\":[\"$$s\",\"\"]},\"‌\",\"$$s\"]}}},\"</span></td>\"]},\"\"]},\"order_note_block\":{\"$let\":{\"vars\":{\"n\":{\"$replaceAll\":{\"input\":{\"$replaceAll\":{\"input\":{\"$replaceAll\":{\"input\":{\"$replaceAll\":{\"input\":{\"$replaceAll\":{\"input\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$order_note\",\"\"]}}}},\"find\":\"&\",\"replacement\":\"&amp;\"}},\"find\":\"<\",\"replacement\":\"&lt;\"}},\"find\":\">\",\"replacement\":\"&gt;\"}},\"find\":\"\\r\\n\",\"replacement\":\"<br>\"}},\"find\":\"\\n\",\"replacement\":\"<br>\"}}},\"in\":{\"$cond\":[{\"$eq\":[\"$$n\",\"\"]},\"\",{\"$concat\":[\"<table data-pdfmake=\\\"{'layout':'noBorders'}\\\" style=\\\"margin-top:10.6667px;margin-bottom:0;width:100%;border-collapse:collapse;border:none;\\\"><colgroup><col style=\\\"width:100%;\\\"></colgroup><tbody><tr><td style=\\\"border:none;\\\"><span style=\\\"font-size:16px;\\\">\",\"<b>หมายเหตุ</b><br>\",\"$$n\",\"</span></td></tr></tbody></table>\"]}]}}},\"parent_test_name\":{\"$let\":{\"vars\":{\"orderName\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$_sensitive_gate_order_item_row.item_name\",\"\"]}}}},\"masterName\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$_sensitive_gate_master_row.item_name\",\"\"]}}}}},\"in\":{\"$cond\":[{\"$ne\":[\"$$orderName\",\"\"]},\"$$orderName\",\"$$masterName\"]}}},\"profile_header_row\":{\"$let\":{\"vars\":{\"raw\":{\"$let\":{\"vars\":{\"orderName\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$_sensitive_gate_order_item_row.item_name\",\"\"]}}}},\"masterName\":{\"$trim\":{\"input\":{\"$toString\":{\"$ifNull\":[\"$_sensitive_gate_master_row.item_name\",\"\"]}}}}},\"in\":{\"$cond\":[{\"$ne\":[\"$$orderName\",\"\"]},\"$$orderName\",\"$$masterName\"]}}},\"count\":{\"$ifNull\":[\"$_items._profile_count\",0]},\"rowNo\":{\"$ifNull\":[\"$_items._profile_row_no\",0]}},\"in\":{\"$let\":{\"vars\":{\"safe\":{\"$replaceAll\":{\"input\":{\"$replaceAll\":{\"input\":{\"$replaceAll\":{\"input\":\"$$raw\",\"find\":\"&\",\"replacement\":\"&amp;\"}},\"find\":\"<\",\"replacement\":\"&lt;\"}},\"find\":\">\",\"replacement\":\"&gt;\"}}},\"in\":{\"$cond\":[{\"$and\":[{\"$gt\":[\"$$count\",1]},{\"$eq\":[\"$$rowNo\",1]},{\"$ne\":[\"$$safe\",\"\"]}]},{\"$concat\":[\"<tr><td colspan=\\\"\",{\"$cond\":[\"$_hasSite\",\"5\",\"4\"]},\"\\\" style=\\\"border:none;padding-top:6px;padding-bottom:4px;\\\"><span style=\\\"font-size:17px;\\\"><b>\",\"$$safe\",\"</b></span></td></tr>\"]},\"\"]}}}}}}}]",
+    "nosql_type": "aggregate",
+    "pg_sql": null,
+    "sql_assign_roles": null,
+    "sql_category": null,
+    "sql_desc": "Microbiology/Biochemistry result slip: ONE ROW PER RESULT ITEM, each row repeating the header (patient identity from zdata_person via zdata_visit, LNo / received / reported / signers from the lab report header). That is the shape SdReport needs - html widgets bind row 0, the table widget loops every row. Takes the lab report's own `xparentx` as the parameter, because one order carries several items; zdata_lab_result_item.xparentx is the FK back to it. Items are $unwind-ed with preserveNullAndEmptyArrays so a report with no item rows still prints its header. Every field is guarded with $ifNull and a length check: `age` is mixed-type (8 and \"4\") and attachment records have no timestamps. specimen and collected have no source in either lab collection and return \"-\". The Result column prints `result_unit` (value and unit joined here, so an absent unit leaves no trailing space); `interpretation` is the raw interpretation_code, which is an empty string on every live item today. The two signers are resolved against core_user on _id / username / person_code / provider_code, giving the name and the footer's '<position> ทน.<certificate_code>' licence line; no live source id matches a user yet, so today it falls back to the LIS source name with a blank licence line. NO top-level $limit - the runner treats one as the limit on the whole response (gotcha 34). Profile/group heading is derived from the linked CPOE Order Item (fallback Order Master), never hardcoded; it is emitted only for the first row when an ordered test has more than one result item.",
+    "sql_form_id": {
+      "value": "6a8d4334f851000f28e5025b",
+      "label": "Result_Report_Manual_Entry"
+    },
+    "sql_from": "zdata_lab_report_manual_entry",
+    "sql_group_by": null,
+    "sql_join": [],
+    "sql_limit": null,
+    "sql_name": "lab_result_slip",
+    "sql_note": "EMR_SENSITIVE_RESULT_REPORT_ROW_GATE_V4: Result Items use Result Report ID only; Sensitive grants use each row parent CPOE Order; repeated items from the same ordered test render one dynamic parent/profile heading.",
+    "sql_options": {
+      "variable": [
+        {
+          "vname": "_id",
+          "origin": "_id",
+          "as": null
+        },
+        {
+          "vname": "hn",
+          "origin": "hn",
+          "as": null
+        },
+        {
+          "vname": "patient_name",
+          "origin": "patient_name",
+          "as": null
+        },
+        {
+          "vname": "age",
+          "origin": "age",
+          "as": null
+        },
+        {
+          "vname": "sex",
+          "origin": "sex",
+          "as": null
+        },
+        {
+          "vname": "ward",
+          "origin": "ward",
+          "as": null
+        },
+        {
+          "vname": "lno",
+          "origin": "lno",
+          "as": null
+        },
+        {
+          "vname": "specimen",
+          "origin": "specimen",
+          "as": null
+        },
+        {
+          "vname": "collected",
+          "origin": "collected",
+          "as": null
+        },
+        {
+          "vname": "received",
+          "origin": "received",
+          "as": null
+        },
+        {
+          "vname": "reported",
+          "origin": "reported",
+          "as": null
+        },
+        {
+          "vname": "reported_by",
+          "origin": "reported_by",
+          "as": null
+        },
+        {
+          "vname": "approved_by",
+          "origin": "approved_by",
+          "as": null
+        },
+        {
+          "vname": "printed",
+          "origin": "printed",
+          "as": null
+        },
+        {
+          "vname": "lab_section_name",
+          "origin": "lab_section_name",
+          "as": null
+        },
+        {
+          "vname": "section_detail",
+          "origin": "section_detail",
+          "as": null
+        },
+        {
+          "vname": "lab_section_no",
+          "origin": "lab_section_no",
+          "as": null
+        },
+        {
+          "vname": "lab_section_name_th",
+          "origin": "lab_section_name_th",
+          "as": null
+        },
+        {
+          "vname": "lab_section_line",
+          "origin": "lab_section_line",
+          "as": null
+        },
+        {
+          "vname": "order_date",
+          "origin": "order_date",
+          "as": null
+        },
+        {
+          "vname": "dob",
+          "origin": "dob",
+          "as": null
+        },
+        {
+          "vname": "clinic",
+          "origin": "clinic",
+          "as": null
+        },
+        {
+          "vname": "approve_date",
+          "origin": "approve_date",
+          "as": null
+        },
+        {
+          "vname": "reported_lic",
+          "origin": "reported_lic",
+          "as": null
+        },
+        {
+          "vname": "approve_lic",
+          "origin": "approve_lic",
+          "as": null
+        },
+        {
+          "vname": "comment_row",
+          "origin": "comment_row",
+          "as": null
+        },
+        {
+          "vname": "test_name",
+          "origin": "test_name",
+          "as": null
+        },
+        {
+          "vname": "result_value",
+          "origin": "result_value",
+          "as": null
+        },
+        {
+          "vname": "unit",
+          "origin": "unit",
+          "as": null
+        },
+        {
+          "vname": "result_unit",
+          "origin": "result_unit",
+          "as": null
+        },
+        {
+          "vname": "interpretation",
+          "origin": "interpretation",
+          "as": null
+        },
+        {
+          "vname": "ref_range",
+          "origin": "ref_range",
+          "as": null
+        },
+        {
+          "vname": "site",
+          "origin": "site",
+          "as": null
+        },
+        {
+          "vname": "result_cols",
+          "origin": "result_cols",
+          "as": null
+        },
+        {
+          "vname": "head_site_cell",
+          "origin": "head_site_cell",
+          "as": null
+        },
+        {
+          "vname": "site_cell",
+          "origin": "site_cell",
+          "as": null
+        },
+        {
+          "vname": "order_note_block",
+          "origin": "order_note_block",
+          "as": null
+        },
+        {
+          "vname": "parent_test_name",
+          "origin": "parent_test_name",
+          "as": null
+        },
+        {
+          "vname": "profile_header_row",
+          "origin": "profile_header_row",
+          "as": null
+        }
+      ],
+      "param": [
+        {
+          "pname": "xparentx",
+          "ptype": "text",
+          "pdefault": null
+        },
+        {
+          "pname": "grant_token",
+          "ptype": "text",
+          "pdefault": ""
+        }
+      ]
+    },
+    "sql_order_by": [],
+    "sql_rstat": false,
+    "sql_select": [],
+    "sql_share": "public",
+    "sql_tags": [
+      "lab",
+      "microbiology",
+      "biochemistry",
+      "result-items"
+    ],
+    "sql_type": "nosql",
+    "sql_where": null,
+    "tool_feature": "sql",
+    "tool_license": "6a3113a619ee74c8f82854a0",
+    "updated_at": "2026-10-08 17:42:32",
+    "updated_by": {
+      "id": {
+        "$oid": "6a75b1f50796231c653df997"
+      },
+      "name": "Parinya Tumchay (parinyatumchay@gmail.com)"
+    },
+    "xclonex": null,
+    "xerrorx": null,
+    "xparentx": {
+      "$oid": "6ab0a1c4d0c3ef2e97911e55"
+    },
+    "xrstatx": {
+      "$numberInt": "1"
+    },
+    "xsitex": {
+      "code": "0000",
+      "name": "0000"
+    },
+    "xunitx": {
+      "code": "19.p",
+      "name": "คลินิกวัคซีน"
+    },
+    "xversionx": "v1"
+  }
+]

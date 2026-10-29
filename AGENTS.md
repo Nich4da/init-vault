@@ -45,6 +45,30 @@ Hot Cache and warn the user. Do not commit read-only, unchanged, incomplete, or
 explicitly no-commit tasks, and never amend an existing commit without a direct
 request.
 
+## Confirmed-mockup and design-skill checkpoint
+
+This checkpoint applies to UI work in this repository.
+
+1. Treat a mockup as confirmed only when the user explicitly approves the direction,
+   selects it, or instructs Codex to proceed from it. Viewing, silence, or an
+   unfinished correction cycle is not confirmation.
+2. After confirmation and before starting production code, SDForm JSON, a replacement
+   package, or any live-artifact work, update the relevant UI/design skill first.
+   Capture the approved reusable hierarchy, tokens, interaction rules, responsive
+   behavior, accessibility expectations, provenance, and known boundaries. Do not
+   promote speculative clinical or backend behavior into a design rule.
+3. After each completed and verified user-visible function or self-contained UI
+   component, reconcile the result back into the relevant skill before starting the
+   next function. Record the confirmed behavior, verification evidence, and limits.
+   If the function only implements an existing skill rule, update its evidence/status
+   rather than duplicating the rule.
+4. Keep the active skill and its repository snapshot synchronized and verify them by
+   recursive comparison. Update the repository log and Hot Cache when this checkpoint
+   changes durable knowledge or implementation state.
+5. A skill update is documentation and continuity, not authorization to modify a live
+   Form/API/Report/SQL artifact. The artifact-specific ownership and write gate still
+   applies.
+
 ## Conversation reset handoff
 
 If user intent becomes materially misunderstood, corrections conflict, the same
@@ -116,20 +140,36 @@ and SQL Factory** artifacts.
    `updated_by`, the current editor, a filename, an app relationship, or the fact
    that the artifact is used by X-ray/LAB/HIS. If ownership is unclear, treat the
    artifact as not owned by the user.
-2. If the live artifact is **not owned by the user**, Codex is read-only. It may
-   inspect, compare, document, and copy the behavior into a local user-owned
-   replacement package, but must never Edit, Save, Publish, replace, delete, or
-   otherwise mutate the live artifact. Give the user the verified replacement
-   content/file so the user can apply it themselves.
-3. If the live artifact **is owned by the user**, both delivery modes are allowed:
+2. If the live artifact is **not owned by the user**, Codex is read-only by default.
+   It may inspect, compare, document, and copy the behavior into a local user-owned
+   replacement package. A live mutation is allowed only through the three-confirmation
+   exception below; otherwise give the user verified replacement content/file to apply.
+3. The three-confirmation exception for a non-user-owned artifact requires all of the
+   following before any Edit, Save, Publish, replace, delete, data-record creation, or
+   other live mutation:
+   - Resolve the authoritative live `Owner`/`Created By`; an unknown owner cannot use
+     this exception.
+   - Obtain three separate explicit confirmations in three sequential human-user
+     replies. Never bundle, infer, pre-approve, or count one reply more than once.
+   - In every confirmation request, state the exact artifact and action, say plainly
+     that the artifact is not owned by the user, name the verified owner, show the
+     counter as `1/3`, `2/3`, or `3/3`, and ask whether the user confirms both that
+     the named owner authorized this exact action and that Codex may proceed.
+   - Do not perform the mutation until confirmation `3/3` is received. After `3/3`,
+     authorization covers only the exact named artifact and action, for one execution.
+   - If the artifact, owner, action, mutation scope, or intended Save/Publish/Submit
+     changes before execution, reset the counter to zero and start again.
+   - Later actions, retries, additional records, another Save/Publish, or another
+     artifact always require a new three-confirmation cycle.
+4. If the live artifact **is owned by the user**, both delivery modes are allowed:
    prepare a replacement package for the user, or edit the live artifact. Before
    every live mutation, ask which mode the user wants for that exact artifact and
    wait for the answer. Ownership does not grant standing permission to write.
-4. Approval is artifact- and action-specific. A prior approval for one Form/API/
+5. Approval is artifact- and action-specific. A prior approval for one Form/API/
    Report/SQL item does not authorize another item or a later Save/Publish.
-5. EMR or another team's artifacts are read-only unless their authoritative owner
-   is the user. Never change a source artifact merely because its behavior is being
-   cloned into X-ray.
+6. EMR or another team's artifacts remain read-only unless they complete the same
+   three-confirmation exception for the exact action. Never change a source artifact
+   merely because its behavior is being cloned into X-ray.
 
 ## Storage boundaries
 

@@ -2,7 +2,7 @@
 type: synthesis
 title: Wiki Index
 created: 2026-07-16
-updated: 2026-10-02
+updated: 2026-10-27
 tags: [meta, index]
 ---
 
@@ -17,7 +17,7 @@ find the relevant pages here, then drill in. See [[CLAUDE|the schema]] for the r
 **⚠ 2026-08-16:** a **parallel, unconnected AI coding workspace** (`codex-backup`, outside this
 vault) was discovered and ingested — 8 days of *real* LAB Workbench + Clinic Master implementation
 that [[his-lab-module-plan]] never reached. Start at [[his-lab-workbench-handoff]].
-**Counts:** 28 sources · 10 entities · 32 concepts · 4 syntheses
+**Counts:** 29 sources · 10 entities · 32 concepts · 5 syntheses
 
 ---
 
@@ -31,7 +31,8 @@ _One summary page per ingested source. Backed by files in `03-source-materials/`
 - [[his-emr-form]] — exported [[his|HIS]] **EMR** form (`EMR.json`): OPD SOAP note, vitals/BMI, consult, disease registry. `2026-07-17`
 - [[his-visit-form]] — exported [[his|HIS]] **Visit** form (`visit.json`): `vn` autonumber, visit_date, clinic/doctor, insurance snapshot; links person via `pid.value`. `2026-07-20`
 - [[his-system-flow]] — the [[his|HIS]] **"architecture" flow diagram** (draw.io): register → เช็คสิทธิ์ → visit → EMR → clinical modules → billing → claims → data feeds. `2026-07-19`
-- [[report-factory-skill]] — the **Report Factory skill** doc-set (SKILL + binding/fields/latex refs), reverse-engineered from `SdReport.vue` — authoritative runtime/binding reference. `2026-07-19`
+- [[report-factory-skill]] — the **Report Factory skill** doc-set (SKILL + binding/fields/latex/Typst refs), covering pdfmake plus separate LaTeX and Typst authoring models. `2026-07-19`, updated `2026-10-26`
+- [[report-typst-reference]] — user-provided Typst Report Factory reference: `sdthai.typ`, `data/raw/rows/params`, Thai helpers, tables, images, diagrams, security, multiple datasets and engine limits. `2026-10-26`
 - [[his-lab-biochem-requirements]] — หน่วยงานชีวเคมี's **LAB requirement memo**: modules unused/missing + 11 add/fix requests. The scope document for the LAB project. `2026-07-31`
 - [[his-lab-che-request-form]] — the paper **ใบส่งตรวจงานชีวเคมี (C-20/L3.1)**: specimen block + 25 groups / 90 test codes; the layout the order screen must copy. `2026-07-31`
 - [[his-lab-che-order-component]] — exported **Lab CHE Order** form (`Lab_CHE_Order_Component.json`): patient banner + tick-sheet `vue-ui`, state in `selected_items_json`. `2026-07-31`
@@ -93,7 +94,7 @@ _Ideas, topics, methods, themes._
 - [[sql-factory]] — `module_sql` named queries; backtick fields, shared `where` language, compile to Mongo.
 - [[api-factory]] — `module_api` server processes; `params`/`userInfo`/`app.*`, return `{success, xformDatax}`.
 - [[module-packages]] — the App Factory registry that publishes a form as a navigable **module** (`app_code`, `app_packages[].tab_form`); permissions live here and are unused.
-- [[report-factory]] — PDF/Excel/Word/LaTeX reports; render pipeline + `{{}}`/`strtr` binding, two-layer model, pdfmake/html gotchas (colgroup widths, THSarabun).
+- [[report-factory]] — PDF/Excel/Word/LaTeX/Typst reports; pdfmake `{{}}` binding plus separate LaTeX/Nunjucks and Typst/`sdthai.typ` authoring models.
   - [[report-latex]] — the separate LaTeX output model (Nunjucks `\VAR{}`/`\BLOCK{}`, Tectonic, server-side).
 
 **Client application patterns** (from the [[his|HIS]] forms)
@@ -137,6 +138,18 @@ _User-approved artifact specifications outside the maintained knowledge-base lay
 - [Protected LAB NO flow](../02-his/ui/immunology-lab-no-flow.html) — interactive confirmation artifact: the Order source owns `SSYYMMDDNNNN` issuance for IM/30, MI-OUT/31 and MB/40; LAB consumes the incoming number, blocks Receive when missing/invalid and never generates or overwrites it. Other Sections keep generate-on-receive. `2026-10-02`
 - [LAB SDForm working area](../Form-Builder/SDForm/Lab/README.md) — user-approved destination, JSON guardrails, and local CPOE Item status-sync state. `2026-09-02`
 - [X-ray design and functional specification](../design/Xray_design.md) — binding X-ray visual/workflow spec, modality dropdown contract, two-number rule (Order No. vs Accession No.), open decisions X2–X17. `2026-08-31`
+- [X-ray Order module tabs mockup](../02-his/ui/xray-order-module-tabs-mockup.html) — rejected alternative retained for design history; user chose no added tab and no visual change to the Order screen. `2026-10-18`
+- [X-ray post-send Move Unit mockup](../02-his/ui/xray-order-post-send-move-mockup.html) — selected confirmation direction: keep the Order UI unchanged, then open existing Move Unit after a successful X-ray send, with an explicit “ยังไม่ส่งต่อ” exit. `2026-10-18`
+- [EMR X-ray result/history confirmation mockup](../02-his/ui/emr-xray-result-history-confirmation.html) — interactive proposal for a compact EMR result card, read-only image/result actions, VN-bound X-ray results, and latest-five history restricted to the same Radio Exam code. `2026-10-19`
+- [EMR X-ray result/history v1 import handoff](../02-his/handoff/emr-xray-result-history-v1-import.md) — separate read-only X-ray API plus isolated Card/EMR History Vue replacements; Order-first grouping, RIS image link and exact-code latest-five history without changing LAB contracts. `2026-10-19`
+- [EMR History LAB/X-Ray result data & UI handoff](../02-his/handoff/emr-history-lab-xray-result-data-ui-handoff.md) — live-verified collection/field/join/API/Report map for redesigning historical LAB and X-Ray results, including Profile/result hierarchy, critical/comment boundaries, report selection, payload gaps, security states and acceptance criteria. `2026-10-24`
+- [QSNICH EMR v2 UI and form-model skill](../02-initcraft/skills/emr-v2-ui/SKILL.md) — runtime-observed information architecture plus a sanitized Form Factory export analysis; its LAB-table reference includes verified V1/V2 half-width and V3/V4 full-width layouts, selectable 1/5/10 history columns, sticky identity/current columns, a conditional slim history-only scrollbar, direct Order-report PDFs, filename-first attachments and complete comparison-region collapse. No patient screenshots or production values. `2026-10-26`
+- [UI Choice Mockups skill](../02-initcraft/skills/ui-choice-mockups/SKILL.md) — creates three focused, consistently framed image variants for one small UI decision, explains and ranks them in plain language, collects a clickable choice when available, and waits for explicit confirmation before changing the canonical mockup. `2026-10-26`
+- [Report Design skill](../02-initcraft/skills/report-design/SKILL.md) — designs data-rich reports before implementation: audience and claim hierarchy, page flow, tables/figures, export assets, accessibility, final-size QA, and a clean handoff to Report Factory. `2026-10-29`
+- [EMR History LAB results UI specification](../design/emr-history-lab-results-design.md) — coding-ready contract for Order/Profile/Test hierarchy, selectable 1/5/10 history, sticky left/right columns, V1/V2 half-width and V3/V4 full-width variants, conditional history-only scrollbar, direct reports, filename-first attachments, collapse behavior, themes, data types and acceptance tests. `2026-10-26`
+- [EMR History LAB results design decision record](../design/emr-history-lab-results-design-contract.md) — evidence, keep/change/do-not-copy boundaries, binding decisions, risks and quality gate for the approved mockup direction. `2026-10-26`
+- [EMR History LAB results implementation handoff](../design/emr-history-lab-results-implementation-handoff.md) — concise build sequence, non-negotiable constraints, adapter responsibilities and verification targets. `2026-10-26`
+- [LAB Result Report Factory live handoff](../02-his/handoff/lab-result-report-factory-handoff.md) — live-verified map of the three LAB result Reports, SQL/NoSQL providers, output fields, joins, routing, Sensitive gates, ownership, and safe-change checklist. `2026-10-28`
 - [X-ray SDForm working area](../Form-Builder/SDForm/X-ray/design.md) — build spec plus the first artifact `xray-cpoe-worklist-v1.json`, its generator and behaviour test. `2026-08-31`
 - [LAB Order Request PDF import](../02-his/handoff/lab-order-request-report-v1-import.md) — staged SQL Factory / Report Factory / Worklist import for `LAB Order Request v1`. `2026-09-02`
 - [X-ray Order Request PDF import](../02-his/handoff/xray-order-request-report-v1-import.md) — same pattern for X-ray with the specimen block removed and no `section_code` scope. `2026-09-02`

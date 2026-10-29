@@ -10,7 +10,7 @@ const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
 
 /* ต้นฉบับผูกกับ m0901 (งานรังสีวิทยา) แล้ว — เทสต์ compile สองแบบ:
    Configured = ตามต้นฉบับ · Process = จำลองกรณีที่ยังไม่ได้ตั้งค่า เพื่อทดสอบ diagnostic */
-const CONFIGURED = "const XRAY_ORGANIZATION_CODES = ['m0900', 'm0901', 'CT']"
+const CONFIGURED = "const XRAY_ORGANIZATION_CODES = ['m0900', 'm0901', 'CT', 'RA-11', 'RA-1206', 'RA-309', 'CT-MRI']"
 assert(apiBody.includes(CONFIGURED), 'the three radiology organizations must stay wired')
 const ROOTS_CONFIGURED = "const XRAY_ORGANIZATION_ROOT_CODES = ['m0900']"
 assert(apiBody.includes(ROOTS_CONFIGURED), 'the radiology organization tree must stay rooted at m0900')
@@ -24,6 +24,10 @@ assert(apiBody.includes("'$_tracking_latest_result.ResultText'"), 'resulted stat
 assert(
   apiBody.includes("const XRAY_RIS_ORDER_COLLECTION = 'zdata_xray_order'"),
   'the RIS order status source must stay wired',
+)
+assert(
+  apiBody.includes("const CONTRAST_COLLECTION = 'zdata_xray_contrast_media'"),
+  'the saved contrast form collection must stay wired read-only',
 )
 assert(apiBody.includes("from: XRAY_RIS_ORDER_COLLECTION"), 'the status lookup must stay')
 assert(
@@ -43,7 +47,9 @@ assert(
    พฤติกรรมเดิมของ chip/ตัวนับ ซึ่งต้องขออนุญาตผู้ใช้ก่อน (§14d) */
 const effectiveBlock = apiBody.slice(
   apiBody.indexOf('effective_status:'),
-  apiBody.indexOf('$lookup', apiBody.indexOf('effective_status:')),
+  /* optimize 2026-10-18 moved the ORDER lookup earlier; origin_unit_code is now
+     the stable next-stage boundary while this assertion still guards the same rule */
+  apiBody.indexOf('$addFields: { origin_unit_code:', apiBody.indexOf('effective_status:')),
 )
 assert(
   !effectiveBlock.includes('ris_order'),
@@ -70,9 +76,14 @@ const facetResult = {
     order_id: 'ORDER-1',
     order_number: '20260831011',
     requested_at: '2026-08-31 08:10:00',
+    origin_unit: { code: 'm0901', label: 'งานรังสีวิทยา' },
+    visit: { visit_id: VISIT_1 },
     patient: { hn: 'HN-001' },
     emr_context: { visit_id: VISIT_1 },
-    items: [{ item_id: 'ITEM-1', item_code: 'XR-CHEST', modality: { code: 'CR' } }],
+    items: [{
+      item_id: 'ITEM-1', item_code: 'XR-CHEST', modality: { code: 'CR' },
+      reject_reason_code: 'XRAYR-00002', reject_reason: 'XRAYR-00002',
+    }],
     item_count: 1,
     /* ข้อมูลดิบที่ join มาให้แถบเตือนแพ้ยา/COVID (ผู้ใช้ขอ 2026-09-03) */
     diagnosis: { value: 'U07.1', label: 'COVID-19, virus identified' },
@@ -86,6 +97,8 @@ const facetResult = {
     order_id: 'ORDER-2',
     order_number: '20260831012',
     requested_at: '2026-08-31 08:20:00',
+    origin_unit: { code: 'CT', label: 'CT scan' },
+    visit: { visit_id: VISIT_2 },
     patient: { hn: 'HN-002' },
     emr_context: { visit_id: VISIT_2 },
     diagnosis: { value: 'J18.9', label: 'Pneumonia, unspecified' },
@@ -146,7 +159,7 @@ const makeApp = (captures, options = {}) => ({
       } } }
     }
     if (from === 'zdata_cpoe_order' && String(id) === reportOrderId) {
-      return { success: true, reply: { data: { _id: reportOrderId, xrstatx: 1, order_number: '20260831011', xparentx: 'VISIT-1', vid: { vn: 'VN-1', pid: { hn: 'HN-001' } } } } }
+      return { success: true, reply: { data: { _id: reportOrderId, xrstatx: 1, order_number: '20260831011', xparentx: 'VISIT-1', xunitx: { code: 'm0901', label: 'งานรังสีวิทยา' }, vid: { vn: 'VN-1', pid: { hn: 'HN-001' } } } } }
     }
     return { success: true, reply: { data: null } }
   },
@@ -165,6 +178,11 @@ const makeApp = (captures, options = {}) => ({
     if (provider.from === 'zdata_room') {
       if (options.rooms === null) throw new Error('ROOM_LOOKUP_FAILED')
       return { success: true, reply: { data: options.rooms || rooms } }
+    }
+    if (provider.from === 'zdata_xray_reject_reason_settings') {
+      return { success: true, reply: { data: options.reasonRows || [
+        { reason_code: 'XRAYR-00002', reason_text: 'ผู้ป่วยไม่มาตามนัด', xrstatx: 1 },
+      ] } }
     }
     if (provider.from === 'zdata_visit_tran' && provider.nosql && provider.nosql.type === 'aggregate') {
       return { success: true, reply: { data: options.trackingRows || [] } }
@@ -194,7 +212,9 @@ const makeApp = (captures, options = {}) => ({
         /* ประวัติผลอ่านย้ายไปอ่านตาราง log 2026-09-16 (ทีมแยกสองชั้นตั้งแต่ 09-09)
            ไม่ตั้ง options.logRows = คืนชุดเดียวกับตารางผลอ่าน ⇒ เคสเดิมทุกเคสได้ผลเท่าเดิม
            ตั้ง logRows เมื่อไหร่ = จำลองว่า log มีหลายฉบับแต่ตารางผลอ่านมีแถวเดียว */
-        const rows = name === 'zdata_zdata_xray_result_log'
+        const rows = name === 'zdata_visit_tran'
+          ? (options.visitTranRows || [])
+          : name === 'zdata_zdata_xray_result_log'
           ? (options.logRows || options.resultRows || [])
           : (options.resultRows || [])
         const chain = {
@@ -269,6 +289,12 @@ const lastPipeline = captures => captures.filter(c => c.from === 'zdata_cpoe_ord
   assert.strictEqual(out.success, true)
   assert.strictEqual(out.data.organization_code, 'M0901')
   assert(out.data.orders.length > 0, 'an uppercase organization code still matches')
+  assert.strictEqual(out.data.orders[0].can_action, true, 'the creator unit can use write actions')
+  assert.strictEqual(
+    out.data.orders[0].items[0].reject_reason,
+    'ผู้ป่วยไม่มาตามนัด',
+    'legacy Auto Number codes must display the reason text from X-ray settings',
+  )
 
   /* ทั้งสามหน่วยของกลุ่มรังสีเข้าได้ (ผู้ใช้ยืนยันผัง 2026-09-01)
      m0900 = กลุ่มแม่ · m0901 = X-ray · CT = CT/MRI */
@@ -282,6 +308,26 @@ const lastPipeline = captures => captures.filter(c => c.from === 'zdata_cpoe_ord
       allowed.unit.code + ' actually queries the worklist',
     )
   }
+
+  /* แถวไม่ถูกกรองออกเมื่อข้ามหน่วย แต่ API ต้องคืน metadata สำหรับปิด action */
+  out = await Configured({}, ctUser, makeApp([]))
+  const foreignOrder = out.data.orders.find(row => row.order_id === 'ORDER-1')
+  assert(foreignOrder, 'a foreign-unit order remains visible')
+  assert.strictEqual(foreignOrder.can_action, false)
+  assert(foreignOrder.action_lock_reason.includes('Order นี้ถูกสร้างที่'))
+
+  /* คิวล่าสุดให้สิทธิ์กับหน่วยปลายทาง แม้ Order ถูกสร้างจากอีกหน่วย */
+  out = await Configured({}, { roles: ['user'], unit: { code: 'RA-11' } }, makeApp([], {
+    visitTranRows: [{
+      vid: { value: VISIT_1 }, vtran_status: 'waiting',
+      room_to: { code: 'X11', label: 'ห้องเอกซเรย์' },
+      unit_to: { code: 'RA-11', label: 'RA-11 งานรังสีวิทยาทั่วไป อาคารเฉลิมฯ ชั้น 11' },
+      xrstatx: 1,
+    }],
+  }))
+  const queuedOrder = out.data.orders.find(row => row.order_id === 'ORDER-1')
+  assert.strictEqual(queuedOrder.can_action, true, 'the latest queue holder can act')
+  assert.strictEqual(queuedOrder.action_access.queue_holder_unit_code, 'RA-11')
 
   /* ห้องที่เพิ่มใน Organization master ใต้ m0900 ต้องเข้าใช้คิว/Worklist ได้อัตโนมัติ
      โดยไม่ต้องแก้ hard-code ทุกครั้ง */
@@ -328,6 +374,32 @@ const lastPipeline = captures => captures.filter(c => c.from === 'zdata_cpoe_ord
   out = await Configured({}, { roles: ['user'], unit: {} }, makeApp([]))
   assert.strictEqual(out.success, false, 'a user without an organization must be refused')
 
+  /* optimize 2026-10-18: exact Visit/HN filter ต้องเกิดก่อน lookup หนักทุกตัว
+     เป็นการสลับลำดับเท่านั้น—ORDER lookup/orderMatch เดิมยังมีครั้งเดียวและเงื่อนไขเดิม */
+  captures = []
+  await Configured({ action: 'list', visit_id: VISIT_1 }, userInfo, makeApp(captures))
+  const optimizedPipeline = lastPipeline(captures)
+  const lookupIndexes = from => optimizedPipeline
+    .map((step, index) => step.$lookup && step.$lookup.from === from ? index : -1)
+    .filter(index => index >= 0)
+  const orderLookupIndexes = lookupIndexes('zdata_cpoe_order')
+  const orderMatchIndex = optimizedPipeline.findIndex(step => step.$match && step.$match['order.xrstatx'])
+  const orderRefIndex = optimizedPipeline.findIndex(step => step.$addFields && step.$addFields.order_ref_id)
+  const masterLookupIndex = lookupIndexes('zdata_master_item_order')[0]
+  const resultLookupIndex = lookupIndexes('zdata_xray_result')[0]
+  const risLookupIndex = lookupIndexes('zdata_xray_order')[0]
+  assert.strictEqual(orderLookupIndexes.length, 1, 'ORDER lookup stays single and cannot duplicate rows')
+  assert(orderRefIndex > 0 && orderRefIndex < orderLookupIndexes[0])
+  assert(orderLookupIndexes[0] < orderMatchIndex, 'ORDER must be joined before its unchanged filter')
+  assert(orderMatchIndex < masterLookupIndex, 'Visit/HN is pruned before item master lookup')
+  assert(orderMatchIndex < resultLookupIndex, 'Visit/HN is pruned before result lookup')
+  assert(orderMatchIndex < risLookupIndex, 'Visit/HN is pruned before RIS status lookup')
+  assert.deepStrictEqual(
+    optimizedPipeline[orderMatchIndex].$match.$expr,
+    { $eq: [{ $toString: '$order.xparentx' }, VISIT_1] },
+    'the exact Visit condition itself must not change',
+  )
+
   /* แท็บติดตามคิวอ่านอย่างเดียวและแยกสถานะผลจาก queue done */
   captures = []
   out = await Configured({ action: 'queue_tracking' }, userInfo, makeApp(captures, {
@@ -361,7 +433,11 @@ const lastPipeline = captures => captures.filter(c => c.from === 'zdata_cpoe_ord
     app.dbFindAll = async provider => {
       reads.push(provider)
       if (provider.from === 'zdata_person') return { success: true, reply: { data: [{ hn: '6900040' }] } }
-      if (provider.from === 'zdata_visit_tran') return { success: true, reply: { data: [{ vid: { value: 'VISIT-40' } }] } }
+      if (provider.from === 'zdata_visit_tran') return { success: true, reply: { data: [{
+        _id: 'VTRAN-40', vid: { value: 'VISIT-40', visit_priority: '7' },
+        vtran_status: 'in_progress', unit_to: { value: 'M0901', label: 'X-ray' },
+        room_to: { value: 'XR-1', label: 'ห้องเอกซเรย์' },
+      }] } }
       if (provider.from === 'zdata_visit') return { success: true, reply: { data: [visit] } }
       throw new Error('Unexpected collection ' + provider.from)
     }
@@ -369,8 +445,25 @@ const lastPipeline = captures => captures.filter(c => c.from === 'zdata_cpoe_ord
     assert.strictEqual(resolved.success, true)
     assert.strictEqual(resolved.data.visit.vn, '6900231')
     assert.strictEqual(resolved.data.hn, '6900040')
+    assert.strictEqual(resolved.data.visit.visit_tran_count, 1)
+    assert.strictEqual(resolved.data.visit.visit_tran_id, 'VTRAN-40')
+    assert.strictEqual(resolved.data.visit.current_unit.value, 'M0901')
+    assert.strictEqual(resolved.data.visit.visit_priority, '7')
     assert(!reads.some(x => x.from === 'zdata_person'), 'HN lookup does not read identity records')
     assert.strictEqual(reads.find(x => x.from === 'zdata_visit').nosql.query['pid.hn'], '6900040')
+    const ambiguousApp = makeApp([])
+    ambiguousApp.dbFindAll = async provider => {
+      if (provider.from === 'zdata_visit_tran') return { success: true, reply: { data: [
+        { _id: 'VTRAN-40-A', vid: { value: 'VISIT-40' }, vtran_status: 'waiting', unit_to: { value: 'M0901' } },
+        { _id: 'VTRAN-40-B', vid: { value: 'VISIT-40' }, vtran_status: 'called', unit_to: { value: 'M0901' } },
+      ] } }
+      if (provider.from === 'zdata_visit') return { success: true, reply: { data: [visit] } }
+      throw new Error('Unexpected collection ' + provider.from)
+    }
+    const ambiguous = await Configured({ action: 'resolve_open_visit', hn: '6900040' }, userInfo, ambiguousApp)
+    assert.strictEqual(ambiguous.data.visit.visit_tran_count, 2)
+    assert.strictEqual(ambiguous.data.visit.visit_tran_ambiguous, true)
+    assert.strictEqual(ambiguous.data.visit.visit_tran_id, undefined, 'the API must not guess which open queue to move')
     reads.length = 0
     resolved = await Configured({ action: 'resolve_open_visit', citizen_id: '1234567890123' }, userInfo, app)
     assert.strictEqual(resolved.data.visit.vn, '6900231')
@@ -396,6 +489,8 @@ const lastPipeline = captures => captures.filter(c => c.from === 'zdata_cpoe_ord
     }
     resolved = await Configured({ action: 'resolve_open_visit', hn: '6900040' }, userInfo, fallbackApp)
     assert.strictEqual(resolved.data.visit.vn, '6900231', 'Visit without an active queue row still resolves like LAB')
+    assert.strictEqual(resolved.data.visit.visit_tran_count, 0, 'Visit fallback must never invent a queue')
+    assert.strictEqual(resolved.data.visit.visit_tran_id, undefined)
   }
 
   /* ── Diagnosis: ต้อง join แบบเดียวกับ LAB ที่ใช้งานได้จริง ──────────────
@@ -481,18 +576,33 @@ const lastPipeline = captures => captures.filter(c => c.from === 'zdata_cpoe_ord
       if (step.$lookup) assert(index > limitIndex, 'ทุก join ต้องอยู่หลัง $limit')
     })
 
+    const idCandidatesIndex = rowsStage.findIndex(step => step.$addFields && step.$addFields._person_lookup_ids)
+    assert(idCandidatesIndex > limitIndex, 'mixed-id candidates are built only after pagination')
+    const idCandidates = rowsStage[idCandidatesIndex].$addFields
+    assert.strictEqual(idCandidates._person_lookup_ids.$filter.input[2].$convert.to, 'objectId')
+    assert.strictEqual(idCandidates._visit_lookup_ids.$filter.input[2].$convert.to, 'objectId')
+
     const personLookup = rowsStage.filter(step => step.$lookup && step.$lookup.from === 'zdata_person')[0]
-    assert.deepStrictEqual(
-      personLookup.$lookup.pipeline[0].$match.$expr,
-      { $eq: [{ $toString: '$_id' }, { $toString: '$$person_id' }] },
-      'เทียบเป็น string ทั้งสองฝั่ง เพราะ pid.value อาจเป็น ObjectId หรือ string',
-    )
+    assert.strictEqual(personLookup.$lookup.localField, '_person_lookup_ids')
+    assert.strictEqual(personLookup.$lookup.foreignField, '_id')
+    assert.strictEqual(personLookup.$lookup.pipeline[0].$match.$expr, undefined,
+      'person lookup must not stringify the indexed foreign _id')
     assert.deepStrictEqual(personLookup.$lookup.pipeline[0].$match.xrstatx, { $nin: [0, 3] })
+
+    const assessmentLookup = rowsStage.filter(
+      step => step.$lookup && step.$lookup.from === 'zdata_patient_assessment',
+    )[0]
+    assert.strictEqual(assessmentLookup.$lookup.localField, '_visit_lookup_ids')
+    assert.strictEqual(assessmentLookup.$lookup.foreignField, 'vid.value')
+    assert.strictEqual(assessmentLookup.$lookup.pipeline[0].$match.$expr, undefined,
+      'assessment lookup must keep ipd_assess_vid indexable')
 
     const finalProject = rowsStage.filter(step => step.$project).pop().$project
     assert.strictEqual(finalProject.person_record, 0, 'เอกสารดิบห้ามหลุดออกไป')
     assert.strictEqual(finalProject.assessment_record, 0)
     assert.strictEqual(finalProject._person_id, 0)
+    assert.strictEqual(finalProject._person_lookup_ids, 0)
+    assert.strictEqual(finalProject._visit_lookup_ids, 0)
   }
 
   /* ── ขอบเขต = Organization ของหน่วยรังสี (ผู้ใช้เลือก 2026-08-31) ──── */
@@ -575,6 +685,28 @@ const lastPipeline = captures => captures.filter(c => c.from === 'zdata_cpoe_ord
   const modalityCode = stage(pipeline, '$addFields').find(step => step.$addFields.modality_code).$addFields.modality_code
   assert.deepStrictEqual(modalityCode.$let.in.$cond[0], { $eq: [{ $type: '$$raw' }, 'string'] })
   assert.strictEqual(modalityCode.$let.in.$cond[2], '')
+
+  /* ใบสารทึบเป็น lookup แสดงผลระดับ item เท่านั้น: ไม่ unwind, ไม่ตัด item เดิม,
+     เลือกใบที่มีข้อมูลจริงล่าสุด และคืน record id สำหรับเปิด read-only */
+  const contrastLookup = stage(pipeline, '$lookup').find(step => step.$lookup.from === 'zdata_xray_contrast_media').$lookup
+  assert.strictEqual(contrastLookup.localField, 'item_record_id')
+  assert.strictEqual(contrastLookup.foreignField, 'item_id')
+  assert.deepStrictEqual(contrastLookup.pipeline[1].$sort, {
+    updated_at: -1, xupdatx: -1, created_at: -1, _id: -1,
+  })
+  assert.strictEqual(contrastLookup.pipeline[2].$limit, 1)
+  assert(contrastLookup.pipeline[0].$match.$or.some(rule => rule['contrast_types.0']), 'blank popup records are excluded')
+  const contrastAdd = stage(pipeline, '$addFields').find(step => step.$addFields.contrast_record)
+  assert(contrastAdd, 'the optional contrast row uses $arrayElemAt instead of an item-dropping unwind')
+  const contrastGroup = stage(pipeline, '$group').find(step => step.$group.items).$group.items.$push.contrast
+  assert.deepStrictEqual(contrastGroup.record_id, { $toString: '$contrast_record._id' })
+  assert.strictEqual(contrastGroup.volume_ml, '$contrast_record.contrast_volume_ml')
+  assert.strictEqual(contrastGroup.used_at.$ifNull[0], '$contrast_record.used_at')
+  const contrastToState = apiBody.slice(
+    apiBody.indexOf('effective_status:'),
+    apiBody.indexOf('$addFields: { origin_unit_code:', apiBody.indexOf('effective_status:')),
+  )
+  assert(!contrastToState.includes('contrast_record'), 'contrast data must never change effective status')
 
   /* dropdown = enum ของ master ทั้ง 11 ค่า พร้อมจำนวนจริง */
   assert.deepStrictEqual(out.data.modalities.slice(0, 11).map(m => m.code), [
@@ -967,7 +1099,7 @@ const lastPipeline = captures => captures.filter(c => c.from === 'zdata_cpoe_ord
     const pipeline = lastPipeline(lookupCaptures)
     const lookups = []
     walk(pipeline, node => { if (node.$lookup && node.$lookup.let) lookups.push(node.$lookup) })
-    assert(lookups.length >= 2, 'ต้องมี $lookup ที่ใช้ let อยู่จริง ไม่งั้นเทสนี้เฝ้าอากาศ')
+    assert(lookups.length >= 1, 'ต้องมี $lookup ที่ใช้ let อยู่จริง ไม่งั้นเทสนี้เฝ้าอากาศ')
     lookups.forEach(lookup => {
       const text = JSON.stringify(lookup.pipeline || [])
       Object.keys(lookup.let).forEach(name => {
@@ -983,12 +1115,32 @@ const lastPipeline = captures => captures.filter(c => c.from === 'zdata_cpoe_ord
       JSON.stringify(pipeline).indexOf('"$ROOT"') < 0,
       'พบ $ROOT ดอลลาร์เดียวในไปป์ไลน์ — ต้องเป็น $$ROOT',
     )
-    /* เจาะจงตัวที่เคยพัง: ผลอ่านต้อง join ด้วยเลข Accession ของแถวนั้นจริง ๆ */
-    const resultLookup = lookups.filter(l => l.from === 'zdata_xray_result')[0]
+    /* เจาะจงตัวที่เคยพัง: ผลอ่านต้อง join ด้วยเลข Accession ของแถวนั้นจริง ๆ
+       รุ่น optimized ใช้ localField/foreignField เพื่อให้ index ทำงาน จึงไม่อยู่ใน lookups
+       ที่ใช้ let ด้านบนแล้ว */
+    const resultLookup = pipeline.map(step => step.$lookup).filter(
+      lookup => lookup && lookup.from === 'zdata_xray_result',
+    )[0]
     assert(resultLookup, 'ต้องยัง join ตารางผลอ่านอยู่')
-    const expr = JSON.stringify(resultLookup.pipeline[0].$match.$expr)
-    assert(expr.indexOf('"$$accession"') >= 0, expr)
-    assert(expr.indexOf('"$AccessionNo"') >= 0, 'ต้องเทียบกับฟิลด์ AccessionNo ของตารางผลอ่าน')
+    assert.strictEqual(resultLookup.localField, 'accession_no')
+    assert.strictEqual(resultLookup.foreignField, 'AccessionNo')
+    assert.strictEqual(resultLookup.let, undefined)
+    assert.deepStrictEqual(
+      resultLookup.pipeline[0].$match.AccessionNo,
+      { $exists: true, $nin: ['', null] },
+      'accession ว่างยังต้องไม่ match เหมือนกติกาเดิม',
+    )
+
+    const risOrderLookup = pipeline.map(step => step.$lookup).filter(
+      lookup => lookup && lookup.from === 'zdata_xray_order',
+    )[0]
+    assert(risOrderLookup, 'ต้องยัง join สถานะ RIS อยู่')
+    assert.strictEqual(risOrderLookup.localField, 'accession_no')
+    assert.strictEqual(risOrderLookup.foreignField, 'AccessionNo')
+    assert.deepStrictEqual(
+      risOrderLookup.pipeline[0].$match.AccessionNo,
+      { $exists: true, $nin: ['', null] },
+    )
   }
 
   /* ไม่มีผลอ่านเลย = versions ว่าง ไม่ใช่ undefined — หน้าจอจะได้ .length ได้เสมอ */

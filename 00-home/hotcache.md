@@ -1,31 +1,62 @@
 ---
 type: meta
 title: Hot Cache
-updated: 2026-10-21
+updated: 2026-10-29
 ---
 
 # 🔥 Hot Cache — read this first
 
-## Current task — shared EMR LAB result popup
+## Current LAB remainder — exactly two items
 
-- Approved prototype: `02-his/ui/lab-result-history-table-popup-confirmation.html`.
-- User-owned live UI form exists as `lab_popup_result`, Form ID `6ad789a39291822e416c02e7`, Created By `Nichada Patcharasumransuk` (verified in live SDForm list 2026-10-21).
-- Root cause of the reported old popup/double scrollbar: EMR History and EMR Treatment Summary still opened their old inline LAB dialogs (`ehLabDialog` / `tsLabDialog`). The new form existed but the “ดูผลทั้งใบ” buttons were never wired to it.
-- Local replacement now routes only LAB “ดูผลทั้งใบ” in both EMR surfaces to `lab_popup_result` via `openForm`, passing `visit_id`, `source_order_id`, `section_code`, and `lab_no`, read-only. X-ray buttons and LAB/X-ray Worklist forms were not changed.
-- Paste-ready event files:
-  - `02-his/form-factory/emr-history-onCreated-FULL-v2-REPLACE.txt`
-  - `02-his/form-factory/treat-summary-onCreated-FULL-v3-REPLACE.txt`
-- Matching templates that must also be replaced:
-  - `02-his/form-factory/emr-history-template-FULL-v1.txt`
-  - `02-his/form-factory/treat-summary-template-FULL-v1.txt`
-- Canonical event sources are under `Form-Builder/API/form-factory/events/`; HTML/TXT template pairs remain byte-identical.
-- Verification passed: new popup wiring regression, popup API/form contract (standard table, MB, MY, Sensitive), EMR History LAB card, EMR LAB legacy regression, X-ray regression, Sensitive re-auth regression, SDForm validator, and `git diff --check`.
-- No live EMR Form was edited. User previously chose to replace live content herself. After replacement, hard reload and test one BC order from both EMR History and the EMR card. Expected: shared long-table form, dropdown 1/5/10, no row-level “ผลก่อนหน้า” buttons, and no old nested dialog scrollbar.
-- Fixed local replacement for `Cannot read properties of undefined (reading 'userState')`: `lab_popup_result` no longer probes the parent Form or loads LAB data in vue-ui `onCreated`. `onMounted` waits up to 10 × 50 ms for a guarded Form/API connector, then synchronizes the Sensitive username and loads once. Full form: `Form-Builder/SDForm/form-factory/forms/lab-emr-result-history-popup-v1.json`. Paste-ready events: `02-his/form-factory/lab-popup-result-onCreated-FULL-v2-REPLACE.txt` and `lab-popup-result-onMounted-FULL-v1-REPLACE.txt`. No EMR live Form, LAB/X-ray Worklist, template, or API contract was changed in this lifecycle fix. Validator passed; lifecycle/API/table/MB/MY/Sensitive plus EMR LAB/X-ray regressions passed. Runtime Builder verification remains for the user after replacing both event boxes.
+1. Production transport/result UAT: one real maternal round-trip; multi-item
+   Partial/Final/Corrected; duplicate/idempotency; Boolean `is_critical`; reconciliation/Revision
+   Log; attachment MIME/permission/reopen; and actual LAB/EMR-button runtime tests.
+2. Blood Bank master debt: 103 active BB CPOE Items; 29 have `lab_item.tmt_code`, 74 do not
+   (18 no `lab_item`, 56 blank/null code). The verified system field is **TMT Code**, not TMLT;
+   reimbursement codes are separate. Resolve incomplete BB38, stale BB2/BB4/BB67 and BB1 hidden text.
 
-## LAB UAT seed safety/state
+Both wait for the team; EMR LAB History is team-assigned. Maternal override `R2610290002` remains
+Live/local: LAB NO. `506910290001` omitted the flag; `506910290002` sent Boolean `true`; both got
+HTTP 202 once and remain `queued`. Do not resend; reconcile, then remove the override.
 
-- User-owned seed API `test_lab_uat` ID `6ad79a3d9291822e416c03d5`; never call Agent/LIS, receive specimen, or mutate finance.
-- BC seed order `R2610210005` on test visit `6ad6daa7481c196fbb33ab1b` has 5 LAB NOs and 9 final results (Liver Function + Electrolyte). Transport attempt 0; `agent_called=false`, `lis_called=false`; no finance rows.
-- All-room `create_suite` remains prepared but not run.
-- Worktree is dirty with unrelated/user-owned changes. Never broad-stage, revert, or commit.
+## LAB list filter performance UAT
+
+- BB Today 1.1–1.75 s, cross-section 0.897 s, HN all dates 1.763 s. Causes: ignored
+  `include_specimens`, late filters, 608 Items, missing `source_specimen_record_id` index.
+- Seven approved tracks remain unimplemented. Next: Track 1 baseline, then reduce calls/pipeline cost.
+
+## MY manual-result master → Worklist verification
+
+- Live read-only 2026-10-29: `LAB Manual Result Detail Settings` (`6acc8587481c196fbb332c60`)
+  has 37 active MY rows. M1000 Worklist reads them in its MY popup and saves via
+  `save_pathology_results`; 28 live MY Result Items include matching master values. Linkage is
+  verified without writes.
+- 2026-10-29 read-only/UAT check: live `lab_cpoe_worklist` is byte-equivalent to local
+  (266858 chars, FNV-1a `a636260f`). MY lifecycle matrix passed 45 Partial→Final→Corrected cases:
+  save gives `resulted`, finalize gives `completed`, correction preserves `completed` and history;
+  Receive calls = 0, live writes = 0. `test_lab_uat` owner is Nichada and is locked away from
+  Receive/Agent/LIS/finance, but it currently allowlists only HN `6900002`.
+- Requested live MY seed on HN `6900001` is pending write gates. Latest Visit is
+  `6ae2c8c307a7861e1037858e` / VN `6900475`; no seed run exists for this HN. Creating the seed
+  would add records to non-user-owned `CPOE Order` and `CPOE Order Item` (owner `SuperAdmin
+  InitAPI`), so three sequential confirmations are required. PDF latest-corrected value is not yet
+  runtime-proven; standard Report/SQL are read-only (`Parinya Tumchay`). Full regressions still
+  stop on unrelated sensitive-empty-state/radiology-organization assertions.
+
+## LAB Order Request redesign mockup
+
+- PHI-free formal A4 v2 passed checks; Live untouched. Await approval before Report-skill and
+  Typst/production work: `output/pdf/lab-order-request-government-mockup-v2.pdf`.
+
+## Completed continuity
+
+- Worklist PDF/HN/EMR wrappers passed local/live checks; `sd-report` no longer moves other actions.
+- Reject/cancel writes Work Item + CPOE Item, not the Order header. History still conflicts with the
+  confirmed rule to show LAB-order Visits even when result is missing; decision pending.
+- Per-Order Report runtime UAT passed all 10 sections; MB used microbiology, others standard;
+  unauthorized IM/MI-OUT stayed redacted.
+- Duplicate live Reports named `LAB Order Request v1`: use referenced ID
+  `6a977ac8422c1ca959829f97`, not QSNICH Admin duplicate `6a97aaf2422c1ca959829fdc`.
+- Ten-room Manual suite is Final; UAT outbounds remain `uat_bypassed`, attempt 0, no Agent/LIS call.
+- Local/Live receive API copies only an exact CPOE Order Boolean with a type guard.
+- 2026-10-29: user-requested checkpoint commit + push; `outputs/`, `Untitled.canvas` left untracked.

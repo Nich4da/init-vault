@@ -341,7 +341,7 @@ const labUser = { roles: ['auth'], username: 'lab-test', unit: { code: '19.P' } 
     assert.strictEqual(h.counterRows.size, 0, 'an unpaid item must not consume an accession counter')
 
     /* ทั้งสามหน่วยของกลุ่มรังสีออกเลขได้ (ผู้ใช้ยืนยันผัง 2026-09-01) */
-    for (const code of ['m0900', 'm0901', 'CT']) {
+    for (const code of ['m0900', 'm0901', 'CT', 'RA-11', 'RA-1206', 'RA-309', 'CT-MRI']) {
       const scoped = makeHarness()
       const user = { roles: ['auth'], username: 'xray-test', unit: { code } }
       const out = await Process.call(scoped.context, { item_id: ids.ct1 }, user, scoped.app)

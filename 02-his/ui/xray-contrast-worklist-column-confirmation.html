@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>X-ray Contrast Record — Read only</title>
+  <style>
+    :root {
+      --primary:#409eff; --primary-50:#ecf5ff; --success:#67c23a;
+      --success-text:#3a8a56; --success-border:#b7ddc4; --success-bg:#eaf6ee;
+      --ink:#303133; --text:#606266; --muted:#909399; --border:#dcdfe6;
+      --border-light:#e4e7ed; --border-lighter:#ebeef5; --fill:#f5f7fa; --white:#fff;
+      --shadow:0 16px 48px rgba(31,35,41,.2);
+      --font:"Leelawadee UI","Noto Sans Thai",Tahoma,"Segoe UI",sans-serif;
+    }
+    * { box-sizing:border-box; }
+    [hidden] { display:none !important; }
+    body { margin:0; min-width:320px; background:#f7f8fa; color:var(--text); font-family:var(--font); font-size:14px; line-height:1.45; }
+    body.is-modal-open { overflow:hidden; }
+    button { font:inherit; }
+    button:focus-visible { outline:2px solid rgba(64,158,255,.58); outline-offset:2px; }
+    .page { max-width:1180px; margin:0 auto; padding:28px 20px 54px; }
+    .page-head { display:flex; align-items:flex-start; justify-content:space-between; gap:20px; margin-bottom:18px; }
+    h1 { margin:0; color:var(--ink); font-size:22px; line-height:1.3; }
+    .subtitle { margin:5px 0 0; color:var(--muted); font-size:12px; }
+    .badge { display:inline-flex; align-items:center; min-height:26px; padding:2px 10px; border:1px solid var(--success-border); border-radius:999px; background:var(--success-bg); color:var(--success-text); font-size:11px; font-weight:700; }
+    .table-shell { overflow-x:auto; border:1px solid var(--border-light); border-radius:7px; background:var(--white); }
+    .table { min-width:1020px; }
+    .row { display:grid; grid-template-columns:44px minmax(260px,1.8fr) 74px minmax(148px,1fr) minmax(148px,1fr) 90px 136px; align-items:center; gap:10px; min-height:62px; padding:9px 14px; }
+    .head { min-height:46px; border-bottom:1px solid #c6e2ff; background:var(--primary-50); color:var(--ink); font-size:12px; font-weight:700; }
+    .data-row { border-bottom:1px dashed var(--border-lighter); }
+    .check { width:16px; height:16px; border:1px solid #c0c4cc; border-radius:3px; background:var(--white); }
+    .test-name { color:var(--ink); font-weight:700; }
+    .test-code { margin-top:2px; color:var(--muted); font-family:monospace; font-size:11px; }
+    .modality { display:inline-flex; width:max-content; padding:3px 8px; border:1px solid var(--border); border-radius:5px; background:var(--fill); font-family:monospace; font-size:11px; font-weight:700; }
+    .select-fake { min-width:0; overflow:hidden; color:#a8abb2; font-size:12px; text-overflow:ellipsis; white-space:nowrap; }
+    .status { color:#8a6d00; font-size:11px; font-weight:700; }
+    .contrast-cell { display:flex; align-items:center; justify-content:flex-end; min-width:0; }
+    .contrast-wrap { position:relative; min-width:0; max-width:100%; }
+    .contrast-chip { display:block; width:100%; min-height:28px; padding:3px 9px; overflow:hidden; border:1px solid var(--success-border); border-radius:5px; background:var(--success-bg); color:var(--success-text); cursor:pointer; font-size:10px; font-weight:700; line-height:1.6; text-align:left; text-overflow:ellipsis; white-space:nowrap; }
+    .contrast-chip:hover { border-color:#8fcaa4; background:#dff0e6; }
+    .tooltip { position:absolute; right:0; bottom:calc(100% + 9px); z-index:5; width:292px; padding:10px 12px; border-radius:6px; background:#303133; color:#fff; box-shadow:0 10px 28px rgba(31,35,41,.14); opacity:0; transform:translateY(4px); pointer-events:none; transition:opacity .14s ease,transform .14s ease; }
+    .contrast-wrap:hover .tooltip,.contrast-wrap:focus-within .tooltip { opacity:1; transform:translateY(0); }
+    .tooltip::after { content:""; position:absolute; right:22px; top:100%; border:6px solid transparent; border-top-color:#303133; }
+    .tooltip-title { margin-bottom:7px; font-size:12px; font-weight:700; }
+    .tooltip-line { display:grid; grid-template-columns:78px 1fr; gap:8px; margin-top:4px; font-size:11px; }
+    .tooltip-line span { color:#c0c4cc; }
+    .tooltip-hint { margin-top:8px; padding-top:7px; border-top:1px solid rgba(255,255,255,.16); color:#b8dcff; font-size:10px; }
+    .flow-hint { margin:10px 2px 0; color:var(--muted); font-size:12px; }
+    .modal-backdrop { position:fixed; inset:0; z-index:100; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,.52); }
+    .dialog { display:flex; flex-direction:column; width:min(1160px,calc(100vw - 40px)); max-height:92vh; overflow:hidden; border-radius:8px; background:var(--white); box-shadow:var(--shadow); }
+    .dialog-head { display:flex; align-items:center; justify-content:space-between; gap:16px; flex:0 0 auto; padding:18px 22px; border-bottom:1px solid var(--border-lighter); }
+    .dialog-title-wrap { display:flex; align-items:center; min-width:0; gap:11px; }
+    .doc-icon { display:grid; place-items:center; flex:0 0 36px; width:36px; height:36px; border-radius:7px; background:#ecf9f3; color:#23b26d; font-size:21px; }
+    .dialog-title { margin:0; color:var(--ink); font-size:21px; line-height:1.25; }
+    .version { padding:2px 8px; border:1px solid #d1edc4; border-radius:5px; background:#f0f9eb; color:#67c23a; font-size:11px; }
+    .readonly-badge { padding:3px 9px; border:1px solid #c6e2ff; border-radius:999px; background:var(--primary-50); color:#337ecc; font-size:11px; font-weight:700; }
+    .icon-close { display:grid; place-items:center; flex:0 0 34px; width:34px; height:34px; padding:0; border:0; border-radius:5px; background:transparent; color:var(--muted); cursor:pointer; font-size:25px; }
+    .icon-close:hover { background:var(--fill); color:var(--ink); }
+    .dialog-body { overflow-y:auto; padding:18px 22px 22px; }
+    .summary-strip { display:flex; align-items:center; justify-content:space-between; gap:18px; margin-bottom:14px; padding:12px 14px; border:1px solid #c6e2ff; border-radius:6px; background:var(--primary-50); }
+    .summary-main { color:var(--ink); font-weight:700; }
+    .summary-sub { margin-top:3px; color:#6d7f91; font-size:12px; }
+    .summary-state { flex:0 0 auto; color:var(--success-text); font-size:12px; font-weight:700; }
+    .section-card { margin-top:12px; border:1px solid var(--border-light); border-radius:7px; overflow:hidden; }
+    .section-head { display:flex; align-items:center; gap:9px; min-height:48px; padding:10px 14px; border-bottom:1px solid var(--border-lighter); background:#fafafa; color:var(--ink); font-weight:700; }
+    .section-number { display:grid; place-items:center; width:25px; height:25px; border-radius:6px; background:var(--primary-50); color:var(--primary); font-size:11px; }
+    .field-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; padding:14px; }
+    .field-grid.two { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .field.span-2 { grid-column:span 2; }
+    .field-label { margin-bottom:5px; color:var(--text); font-size:12px; }
+    .read-value { min-height:38px; padding:9px 11px; border:1px solid var(--border); border-radius:5px; background:var(--fill); color:var(--ink); word-break:break-word; }
+    .read-value.is-empty { color:#a8abb2; }
+    .read-value.textarea { min-height:70px; }
+    .radio-readonly { display:inline-flex; overflow:hidden; border:1px solid var(--border); border-radius:5px; }
+    .radio-readonly span { min-width:58px; padding:8px 13px; background:var(--white); color:var(--muted); text-align:center; }
+    .radio-readonly .is-selected { background:var(--primary); color:#fff; font-weight:700; }
+    .dialog-footer { display:flex; justify-content:flex-end; flex:0 0 auto; padding:13px 22px; border-top:1px solid var(--border-lighter); background:var(--white); }
+    .close-button { min-width:86px; min-height:36px; padding:7px 16px; border:1px solid var(--border); border-radius:5px; background:var(--white); color:var(--text); cursor:pointer; }
+    .close-button:hover { border-color:#a0cfff; color:var(--primary); }
+    @media (max-width:760px) {
+      .page-head,.summary-strip { display:block; }
+      .badge,.summary-state { margin-top:10px; }
+      .modal-backdrop { align-items:flex-start; padding:10px; }
+      .dialog { width:calc(100vw - 20px); max-height:calc(100vh - 20px); }
+      .dialog-head,.dialog-body,.dialog-footer { padding-left:14px; padding-right:14px; }
+      .dialog-title { font-size:17px; }
+      .field-grid,.field-grid.two { grid-template-columns:1fr; }
+      .field.span-2 { grid-column:auto; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="page-head">
+      <div>
+        <h1>คอลัมน์ “สารทึบ” หลัง Submit สำเร็จ</h1>
+        <p class="subtitle">Mockup สำหรับยืนยัน flow การเปิด record ที่บันทึกแล้วแบบอ่านอย่างเดียว</p>
+      </div>
+      <span class="badge">Saved record</span>
+    </header>
+    <section class="table-shell" aria-label="ตัวอย่าง Worklist X-ray หลังบันทึกสารทึบรังสี">
+      <div class="table">
+        <div class="row head">
+          <div></div><div>รายการตรวจ</div><div>เครื่อง</div><div>Radiographer</div><div>Radiologist</div><div>สถานะ</div><div style="text-align:right">สารทึบ</div>
+        </div>
+        <div class="row data-row">
+          <div class="check" aria-hidden="true"></div>
+          <div><div class="test-name">Mammography (bilateral) with US of breasts</div><div class="test-code">42331</div></div>
+          <div><span class="modality">MG</span></div>
+          <div class="select-fake">เลือก Radiographer</div>
+          <div class="select-fake">เลือกหรือพิมพ์ Radiologist</div>
+          <div class="status">รอรับ</div>
+          <div class="contrast-cell">
+            <div class="contrast-wrap">
+              <button id="openRecord" class="contrast-chip" type="button" aria-haspopup="dialog" aria-controls="recordModal">Barium Sulphate · 3 ml</button>
+              <div class="tooltip" role="tooltip">
+                <div class="tooltip-title">บันทึกการใช้สารทึบรังสีแล้ว</div>
+                <div class="tooltip-line"><span>ชนิด</span><strong>Barium Sulphate</strong></div>
+                <div class="tooltip-line"><span>ปริมาณ</span><strong>3 ml.</strong></div>
+                <div class="tooltip-line"><span>วันที่ใช้</span><strong>18/10/2569 16:36</strong></div>
+                <div class="tooltip-line"><span>ผู้บันทึก</span><strong>Nichada Patcharasumransuk</strong></div>
+                <div class="tooltip-hint">คลิกเพื่อเปิดดู record ทั้งใบแบบอ่านอย่างเดียว</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <p class="flow-hint">ลองกดชิปสีเขียว “Barium Sulphate · 3 ml” เพื่อทดสอบการเปิดและปิดใบที่บันทึกแล้ว</p>
+  </main>
+
+  <div id="recordModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="recordTitle" hidden>
+    <section class="dialog">
+      <header class="dialog-head">
+        <div class="dialog-title-wrap">
+          <div class="doc-icon" aria-hidden="true">▤</div>
+          <h2 id="recordTitle" class="dialog-title">แบบบันทึกการใช้สารทึบรังสี</h2>
+          <span class="version">v1</span><span class="readonly-badge">อ่านอย่างเดียว</span>
+        </div>
+        <button id="closeRecord" class="icon-close" type="button" aria-label="ปิด">×</button>
+      </header>
+      <div class="dialog-body">
+        <div class="summary-strip">
+          <div><div class="summary-main">HN6900001 · R2610180001 · Mammography (bilateral) with US of breasts</div><div class="summary-sub">ข้อมูลจาก record ที่บันทึกสำเร็จแล้ว — ทุกช่องถูกล็อก ไม่สามารถแก้ไขได้</div></div>
+          <div class="summary-state">● บันทึกแล้ว</div>
+        </div>
+        <section class="section-card">
+          <div class="section-head"><span class="section-number">1</span>ข้อมูลผู้ป่วยและใบสั่ง</div>
+          <div class="field-grid">
+            <div class="field"><div class="field-label">HN</div><div class="read-value">6900001</div></div>
+            <div class="field"><div class="field-label">ชื่อ-นามสกุล</div><div class="read-value">น.ส. ดำ ใจดี</div></div>
+            <div class="field"><div class="field-label">อายุ</div><div class="read-value">8 ปี</div></div>
+            <div class="field"><div class="field-label">Order No.</div><div class="read-value">R2610180001</div></div>
+            <div class="field span-2"><div class="field-label">รายการตรวจในใบสั่ง</div><div class="read-value">Mammography (bilateral) with US of breasts (42331)</div></div>
+          </div>
+        </section>
+        <section class="section-card">
+          <div class="section-head"><span class="section-number">2</span>รายการตรวจพิเศษทางรังสี</div>
+          <div class="field-grid two">
+            <div class="field"><div class="field-label">รายการตรวจ</div><div class="read-value">Esophagography</div></div>
+            <div class="field"><div class="field-label">วันที่และเวลาที่ใช้สารทึบรังสี</div><div class="read-value">18/10/2569 16:36:19</div></div>
+          </div>
+        </section>
+        <section class="section-card">
+          <div class="section-head"><span class="section-number">3</span>สารทึบรังสีที่ใช้</div>
+          <div class="field-grid">
+            <div class="field"><div class="field-label">ชนิดสารทึบรังสี</div><div class="read-value">Barium Sulphate</div></div>
+            <div class="field"><div class="field-label">ปริมาณ</div><div class="read-value">3 ml.</div></div>
+            <div class="field"><div class="field-label">วิธีให้สาร</div><div class="read-value is-empty">—</div></div>
+          </div>
+        </section>
+        <section class="section-card">
+          <div class="section-head"><span class="section-number">4</span>แพทย์ผู้สั่งและผู้บันทึก</div>
+          <div class="field-grid">
+            <div class="field span-2"><div class="field-label">แพทย์ผู้สั่ง</div><div class="read-value">(ตัวอย่าง) นพ. ก. รังสีชำนาญ — ว.10001</div></div>
+            <div class="field"><div class="field-label">ผู้บันทึก</div><div class="read-value">Nichada Patcharasumransuk</div></div>
+          </div>
+        </section>
+        <section class="section-card">
+          <div class="section-head"><span class="section-number">5</span>อาการไม่พึงประสงค์จากการใช้สารทึบรังสี</div>
+          <div class="field-grid two">
+            <div class="field"><div class="field-label">Contrast Media Extravasation</div><div class="radio-readonly" aria-label="Contrast Media Extravasation: No"><span class="is-selected">No</span><span>Yes</span></div></div>
+            <div class="field"><div class="field-label">บันทึกเพิ่มเติม</div><div class="read-value textarea is-empty">—</div></div>
+          </div>
+        </section>
+      </div>
+      <footer class="dialog-footer"><button id="footerClose" class="close-button" type="button">Close</button></footer>
+    </section>
+  </div>
+  <script>
+    const openButton = document.querySelector('#openRecord');
+    const modal = document.querySelector('#recordModal');
+    const closeButton = document.querySelector('#closeRecord');
+    const footerClose = document.querySelector('#footerClose');
+    function openRecord() { modal.hidden = false; document.body.classList.add('is-modal-open'); closeButton.focus(); }
+    function closeRecord() { modal.hidden = true; document.body.classList.remove('is-modal-open'); openButton.focus(); }
+    openButton.addEventListener('click', openRecord);
+    closeButton.addEventListener('click', closeRecord);
+    footerClose.addEventListener('click', closeRecord);
+    modal.addEventListener('click', event => { if (event.target === modal) closeRecord(); });
+    document.addEventListener('keydown', event => { if (event.key === 'Escape' && !modal.hidden) closeRecord(); });
+  </script>
+</body>
+</html>

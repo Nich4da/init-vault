@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>X-ray Worklist — IPD AN confirmation</title>
+  <style>
+    :root {
+      --primary:#409eff; --primary-50:#ecf5ff; --success:#67c23a;
+      --warning:#e6a23c; --danger:#f56c6c; --ink:#303133;
+      --text:#606266; --muted:#909399; --placeholder:#a8abb2;
+      --border:#dcdfe6; --border-light:#e4e7ed; --border-lighter:#ebeef5;
+      --fill:#f0f2f5; --fill-light:#f5f7fa; --white:#fff;
+      --font:"Leelawadee UI","Noto Sans Thai",Tahoma,"Segoe UI",sans-serif;
+      --mono:"SFMono-Regular","Roboto Mono",Consolas,monospace;
+    }
+    *{box-sizing:border-box}
+    [hidden]{display:none!important}
+    body{margin:0;min-width:320px;background:#f7f8fa;color:var(--text);font-family:var(--font);font-size:13px;line-height:1.4}
+    button{font:inherit}
+    button:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+    .page{max-width:1560px;margin:0 auto;padding:26px 24px 48px}
+    .page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-bottom:18px}
+    .page-head h1{margin:0;color:var(--ink);font-size:22px;line-height:1.3}
+    .page-head p{margin:5px 0 0;color:var(--muted);font-size:12px}
+    .mode-switch{display:inline-flex;flex:none;padding:3px;border:1px solid var(--border);border-radius:7px;background:var(--white)}
+    .mode-switch button{min-width:110px;padding:7px 12px;border:0;border-radius:5px;background:transparent;color:var(--muted);cursor:pointer;font-weight:650}
+    .mode-switch button:hover{color:var(--primary)}
+    .mode-switch button.is-active{background:var(--primary-50);color:var(--primary)}
+    .confirm-note{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:10px 12px;border:1px solid #a0cfff;border-radius:6px;background:var(--primary-50);color:#337ecc}
+    .confirm-note strong{color:var(--ink)}
+    .confirm-note small{margin-left:auto;color:#6d7f91}
+    .worklist-shell{overflow-x:auto;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--white)}
+    .worklist{min-width:1173px}
+    .list-head,.patient-row{display:grid;grid-template-columns:30px minmax(165px,1.3fr) minmax(142px,1fr) 92px 94px 126px minmax(110px,.95fr) 108px 196px;gap:10px;align-items:center;padding:10px 12px}
+    .list-head{border-bottom:1px solid var(--border);color:var(--muted);font-size:11px;font-weight:650;letter-spacing:.02em}
+    .patient-block{border-bottom:1px solid var(--border-lighter)}
+    .patient-row{min-height:84px;background:var(--fill);cursor:pointer;transition:background-color .15s}
+    .patient-row:hover{background:#e9edf2}
+    .expand{display:grid;width:28px;height:30px;place-items:center;padding:0;border:0;border-radius:4px;background:transparent;color:var(--muted);cursor:pointer}
+    .expand:hover{background:var(--white);color:var(--primary)}
+    .expand svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;transition:transform .16s}
+    .patient-block.is-open .expand svg{transform:rotate(90deg)}
+    .patient-summary,.context-tags,.metric,.doctor-cell{min-width:0}
+    .patient-hn{display:flex;align-items:center;gap:6px;min-width:0;color:var(--ink);font-weight:700}
+    .mono{overflow:hidden;font-family:var(--mono);text-overflow:ellipsis;white-space:nowrap}
+    .urgent{display:inline-flex;min-height:18px;align-items:center;padding:0 5px;border:1px solid #fab6b6;border-radius:4px;background:#fef0f0;color:var(--danger);font-size:9px;font-weight:650;white-space:nowrap}
+    .patient-name{margin-top:1px;overflow:hidden;color:var(--ink);font-weight:650;text-overflow:ellipsis;white-space:nowrap}
+    .demographic{display:flex;align-items:center;gap:6px;margin-top:1px;color:var(--muted);font-size:11px}
+    .pill{display:inline-flex;min-height:18px;align-items:center;justify-content:center;padding:0 6px;border:1px solid #c8c9cc;border-radius:999px;background:var(--white);color:var(--text);font-size:9px;font-weight:650;white-space:nowrap}
+    .context-tags{overflow:hidden}
+    .context-top{display:flex;align-items:center;gap:5px;flex-wrap:wrap;row-gap:4px;margin-bottom:4px}
+    .meta{display:inline-flex;min-height:21px;align-items:center;padding:1px 8px;border:1px solid;border-radius:999px;font-size:10px;font-weight:650;white-space:nowrap}
+    .source{border-color:#a0cfff;background:#ecf5ff;color:var(--primary)}
+    .payment{border-color:#b3e19d;background:#f0f9eb;color:var(--success)}
+    .coverage{border-color:#f3d19e;background:#fdf6ec;color:var(--warning)}
+    .admission-row{display:flex;align-items:center;min-height:21px;margin-bottom:4px}
+    .admission-badge{display:inline-flex;width:max-content;max-width:100%;min-height:21px;align-items:center;padding:1px 8px;overflow:hidden;border:1px solid #f9a8d4;border-radius:999px;background:#fdf2f8;color:#be185d;font-size:10px;font-weight:700;line-height:1.35;text-overflow:ellipsis;white-space:nowrap}
+    .metric strong,.doctor-cell strong{display:block;overflow:hidden;color:var(--ink);font-size:12px;font-weight:650;text-overflow:ellipsis;white-space:nowrap}
+    .metric small,.doctor-cell small{display:block;margin-top:2px;overflow:hidden;color:var(--muted);font-size:10px;text-overflow:ellipsis;white-space:nowrap}
+    .modalities{display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding-right:26px}
+    .modality{display:inline-block;padding:3px 8px;border:1px solid var(--border);border-radius:5px;background:var(--fill-light);color:var(--text);font-family:var(--mono);font-size:11px;font-weight:650}
+    .order-tag{display:inline-flex;max-width:100%;min-height:18px;align-items:center;padding:0 6px;overflow:hidden;border:1px solid #a0cfff;border-radius:999px;background:#ecf5ff;color:var(--primary);font-family:var(--mono);font-size:9px;text-overflow:ellipsis;white-space:nowrap}
+    .time{margin-top:3px;color:var(--ink);font-size:11px;font-weight:650;line-height:1.25}
+    .time span{display:block}
+    .status-check{display:flex;gap:4px;align-items:center;color:#8a6d00;font-size:10px;font-weight:650}
+    .status-dot{width:10px;height:10px;border-radius:50%;background:#fadb14}
+    .actions{display:flex;justify-content:flex-end;gap:5px}
+    .action{min-height:28px;padding:4px 9px;border:1px solid var(--border);border-radius:4px;background:var(--white);color:var(--text);cursor:pointer;font-size:11px}
+    .action.primary{border-color:#a0cfff;color:var(--primary)}
+    .detail{display:none;padding:10px 54px 14px;border-top:1px solid var(--border-lighter);background:var(--white);color:var(--muted);font-size:12px}
+    .patient-block.is-open .detail{display:block}
+    .rule{display:flex;align-items:center;gap:8px;margin-top:14px;color:var(--muted);font-size:12px}
+    .rule code{padding:2px 6px;border-radius:4px;background:var(--fill);color:#6b7280;font-family:var(--mono);font-size:11px}
+    @media(max-width:760px){.page{padding:18px 12px 36px}.page-head{align-items:stretch;flex-direction:column}.mode-switch{width:100%}.mode-switch button{flex:1;min-width:0}.confirm-note{align-items:flex-start;flex-direction:column}.confirm-note small{margin-left:0}}
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="page-head">
+      <div>
+        <h1>X-ray Worklist — การแสดงเลข AN</h1>
+        <p>Mockup ยืนยันตำแหน่งก่อนอัปเดต Form จริง · โครงแถวและสัดส่วนคอลัมน์เดิมไม่เปลี่ยน</p>
+      </div>
+      <div class="mode-switch" role="group" aria-label="เลือกตัวอย่างประเภทผู้ป่วย">
+        <button id="showIpd" class="is-active" type="button" aria-pressed="true">IPD · มี AN</button>
+        <button id="showOpd" type="button" aria-pressed="false">OPD · ไม่มี AN</button>
+      </div>
+    </header>
+
+    <div class="confirm-note" role="note">
+      <span aria-hidden="true">ⓘ</span>
+      <span><strong id="modeTitle">ตัวอย่าง IPD:</strong> <span id="modeDescription">แสดงเลข AN สีชมพูเหนือเลข HN ในคอลัมน์ผู้ป่วย</span></span>
+      <small>ลองกด IPD / OPD เพื่อเช็ค flow</small>
+    </div>
+
+    <section class="worklist-shell" aria-label="ตัวอย่าง X-ray Worklist">
+      <div class="worklist">
+        <div class="list-head">
+          <div></div><div>ผู้ป่วย</div><div></div><div>รายการตรวจ</div><div>เครื่อง</div><div>เวลาสั่ง / Order No.</div><div>แพทย์ / Diagnosis</div><div>สถานะ</div><div></div>
+        </div>
+        <article id="patientBlock" class="patient-block">
+          <div id="patientRow" class="patient-row" tabindex="0" role="button" aria-expanded="false">
+            <button id="expandButton" class="expand" type="button" aria-label="กางรายการตรวจ" aria-expanded="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>
+            </button>
+            <div class="patient-summary">
+              <div id="anRow" class="admission-row"><span id="anBadge" class="admission-badge">AN : AN69001234</span></div>
+              <div class="patient-hn"><span class="mono">6900049</span><span class="urgent">ด่วน</span></div>
+              <div class="patient-name">ด.ช. ทดสอบระบบ ไม่ใช่คนจริง</div>
+              <div class="demographic"><span class="pill">ชาย</span><span>8 ปี 2 เดือน 12 วัน</span></div>
+            </div>
+            <div class="context-tags">
+              <div class="context-top">
+                <span id="sourcePill" class="meta source">หอผู้ป่วยกุมารเวชกรรม</span>
+                <span class="meta payment">ชำระเงินแล้ว</span>
+                <span class="meta coverage">OFC</span>
+              </div>
+            </div>
+            <div class="metric"><strong>3 รายการ</strong><small>รายการตรวจในใบสั่ง</small></div>
+            <div class="modalities"><span class="modality">DX</span><span class="modality">US</span></div>
+            <div class="metric"><span class="order-tag">R2610180002</span><div class="time"><span>18/10/69</span><span>20:31:19</span></div></div>
+            <div class="doctor-cell"><strong>Nichada Patcharasumransuk</strong><small>Diagnosis: Fever, unspecified</small></div>
+            <div class="status-check"><span class="status-dot"></span><span>3</span></div>
+            <div class="actions"><button class="action" type="button">ใบสั่ง</button><button class="action primary" type="button">พิมพ์ HN</button><button class="action" type="button">EMR</button></div>
+          </div>
+          <div class="detail">พื้นที่รายการตรวจระดับ item — การเพิ่ม AN ไม่เปลี่ยน flow การกางใบหรือคอลัมน์รายละเอียด</div>
+        </article>
+      </div>
+    </section>
+    <div class="rule"><strong>เงื่อนไข:</strong><code>visit.an มีค่า → แสดง “AN : {เลข AN}”</code><code>visit.an ว่าง → ไม่ render badge</code></div>
+  </main>
+
+  <script>
+    const patientBlock = document.querySelector('#patientBlock');
+    const patientRow = document.querySelector('#patientRow');
+    const expandButton = document.querySelector('#expandButton');
+    const showIpd = document.querySelector('#showIpd');
+    const showOpd = document.querySelector('#showOpd');
+    const anRow = document.querySelector('#anRow');
+    const sourcePill = document.querySelector('#sourcePill');
+    const modeTitle = document.querySelector('#modeTitle');
+    const modeDescription = document.querySelector('#modeDescription');
+
+    function setMode(mode) {
+      const isIpd = mode === 'ipd';
+      showIpd.classList.toggle('is-active', isIpd);
+      showOpd.classList.toggle('is-active', !isIpd);
+      showIpd.setAttribute('aria-pressed', String(isIpd));
+      showOpd.setAttribute('aria-pressed', String(!isIpd));
+      anRow.hidden = !isIpd;
+      sourcePill.textContent = isIpd ? 'หอผู้ป่วยกุมารเวชกรรม' : '19.P คลินิกวัคซีน';
+      modeTitle.textContent = isIpd ? 'ตัวอย่าง IPD:' : 'ตัวอย่าง OPD:';
+      modeDescription.textContent = isIpd
+        ? 'แสดงเลข AN สีชมพูเหนือเลข HN ในคอลัมน์ผู้ป่วย'
+        : 'ไม่สร้างพื้นที่ว่างของ AN และส่วนอื่นเลื่อนขึ้นตามปกติ';
+    }
+
+    function toggleDetail() {
+      const willOpen = !patientBlock.classList.contains('is-open');
+      patientBlock.classList.toggle('is-open', willOpen);
+      patientRow.setAttribute('aria-expanded', String(willOpen));
+      expandButton.setAttribute('aria-expanded', String(willOpen));
+    }
+
+    showIpd.addEventListener('click', () => setMode('ipd'));
+    showOpd.addEventListener('click', () => setMode('opd'));
+    expandButton.addEventListener('click', event => { event.stopPropagation(); toggleDetail(); });
+    patientRow.addEventListener('click', event => { if (!event.target.closest('.action')) toggleDetail(); });
+    patientRow.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleDetail(); }
+    });
+  </script>
+</body>
+</html>

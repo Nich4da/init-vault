@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>EMR History — LAB / X-RAY compact card confirmation</title>
+  <style>
+    :root{--blue:#409eff;--ink:#303133;--text:#606266;--muted:#909399;--line:#dcdfe6;--soft:#ebeef5;--fill:#f5f7fa;--green:#67c23a;--orange:#e6a23c;--red:#f56c6c}
+    *{box-sizing:border-box}body{margin:0;background:#edf2f7;color:var(--text);font:14px/1.45 "Noto Sans Thai","Leelawadee UI",Tahoma,Arial,sans-serif}.page{max-width:1180px;margin:auto;padding:24px}.note{margin-bottom:12px;padding:10px 13px;border:1px solid #a0cfff;border-radius:8px;background:#ecf5ff;color:#337ecc}.shell{overflow:hidden;border-radius:12px;background:#fff;box-shadow:0 14px 42px rgba(31,45,61,.14)}.title{margin:0;padding:18px 22px;border-bottom:1px solid var(--soft);color:var(--ink);font-size:22px}.section{padding:16px 18px;border-bottom:1px solid var(--soft)}.section:last-child{border:0}.result-card{width:100%;max-width:100%;min-width:0;overflow:hidden;border:1px solid var(--line);border-radius:9px;background:#fff}.result-head{display:flex;align-items:center;gap:8px;min-height:44px;padding:10px 12px;border-bottom:1px solid var(--soft)}.result-head strong{flex:1;min-width:0;color:var(--ink);font-size:16px}.result-head small{color:var(--muted)}.result-body{min-width:0;padding:10px 12px 12px}.bar{width:3px;align-self:stretch;border-radius:2px;background:var(--blue)}.tag{display:inline-flex;align-items:center;min-height:24px;padding:1px 8px;border:1px solid #b3e19d;border-radius:6px;background:#f0f9eb;color:#529b2e;font-size:12px}.filters{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}.filter,.btn,.select{min-height:32px;padding:4px 11px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--text);font:inherit}.filter.active,.btn.primary{border-color:var(--blue);background:var(--blue);color:#fff}.board{width:100%;max-width:100%;min-width:0;overflow:hidden}.grid{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(0,1fr) minmax(0,.62fr) minmax(0,.68fr);gap:8px;align-items:start;width:100%;max-width:100%;min-width:0}.grid.head{padding:9px 12px;border:1px solid var(--line);border-radius:7px 7px 0 0;background:var(--fill);font-size:11px;font-weight:700}.card,.order-subcard{position:relative;overflow:hidden;margin-top:8px;border:1px solid var(--line);border-radius:8px;background:#fff}.card:before,.order-subcard:before{position:absolute;inset:0 auto 0 0;width:3px;background:var(--blue);content:""}.row{padding:10px 12px 10px 16px;border-top:1px dashed var(--soft)}.row:first-child{border:0}.row strong{min-width:0;color:var(--ink);overflow-wrap:anywhere}.value{font-weight:700}.flag{justify-self:start;padding:2px 8px;border:1px solid #f3d19e;border-radius:6px;background:#fdf6ec;color:#b88230}.actions{display:grid;grid-template-columns:72px 104px;justify-content:end;gap:6px;min-height:42px;padding:7px 10px;border-top:1px solid var(--soft);background:var(--fill)}.actions .btn{width:100%;padding:3px 8px}.order-head{display:flex;align-items:center;gap:8px;padding:9px 10px 9px 14px}.order-head strong{flex:1;color:var(--text);font-size:12px}.xbody{padding:0 10px 9px;border-top:1px solid var(--soft)}.room{padding:8px 2px 5px;color:var(--muted);font-size:11px;font-weight:700}.exam{padding:9px 2px;border-top:1px dashed var(--soft)}.exam>strong{display:block;color:var(--ink)}.exam-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px;min-height:32px;margin-top:7px}.exam-actions .pdf-slot{display:inline-flex;min-width:72px}.history{display:none;margin-top:12px;padding:14px;border:1px solid var(--line);border-radius:9px;background:#fff}.history.open{display:block}.history-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 12px;border:1px solid #a0cfff;border-radius:8px;background:#ecf5ff}.history-toolbar strong{display:block;color:#337ecc}.history-toolbar small{color:var(--muted)}.history-row{display:grid;grid-template-columns:150px 1fr;gap:12px;margin-top:9px;padding:11px 13px;border:1px solid var(--soft);border-radius:8px}.history-row strong{color:var(--ink)}@media(max-width:650px){.page{padding:10px}.grid{grid-template-columns:minmax(0,1.35fr) minmax(0,1fr) minmax(0,.65fr) minmax(0,.7fr);font-size:12px}.history-toolbar{align-items:flex-start;flex-direction:column}.history-row{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="note"><strong>Confirmation:</strong> LAB / X-RAY ใช้ head card เดียวกัน และแต่ละ Order เป็น sub-card ภายใน ไม่มีหัวซ้ำและไม่มี horizontal scroll</div>
+    <section class="shell">
+      <h1 class="title">ผลตรวจใน EMR History</h1>
+      <div class="section">
+        <article class="result-card">
+          <header class="result-head"><span class="bar"></span><strong>ผล LAB</strong><small>10 Order</small></header>
+          <div class="result-body">
+            <div class="filters"><button class="filter active">ทั้งหมด 10</button><button class="filter">BC 1</button><button class="filter">HM 1</button><button class="filter">HH 1</button><button class="filter">ML 1</button><button class="filter">MB 1</button></div>
+            <div class="board">
+              <div class="grid head"><span>รายการตรวจ</span><span>ผล LAB</span><span>หน่วย</span><span>แปลผล</span></div>
+              <article class="card">
+                <div class="grid row"><strong>BUN</strong><span class="value">25.00</span><span>mg/dL</span><span class="flag">สูง</span></div>
+                <div class="grid row"><strong>Creatinine</strong><span class="value">0.45</span><span>mg/dL</span><span class="tag">ปกติ</span></div>
+                <div class="grid row"><strong>Potassium</strong><span class="value" style="color:var(--red)">14.23</span><span>mmol/L</span><span class="flag" style="border-color:#fab6b6;background:#fef0f0;color:#c45656">Critical H</span></div>
+                <footer class="actions"><button class="btn">PDF</button><button class="btn">ดูผลทั้งใบ</button></footer>
+              </article>
+            </div>
+          </div>
+        </article>
+      </div>
+      <div class="section">
+        <article class="result-card">
+          <header class="result-head"><span class="bar"></span><strong>ผล X-RAY</strong><small>2 Order</small></header>
+          <div class="result-body">
+            <article class="order-subcard">
+              <header class="order-head"><strong>2 รายการ</strong><span class="tag">Final</span><span>⌄</span></header>
+              <div class="xbody">
+                <div class="room">DX · General X-ray</div>
+                <div class="exam"><strong>Skull Towne's</strong><div class="exam-actions"><span class="pdf-slot"><button class="btn">PDF</button></span><button class="btn">ดูผลอ่าน</button><button class="btn">ดูภาพ</button><button class="btn primary" onclick="toggleHistory()">ผลก่อนหน้า</button></div></div>
+                <div class="exam"><strong>Skull AP</strong><div class="exam-actions"><span class="pdf-slot"><button class="btn">PDF</button></span><button class="btn">ดูผลอ่าน</button><button class="btn">ดูภาพ</button><button class="btn primary" onclick="toggleHistory()">ผลก่อนหน้า</button></div></div>
+              </div>
+            </article>
+            <article class="order-subcard">
+              <header class="order-head"><strong>1 รายการ</strong><span class="tag">Final</span><span>⌄</span></header>
+              <div class="xbody">
+                <div class="room">CR · General X-ray</div>
+                <div class="exam"><strong>Chest PA upright</strong><div class="exam-actions"><span class="pdf-slot"><button class="btn">PDF</button></span><button class="btn">ดูผลอ่าน</button><button class="btn">ดูภาพ</button><button class="btn primary" onclick="toggleHistory()">ผลก่อนหน้า</button></div></div>
+              </div>
+            </article>
+          </div>
+        </article>
+        <section id="history" class="history">
+          <div class="history-toolbar"><div><strong>จำนวนผลก่อนหน้าที่ใช้เปรียบเทียบ</strong><small>HN เดียวกัน + รายการตรวจเดียวกัน · ล่าสุด → เก่าสุด</small></div><label>แสดง <select class="select"><option>1 ครั้ง</option><option selected>5 ครั้ง</option></select></label></div>
+          <div class="history-row"><strong>09/09/2569 10:05</strong><span>SKULL TOWNE'S VIEW TECHNIQUE: AP axial radiograph of the skull. FINDINGS: No displaced calvarial fracture…</span></div>
+        </section>
+      </div>
+    </section>
+  </main>
+  <script>function toggleHistory(){document.getElementById('history').classList.toggle('open')}</script>
+</body>
+</html>

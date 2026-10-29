@@ -56,7 +56,7 @@ const SECTION_COLLECTION = 'zdata_section'
 const WORK_ITEM_COLLECTION = 'zdata_lab_work_item'
 const OUTBOUND_COLLECTION = 'zdata_lab_outband_order'
 const ORDER_CANCELLATION_COLLECTION = 'zdata_lab_order_cancellation'
-const REASON_SETTINGS_COLLECTION = 'zdata_zdata_lab_reject_cancel_reason'
+const REASON_SETTINGS_COLLECTION = 'zdata_lab_reject_cancel_reason'
 const BILL_COLLECTION = 'zdata_fa_bill'
 const BILL_ITEM_COLLECTION = 'zdata_fa_bill_item'
 const DIAGNOSIS_COLLECTION = 'zdata_diagnosis'
@@ -575,6 +575,7 @@ if (action === 'list_open_visits') {
   try {
     // ชั้นแรก — คิววันนี้จาก Visit Tran (แหล่งเดียวกับกล่อง "ผู้มารับบริการวันนี้")
     let visitTranIds = []
+    let visitTranRows = []
     let visitTranTotal = 0
     try {
       const tranFound = await app.dbFindAll(
@@ -592,9 +593,13 @@ if (action === 'list_open_visits') {
             projection: {
               _id: 1,
               'vid.value': 1,
+              'vid.visit_priority': 1,
               visit_date: 1,
               checkin_at: 1,
-              vtran_status: 1
+              vtran_status: 1,
+              visit_priority: 1,
+              unit_to: 1,
+              room_to: 1
             },
             limit: 2000
           }
@@ -605,6 +610,7 @@ if (action === 'list_open_visits') {
       const tranRows = tranFound && tranFound.success !== false && tranFound.reply && Array.isArray(tranFound.reply.data)
         ? tranFound.reply.data
         : []
+      visitTranRows = tranRows
       visitTranTotal = tranRows.length
       const seenVisitId = {}
       tranRows.forEach(row => {
@@ -616,6 +622,7 @@ if (action === 'list_open_visits') {
     } catch (error) {
       // Visit Tran อ่านไม่ได้ ⇒ ตกไปใช้ชั้นสอง ไม่ทำให้ทั้ง action ล้มทั้งอัน
       visitTranIds = []
+      visitTranRows = []
     }
 
     let visits = []
@@ -652,6 +659,31 @@ if (action === 'list_open_visits') {
       visits = byVisitDay
       source = 'visit_day'
     }
+
+    /* แนบบริบทคิวแบบ read-only เพื่อให้ launcher เปิด Move Unit หลังส่ง Order สำเร็จ.
+       ไม่เลือกคิวแทนผู้ใช้เมื่อ Visit เดียวมีหลาย Visit Tran ที่ยังเปิดอยู่: กรณีนั้น
+       ส่ง count/ambiguous กลับไปแต่ไม่ส่ง visit_tran_id เพื่อให้ launcher fail closed. */
+    const transByVisit = {}
+    visitTranRows.forEach(row => {
+      const visitId = valueText(row && row.vid && row.vid.value).trim()
+      if (!visitId) return
+      if (!transByVisit[visitId]) transByVisit[visitId] = []
+      transByVisit[visitId].push(row)
+    })
+    visits = visits.map(visit => {
+      const visitId = valueText(visit && (visit._id || visit.value)).trim()
+      const trans = transByVisit[visitId] || []
+      const next = { ...visit, visit_tran_count: trans.length, visit_tran_ambiguous: trans.length > 1 }
+      if (trans.length === 1) {
+        const tran = trans[0] || {}
+        next.visit_tran_id = valueText(tran._id).trim()
+        next.current_unit = tran.unit_to || null
+        next.current_room = tran.room_to || null
+        next.visit_tran_status = valueText(tran.vtran_status).trim()
+        next.visit_priority = valueText(tran.visit_priority || (tran.vid && tran.vid.visit_priority)).trim() || '10'
+      }
+      return next
+    })
 
     return {
       success: true,
@@ -4260,31 +4292,102 @@ if (['get_manual_result', 'authorize_sensitive_result', 'save_manual_result', 's
   // one before/after Edit Log record, then update the latest Result Item through
   // the regular Form pipeline before touching report metadata.
   if (current && !currentIsLegacy) {
-    if (!manualCorrectionChanged) {
+    const currentResultStatus = valueText(current.result_status).trim().toLowerCase()
+    const shouldPromoteDraft = currentResultStatus === 'draft' && hasClinicalValue
+    if (!manualCorrectionChanged && !shouldPromoteDraft) {
       return { success: true, data: responseData(null), message: 'ไม่มีค่าผลที่เปลี่ยนแปลง' }
     }
-    try {
-      const resultItemId = valueText(current && (current._id || current.id)).trim()
-      const committed = await persistCorrectionBatch({
-        edits: [{ resultItemId, currentRow: current, clean: clinical }],
-        reason: params.correction_reason,
-        requestId: params.request_id,
-        context: {
-          workItemId, orderId, itemId, orderNumber: orderNo, labNo,
-          sectionCode: itemSectionCode, patientHn, visitId: visitVn,
-          testCode, testName
-        }
-      })
-      const applied = committed && Array.isArray(committed.applied) ? committed.applied[0] : null
-      if (applied && applied.patch) Object.assign(current, applied.patch)
-      return {
-        success: true,
-        data: responseData(null),
-        message: 'บันทึกผลและประวัติการแก้ไขแล้ว'
+    const resultItemId = valueText(current && (current._id || current.id)).trim()
+    if (manualCorrectionChanged) {
+      try {
+        const committed = await persistCorrectionBatch({
+          edits: [{ resultItemId, currentRow: current, clean: clinical }],
+          reason: params.correction_reason,
+          requestId: params.request_id,
+          context: {
+            workItemId, orderId, itemId, orderNumber: orderNo, labNo,
+            sectionCode: itemSectionCode, patientHn, visitId: visitVn,
+            testCode, testName
+          }
+        })
+        const applied = committed && Array.isArray(committed.applied) ? committed.applied[0] : null
+        if (applied && applied.patch) Object.assign(current, applied.patch)
+      } catch (error) {
+        const code = valueText(error && error.message || error)
+        return { success: false, error: code.toLowerCase(), message: correctionErrorMessage(code) }
       }
-    } catch (error) {
-      const code = valueText(error && error.message || error)
-      return { success: false, error: code.toLowerCase(), message: correctionErrorMessage(code) }
+    }
+
+    // A first empty Manual save creates a canonical draft. When the operator
+    // later supplies a clinical value, the correction path above must also
+    // promote that same Result Item and its operational parents. Otherwise a
+    // valid value remains draft forever and Final reports it as incomplete.
+    if (shouldPromoteDraft) {
+      const resultReportId = valueText(current.result_report_id || current.xparentx).trim()
+      const report = reportById.get(resultReportId) || reportByOrderNo.get(workItemId) || null
+      const reportId = valueText(report && (report._id || report.id) || resultReportId).trim()
+      if (!/^[a-f0-9]{24}$/i.test(reportId)) {
+        return { success: false, error: 'manual_draft_report_missing', message: 'พบผลร่างแล้วแต่ไม่พบ Result Report ที่เชื่อมกัน กรุณาให้ผู้ดูแลตรวจสอบ' }
+      }
+      try {
+        const reportSaved = await app.sdformSetOne(
+          RESULT_REPORT_FORM_ID,
+          reportId,
+          {
+            receipt_status: 'processed',
+            source_channel: 'manual',
+            internal_overall_status: 'partial',
+            reported_at: valueText(report && report.reported_at) || now,
+            reported_by_source_id: valueText(report && report.reported_by_source_id) || actor,
+            reported_by_source_name: valueText(report && report.reported_by_source_name) || actor,
+            processed_at: now,
+            error_message: ''
+          },
+          1,
+          userInfo
+        )
+        if (!reportSaved || reportSaved.success === false) {
+          return { success: false, error: 'manual_draft_report_promote_failed', message: 'บันทึกค่าผลแล้วแต่ปรับ Result Report จากผลร่างไม่สำเร็จ' }
+        }
+        const resultPatch = {
+          result_status: 'entered',
+          entered_at: valueText(current.entered_at) || now,
+          entered_by: valueText(current.entered_by) || actor
+        }
+        const resultSaved = await app.sdformSetOne(RESULT_ITEM_FORM_ID, resultItemId, resultPatch, 1, userInfo)
+        if (!resultSaved || resultSaved.success === false) {
+          return { success: false, error: 'manual_draft_result_promote_failed', message: 'ปรับสถานะผลร่างไม่สำเร็จ กรุณาลองอีกครั้ง' }
+        }
+        Object.assign(current, resultPatch)
+        if (itemStatus !== 'resulted') {
+          if (!context.workItem || !context.workItem._id) {
+            return { success: false, error: 'manual_draft_work_item_missing', message: 'ปรับผลร่างแล้ว แต่ไม่พบ Lab Work Item สำหรับปรับสถานะ' }
+          }
+          const statusSaved = await app.dbUpdate(
+            { work_status: 'resulted', resulted_at: now, resulted_by: actor },
+            WORK_ITEM_COLLECTION,
+            userInfo,
+            {
+              _id: context.workItem._id,
+              xrstatx: { $nin: [0, 3] },
+              work_status: { $in: ['received', 'processing'] }
+            }
+          )
+          if (!statusSaved || statusSaved.success === false) {
+            return { success: false, error: 'manual_draft_work_promote_failed', message: 'ปรับผลร่างแล้ว แต่ปรับสถานะ Lab Work Item ไม่สำเร็จ' }
+          }
+        }
+      } catch (error) {
+        return { success: false, error: 'manual_draft_promote_failed', message: 'ปรับผลร่างเป็นผล Manual ไม่สำเร็จ: ' + valueText(error && error.message || error) }
+      }
+    }
+
+    return {
+      success: true,
+      data: responseData(null),
+      message: shouldPromoteDraft
+        ? 'บันทึกผล Manual และปรับผลร่างเป็นรอยืนยันแล้ว'
+        : 'บันทึกผลและประวัติการแก้ไขแล้ว'
     }
   }
 

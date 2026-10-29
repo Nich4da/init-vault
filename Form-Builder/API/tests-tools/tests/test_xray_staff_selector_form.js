@@ -79,6 +79,7 @@ const field = {
   }
   s.orders = [{
     order_id: 'aaaaaaaaaaaaaaaaaaaaaaaa',
+    can_action: true,
     items: [{ item_id: 'bbbbbbbbbbbbbbbbbbbbbbbb', current_status: 'sent', item_name: 'Chest PA' }],
   }]
   let row = s.buildRow(s.orders[0])

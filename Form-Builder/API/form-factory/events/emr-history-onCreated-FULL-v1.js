@@ -18,6 +18,8 @@ const field = this;
 
 const HISTORY_PROC = '6a9662a75723cd050ea497e0'; // emr-history-get — คงเดิม
 const EH_LAB_BOARD_PROC = '6ab3be31cec3020e8562a2c9'; // emr-lab-board-get — โหลดแยกจาก history
+const EH_XRAY_HISTORY_PROC = '6ad58d76481c196fbb339ae8'; // emr-xray-history-get — Process แยก ไม่เปลี่ยน contract LAB
+const EH_XRAY_RESULT_PDF_REPORT_ID = '6ab2d3e4f5061728394a5b6c'; // Xray result
 const hnOfVisit = (visit) => String((visit && (visit.hn || (visit.person && visit.person.hn))) || '');
 
 /* ══ state ════════════════════════════════════════════════════════════════ */
@@ -160,6 +162,7 @@ s.ehLoad = (visitId, historyId) => {
 	s.ehLoading = true;
 	s.ehErr = '';
 	if (s.ehLabReset) s.ehLabReset();
+	if (s.ehXrayReset) s.ehXrayReset();
 	// สลับใบ = ล้างของเดิมก่อน ไม่งั้นระหว่างโหลดจอโชว์ข้อมูลคนละ visit ปนกัน
 	s.ehUi.showNormalPe = false;
 	form.userState.runProcess(
@@ -188,6 +191,7 @@ s.ehLoad = (visitId, historyId) => {
 			s.ehMeta = d.meta || null;
 			s.ehReady = true;
 			if (s.ehGroups.some((group) => String(group.type || '').toLowerCase() === 'lab')) s.ehLabLoad(s.ehVisit);
+			if (s.ehGroups.some((group) => String(group.type || '').toLowerCase() === 'xray')) s.ehXrayLoad(s.ehVisit);
 		},
 		(err) => {
 			s.ehLoading = false;
@@ -215,6 +219,9 @@ s.ehBoot = () => {
  */
 const EH_LAB_RESULT_PDF_REPORT_ID = '6aa8f5a8b92813319a86ea11';
 const EH_LAB_MICRO_RESULT_PDF_REPORT_ID = '6ab1c2d3e4f5061728394a5b';
+// ฟอร์ม UI อ่านผล LAB แบบตารางประวัติที่ผู้ใช้สร้างและเป็นเจ้าของ
+// ใช้เฉพาะปุ่ม "ดูผลทั้งใบ" ใน EMR; ห้ามนำไปแทน popup ของ LAB Worklist/X-ray
+const EH_LAB_RESULT_HISTORY_FORM_ID = '6ad789a39291822e416c02e7';
 const EH_LAB_MICRO_SECTIONS = ['MB'];
 const EH_LAB_STATUS = {
 	draft: { label: 'ร่าง', type: 'info' },
@@ -234,9 +241,23 @@ s.ehLabLoading = false;
 s.ehLabError = '';
 s.ehLabOrders = [];
 s.ehLabHn = '';
+s.ehLabRoom = 'ALL';
+s.ehLabRooms = [
+	{ code: 'ALL', label: 'ทั้งหมด' },
+	{ code: 'BC', label: 'BC' },
+	{ code: 'HM', label: 'HM' },
+	{ code: 'HH', label: 'HH' },
+	{ code: 'ML', label: 'ML' },
+	{ code: 'IM', label: 'IM' },
+	{ code: 'MI-OUT', label: 'MI-OUT' },
+	{ code: 'MB', label: 'MB' },
+	{ code: 'MY', label: 'MY' },
+	{ code: 'BB', label: 'BB' },
+	{ code: 'BG', label: 'BG' },
+];
 s.ehLabOgOpen = {};
 s.ehLabDialog = { visible: false, order: null };
-s.ehLabMbHistory = { visible: false, row: null };
+s.ehLabHistory = { visible: false, order: null, group: null, row: null, kind: 'standard', limit: 3, expanded: {} };
 s.ehLabMicroSelectedGroupKey = '';
 s.ehLabResultGroupOpen = {};
 s.ehLabReauth = { visible: false, loading: false, error: '', username: '', password: '', purpose: 'ดูแลรักษาผู้ป่วย', mode: 'view', placement: '', order: null, item: null };
@@ -359,6 +380,8 @@ const ehLabPreviousRow = (item) => ({
 	visit_vn: String((item && item.visit_vn) || ''),
 	lab_no: String((item && item.lab_no) || ''),
 	status: String((item && item.status) || ''),
+	// ใช้เฉพาะ flag/critical ที่ระบบผลตรวจส่งมา ห้ามอนุมานจากช่วงอ้างอิงใน EMR
+	flag: ehLabFlagOf(item),
 });
 const ehLabRow = (it) => {
 	const visibility = (it && it.visibility) || { state: 'visible' };
@@ -396,6 +419,16 @@ const ehLabRow = (it) => {
 		verified_by: String((it && it.verified_by_source_name) || ''),
 		previous: previousValues[0] || null,
 		previous_values: previousValues,
+		// MY ใช้ metadata เดิมจาก LAB เพื่อรวมผลหลายตำแหน่งของการตรวจครั้งเดียว
+		// ใน popup ผลก่อนหน้าเท่านั้น ไม่เปลี่ยนกฎจับคู่หรือข้อมูลต้นทาง
+		my_pathology: !!(it && it.my_pathology),
+		test_name: String((it && it.test_name) || ''),
+		pathology_row_key: String((it && it.pathology_row_key) || ''),
+		specimen_code: String((it && it.specimen_code) || ''),
+		specimen_name: String((it && it.specimen_name) || ''),
+		actual_site_code: String((it && it.actual_site_code) || ''),
+		actual_site_name: String((it && it.actual_site_name) || ''),
+		actual_site_detail: String((it && it.actual_site_detail) || ''),
 	};
 	r.flag = ehLabFlagOf(it);
 	r.arrow = s.ehLabArrow(r.flag, r.value);
@@ -498,6 +531,7 @@ const ehLabMkOrder = (raw) => {
 		locked_rows: lockedRows,
 		has_locked: lockedRows.length > 0,
 		result_groups: resultGroups,
+		display_rows: allRows,
 		criticals: rows.filter((r) => r.flag === 'C'),
 		// 🔴 ผลที่เป็น "รายงานความเรียง" (MB/MLab) แยกถังของตัวเอง — ต้องเห็นเสมอ
 		//    LIS ไม่ได้ตีธงผิดปกติให้ ไม่ได้แปลว่าปกติ ⇒ ห้ามพับไปอยู่ใต้ "ค่าปกติ"
@@ -637,7 +671,34 @@ s.ehLabTxtClamp = (key) => {
 
 // เปิดผลทั้งใบใน popup อ่านอย่างเดียวแบบเดียวกับ LAB Worklist
 // 🔴 ห้าม fallback ไปเปิด Result Item ตัวแรก — นั่นคือหน้ากรอก/แก้ไขผลของห้อง LAB ไม่ใช่หน้าดูผลของ EMR
-s.ehLabOrderTarget = (o) => !!(o && ((Array.isArray(o.rows) && o.rows.length) || (Array.isArray(o.locked_rows) && o.locked_rows.some((row) => row.reauth_required))));
+s.ehLabOrderTarget = (o) => !!String((o && (o.source_order_id || (o._raw && o._raw.source_order_id))) || '');
+s.ehLabOpenResultForm = (o) => {
+	const order = o || {};
+	if (!s.ehLabOrderTarget(order)) return;
+	const form = field.getFormRef && field.getFormRef();
+	if (!form || typeof form.openForm !== 'function') return;
+	const raw = order._raw || {};
+	const visit = s.ehVisit || {};
+	// The selected LAB order owns visit_id; the EMR history cursor can point to
+	// another visit while today's result card is still visible.
+	const visitId = String(raw.visit_id || order.visit_id || visit.visit_id || visit._id || visit.value || visit.data_id || '');
+	const sourceOrderId = String(order.source_order_id || raw.source_order_id || '');
+	if (!visitId || !sourceOrderId) {
+		if (typeof field.notify === 'function') field.notify('เปิดผล LAB ไม่ได้: ไม่พบ visit_id หรือ source_order_id', 'warning', 3000);
+		return;
+	}
+	const ctx = Object.assign({}, form.formParams || {}, {
+		visit_id: visitId,
+		source_order_id: sourceOrderId,
+		section_code: String(order.section_code || raw.section_code || '').toUpperCase(),
+		lab_no: String(order.lab_no || raw.lab_no || ''),
+	});
+	form.openForm(EH_LAB_RESULT_HISTORY_FORM_ID, '', '', ctx, {
+		readonly: true,
+		params: ctx,
+		cancelCallback: () => form.subFormClose(),
+	});
+};
 s.ehLabOpenOrder = (o) => {
 	let order = o;
 	if (!s.ehLabOrderTarget(order)) return;
@@ -656,7 +717,7 @@ s.ehLabOpenOrder = (o) => {
 		if (Array.isArray(group.results) && group.results.length > 1) opened[s.ehLabResultGroupKey(group, index)] = true;
 	});
 	s.ehLabResultGroupOpen = opened;
-	s.ehLabMbHistory = { visible: false, row: null };
+	s.ehLabHistory = { visible: false, order: null, group: null, row: null, kind: 'standard', limit: 3, expanded: {} };
 	s.ehLabDialog = { visible: true, order };
 };
 s.ehLabCloseLabDialog = () => {
@@ -668,7 +729,7 @@ s.ehLabCloseLabDialog = () => {
 		if (ehLabSensitiveGrantValid(redactedOrder)) ehLabScheduleSensitiveExpiry(redactedOrder);
 	}
 	s.ehLabDialog = { visible: false, order: null };
-	s.ehLabMbHistory = { visible: false, row: null };
+	s.ehLabHistory = { visible: false, order: null, group: null, row: null, kind: 'standard', limit: 3, expanded: {} };
 	s.ehLabMicroSelectedGroupKey = '';
 	s.ehLabResultGroupOpen = {};
 };
@@ -749,7 +810,6 @@ const ehLabApplySensitiveDisclosure = (order, item, data) => {
 	ehLabReplaceOrder(order, nextOrder);
 	ehLabScheduleSensitiveExpiry(nextOrder);
 	s.ehLabCloseReauth();
-	s.ehLabOpenOrder(nextOrder);
 };
 const ehLabReuseSensitive = (order, item) => {
 	const form = field.getFormRef && field.getFormRef();
@@ -930,6 +990,33 @@ s.ehLabFileSize = (file) => {
  * Raw result_value is displayed and copied as received. Do not infer Gram
  * stain, organism, MIC, S/I/R, abnormal, or critical values from its text.
  */
+const ehLabRoomCode = (value) => {
+	const code = String(value || '').trim().toUpperCase().replace(/_/g, '-');
+	return code === 'MIOUT' ? 'MI-OUT' : code;
+};
+s.ehLabSetRoom = (code) => {
+	const normalized = ehLabRoomCode(code) || 'ALL';
+	s.ehLabRoom = s.ehLabRooms.some((room) => room.code === normalized) ? normalized : 'ALL';
+};
+s.ehLabRoomLabel = (code) => {
+	const room = s.ehLabRooms.find((item) => item.code === String(code || 'ALL'));
+	return room ? room.label : 'ทั้งหมด';
+};
+s.ehLabCardRows = (order) => (order && Array.isArray(order.display_rows) ? order.display_rows : []);
+s.ehLabCardValueStyle = (row) => ({
+	color: row && row.redacted ? 'var(--el-color-danger)' : row && row.flag === 'C' ? 'var(--el-color-danger)' : row && ehLabIsAbn(row) ? 'var(--el-color-warning)' : 'var(--el-text-color-primary)',
+});
+s.ehLabCardFlagType = (row) => (row && row.flag === 'C' ? 'danger' : row && ehLabIsAbn(row) ? 'warning' : 'success');
+s.ehLabRoomCount = (group, code) => {
+	const orders = s.ehLabCardsForGroup(group);
+	const roomCode = ehLabRoomCode(code);
+	return roomCode === 'ALL' ? orders.length : orders.filter((order) => ehLabRoomCode(order.section_code) === roomCode).length;
+};
+s.ehLabVisibleCardsForGroup = (group) => {
+	const orders = s.ehLabCardsForGroup(group);
+	return s.ehLabRoom === 'ALL' ? orders : orders.filter((order) => ehLabRoomCode(order.section_code) === s.ehLabRoom);
+};
+
 s.ehLabIsMicrobiologyDialog = () => !!(s.ehLabDialog && s.ehLabDialog.order && s.ehLabDialog.order.micro);
 s.ehLabAttachmentCount = () => (s.ehLabDialog && s.ehLabDialog.order && Array.isArray(s.ehLabDialog.order.attachments) ? s.ehLabDialog.order.attachments.length : 0);
 s.ehLabScrollToAttachments = () => {
@@ -943,13 +1030,61 @@ s.ehLabPreviousSnapshot = (item) => [
 	item && item.interpretation ? item.interpretation : '',
 	item && item.ref ? 'ปกติ ' + item.ref : '',
 ].filter(Boolean).join(' · ');
-s.ehLabOpenMbHistory = (row) => {
-	if (!row || !s.ehLabPreviousValues(row).length) return;
-	s.ehLabMbHistory = { visible: true, row };
+const ehLabHistoryLimit = (value) => Math.max(1, Math.min(5, Number(value) || 3));
+s.ehLabHistoryLimitOptions = [1, 2, 3, 4, 5];
+s.ehLabOpenHistory = (order, group, row, forcedKind) => {
+	if (!row || row.redacted) return;
+	const results = Array.isArray(group && group.results) ? group.results : [];
+	const kind = forcedKind || (order && order.micro ? 'micro' : row.my_pathology || results.some((result) => result && result.my_pathology) ? 'mycology' : 'standard');
+	s.ehLabHistory = { visible: true, order: order || null, group: group || null, row, kind, limit: 3, expanded: {} };
 };
-s.ehLabCloseMbHistory = () => {
-	s.ehLabMbHistory = { visible: false, row: null };
+s.ehLabCloseHistory = () => {
+	s.ehLabHistory = { visible: false, order: null, group: null, row: null, kind: 'standard', limit: 3, expanded: {} };
 };
+s.ehLabSetHistoryLimit = (value) => {
+	s.ehLabHistory.limit = ehLabHistoryLimit(value);
+};
+s.ehLabHistoryValues = () => s.ehLabPreviousValues(s.ehLabHistory && s.ehLabHistory.row).slice(0, ehLabHistoryLimit(s.ehLabHistory && s.ehLabHistory.limit));
+s.ehLabHistoryTitle = () => {
+	const history = s.ehLabHistory || {};
+	const row = history.row || {};
+	const group = history.group || {};
+	return String((history.kind === 'mycology' && (row.test_name || group.test_name)) || row.name || group.test_name || '-');
+};
+s.ehLabHistoryKey = (item, index) => [String(item && item.visit_vn || ''), String(item && item.lab_no || ''), String(item && item.when || ''), String(index || 0)].join('|');
+s.ehLabHistoryExpanded = (item, index) => !!((s.ehLabHistory && s.ehLabHistory.expanded) || {})[s.ehLabHistoryKey(item, index)];
+s.ehLabToggleHistoryExpanded = (item, index) => {
+	const key = s.ehLabHistoryKey(item, index);
+	const expanded = Object.assign({}, (s.ehLabHistory && s.ehLabHistory.expanded) || {});
+	expanded[key] = !expanded[key];
+	s.ehLabHistory.expanded = expanded;
+};
+s.ehLabMyHistorySheets = () => {
+	const history = s.ehLabHistory || {};
+	const rows = Array.isArray(history.group && history.group.results) ? history.group.results.filter((row) => row && row.my_pathology && !row.redacted) : history.row ? [history.row] : [];
+	const sheets = {};
+	rows.forEach((row) => {
+		s.ehLabPreviousValues(row).forEach((previous) => {
+			const key = [String(previous.visit_vn || ''), String(previous.lab_no || ''), String(previous.when || '')].join('|');
+			if (!sheets[key]) sheets[key] = { visit_vn: previous.visit_vn || '', lab_no: previous.lab_no || '', when: previous.when || '', status: previous.status || '', positions: [] };
+			sheets[key].positions.push({ name: row.name || row.test_name || '-', value: previous.value, unit: previous.unit || '', interpretation: previous.interpretation || '', ref: previous.ref || '', flag: previous.flag || 'N' });
+		});
+	});
+	return Object.keys(sheets).map((key) => sheets[key]).sort((a, b) => String(b.when || '').localeCompare(String(a.when || ''))).slice(0, ehLabHistoryLimit(history.limit));
+};
+s.ehLabHistoryCount = () => (s.ehLabHistory && s.ehLabHistory.kind === 'mycology' ? s.ehLabMyHistorySheets().length : s.ehLabHistoryValues().length);
+s.ehLabHistoryFlagStyle = (item) => {
+	const flag = String((item && item.flag) || '').toUpperCase();
+	return flag === 'C'
+		? { color: 'var(--el-color-danger)', background: 'var(--el-color-danger-light-9)', borderColor: 'var(--el-color-danger-light-5)' }
+		: flag === 'H' || flag === 'L' || flag === 'A'
+		? { color: 'var(--el-color-warning-dark-2)', background: 'var(--el-color-warning-light-9)', borderColor: 'var(--el-color-warning-light-5)' }
+		: { color: 'var(--el-text-color-primary)', background: 'var(--el-bg-color)', borderColor: 'var(--el-border-color-light)' };
+};
+// Compatibility wrapper for the existing MB action contract; presentation now
+// uses the shared LAB history overlay and the same 1-5 selector as every room.
+s.ehLabOpenMbHistory = (row) => s.ehLabOpenHistory(s.ehLabDialog.order, null, row, 'micro');
+s.ehLabCloseMbHistory = s.ehLabCloseHistory;
 s.ehLabMicroGroupKey = (group, index) => String((group && (group.group_key || group.test_code || group.test_name)) || 'micro-result-' + String(index || 0));
 s.ehLabMicroGroupsForDisplay = () => {
 	const groups = s.ehLabIsMicrobiologyDialog() && Array.isArray(s.ehLabDialog.order.result_groups) ? s.ehLabDialog.order.result_groups : [];
@@ -1098,9 +1233,10 @@ s.ehLabReset = () => {
 	s.ehLabError = '';
 	s.ehLabOrders = [];
 	s.ehLabHn = '';
+	s.ehLabRoom = 'ALL';
 	s.ehLabOgOpen = {};
 	s.ehLabDialog = { visible: false, order: null };
-	s.ehLabMbHistory = { visible: false, row: null };
+	s.ehLabHistory = { visible: false, order: null, group: null, row: null, kind: 'standard', limit: 3, expanded: {} };
 	s.ehLabMicroSelectedGroupKey = '';
 	s.ehLabResultGroupOpen = {};
 	s.ehLabReauth = { visible: false, loading: false, error: '', username: '', password: '', purpose: 'ดูแลรักษาผู้ป่วย', mode: 'view', placement: '', order: null, item: null };
@@ -1162,4 +1298,187 @@ s.ehLabLoad = (visit) => {
 
 s.ehLabReload = () => {
 	if (s.ehVisit) s.ehLabLoad(s.ehVisit);
+};
+
+/* ══ EMR History · X-ray result card (isolated from LAB/other flows) ═══════
+ * Read-only Process: emr-xray-history-get
+ * Shape: Order -> room/modality -> exam. History is exact HN + ExamUid only.
+ */
+const EH_XRAY_VIEWER_BASE = 'http://localhost:9090';
+const EH_XRAY_VIEWER_ENABLED = true;
+
+s.ehXrayLoading = false;
+s.ehXrayError = '';
+s.ehXrayOrders = [];
+s.ehXrayHn = '';
+s.ehXrayVn = '';
+s.ehXrayOrderOpen = {};
+s.ehXrayReport = { visible: false, item: null, order: null };
+s.ehXrayHistory = { visible: false, item: null, order: null, limit: 5 };
+s.ehXrayPdfReportList = [{ reportId: EH_XRAY_RESULT_PDF_REPORT_ID, label: 'PDF', type: 'pdf' }];
+
+s.ehXrayReset = () => {
+	s.ehXrayLoading = false;
+	s.ehXrayError = '';
+	s.ehXrayOrders = [];
+	s.ehXrayHn = '';
+	s.ehXrayVn = '';
+	s.ehXrayOrderOpen = {};
+	s.ehXrayReport = { visible: false, item: null, order: null };
+	s.ehXrayHistory = { visible: false, item: null, order: null, limit: 5 };
+};
+
+s.ehXrayOrderKey = (order) => String((order && (order.order_id || order.order_number)) || '');
+s.ehXrayToggleOrder = (order) => {
+	const key = s.ehXrayOrderKey(order);
+	if (!key) return;
+	s.ehXrayOrderOpen = Object.assign({}, s.ehXrayOrderOpen, { [key]: !s.ehXrayOrderOpen[key] });
+};
+s.ehXrayOrderIsOpen = (order) => !!s.ehXrayOrderOpen[s.ehXrayOrderKey(order)];
+s.ehXrayItemHasResult = (item) => !!(item && /^[a-f0-9]{24}$/i.test(String(item.result_id || '')));
+s.ehXrayResultOrders = (orders) => (Array.isArray(orders) ? orders : []).map((order) => {
+	const rooms = (Array.isArray(order && order.rooms) ? order.rooms : []).map((room) => {
+		const items = (Array.isArray(room && room.items) ? room.items : []).filter(s.ehXrayItemHasResult);
+		return items.length ? Object.assign({}, room, { items, item_count: items.length }) : null;
+	}).filter(Boolean);
+	const items = rooms.reduce((rows, room) => rows.concat(room.items), []);
+	return items.length ? Object.assign({}, order, {
+		rooms,
+		item_count: items.length,
+		is_final: items.every((item) => !!item.is_final),
+	}) : null;
+}).filter(Boolean);
+s.ehXrayRoomLabel = (room) => {
+	const modality = String((room && room.modality) || '');
+	const modalityLabel = String((room && room.modality_label) || '');
+	const roomCode = String((room && room.room_code) || '');
+	const roomName = String((room && room.room_name) || '');
+	return [modality && modality !== modalityLabel ? modality + (modalityLabel ? ' · ' + modalityLabel : '') : (modalityLabel || modality), roomCode || roomName]
+		.filter(Boolean)
+		.join(' · ');
+};
+s.ehXrayOrdersForGroup = (group) => {
+	if (!group || String(group.type || '').toLowerCase() !== 'xray') return [];
+	const sourceIds = {};
+	(Array.isArray(group.items) ? group.items : []).forEach((item) => {
+		const orderId = String((item && item.order_id) || '');
+		if (orderId) sourceIds[orderId] = true;
+	});
+	return s.ehXrayOrders.filter((order) => !Object.keys(sourceIds).length || sourceIds[String(order.order_id || '')]);
+};
+s.ehXrayPdfReady = (item) => !!(EH_XRAY_RESULT_PDF_REPORT_ID && item && /^[a-f0-9]{24}$/i.test(String(item.result_id || '')));
+s.ehXrayPdfParams = (item) => (s.ehXrayPdfReady(item) ? { dataid: String(item.result_id) } : {});
+s.ehXrayOpenReport = (order, item) => {
+	if (!item || !String(item.result_text || '').trim()) {
+		if (field.notify) field.notify('รายการนี้ยังไม่มีผลอ่านจาก RIS', 'warning', 2800);
+		return;
+	}
+	s.ehXrayReport = { visible: true, order: order || null, item };
+	s.ehXrayHistory = { visible: true, order: order || null, item, limit: 5 };
+};
+s.ehXrayCloseReport = () => {
+	s.ehXrayReport = { visible: false, order: null, item: null };
+	s.ehXrayHistory = { visible: false, order: null, item: null, limit: 5 };
+};
+s.ehXrayOpenHistory = (order, item) => {
+	s.ehXrayOpenReport(order, item);
+};
+s.ehXrayCloseHistory = () => {
+	s.ehXrayCloseReport();
+};
+s.ehXraySetHistoryLimit = (value) => {
+	s.ehXrayHistory.limit = [1, 5, 10].includes(Number(value)) ? Number(value) : 5;
+};
+s.ehXrayHistoryItems = () => {
+	const items = Array.isArray(s.ehXrayHistory && s.ehXrayHistory.item && s.ehXrayHistory.item.same_exam_history) ? s.ehXrayHistory.item.same_exam_history : [];
+	const limit = [1, 5, 10].includes(Number(s.ehXrayHistory && s.ehXrayHistory.limit)) ? Number(s.ehXrayHistory.limit) : 5;
+	return items.slice(0, limit);
+};
+s.ehXrayOpenHistoricalReport = (historyItem) => {
+	if (!historyItem || !String(historyItem.result_text || '').trim()) return;
+	const current = s.ehXrayHistory.item;
+	s.ehXrayReport = {
+		visible: true,
+		order: s.ehXrayHistory.order,
+		item: Object.assign({}, historyItem, {
+			item_name: historyItem.exam_name || (current && current.item_name) || '',
+			item_code: historyItem.exam_code || (current && current.item_code) || '',
+		}),
+	};
+};
+s.ehXrayViewerUrl = (item) => {
+	if (!EH_XRAY_VIEWER_BASE) return '';
+	const accession = String((item && item.accession_no) || '').trim();
+	const hn = String(s.ehXrayHn || hnOfVisit(s.ehVisit) || '').trim();
+	const mode = accession ? 'AN' : hn ? 'PID' : '';
+	if (!mode) return '';
+	return EH_XRAY_VIEWER_BASE + (EH_XRAY_VIEWER_BASE.indexOf('?') >= 0 ? '&' : '?') + 'QueryMode=' + mode + '&Value=' + encodeURIComponent(accession || hn);
+};
+s.ehXrayViewerHref = (item) => (EH_XRAY_VIEWER_ENABLED ? s.ehXrayViewerUrl(item) : '');
+s.ehXrayImageHint = (item) => {
+	if (!EH_XRAY_VIEWER_ENABLED) return 'ดูภาพ · RIS ยังไม่เปิดลิงก์';
+	const accession = String((item && item.accession_no) || '').trim();
+	if (accession) return 'เปิดภาพ Accession No. ' + accession + ' ในโปรแกรม RIS';
+	return s.ehXrayHn ? 'ยังไม่มี Accession No. — เปิดภาพทั้งหมดด้วย HN ' + s.ehXrayHn : 'ไม่มี Accession No. หรือ HN สำหรับเปิดภาพ';
+};
+s.ehXrayOpenImage = (item) => {
+	if (!EH_XRAY_VIEWER_ENABLED) {
+		if (field.notify) field.notify('ดูภาพ · RIS ยังไม่เปิดลิงก์', 'info', 2800);
+		return;
+	}
+	const url = s.ehXrayViewerUrl(item);
+	if (!url) {
+		if (field.notify) field.notify('รายการนี้ไม่มี Accession No. หรือ HN สำหรับเปิดภาพ', 'warning', 3200);
+		return;
+	}
+	const win = typeof window !== 'undefined' && window.open ? window.open(url, '_blank') : null;
+	if (!win) {
+		if (field.notify) field.notify('เบราว์เซอร์บล็อกแท็บ RIS กรุณาอนุญาต pop-up แล้วกดใหม่', 'warning', 4800);
+		return;
+	}
+	try { win.opener = null; } catch (error) {}
+};
+
+s.ehXrayLoad = (visit) => {
+	const form = field.getFormRef();
+	if (!form) return;
+	const visitId = String((visit && (visit.visit_id || visit.data_id)) || '');
+	if (!visitId) {
+		s.ehXrayError = 'ไม่พบ visit_id สำหรับโหลดผล X-ray';
+		return;
+	}
+	if (String(EH_XRAY_HISTORY_PROC).indexOf('__') === 0) {
+		s.ehXrayError = 'ยังไม่ได้ใส่ Process ID ของ emr-xray-history-get ในฟอร์ม EMR History';
+		return;
+	}
+	s.ehXrayLoading = true;
+	s.ehXrayError = '';
+	s.ehXrayOrders = [];
+	form.userState.runProcess(
+		EH_XRAY_HISTORY_PROC,
+		{ visit_id: visitId },
+		(res) => {
+			const data = (res && res.data) || {};
+			s.ehXrayLoading = false;
+			if (data.success === false) {
+				s.ehXrayError = data.message || 'อ่านผล X-ray ไม่สำเร็จ';
+				return;
+			}
+			s.ehXrayHn = String(data.hn || hnOfVisit(visit) || '');
+			s.ehXrayVn = String(data.vn || (visit && visit.vn) || '');
+			// EMR History แสดงเฉพาะรายการที่มีผลแล้ว; sent/ready ยังอยู่ในใบสั่งต้นทาง
+			s.ehXrayOrders = s.ehXrayResultOrders(data.orders);
+			const opened = {};
+			if (s.ehXrayOrders[0]) opened[s.ehXrayOrderKey(s.ehXrayOrders[0])] = true;
+			s.ehXrayOrderOpen = opened;
+		},
+		(err) => {
+			s.ehXrayLoading = false;
+			s.ehXrayError = 'อ่านผล X-ray ไม่สำเร็จ: ' + ((err && err.message) || err);
+		},
+	);
+};
+
+s.ehXrayReload = () => {
+	if (s.ehVisit) s.ehXrayLoad(s.ehVisit);
 };

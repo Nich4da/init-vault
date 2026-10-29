@@ -217,10 +217,14 @@ assert(!widget.content.includes('Lab no'), 'X-ray has no Lab No.')
 assert(widget.content.includes('<el-checkbox :model-value="item.selected"'), 'per-item checkbox, like LAB')
 assert(widget.content.includes('@change="toggleItem(item.id)"'))
 assert(widget.content.includes(':disabled="!item.can_select"'), 'only actionable items can be ticked')
+assert(widget.content.includes('v-if="row.action_locked" class="xr-action-lock-notice"'), 'foreign-unit orders show a read-only notice')
+assert(widget.content.includes('{{ row.action_lock_reason }}'), 'the notice says which unit owns the queue/order')
+assert(widget.onCreated.includes('can_action:canAction'), 'API action access is copied into every rendered row')
+assert(widget.onCreated.includes('can_select:canAction&&'), 'foreign-unit items cannot be selected for write actions')
 /* เปลี่ยนตามคำสั่งผู้ใช้ 2026-09-03: จากเดิมเลือกได้ทีละ item เป็น multi-select
    พร้อม checkbox ที่หัวคอลัมน์สำหรับเลือก/ล้างทุกรายการที่ดำเนินการได้ */
 assert(
-  widget.content.includes(':disabled="row.dispatching||row.rejecting||row.retesting||!row.dispatch_ready"'),
+  widget.content.includes(':disabled="!row.can_action||row.dispatching||row.rejecting||row.retesting||!row.dispatch_ready"'),
   'ส่งเข้าเครื่อง accepts selected dispatchable items only; cancelled selections cannot dispatch (2026-09-18)',
 )
 assert(widget.content.includes(':content="row.dispatch_disabled_reason"'))
@@ -260,7 +264,7 @@ assert(widget.onCreated.includes('s.toggleAllItems='))
 /* ปุ่มปฏิเสธระดับ item เหมือน LAB (ผู้ใช้ขอ 2026-09-01) */
 assert(widget.content.includes('@click="rejectSelected(row)"'), 'item-level reject button, like LAB')
 assert(
-  widget.content.includes(':disabled="row.dispatching||row.rejecting||!row.reject_ready"'),
+  widget.content.includes(':disabled="!row.can_action||row.dispatching||row.rejecting||!row.reject_ready"'),
   'reject needs exactly one ticked item that has not been dispatched yet',
 )
 assert(widget.content.includes('>ปฏิเสธรายการ</el-button>'))
@@ -308,6 +312,25 @@ assert(
   css.includes('.xray-cpoe-test-popper .xr-test-pop-line'),
   'the teleported popper must be styled without the page-root prefix',
 )
+/* IPD แสดง AN เหนือ HN เท่านั้น; OPD ไม่มีค่าแล้ว v-if ต้องไม่สร้างป้ายเปล่า */
+const admissionMarkup = '<div v-if="row.an" class="xr-admission-badge" :title="\'AN : \'+row.an">AN : {{ row.an }}</div>'
+assert(widget.content.includes(admissionMarkup), 'IPD AN uses one conditional badge')
+assert(
+  widget.content.indexOf(admissionMarkup) < widget.content.indexOf('<div class="xr-patient-hn">'),
+  'the AN badge sits above HN in the patient column',
+)
+assert(css.includes('.xray-cpoe .xr-admission-badge{display:flex;width:max-content;max-width:100%'))
+assert(css.includes('border:1px solid #f9a8d4;border-radius:999px;background:#fdf2f8;color:#be185d'))
+/* หมายเหตุระดับใบอยู่ใต้จำนวนรายการ ตัดด้วย CSS และ hover ดูเต็ม โดยใช้ order_comment
+   ที่ API ส่งมาอยู่แล้ว — ไม่เพิ่ม Process/API call และไม่แตะ lifecycle ของ Order */
+assert(widget.content.includes('v-if="row.order_note_has"'))
+assert(widget.content.includes('popper-class="xray-cpoe-note-popper"'))
+assert(widget.content.includes('{{ row.order_note_short }}'))
+assert(widget.content.includes('{{ row.order_note_full }}'))
+assert(css.includes('.xray-cpoe .xr-order-note{display:block;max-width:100%;margin-top:2px;overflow:hidden'))
+assert(css.includes('text-overflow:ellipsis;white-space:nowrap;cursor:default}'))
+assert(css.includes('.xray-cpoe-note-popper{max-width:420px}'))
+assert(css.includes('.xray-cpoe-note-popper .xr-note-pop{line-height:1.5;white-space:normal'))
 
 /* ระยะห่างคอลัมน์เครื่อง และกล่อง tag ที่รัดตามข้อความจริง */
 assert(css.includes('.xray-cpoe .xr-modality-cell,.xray-cpoe .xr-item-modality{padding-right:26px}'))
@@ -315,9 +338,12 @@ assert(css.includes('.xray-cpoe .xr-modality-cell,.xray-cpoe .xr-item-modality{p
 /* คอลัมน์เครื่องแคบลงเพราะเหลือแค่ตัวย่อ (ผู้ใช้ขอ 2026-09-01) */
 assert(css.includes('minmax(142px,1fr) 92px 94px 126px'), 'order row: modality column is code-sized')
 assert(css.includes('minmax(215px,1.9fr) 78px 132px'), 'item row: modality column is code-sized too')
-/* รหัสรายการตรวจระดับ item อยู่คนละบรรทัดกับชื่อ (ผู้ใช้ขอ 2026-09-01) */
-assert(css.includes('.xray-cpoe .xr-test-code-inline{display:block'), 'the item code sits on its own line')
-assert(widget.content.includes('{{ item.name }}<span class="xr-mono xr-test-code-inline">'))
+/* 2026-10-18: 42331 ในภาพเป็น CPOE item_code ไม่ใช่ Radio Exam code
+   เอาออกเฉพาะการ render แต่ห้ามลบออกจาก row data/payload ที่ flow เดิมยังใช้ */
+assert(widget.content.includes('<div data-label="รายการตรวจ" class="xr-test-name">{{ item.name }}</div>'))
+assert(!widget.content.includes('xr-test-code-inline">{{ item.code }}'), 'internal CPOE item code is hidden from the worklist')
+assert(widget.onCreated.includes('code:s.text(i&&i.item_code)'), 'item_code remains available to existing actions/payloads')
+assert(widget.onCreated.includes('selected_items_json:JSON.stringify([{source_item_id:itemId,item_code:s.text(item.code)'))
 assert(widget.content.includes('<div data-label="เครื่อง" class="xr-item-modality">'))
 /* ตัวย่อในตาราง ชื่อเต็มตอน hover — ทั้งระดับ order และ item (ผู้ใช้ขอ 2026-09-01) */
 assert(widget.content.includes('v-for="m in row.modalities"'), 'the order row lists every modality it holds')
@@ -334,13 +360,11 @@ assert(widget.content.includes('xr-meta-pill xr-coverage-pill'))
 assert(css.includes('.xr-context-top .xr-payment-pill.is-unpaid{border-color:var(--el-color-danger-light-5,#fab6b6);background:var(--el-color-danger-light-9,#fef0f0);color:var(--danger)}'))
 assert(css.includes('.xr-context-top .xr-coverage-pill{border-color:var(--el-color-warning-light-5'))
 
-/* ตรวจใหม่ อยู่แทนที่ EMR บนแถวที่ยกเลิกแล้ว (ผู้ใช้ขอ 2026-09-01) */
+/* 2026-10-19: ตัดปุ่มตรวจใหม่ระดับ Order; คง action ราย item ในรายละเอียดเท่านั้น */
 assert(widget.content.includes('<el-button v-if="!row.cancelled" class="xr-plain-action" size="small"\n              @click="openEmr(row)">EMR</el-button>'), 'EMR hides on a cancelled order')
-/* 2026-09-18: ปุ่มระดับ Order เปิดตัวเลือก item ก่อน ส่วน action ทำที่แถวรายละเอียด */
-assert(widget.content.includes('@click="openRetestSelection(row)">ตรวจใหม่</el-button>'), 'row button opens selection')
+assert(!widget.content.includes('openRetestSelection'), 'the redundant Order-level retest shortcut is removed')
 assert(widget.content.includes('@click="retestOrder(row)">ตรวจใหม่เฉพาะที่เลือก</el-button>'), 'detail button invokes selected-item action')
-assert(widget.content.includes(':disabled="row.retesting||row.dispatching||row.rejecting||!row.retest_ready"'))
-assert(widget.content.includes('<el-button v-else class="xr-plain-action" size="small" type="warning" plain'))
+assert(widget.content.includes(':disabled="!row.can_action||row.retesting||row.dispatching||row.rejecting||!row.retest_ready"'))
 assert(widget.content.includes(':loading="row.retesting"'), 'กันกดซ้ำระหว่างรอ server')
 assert(!widget.content.includes("explainWriteBlock('ตรวจใหม่')"), 'ไม่เหลือปุ่มที่กดแล้วขึ้นข้อความบล็อกอีก')
 assert(css.includes('.xray-cpoe .xr-modality-tag{display:inline-block;width:fit-content'), 'the tag hugs its text')
@@ -543,12 +567,20 @@ assert(widget.content.includes('<div>เวลาสั่ง / Order No.</div><
 /* ── สแกนบาร์โค้ด HN — pattern เดียวกับ LAB (ผู้ใช้ขอ 2026-09-02) ────────── */
 assert.strictEqual(scanField.options.name, 'scan_code')
 assert.strictEqual(scanField.options.target, 'document', 'document-level scanner like PIS/LAB')
+assert.strictEqual(scanField.options.preset, 'keyboard', 'X-ray scanner must use the Keyboard preset, never Both')
 assert.strictEqual(scanField.options.minLength, 6)
 assert.deepStrictEqual(scanField.options.suffixKeyCodes, [13], 'Enter ends the scan')
 assert(scanField.options.onScan.includes("getFieldRef('xray_cpoe_worklist')"), 'it hands the HN to the X-ray widget')
+assert(scanField.options.onScan.includes("searchOwner==='lab'&&searchValue===raw"), 'LAB-owned input makes the document scanner return before X-ray routing')
+assert(scanField.options.onScan.includes("form.$xraySearchOwner=''"), 'the LAB ownership marker is one-shot')
+assert(!scanField.options.onScan.includes('globalThis.document'), 'Field Event sandbox must not depend on document/activeElement')
+assert(!scanField.options.onScan.includes('labSearchInput'), 'the scanner no longer guesses ownership from DOM focus')
 assert(scanField.options.onScan.includes('state.scanPatientHn(raw)'), 'the raw value is handed over; the widget decides')
 assert(scanField.options.onScan.includes('if(form.showPopupFlag)return;'), 'an open popup blocks patient switching')
 assert(!scanField.options.onScan.includes('lab_cpoe_worklist'), 'never points at the LAB widget')
+assert(labLookup.onCreated.includes('const xrayLabBaseSetSearch=s.setSearch;'), 'the X-ray clone wraps the existing LAB setSearch without replacing LAB logic')
+assert(labLookup.onCreated.includes("parent.$xraySearchOwner='lab'"), 'LAB input marks itself as the scan owner')
+assert(labLookup.onCreated.includes('return xrayLabBaseSetSearch(value);'), 'LAB setSearch still performs the original search behavior')
 assert(widget.content.includes('@click="clearScan"'), 'the scan bar can be cleared')
 assert(widget.content.includes('v-if="scanMode"'), 'and it only shows while scanning')
 assert(widget.content.includes(':disabled="scanMode"'), 'Date Range is disabled while scanning')
@@ -570,7 +602,8 @@ assert(!widget.content.includes('openReport(row,row.first_result_item)'), 'no or
 assert(!widget.content.includes(':disabled="!row.can_pdf"'), 'the order-request PDF never reuses result completion state')
 assert(widget.content.includes('<sd-report v-if="!row.cancelled&&orderReportReady(row)"'), 'order row binds the verified order-request Report')
 assert(widget.content.includes(':report-list="orderRequestReportList" :params="orderReportParams(row)"'))
-assert(widget.content.includes('title="Order นี้ไม่มี Order ID หรือ Visit ID สำหรับสร้าง PDF"'), 'missing report scope fails closed')
+assert(widget.content.includes('title="Order นี้ไม่มี Order ID หรือ Visit ID สำหรับสร้างใบสั่ง"'), 'missing report scope fails closed')
+assert(widget.content.includes('>ใบสั่ง</el-button>'), 'the order report action uses the requested Thai label')
 /* ── ปุ่ม HN (sd-report เปิด PDF) ถูกเอาออกจากแถว Order 2026-09-11 ──────────
    ผู้ใช้สั่ง: "เอาปุ่มนี้ระดับ Order เราออกไปเลย" หลังได้ปุ่ม "พิมพ์ HN" ที่กดแล้วพิมพ์เลย
    assertion เดิมเคยการันตีว่าปุ่มนี้ผูก Report ถูกตัว + ส่ง hn + fail closed เมื่อไม่มี HN
@@ -591,7 +624,7 @@ assert(
 )
 // ข้อความ disabled เปลี่ยนตามเงื่อนไขใหม่ 2026-09-04: กันที่ HN ไม่ใช่ Visit ID แล้ว
 assert(widget.onCreated.includes("const ORDER_REQUEST_REPORT_ID='6a97f826422c1ca95982a048'"))
-assert(widget.onCreated.includes("s.orderRequestReportList=ORDER_REQUEST_REPORT_ID?[{reportId:ORDER_REQUEST_REPORT_ID,label:'PDF',type:'pdf'}]:[]"))
+assert(widget.onCreated.includes("s.orderRequestReportList=ORDER_REQUEST_REPORT_ID?[{reportId:ORDER_REQUEST_REPORT_ID,label:'ใบสั่ง',type:'pdf'}]:[]"))
 /* เปลี่ยน assertion เดิม 2026-09-04 ตามคำสั่งผู้ใช้: ปุ่ม HN ของ X-ray ย้ายจาก
    `5256d813009293b480d0a15c` (ป้ายติดแฟ้ม/VN · รับ xparentx) ไปเป็น `ป้ายติดแฟ้ม (HN)`
    `6a9a355c422c1ca95982a1a2` (รับ hn อย่างเดียว) · หน้า LAB ยังใช้ตัวเดิมและไม่ถูกแตะ */
@@ -628,15 +661,15 @@ assert(widget.onCreated.includes('s.hnOrderReportReady=row=>!!(HN_ORDER_REPORT_I
   'no HN ⇒ the print button is disabled — this is the guard the old HN button used')
 assert(widget.onCreated.includes("const HN_ORDER_REPORT_ID='6a9a355c422c1ca95982a1a2'"),
   'the HN Report ID must survive the button removal')
-/* แถว Order เหลือ 3 ปุ่ม: PDF · พิมพ์ HN · EMR (ใบที่ยกเลิกเป็น ตรวจใหม่) */
+/* แถว Order เหลือ PDF · พิมพ์ HN · EMR; ไม่มีปุ่มตรวจใหม่ซ้ำกับ detail */
 const rowActionsBlock = widget.content.slice(
   widget.content.indexOf('xr-row-actions'),
   widget.content.indexOf('xr-detail-panel'),
 )
 assert.strictEqual(
   (rowActionsBlock.match(/<(el-button|sd-report)/g) || []).length,
-  5,
-  'order row renders PDF + its fallback · พิมพ์ HN · EMR · ตรวจใหม่ — nothing more, nothing less',
+  4,
+  'order row renders PDF + its fallback · พิมพ์ HN · EMR — no duplicate retest action',
 )
 assert(!rowActionsBlock.includes('>HN</el-button>'), 'the plain HN button is gone from the row')
 /* สติ๊กเกอร์ HN เป็น PDF อีกชนิดที่อยู่ระดับ item
@@ -775,6 +808,15 @@ assert(!widget.content.includes('xr-order-cell">\n            <span class="xr-ac
 const worklistApi = fs.readFileSync(
   path.join(root, 'Form-Builder/API/api-factory/processes/xray_cpoe_worklist_api.js'), 'utf8',
 )
+assert(
+  worklistApi.includes("order_comment: '$order.order_comment'"),
+  'the existing Worklist API projection must keep the order-level note used by the UI',
+)
+
+assert(
+  worklistApi.includes("an: '$order.vid.an'"),
+  'the existing Worklist API projection must keep visit.an for the conditional IPD badge',
+)
 
 /* ── ปุ่มสร้างรายการใหม่ต้องสลับฟอร์มได้โดยไม่ต้องแก้โค้ด (ผู้ใช้ขอ 2026-09-03) ──
    🔴 เปลี่ยนค่าเริ่มต้น 2026-09-08 ตามที่ผู้ใช้รายงานว่ากดแล้วขึ้น
@@ -793,6 +835,9 @@ assert(
   widget.onCreated.includes("const CPOE_ORDER_APP_ID='6a995d064744260ea8c9498c'"),
   'และฟอร์มที่ generate ออกมาต้องชี้ไปที่โคลนจริง ๆ ไม่ใช่แค่ค่าในสคริปต์',
 )
+assert(widget.onCreated.includes('on_order_sent:()=>{s.page={...s.page,current:1};s.loadOrders();}'), 'successful Order refreshes the Worklist')
+assert(!widget.onCreated.includes('MOVE_UNIT_FORM_ID'), 'creating an X-ray Order must not open Move Unit')
+assert(!widget.onCreated.includes('openMoveUnitAfterOrder'), 'creating an X-ray Order must not move or create Visit Tran')
 assert(worklistBuilder.includes('process.env.XRAY_CPOE_ORDER_APP_ID'), 'สลับฟอร์มได้ด้วย env')
 assert(
   worklistBuilder.includes("throw new Error('XRAY_CPOE_ORDER_APP_ID must be the 24-character Form ID"),
@@ -921,7 +966,9 @@ assert(
   'the five CPOE priority levels must stay in sync with the CPOE Order App',
 )
 assert(!widget.content.includes("explainWriteBlock('ยกเลิก order')"), 'the placeholder must be gone')
-assert(widget.content.includes(':disabled="row.dispatching||row.rejecting||cancelDialog.loading||!row.can_cancel"'))
+assert(widget.content.includes(':disabled="!row.can_action||row.dispatching||row.rejecting||cancelDialog.loading||!row.can_cancel"'))
+assert(widget.content.includes('cancelDialog.financeLoading||cancelDialog.reasonLoading||!cancelDialog.financeChecked||!cancelDialog.canCancel'),
+  'cancel confirmation must stay disabled until finance preflight passes')
 assert(widget.content.includes('@click="submitCancelOrder"'), 'the confirm dialog submits the cancel')
 /* ผู้ใช้ยืนยัน 2026-09-18: ปุ่มเดิมยกเลิกเฉพาะ item ที่ติ๊ก จึงเปลี่ยน copy
    แต่ยังคง assertion ว่าต้องมี dialog ยืนยันและส่งผ่าน Process เดิม */
@@ -1137,6 +1184,7 @@ const bootable = widget.onCreated
 
 const order = (id, modality, status, extra) => Object.assign({
   order_id: id,
+  can_action: true,
   order_number: '2026083101' + id.slice(-1),
   requested_at: '2026-08-31T08:1' + id.slice(-1) + ':00+07:00',
   priority: '1',
@@ -1174,6 +1222,7 @@ const BUCKET = { sent: 'waiting', accepted: 'pending', resulted: 'complete', can
 
 const calls = []
 let withModalityMaster = false
+let withSplitCounts = true
 let unmappedCount = 0
 let serverMessage = ''
 /* Process ที่ deploy แล้ว — ผู้ใช้แจ้ง 2026-09-01 */
@@ -1185,6 +1234,7 @@ let dispatchReply = {
   message: 'ส่งเข้าเครื่องแล้ว',
 }
 let cancelReply = { success: true, data: {}, message: 'ยกเลิก Order แล้ว' }
+let financeReply = { success: true, data: { can_cancel: true, finance_status: 'not_billed', finance_message: 'ยังไม่มีรายการการเงิน', receipt_numbers: [] } }
 let retestReply = null
 let openVisitReply = { success: true, data: { hn: '6900040', visit: null } }
 const memberRows = [
@@ -1214,6 +1264,20 @@ const runProcess = (id, params, ok) => {
   /* ยกเลิกทั้งใบใช้ Process worklist ตัวเดิม ไม่มี Process ID ใหม่ (ทรงเดียวกับ LAB) */
   if (params.action === 'cancel_order') {
     ok({ data: cancelReply })
+    return
+  }
+  if (params.action === 'check_cancel_finance') {
+    ok({ data: financeReply })
+    return
+  }
+  if (params.action === 'get_reason_options') {
+    const options = [
+      { value: 'PATIENT_ABSENT', label: 'ผู้ป่วยไม่มาตามนัด' },
+      { value: 'PHYSICIAN_CANCELLED', label: 'แพทย์ยกเลิกคำสั่ง' },
+      { value: 'WRONG_PATIENT', label: 'สั่งผิดคน' },
+      { value: 'OTHER', label: 'อื่น ๆ' },
+    ]
+    ok({ data: { success: true, data: { options, reason_type: params.reason_type } } })
     return
   }
   if (params.action === 'retest_items') {
@@ -1271,6 +1335,7 @@ const runProcess = (id, params, ok) => {
     const picked = Array.isArray(params.modality) ? params.modality : String(params.modality).split(',')
     rows = rows.filter(o => o.items.some(i => picked.indexOf(i.modality.code) >= 0))
   }
+  const countRows = rows.slice()
   /* statuses ว่าง = ให้ server ใช้ vocabulary เต็ม (เหมือน API จริง) */
   if (params.statuses.length) rows = rows.filter(o => params.statuses.indexOf(o.items[0].current_status) >= 0)
   const payload = {
@@ -1282,6 +1347,15 @@ const runProcess = (id, params, ok) => {
       ? { from: params.date_from, to: params.date_to, defaulted: false, include_backlog: false, axis: 'status_time' }
       : { from: '2026-08-31', to: '2026-08-31', defaulted: true, include_backlog: true, axis: 'status_time' },
   }
+  if (withSplitCounts) {
+    payload.counts = {
+      all: countRows.length,
+      waiting: countRows.filter(o => BUCKET[o.items[0].current_status] === 'waiting').length,
+      pending: countRows.filter(o => BUCKET[o.items[0].current_status] === 'pending').length,
+      complete: countRows.filter(o => BUCKET[o.items[0].current_status] === 'complete').length,
+      cancelled: countRows.filter(o => BUCKET[o.items[0].current_status] === 'cancelled').length,
+    }
+  }
   if (withModalityMaster) payload.modalities = [{ code: 'CR', label: 'CR', count: 2 }, { code: 'CT', label: 'CT', count: 2 }]
   if (unmappedCount) payload.modality_unmapped = unmappedCount
   ok({ data: { success: true, data: payload, message: serverMessage } })
@@ -1291,6 +1365,7 @@ const opened = []
 const notes = []
 const printJobs = []
 let printAgentStub = null
+let closedPopups = 0
 const field = {
   vueState: {},
   globalUserState: {
@@ -1300,8 +1375,11 @@ const field = {
   /* getFieldRef เพิ่ม 2026-09-11 เพื่อทดสอบปุ่ม "พิมพ์ HN" — printAgent() หา widget
      ชื่อ 'local_agent' ผ่านทางนี้ · ตั้ง printAgentStub=null = จำลองว่ายังไม่ได้ต่อ agent */
   getFormRef: () => ({
-    formParams: { xsitex: 'SITE-1' },
+    /* จำลองหน้า X-ray ที่ถูกเปิดมาจาก Order เดิม: ปุ่มสร้างรายการใหม่ต้องไม่พา
+       order_id นี้เข้า CPOE แต่บริบทอื่นของฟอร์มแม่ยังต้องเดินทางต่อเหมือนเดิม */
+    formParams: { xsitex: 'SITE-1', order_id: 'STALE-ORDER-ID' },
     openForm: (...args) => opened.push(args),
+    subFormClose: () => { closedPopups += 1 },
     getFieldRef: name => (name === 'local_agent' && printAgentStub
       ? { getFieldEditor: () => printAgentStub }
       : null),
@@ -1495,7 +1573,7 @@ const flush = () => new Promise(resolve => setTimeout(resolve, 0))
     .forEach(key => assert(key in s.view, 'view.' + key + ' must exist before mount'))
   assert.strictEqual(s.report.visible, false)
   assert.deepStrictEqual(s.modality, [], 'nothing picked means no modality filter')
-  assert.deepStrictEqual(s.orderRequestReportList, [{ reportId: '6a97f826422c1ca95982a048', label: 'PDF', type: 'pdf' }])
+  assert.deepStrictEqual(s.orderRequestReportList, [{ reportId: '6a97f826422c1ca95982a048', label: 'ใบสั่ง', type: 'pdf' }])
   assert.deepStrictEqual(s.hnOrderReportList, [{ reportId: '6a9a355c422c1ca95982a1a2', label: 'HN', type: 'pdf' }])
   assert.deepStrictEqual(s.hnStickerReportList, [{ reportId: '6a980831422c1ca95982a054', label: 'สติ๊กเกอร์ HN', type: 'pdf' }])
   /* 2026-10-15: รูปแบบอายุของ X-ray ต้องตรงกับ LAB โดยเปลี่ยนเฉพาะ display text */
@@ -1503,6 +1581,16 @@ const flush = () => new Promise(resolve => setTimeout(resolve, 0))
   assert.strictEqual(s.orderAgeText({ patient: { age: '3y 2m 1d' } }), '3 ปี 2 เดือน 1 วัน')
   assert.strictEqual(s.orderAgeText({ patient: { age: { year: 4, month: 5, day: 6 } } }), '4 ปี 5 เดือน 6 วัน')
   assert.strictEqual(s.buildRow(order('ORD-AGE', 'CR', 'sent', { patient: { age: '25' } })).age, '25 ปี  เดือน  วัน')
+  assert.strictEqual(s.buildRow(order('ORD-IPD', 'CR', 'sent', { visit: { an: 'AN69001234' } })).an, 'AN69001234')
+  assert.strictEqual(s.buildRow(order('ORD-OPD', 'CR', 'sent')).an, '', 'OPD keeps the existing row without an AN badge')
+  const noteRow = s.buildRow(order('ORD-NOTE', 'CR', 'sent', { order_comment: 'งดน้ำงดอาหาร 6 ชั่วโมงก่อนตรวจ' }))
+  assert.strictEqual(noteRow.order_note_has, true)
+  assert.strictEqual(noteRow.order_note_short, 'หมายเหตุ: งดน้ำงดอาหาร 6 ชั่วโมงก่อนตรวจ')
+  assert.strictEqual(noteRow.order_note_full, 'งดน้ำงดอาหาร 6 ชั่วโมงก่อนตรวจ')
+  assert.deepStrictEqual(noteRow.test_list, ['Chest PA CR'], 'the summary tooltip shows names without internal CPOE codes')
+  const noNoteRow = s.buildRow(order('ORD-NO-NOTE', 'CR', 'sent'))
+  assert.strictEqual(noNoteRow.order_note_has, false)
+  assert.strictEqual(noNoteRow.order_note_full, '')
 
   const rightCoverage = [{ inscl_item_main: { value: 'OFC', label: 'OFC สิทธิข้าราชการ' } }]
   const cashCoverage = [{ inscl_item_main: { value: 'CASH', label: 'CASH ชำระเงินเอง' } }]
@@ -1525,7 +1613,9 @@ const flush = () => new Promise(resolve => setTimeout(resolve, 0))
   assert.strictEqual(s.isFinancePassed({ items: [{ current_status: 'ready' }], finance: { total_amount: 100, paid_amount: 0 } }), true, 'ready is the explicit Finance-passed state')
   assert.strictEqual(s.isFinancePassed({ items: [{ current_status: 'dispatched' }], finance: { total_amount: 100, paid_amount: 0 } }), true, 'post-dispatch rows must not turn the payment badge red again')
   assert.strictEqual(s.isFinancePassed({ items: [{ current_status: 'ready' }, { current_status: 'sent' }], finance: { total_amount: 100, paid_amount: 100 } }), false, 'every active Item must pass Finance')
-  assert.strictEqual(s.isFinancePassed({ items: [{ current_status: 'cancelled' }], finance: { total_amount: 100, paid_amount: 0 } }), false, 'terminal-only Orders fall back to payment evidence')
+  assert.strictEqual(s.isFinancePassed({ items: [{ current_status: 'cancelled' }], finance: { total_amount: 100, paid_amount: 0 } }), false, 'cancelled items are not Finance-passed evidence')
+  assert.strictEqual(s.isFinancePassed({ items: [{ current_status: 'cancelled' }], finance: { total_amount: 100, paid_amount: 100 } }), false, 'cancelling must not flip the Finance badge to paid')
+  assert.strictEqual(s.isFinancePassed({ items: [{ current_status: 'rejected' }], finance: { total_amount: 100, paid_amount: 100 } }), false, 'rejecting must not flip the Finance badge to paid')
 
   const reportRow = s.buildRow(order('ORD-PDF', 'CR', 'sent'))
   assert.strictEqual(s.orderReportReady(reportRow), true)
@@ -1551,10 +1641,13 @@ const flush = () => new Promise(resolve => setTimeout(resolve, 0))
   assert.strictEqual(p.limit, 30)
   assert(!('modality' in p), 'no modality key while Select all')
 
+  calls.length = 0
   s.loadOrders()
-  s.refreshCounts()
   await flush()
 
+  /* optimize 2026-10-18: Process ปัจจุบันคืน rows + split counts ในก้อนเดียว
+     จึงต้องยิงเพียงครั้งเดียว แต่ยังมี fallback เดิมสำหรับ Process รุ่นเก่า */
+  assert.strictEqual(calls.length, 1, 'current Process loads rows and all status counts in one request')
   assert.strictEqual(calls[0].id, TEST_PROCESS_ID, 'every call goes to the deployed Process ID')
   assert.strictEqual(s.view.rows.length, 4, 'Select all shows every order')
   assert.strictEqual(s.view.counts.all, 4)
@@ -1562,6 +1655,15 @@ const flush = () => new Promise(resolve => setTimeout(resolve, 0))
   assert.strictEqual(s.view.counts.pending, 1)
   assert.strictEqual(s.view.counts.complete, 1)
   assert.strictEqual(s.view.counts.cancelled, 1)
+
+  withSplitCounts = false
+  calls.length = 0
+  s.loadOrders()
+  await flush()
+  assert.strictEqual(calls.length, 6, 'legacy Process falls back to one row request plus five status counts')
+  assert.strictEqual(calls.filter(call => call.params.limit === 1).length, 5)
+  assert.deepStrictEqual(s.view.counts, { all: 4, waiting: 1, pending: 1, complete: 1, cancelled: 1 })
+  withSplitCounts = true
 
   /* API ตอบ success:true พร้อมเหตุผลได้ — ต้องเอาขึ้นจอ ไม่ใช่ปล่อยให้เห็นแค่ 'ไม่พบรายการ' */
   serverMessage = 'ยังไม่ได้กำหนดหน่วยงานรังสีใน Process — Organization ปัจจุบันคือ "M1001"'
@@ -1783,7 +1885,7 @@ const flush = () => new Promise(resolve => setTimeout(resolve, 0))
   assert.deepStrictEqual(s.radiologistOptions.map(x => x.value), ['พญ.กนกพร ชุติวงศ์ธนะพัฒน์'])
   assert.strictEqual(s.staffOptionsLoaded, true)
   const originalOrders = s.orders
-  s.orders = [{ order_id: 'ORD-RAD', items: [{ item_id: 'aaaaaaaaaaaaaaaaaaaaaaa9', current_status: 'sent' }] }]
+  s.orders = [{ order_id: 'ORD-RAD', can_action: true, items: [{ item_id: 'aaaaaaaaaaaaaaaaaaaaaaa9', current_status: 'sent' }] }]
   let radRow = s.buildRow(s.orders[0])
   assert.strictEqual(radRow.items[0].radiologist, '', 'ยังไม่เลือก = ว่าง')
   await s.setRadiologist(radRow, radRow.items[0], 'พญ.แพทย์ ภายนอก')
@@ -1805,6 +1907,7 @@ const flush = () => new Promise(resolve => setTimeout(resolve, 0))
   /* ออกผลแล้ว 1 + ยกเลิก 1 — สองขั้นแรกต้องเป็นเครื่องหมายถูกจากตัวที่ออกผล */
   const doneAndCancelled = s.buildRow({
     order_id: 'ORD-DONE-CANCEL',
+    can_action: true,
     items: [
       { item_id: 'D1', current_status: 'resulted', result_text: 'clear',
         dispatched_at: '2026-08-31T09:00:00+07:00', resulted_at: '2026-08-31T10:00:00+07:00' },
@@ -1817,7 +1920,7 @@ const flush = () => new Promise(resolve => setTimeout(resolve, 0))
   assert.strictEqual(doneAndCancelled.items[1].can_select, true, 'cancelled item can be checked')
   assert.strictEqual(doneAndCancelled.retest_ready, false, 'nothing checked cannot retest')
   s.toggleItem('D2')
-  const selectedRetest = s.buildRow({ order_id: 'ORD-DONE-CANCEL', items: [
+  const selectedRetest = s.buildRow({ order_id: 'ORD-DONE-CANCEL', can_action: true, items: [
     { item_id: 'D1', current_status: 'resulted' }, { item_id: 'D2', current_status: 'cancelled' },
   ] })
   assert.strictEqual(selectedRetest.retest_ready, true)
@@ -1825,7 +1928,7 @@ const flush = () => new Promise(resolve => setTimeout(resolve, 0))
   s.toggleItem('D2')
   s.toggleItem('D2')
   s.toggleItem('D3')
-  const mixedRetest = s.buildRow({ order_id: 'ORD-MIX-RETEST', items: [
+  const mixedRetest = s.buildRow({ order_id: 'ORD-MIX-RETEST', can_action: true, items: [
     { item_id: 'D2', current_status: 'cancelled' }, { item_id: 'D3', current_status: 'sent' },
   ] })
   assert.strictEqual(mixedRetest.retest_ready, false, 'mixed checked states cannot retest')
@@ -2293,15 +2396,15 @@ const flush = () => new Promise(resolve => setTimeout(resolve, 0))
   assert(notes[0].includes('RIS'), notes[0])
   assert(notes[0].includes('X9'), 'it names the open decision')
 
-  /* ── ตรวจใหม่: 2026-09-18 เลือก item ใน Order เดิมก่อน ไม่ขยาย scope โดยปริยาย ── */
+  /* ── ตรวจใหม่: เลือก item ใน Order เดิมก่อน; ไม่มีปุ่มลัดระดับ Order ── */
   {
     calls.length = 0
     notes.length = 0
-    await s.retestOrder({ id: 'ORD-1', order_no: 'R2609010003' })
+    await s.retestOrder({ id: 'ORD-1', can_action: true, order_no: 'R2609010003' })
     assert.strictEqual(calls.length, 0, 'missing selection must not call Process')
     assert(notes[0].includes('เลือกรายการ'))
     notes.length = 0
-    await s.retestOrder({ id: 'ORD-1', order_no: 'R2609010003', items: [
+    await s.retestOrder({ id: 'ORD-1', can_action: true, order_no: 'R2609010003', items: [
       { id: 'ITEM-A', selected: true, can_retest: true },
       { id: 'ITEM-B', selected: false, can_retest: true },
     ] })
@@ -2313,13 +2416,13 @@ const flush = () => new Promise(resolve => setTimeout(resolve, 0))
     assert.deepStrictEqual(call.params.item_ids, ['ITEM-A'], 'เลือก A ไม่ส่ง B')
     assert(!('accession_no' in call.params), 'ฟอร์มไม่ยุ่งกับเลข Accession เอง — server ล้างให้')
     calls.length = 0
-    await s.retestOrder({ id: 'ORD-1', items: [
+    await s.retestOrder({ id: 'ORD-1', can_action: true, items: [
       { id: 'ITEM-A', selected: true, can_retest: true },
       { id: 'ITEM-B', selected: true, can_retest: false },
     ] })
     assert.strictEqual(calls.length, 0, 'mixed selection is rejected')
     calls.length = 0
-    await s.retestOrder({ id: 'ORD-1', items: [
+    await s.retestOrder({ id: 'ORD-1', can_action: true, items: [
       { id: 'ITEM-A', selected: true, can_retest: true },
       { id: 'ITEM-B', selected: true, can_retest: true },
     ] })
@@ -2327,13 +2430,9 @@ const flush = () => new Promise(resolve => setTimeout(resolve, 0))
     calls.length = 0
     notes.length = 0
     retestReply = { success: true, data: { orders: [] } }
-    await s.retestOrder({ id: 'ORD-1', items: [{ id: 'ITEM-A', selected: true, can_retest: true }] })
+    await s.retestOrder({ id: 'ORD-1', can_action: true, items: [{ id: 'ITEM-A', selected: true, can_retest: true }] })
     assert(notes.some(note => note.includes('replace body')), 'old Process list response is rejected')
     retestReply = null
-    s.expanded = { ...s.expanded, 'ORD-RETEST': false }
-    s.openRetestSelection({ id: 'ORD-RETEST' })
-    assert.strictEqual(s.isExpanded('ORD-RETEST'), true, 'order row button opens items without API mutation')
-    assert.strictEqual(s.detailTab('ORD-RETEST'), 'order')
   }
 
   /* ── ส่งเข้าเครื่อง — Process ที่ deploy แล้ว ────────────────────────── */
@@ -2342,12 +2441,12 @@ const flush = () => new Promise(resolve => setTimeout(resolve, 0))
   /* ไม่ติ๊กอะไรเลย = ห้ามยิง และห้ามเดาว่าหมายถึงทั้งใบ */
   notes.length = 0
   calls.length = 0
-  await w.dispatchOrder({ id: 'ORD-1', items: [{ id: 'ITEM-A', selected: false }] })
+  await w.dispatchOrder({ id: 'ORD-1', can_action: true, items: [{ id: 'ITEM-A', selected: false }] })
   assert.strictEqual(calls.length, 0, 'nothing ticked ⇒ nothing sent')
   assert(notes[0].includes('เลือกรายการ'), 'and the form asks the user to make a selection')
 
   calls.length = 0
-  await w.dispatchOrder({ id: 'ORD-1', items: [{ id: 'ITEM-A', selected: true, can_retest: true }] })
+  await w.dispatchOrder({ id: 'ORD-1', can_action: true, items: [{ id: 'ITEM-A', selected: true, can_retest: true }] })
   assert.strictEqual(calls.length, 0, 'selected cancelled item cannot be dispatched')
 
   /* เปลี่ยนตามคำสั่งผู้ใช้ 2026-09-03: ติ๊กหลายรายการแล้วปุ่มเดียวเรียก Process เดิม
@@ -2357,6 +2456,7 @@ const flush = () => new Promise(resolve => setTimeout(resolve, 0))
   dispatchReply = { success: true, accession_no: 'SM20260901CT001', transport: { status: 'ok' }, message: 'ส่งเข้าเครื่องแล้ว' }
   await w.dispatchOrder({
     id: 'ORD-1',
+    can_action: true,
     items: [{ id: 'ITEM-A', selected: true }, { id: 'ITEM-C', selected: true }],
   })
   const multiDispatchCalls = calls.filter(call => call.id === DISPATCH_PROCESS_ID)
@@ -2373,6 +2473,7 @@ const flush = () => new Promise(resolve => setTimeout(resolve, 0))
   dispatchReply = { success: true, accession_no: 'SM20260901CT001', transport: { status: 'ok' }, message: 'ส่งเข้าเครื่องแล้ว · Accession No. SM20260901CT001' }
   const rowWithSelection = {
     id: 'ORD-1',
+    can_action: true,
     items: [
       { id: 'ITEM-A', selected: true },
       { id: 'ITEM-B', selected: false },
@@ -2422,15 +2523,23 @@ const flush = () => new Promise(resolve => setTimeout(resolve, 0))
 
   /* คลิกพื้นที่ว่างในแถว order เปิด/ย่อได้ทั้งแถว แต่ control ภายในยังทำงานของตัวเอง */
   w.expanded = {}
-  w.selected = { 'ITEM-A': true }
+  w.selected = {}
+  const originalRecompute = w.recompute
+  let toggleRecomputeCalls = 0
+  w.recompute = () => { toggleRecomputeCalls++; originalRecompute() }
   w.toggleOrderFromRow({ id: 'ORD-ROW' }, plainClick)
   assert.strictEqual(w.expanded['ORD-ROW'], true, 'clicking the order row opens its detail')
-  assert.deepStrictEqual(w.selected, {}, 'opening or closing an order keeps the existing selection-safety rule')
-  const orderButtonClick = { target: { closest: selector => (selector.includes('button') ? {} : null) } }
-  w.toggleOrderFromRow({ id: 'ORD-ROW' }, orderButtonClick)
-  assert.strictEqual(w.expanded['ORD-ROW'], true, 'buttons inside the order row must not toggle it again')
+  assert.strictEqual(toggleRecomputeCalls, 0, 'expanding without a selection does not rebuild every row')
+  w.selected = { 'ITEM-A': true }
+  toggleRecomputeCalls = 0
   w.toggleOrderFromRow({ id: 'ORD-ROW' }, plainClick)
   assert.strictEqual(w.expanded['ORD-ROW'], false, 'clicking the row again closes its detail')
+  assert.deepStrictEqual(w.selected, {}, 'opening or closing an order keeps the existing selection-safety rule')
+  assert.strictEqual(toggleRecomputeCalls, 1, 'closing with a selection still rebuilds action state exactly once')
+  const orderButtonClick = { target: { closest: selector => (selector.includes('button') ? {} : null) } }
+  w.toggleOrderFromRow({ id: 'ORD-ROW' }, orderButtonClick)
+  assert.strictEqual(w.expanded['ORD-ROW'], false, 'buttons inside the order row must not toggle it again')
+  w.recompute = originalRecompute
 
   w.selectRow(selectable, plainClick)
   assert.strictEqual(w.selected['ITEM-A'], true, 'clicking the row picks it')
@@ -2502,9 +2611,8 @@ const flush = () => new Promise(resolve => setTimeout(resolve, 0))
     assert.strictEqual(s.scannedHn, '6900002', 'only the digits survive')
     assert.strictEqual(s.filters.q, '', 'the old keyword is cleared so the two do not fight')
 
-    /* ทุกคำขอ — ทั้งตารางและ chip — ต้องพก hn และต้องไม่มีวันที่/คำค้น
-       ถ้า chip ยังกรองวันที่อยู่ ตัวเลขจะไม่ตรงกับตารางอีก */
-    assert(calls.length >= 2, 'rows and chip counts both reload')
+    /* Process ปัจจุบันคืนตารางและ chip ในคำขอเดียว; ทุก scope ต้องยังตรงกัน */
+    assert.strictEqual(calls.length, 1, 'rows and chip counts reload together')
     assert(calls.every(c => c.params.hn === '6900002'), 'every request carries the scanned HN')
     assert(calls.every(c => !('date_from' in c.params) && !('date_to' in c.params)), 'no date scope while scanning')
     assert(calls.every(c => !('q' in c.params)), 'no keyword while scanning')
@@ -2539,7 +2647,8 @@ const flush = () => new Promise(resolve => setTimeout(resolve, 0))
     await flush()
     assert.strictEqual(s.scanType, 'citizen_id')
     assert.strictEqual(s.scannedHn, '')
-    assert(calls.length >= 2 && calls.every(c => c.params.citizen_id === '1234567890123'))
+    assert.strictEqual(calls.length, 1, 'citizen ID reload also receives rows and counts together')
+    assert(calls.every(c => c.params.citizen_id === '1234567890123'))
     assert(calls.every(c => !('hn' in c.params) && !('q' in c.params)),
       'citizen ID scans must not be sent as HN or ordinary text')
     assert(notes.some(note => note.includes('เลขบัตรประชาชน') && note.includes('0123')))
@@ -2665,6 +2774,7 @@ const flush = () => new Promise(resolve => setTimeout(resolve, 0))
     w.selected = { I1: true }
     const repeated = w.buildRow({
       order_id: 'ORD-RES',
+      can_action: true,
       items: [{
         item_id: 'I1', item_name: 'Chest PA', item_code: 'XR-CHEST',
         modality: { code: 'DX', label: 'DX-Digital Radiography' },
@@ -2686,6 +2796,7 @@ const flush = () => new Promise(resolve => setTimeout(resolve, 0))
     w.selected = { I9: true }
     const fresh = w.buildRow({
       order_id: 'ORD-NEW',
+      can_action: true,
       items: [{ item_id: 'I9', item_name: 'Neck AP', current_status: 'sent',
         modality: { code: 'DX', label: 'DX' } }],
     })
@@ -2698,34 +2809,38 @@ const flush = () => new Promise(resolve => setTimeout(resolve, 0))
      ที่ออกผลแล้วไม่ต้องขวาง item ที่เลือก และยังใช้ Process worklist เดิม */
   {
     w.selected = { 'ITEM-RIS': true }
-    const sentToRis = w.buildRow({ order_id: 'ORD-RIS', items: [{ item_id: 'ITEM-RIS',
+    const sentToRis = w.buildRow({ order_id: 'ORD-RIS', can_action: true, items: [{ item_id: 'ITEM-RIS',
       item_name: 'Chest PA', current_status: 'dispatched', accession_no: 'SM20260901DX001' }] })
     assert.strictEqual(sentToRis.can_cancel, true)
-    const mixed = w.buildRow({ order_id: 'ORD-MIX', items: [
+    const mixed = w.buildRow({ order_id: 'ORD-MIX', can_action: true, items: [
       { item_id: 'ITEM-RIS', item_name: 'Chest PA', current_status: 'dispatched', accession_no: 'SM20260901DX001' },
       { item_id: 'ITEM-RESULT', item_name: 'CT', current_status: 'resulted', accession_no: 'SM20260901CT001' },
     ] })
     assert.strictEqual(mixed.can_cancel, true, 'resulted sibling does not block selected pre-result item')
     w.selected = { 'ITEM-RESULT': true }
-    const resulted = w.buildRow({ order_id: 'ORD-RESULT', items: [{ item_id: 'ITEM-RESULT',
+    const resulted = w.buildRow({ order_id: 'ORD-RESULT', can_action: true, items: [{ item_id: 'ITEM-RESULT',
       item_name: 'Chest PA', current_status: 'resulted', accession_no: 'SM20260901DX002' }] })
     assert.strictEqual(resulted.can_cancel, false)
     w.selected = {}
-    assert.strictEqual(w.buildRow({ order_id: 'ORD-RIS', items: [{ item_id: 'ITEM-RIS',
+    assert.strictEqual(w.buildRow({ order_id: 'ORD-RIS', can_action: true, items: [{ item_id: 'ITEM-RIS',
       current_status: 'dispatched', accession_no: 'SM20260901DX001' }] }).can_cancel, false,
     'empty selection disables cancellation')
   }
   notes.length = 0
   calls.length = 0
-  w.openCancelOrder({ id: 'ORD-1', order_no: 'R2609010003', can_cancel: false, cancel_hint: 'มีรายการที่ออกเลขแล้ว' })
+  await w.openCancelOrder({ id: 'ORD-1', can_action: true, order_no: 'R2609010003', can_cancel: false, cancel_hint: 'มีรายการที่ออกเลขแล้ว' })
   assert.strictEqual(w.cancelDialog.visible, false, 'an ineligible order must not open the dialog')
   assert(notes[0].includes('ออกเลข'), 'and it says why: ' + notes[0])
 
-  w.openCancelOrder({ id: 'ORD-1', order_no: 'R2609010003', can_cancel: true,
+  await w.openCancelOrder({ id: 'ORD-1', can_action: true, order_no: 'R2609010003', can_cancel: true,
     items: [{ id: 'ITEM-ORD-1', name: 'Chest PA', selected: true }] })
   assert.strictEqual(w.cancelDialog.visible, true)
   assert.strictEqual(w.cancelDialog.order_no, 'R2609010003')
   assert.deepStrictEqual(w.cancelDialog.item_ids, ['ITEM-ORD-1'])
+  assert.strictEqual(w.cancelDialog.financeChecked, true)
+  assert.strictEqual(w.cancelDialog.canCancel, true)
+  assert.strictEqual(w.cancelDialog.reasonLoading, false)
+  assert.strictEqual(w.cancelDialog.reason_options.length, 4)
 
   /* เหตุผลว่าง = ห้ามยิง */
   notes.length = 0
@@ -2734,8 +2849,10 @@ const flush = () => new Promise(resolve => setTimeout(resolve, 0))
   assert.strictEqual(calls.length, 0, 'an empty reason must not reach the API')
   assert(notes[0].includes('เหตุผล'))
 
-  w.setCancelReason('  แพทย์ยกเลิกคำสั่ง  ')
-  assert.strictEqual(w.cancelDialog.reason, 'แพทย์ยกเลิกคำสั่ง', 'the reason is trimmed')
+  w.setCancelReasonCode('PHYSICIAN_CANCELLED')
+  w.setCancelReasonDetail('  ตามคำสั่งแพทย์  ')
+  assert.strictEqual(w.cancelDialog.reason_label, 'แพทย์ยกเลิกคำสั่ง')
+  assert.strictEqual(w.cancelDialog.reason_detail, 'ตามคำสั่งแพทย์', 'the detail is trimmed')
 
   notes.length = 0
   calls.length = 0
@@ -2747,15 +2864,17 @@ const flush = () => new Promise(resolve => setTimeout(resolve, 0))
   assert.strictEqual(cancelCall.params.order_id, 'ORD-1')
   assert.strictEqual(cancelCall.params.order_number, 'R2609010003')
   assert.deepStrictEqual(cancelCall.params.item_ids, ['ITEM-ORD-1'])
-  assert.strictEqual(cancelCall.params.cancel_reason, 'แพทย์ยกเลิกคำสั่ง')
+  assert.strictEqual(cancelCall.params.cancel_reason, 'แพทย์ยกเลิกคำสั่ง — ตามคำสั่งแพทย์')
+  assert.strictEqual(cancelCall.params.cancel_reason_code, 'PHYSICIAN_CANCELLED')
+  assert.strictEqual(cancelCall.params.cancel_reason_detail, 'ตามคำสั่งแพทย์')
   assert.strictEqual(w.cancelDialog.visible, false, 'a successful cancel closes the dialog')
   assert(notes.some(note => note.includes('ยกเลิก Order แล้ว')))
 
   /* API Order รับแล้วแต่ RIS ยัง 401: ปิด dialog และแสดงคำเตือน upstream */
   notes.length = 0
-  w.openCancelOrder({ id: 'ORD-1', order_no: 'R2609010003', can_cancel: true,
+  await w.openCancelOrder({ id: 'ORD-1', can_action: true, order_no: 'R2609010003', can_cancel: true,
     items: [{ id: 'ITEM-ORD-1', name: 'Chest PA', selected: true }] })
-  w.setCancelReason('แพทย์ยกเลิก')
+  w.setCancelReasonCode('PHYSICIAN_CANCELLED')
   cancelReply = { success: true, data: { upstream_delivery_issue: true },
     message: 'ยกเลิกแล้ว · API Order รับคำขอแล้ว แต่ RIS ยัง HTTP 401' }
   await w.submitCancelOrder()
@@ -2764,27 +2883,31 @@ const flush = () => new Promise(resolve => setTimeout(resolve, 0))
 
   /* server ปฏิเสธ = dialog ต้องเปิดค้างไว้พร้อมเหตุผล ผู้ใช้จะได้ไม่ต้องพิมพ์ใหม่ */
   notes.length = 0
-  w.openCancelOrder({ id: 'ORD-1', order_no: 'R2609010003', can_cancel: true,
+  await w.openCancelOrder({ id: 'ORD-1', can_action: true, order_no: 'R2609010003', can_cancel: true,
     items: [{ id: 'ITEM-ORD-1', name: 'Chest PA', selected: true }] })
-  w.setCancelReason('สั่งผิดคน')
+  w.setCancelReasonCode('WRONG_PATIENT')
   cancelReply = { success: false, message: 'รายการ RD015 ออกเลข Accession SM20260901DX001 และส่งเข้า RIS ไปแล้ว' }
   await w.submitCancelOrder()
   assert.strictEqual(w.cancelDialog.visible, true, 'a refused cancel keeps the dialog open')
   assert.strictEqual(w.cancelDialog.loading, false)
-  assert.strictEqual(w.cancelDialog.reason, 'สั่งผิดคน', 'and keeps what the user typed')
+  assert.strictEqual(w.cancelDialog.reason_label, 'สั่งผิดคน', 'and keeps the selected master reason')
   assert(notes.some(note => note.includes('SM20260901DX001')), 'the real reason reaches the user')
-  w.cancelDialog = { visible: false, loading: false, order_id: '', order_no: '', item_ids: [], item_names: [], reason: '' }
+  w.cancelDialog = w.emptyCancelDialog()
 
   /* ── ปฏิเสธระดับ item ────────────────────────────────────────────────
-     Process/ฟอร์มยังไม่ได้ deploy ⇒ ต้องบอกสาเหตุตรง ๆ ห้ามเงียบและห้ามยิง */
+     Process/ฟอร์มมี ID จริงแล้ว ⇒ ต้องเปิดฟอร์มหลักฐานก่อนเรียก Process */
   notes.length = 0
   calls.length = 0
-  w.rejectSelected({ id: 'ORD-1', selected_item_id: 'ITEM-A', items: [{ id: 'ITEM-A', can_reject: true }] })
-  assert.strictEqual(calls.length, 0, 'an unconfigured reject must not call anything')
-  assert(notes[0].includes('xray-cpoe-reject'), 'and it names what is missing: ' + notes[0])
+  const openedBeforeReject = opened.length
+  await w.rejectSelected({ id: 'ORD-1', can_action: true, order_no: 'R2609010003', hn: '6900001', name: 'น.ส. ดำ ใจดี',
+    items: [{ id: 'ITEM-A', name: 'Chest PA', code: 'RD001', modality: 'DX', can_reject: true }],
+    selected_item_id: 'ITEM-A' })
+  assert.strictEqual(opened.length, openedBeforeReject + 1, 'reject must open the evidence form')
+  assert.strictEqual(opened.at(-1)[0], '6ad4ace5481c196fbb338fe4')
+  assert.strictEqual(opened.at(-1)[4].params.reason_options.length, 4)
 
   notes.length = 0
-  w.rejectSelected({ id: 'ORD-1', selected_item_id: '', items: [] })
+  w.rejectSelected({ id: 'ORD-1', can_action: true, selected_item_id: '', items: [] })
   assert(notes[0].includes('1 รายการ'), 'no pick ⇒ ask for exactly one')
 
   /* รับไว้แล้วแต่ RIS ไม่รับ — ต้องเตือน ไม่ใช่บอกว่าสำเร็จ */
@@ -2860,31 +2983,37 @@ const flush = () => new Promise(resolve => setTimeout(resolve, 0))
   /* deep link */
   s.resetScan()
   s.filters = { ...s.filters, q: '' }
+  const createOrderOpenIndex = opened.length
   await s.openCreateOrder()
   /* ปุ่ม "สร้างรายการใหม่" เปิดฟอร์มตาม CPOE_ORDER_APP_ID ที่ generate มา — ตั้งค่าได้ด้วย env
      XRAY_CPOE_ORDER_APP_ID เพื่อสลับไปฟอร์มโคลนที่มีช่องเลือก VN (ผู้ใช้ขอ 2026-09-03)
      เทสไม่ผูกกับเลขตายตัว ไม่งั้นวันที่สลับฟอร์ม เทสจะแดงทั้งที่ตั้งใจเปลี่ยน */
   const cpoeAppId = (widget.onCreated.match(/const CPOE_ORDER_APP_ID='([a-f0-9]{24})'/) || [])[1]
   assert(cpoeAppId, 'ปุ่มต้องถือ Form ID 24 ตัวอักษรเสมอ — ว่างแล้วกดไม่เกิดอะไร')
-  assert.strictEqual(opened[0][0], cpoeAppId)
-  assert.strictEqual(opened[0][4].params.source, 'xray-worklist')
+  assert.strictEqual(opened[createOrderOpenIndex][0], cpoeAppId)
+  assert.strictEqual(opened[createOrderOpenIndex][4].params.source, 'xray-worklist')
+  assert.strictEqual(opened[createOrderOpenIndex][4].params.xray_scope, true)
+  assert.strictEqual(opened[createOrderOpenIndex][4].params.order_id, undefined, 'Create New must never reopen the parent Order')
+  assert.strictEqual(opened[createOrderOpenIndex][4].params.xsitex, 'SITE-1', 'non-Order host context remains intact')
+  assert.strictEqual(typeof opened[createOrderOpenIndex][4].params.on_order_sent, 'function')
   /* ฟอร์มโคลนใช้ค่านี้เลือกโหมด — ขาดไปจะกลายเป็นจอที่ไม่มีคนไข้และเลือก VN ไม่ได้ */
-  assert.strictEqual(opened[0][4].params.manual_visit, true)
+  assert.strictEqual(opened[createOrderOpenIndex][4].params.manual_visit, true)
   /* EMR History — ทรงเดียวกับ LAB ที่ใช้งานได้จริง (ผู้ใช้ยืนยัน 2026-09-01)
      arg ที่ 3 ต้องเป็น '' · visit_id เดินทางไปทาง params ไม่ใช่ dataId */
   s.openEmr({ emr: { visit_id: 'VISIT-ORD-1' } })
-  assert.strictEqual(opened[1][0], '6a96557e422c1ca959829eae', 'the EMR History form')
-  assert.strictEqual(opened[1][2], '', 'visit_id must not be passed as the dataId')
-  assert.strictEqual(opened[1][4].params.visit_id, 'VISIT-ORD-1')
-  assert.strictEqual(opened[1][4].params.source, 'xray-worklist')
-  assert.strictEqual(opened[1][4].params.xray_deep_link, true)
-  assert.strictEqual(opened[1][4].readonly, true)
-  assert.strictEqual(opened[1][4].popupType, 'dialog')
+  const emrOpen = opened[createOrderOpenIndex + 1]
+  assert.strictEqual(emrOpen[0], '6a96557e422c1ca959829eae', 'the EMR History form')
+  assert.strictEqual(emrOpen[2], '', 'visit_id must not be passed as the dataId')
+  assert.strictEqual(emrOpen[4].params.visit_id, 'VISIT-ORD-1')
+  assert.strictEqual(emrOpen[4].params.source, 'xray-worklist')
+  assert.strictEqual(emrOpen[4].params.xray_deep_link, true)
+  assert.strictEqual(emrOpen[4].readonly, true)
+  assert.strictEqual(emrOpen[4].popupType, 'dialog')
 
   /* ไม่มี Visit ID = ไม่เปิด แล้วบอกเหตุผล */
   notes.length = 0
   s.openEmr({ emr: {} })
-  assert.strictEqual(opened.length, 2, 'nothing opens without a visit')
+  assert.strictEqual(opened.length, createOrderOpenIndex + 2, 'nothing opens without a visit')
   assert(notes[0].includes('EMR History'))
 
   /* เพิ่มบริบท HN แบบ LAB โดยคงทางเปิด manual เดิมไว้เมื่อไม่มี HN */
@@ -2895,7 +3024,7 @@ const flush = () => new Promise(resolve => setTimeout(resolve, 0))
   } } }
   s.filters = { ...s.filters, q: 'HN 6900040' }
   await s.openCreateOrder()
-  const typedOpen = opened[2]
+  const typedOpen = opened[createOrderOpenIndex + 2]
   assert.strictEqual(typedOpen[4].params.xsitex, 'SITE-1')
   assert.strictEqual(typedOpen[3], null, 'patient context travels in params')
   assert.strictEqual(typedOpen[4].params.hn, '6900040')
@@ -2907,17 +3036,17 @@ const flush = () => new Promise(resolve => setTimeout(resolve, 0))
 
   s.scanPatientHn('6900040')
   await s.openCreateOrder()
-  assert.strictEqual(opened[3][4].params.hn, '6900040', 'scanned HN uses the same Visit')
+  assert.strictEqual(opened[createOrderOpenIndex + 3][4].params.hn, '6900040', 'scanned HN uses the same Visit')
   s.scanPatientHn('1234567890123')
   await s.openCreateOrder()
-  assert.strictEqual(opened[4][4].params.hn, '6900040', 'citizen scan resolves HN before opening')
+  assert.strictEqual(opened[createOrderOpenIndex + 4][4].params.hn, '6900040', 'citizen scan resolves HN before opening')
   assert(calls.some(c => c.params.action === 'resolve_open_visit' && c.params.citizen_id === '1234567890123'))
 
   openVisitReply = { success: true, data: { hn: '6900999', visit: null } }
   s.resetScan()
   s.filters = { ...s.filters, q: '6900999' }
   await s.openCreateOrder()
-  assert.strictEqual(opened.length, 5, 'no open VN must not launch CPOE')
+  assert.strictEqual(opened.length, createOrderOpenIndex + 5, 'no open VN must not launch CPOE')
   // 2026-09-17: this specific warning uses a compact in-form banner because the
   // initCraft notify wrapper renders its numeric duration as a visible heading.
   assert.strictEqual(s.createOrderNotice, 'HN 6900999 ยังไม่ได้เปิด VN วันนี้')
@@ -2932,11 +3061,11 @@ const flush = () => new Promise(resolve => setTimeout(resolve, 0))
   assert.strictEqual(s.createOrderLoading, false)
   openVisitReply = { success: true, data: { orders: [] } }
   await s.openCreateOrder()
-  assert.strictEqual(opened.length, 5, 'old Process must not open CPOE with missing patient context')
+  assert.strictEqual(opened.length, createOrderOpenIndex + 5, 'old Process must not open CPOE with missing patient context')
   assert(notes.some(n => n.includes('resolve_open_visit') && n.includes('replace body')))
   s.filters = { ...s.filters, q: 'ชื่อผู้ป่วย' }
   await s.openCreateOrder()
-  assert.strictEqual(opened[5][4].params.manual_visit, true, 'other searches retain the VN picker')
+  assert.strictEqual(opened[createOrderOpenIndex + 5][4].params.manual_visit, true, 'other searches retain the VN picker')
 
   /* ถ้า Process ID ถูกล้างออก ฟอร์มต้องเตือน ไม่ใช่หมุนค้าง */
   const blank = { vueState: {}, globalUserState: { user: { unit: { code: '10' } }, runProcess }, getFormRef: () => ({}), notify: () => {} }
@@ -3013,48 +3142,61 @@ assert(widget.onCreated.includes('p.visit_id=s.focusVisitId'), 'focus mode filte
 assert(widget.onCreated.includes('s.focusVisit='))
 assert(widget.onCreated.includes('s.clearFocusVisit='), 'the user can always get back to the full list')
 assert(widget.content.includes('clearFocusVisit'), 'and the banner exposes that escape hatch')
+/* 2026-10-18: ผู้ใช้สั่งตัด VN/วันที่/เพศ/อายุ/เลือด/โทรศัพท์ออกจากแบนเนอร์คิว */
+assert(widget.content.includes("HN{{ focusVisitHn || '-' }}"), 'the queue banner shows HN')
+assert(widget.content.includes("{{ focusVisitPatientName || '' }}"), 'the queue banner shows the patient name')
+assert(!widget.content.includes("VN {{ focusVisitVn || '-' }}"), 'the queue banner no longer renders the verbose VN label')
+assert(widget.onMounted.includes('s.focusVisitHn=s.text(pending.hn)'), 'the lazy-mounted worklist keeps the queue HN')
+assert(widget.onMounted.includes('s.focusVisitPatientName=s.text(pending.patient_name)'), 'and keeps the queue patient name')
 /* โหลดครั้งแรกของ deep link ต้องยิงรอบเดียว — ไม่ใช่โหลดทั้งหมดก่อนแล้วโหลดซ้ำ */
-assert(widget.onMounted.includes('if(s.__initialLoadStarted){s.loadOrders();s.refreshCounts();}'))
+assert(widget.onMounted.includes('if(s.__initialLoadStarted)s.loadOrders();'))
+assert(widget.onCreated.includes('if(!countsReady)s.refreshCounts();'), 'legacy Process keeps the split-count fallback')
 
 /* สแกน HN ต้องใช้ได้จากทุกแท็บ — ต้องสลับมาแท็บ X-ray ก่อนเรียก widget ที่ lazy mount */
 const scanHandler = form.fields[1].options.onScan
 assert(scanHandler.includes("getFieldRef('xray_app')"), 'the scanner switches tabs before reaching the worklist')
 assert(scanHandler.includes("tab.activeTabName='xray_tab_worklist'"))
 assert(scanHandler.includes('state.scanPatientHn(raw)'), 'and still hands the raw code to the worklist')
-/* เครื่องสแกนฟังทั้ง document: หากเคอร์เซอร์อยู่ใน Search ห้ามแย่งเลข 13 หลักไปเป็น HN */
+/* เครื่องสแกนฟังทั้ง document: LAB setSearch เป็นเจ้าของค่าที่พิมพ์/วาง และ marker
+   ต้องเป็น one-shot เพื่อให้สแกนจริงครั้งถัดไปนอก LAB ยังเข้า X-ray ตามเดิม */
 {
-  const originalDocument = globalThis.document
   const tab = { activeTabName: 'xray_tab_worklist' }
+  const runtimeForm = {
+    showPopupFlag: false,
+    $xraySearchOwner: '',
+    $xraySearchValue: '',
+    $xraySearchOwnerAt: 0,
+    getFieldRef: name => name === 'xray_cpoe_worklist'
+      ? { vueState: s }
+      : (name === 'xray_app' ? tab : null),
+  }
   const scanner = new Function('value', scanHandler)
   const scannerContext = {
-    getFormRef: () => ({
-      showPopupFlag: false,
-      getFieldRef: name => name === 'xray_cpoe_worklist' ? { vueState: s } : (name === 'xray_app' ? tab : null),
-    }),
+    getFormRef: () => runtimeForm,
     notify: message => notes.push(message),
   }
-  try {
-    globalThis.document = { activeElement: { value: '1234567890123', closest: selector => selector === '.xray-cpoe .xr-search-control' ? {} : null } }
-    calls.length = 0
-    scanner.call(scannerContext, '12345678901235')
-    await flush()
-    assert.strictEqual(s.scanMode, false, 'a focused Search field must stay out of scan mode')
-    assert.strictEqual(s.filters.q, '1234567890123', 'the visible input wins if the scanner buffer contains an extra key')
-    assert(calls.length > 0 && calls.every(call => call.params.q === '1234567890123' && !('hn' in call.params)),
-      'the scanner callback must route focused input through the ordinary Search request')
+  tab.activeTabName = 'xray_tab_lab_lookup'
+  runtimeForm.$xraySearchOwner = 'lab'
+  runtimeForm.$xraySearchValue = '6900031'
+  runtimeForm.$xraySearchOwnerAt = Date.now()
+  calls.length = 0
+  scanner.call(scannerContext, '6900031')
+  await flush()
+  assert.strictEqual(calls.length, 0, 'LAB input must never call the X-ray worklist Process')
+  assert.strictEqual(s.scanMode, false, 'LAB input must never enter X-ray scan mode')
+  assert.strictEqual(tab.activeTabName, 'xray_tab_lab_lookup', 'LAB input must never switch tabs')
+  assert.strictEqual(runtimeForm.$xraySearchOwner, '', 'the LAB ownership marker is consumed once')
 
-    globalThis.document = { activeElement: { closest: () => null } }
-    calls.length = 0
-    scanner.call(scannerContext, '6900002')
-    await flush()
-    assert.strictEqual(s.scanMode, true, 'a scan outside Search still uses the HN scan flow')
-    assert(calls.length > 0 && calls.every(call => call.params.hn === '6900002'))
-    s.clearScan()
-    await flush()
-    s.setSearch('')
-  } finally {
-    globalThis.document = originalDocument
-  }
+  tab.activeTabName = 'xray_tab_lab_lookup'
+  calls.length = 0
+  scanner.call(scannerContext, '6900002')
+  await flush()
+  assert.strictEqual(tab.activeTabName, 'xray_tab_worklist', 'the next real scan outside LAB still opens the X-ray worklist')
+  assert.strictEqual(s.scanMode, true, 'the next real scan outside LAB still uses the HN scan flow')
+  assert(calls.length > 0 && calls.every(call => call.params.hn === '6900002'))
+  s.clearScan()
+  await flush()
+  s.setSearch('')
 }
 
 
@@ -3129,7 +3271,9 @@ assert.strictEqual(nativeUnitList.options.formId, '6a461235e521219e514d1c4b')
 assert(nativeUnitList.options.where.includes("COALESCE(`room_to.value`, 'FRONT')"))
 assert(nativeRoomList.options.where.includes("CASE WHEN :xroom_codex = '__NONE__' THEN 'FRONT' ELSE :xroom_codex END"))
 assert(nativeDoneList.options.where.includes("vtran_status = 'done'"))
-assert.deepStrictEqual(nativeUnitList.options.buttonsRow.map(button => button.label), ['เรียก', 'ซักประวัติ', 'ย้ายห้อง', 'ส่งต่อ'])
+/* 2026-10-18: ผู้ใช้สั่งลบ action “ซักประวัติ” ออกจาก X-ray Unit Queue;
+   ตรึง action ที่เหลือและลำดับเดิมแบบ exact เพื่อกัน regression */
+assert.deepStrictEqual(nativeUnitList.options.buttonsRow.map(button => button.label), ['เรียก', 'ย้ายห้อง', 'ส่งต่อ'])
 /* 2026-10-15: เปลี่ยนตามคำสั่งผู้ใช้และภาพ My Room — ลบเฉพาะ “ซักประวัติ”
    โดยตรึง action ที่เหลือแบบ exact เพื่อไม่ให้ปุ่มอื่นหายหรือสลับลำดับ */
 assert.deepStrictEqual(nativeRoomList.options.buttonsRow.map(button => button.label), ['X-ray', 'ข้าม/เรียกกลับ', 'ย้ายห้อง', 'ส่งต่อ'])
@@ -3218,6 +3362,11 @@ assert(
   'a malformed id fails at generate time, not silently inside the form',
 )
 assert(!widget.content.includes('v-if="item.can_contrast"'), 'the button is never hidden per row')
+const contrastHandler = widget.onCreated.slice(
+  widget.onCreated.indexOf('s.openContrastRecord='),
+  widget.onCreated.indexOf('s.createOrderTarget=', widget.onCreated.indexOf('s.openContrastRecord=')),
+)
+assert(!contrastHandler.includes('guardRowAction'), 'contrast recording remains freestyle and is not unit-locked')
 
 /* 🔴 ของเดิมในแถว item ต้องอยู่ครบเท่าเดิม */
 assert(widget.content.includes(':title="item.sticker_hint">สติ๊กเกอร์ HN</el-button>'), 'the sticker button is untouched')
@@ -3231,10 +3380,16 @@ assert.strictEqual(plainItem.contrast_label, '', 'no payload means no chip — n
 assert.strictEqual(plainItem.contrast_hint, s.contrastHint)
 const cmItem = s.buildItem({}, {
   item_id: 'IT-CM', item_name: 'CT Whole Abdomen', item_code: 'CTA001',
-  contrast: { brand: 'Iohexol 350', volume_ml: 80, used_at: '2026-09-23T09:40:00+07:00', recorded_by: 'นาย ก.' },
+  contrast: { record_id: 'CM-RECORD-1', brand: 'Iohexol 350', volume_ml: 80, used_at: '2026-09-23T09:40:00+07:00', recorded_by: 'นาย ก.' },
 })
 assert.strictEqual(cmItem.contrast_label, 'Iohexol 350 · 80 ml', 'the chip shows brand and volume')
-assert(cmItem.contrast_title.includes('กดเพื่อแก้ไข'))
+assert(cmItem.contrast_title.includes('แก้ไข'), 'the saved chip explains that the existing record can be edited')
+assert(!cmItem.contrast_title.includes('อ่านอย่างเดียว'))
+assert.strictEqual(cmItem.contrast_record_id, 'CM-RECORD-1', 'the saved record id reaches the chip handler')
+const typeOnlyItem = s.buildItem({}, {
+  item_id: 'IT-TYPE', contrast: { record_id: 'CM-RECORD-2', types: ['barium_sulphate'], volume_ml: 3 },
+})
+assert.strictEqual(typeOnlyItem.contrast_label, 'Barium Sulphate · 3 ml', 'a stored type supplies the label when brand is empty')
 /* ทรงแบนก็ต้องอ่านได้ เผื่อ API รุ่นแรกคืนคีย์แบบนี้ */
 const flatItem = s.buildItem({}, { item_id: 'IT-FLAT', contrast_brand: 'Omnipaque', contrast_volume_ml: 50 })
 assert.strictEqual(flatItem.contrast_label, 'Omnipaque · 50 ml')
@@ -3251,7 +3406,8 @@ s.openContrastRecord(
 )
 const cmOpen = opened[opened.length - 1]
 assert.strictEqual(cmOpen[0], contrastFormId, 'the button opens the contrast form')
-assert.strictEqual(cmOpen[2], '', 'the item id must never travel as the dataId')
+assert.strictEqual(cmOpen[1], null, 'a new record uses null dataId and does not create a blank saved row on open')
+assert.strictEqual(cmOpen[2], '', 'the item id must never travel as the parentId')
 /* 🔴 แก้ assertion 2026-09-23 ตามคำสั่งผู้ใช้ ("ควรเพิ่ม field เก็บไว้ที่ฟอร์มสารทึบ")
    ของเดิมล็อกไว้ 3 คีย์ เพราะตอนนั้นฟอร์มสารทึบยังไม่มีช่องรับตัวระบุรายการ
    ตอนนี้มีการ์ด cmr_link แล้ว ⇒ ตัวระบุต้องไปทาง initData ไม่ใช่ params
@@ -3291,6 +3447,45 @@ assert.strictEqual(cmOpen[4].params.modality, 'CT')
 assert.strictEqual(cmOpen[4].params.visit_id, 'VISIT-CM')
 assert.strictEqual(cmOpen[4].params.source, 'xray-worklist')
 assert.strictEqual(cmOpen[4].params.xsitex, 'SITE-1', 'host form params are carried through, like every other button')
+assert.strictEqual(cmOpen[4].readonly, undefined, 'the new-record form remains editable')
+assert.strictEqual(typeof cmOpen[4].afterSaveCallback, 'function', 'saving a new record reloads the worklist so the chip appears')
+/* autoSave เป็นการบันทึกเบื้องหลัง ห้ามปิดใบที่ผู้ใช้กำลังกรอก ส่วน Submit สำเร็จ
+   ต้องปิด popup หนึ่งครั้งและ reload หนึ่งครั้ง โดยไม่แตะ flow การ save เอง */
+const originalContrastLoadOrders = s.loadOrders
+let contrastReloads = 0
+s.loadOrders = () => { contrastReloads += 1 }
+const closedBeforeContrastSave = closedPopups
+cmOpen[4].afterSaveCallback({}, true)
+assert.strictEqual(closedPopups, closedBeforeContrastSave, 'autoSave keeps the contrast popup open')
+assert.strictEqual(contrastReloads, 0, 'autoSave does not reload the worklist while the form is still open')
+cmOpen[4].afterSaveCallback({}, false)
+assert.strictEqual(closedPopups, closedBeforeContrastSave + 1, 'successful Submit closes the contrast popup exactly once')
+assert.strictEqual(contrastReloads, 1, 'successful Submit reloads the worklist exactly once')
+s.loadOrders = originalContrastLoadOrders
+
+/* 2026-10-18 ผู้ใช้เปลี่ยน requirement จาก read-only เป็นแก้ไข record เดิมเหมือนปุ่ม Edit
+   สิ่งที่ assertion เดิมปกป้องยังคงอยู่: ต้องเปิด _id เดิมและห้ามส่ง initData ไปทับค่าเดิม */
+s.openContrastRecord(
+  { id: 'ORD-CM', order_no: 'ON-1', hn: '6801234', name: 'ด.ญ. ตัวอย่าง ทดสอบ', age: '7', emr: { visit_id: 'VISIT-CM' } },
+  { id: 'IT-CM', contrast_record_id: 'CM-RECORD-1', accession_no: 'A690917004', code: 'CTA001', name: 'CT Whole Abdomen', modality: 'CT' },
+)
+const savedCmOpen = opened[opened.length - 1]
+assert.strictEqual(savedCmOpen[0], contrastFormId)
+assert.strictEqual(savedCmOpen[1], 'CM-RECORD-1', 'the chip opens exactly the saved record')
+assert.strictEqual(savedCmOpen[3], null, 'edit mode never overlays saved values with Worklist initData')
+assert.strictEqual(savedCmOpen[4].readonly, undefined, 'the saved record opens in editable mode')
+assert.strictEqual(typeof savedCmOpen[4].afterSaveCallback, 'function', 'updating the record refreshes its chip')
+const originalContrastEditLoadOrders = s.loadOrders
+let contrastEditReloads = 0
+s.loadOrders = () => { contrastEditReloads += 1 }
+const closedBeforeContrastEdit = closedPopups
+savedCmOpen[4].afterSaveCallback({}, true)
+assert.strictEqual(closedPopups, closedBeforeContrastEdit, 'edit autoSave keeps the popup open')
+assert.strictEqual(contrastEditReloads, 0, 'edit autoSave does not reload mid-edit')
+savedCmOpen[4].afterSaveCallback({}, false)
+assert.strictEqual(closedPopups, closedBeforeContrastEdit + 1, 'successful Update closes the edit popup exactly once')
+assert.strictEqual(contrastEditReloads, 1, 'successful Update reloads the updated chip exactly once')
+s.loadOrders = originalContrastEditLoadOrders
 
 /* ── ปิดปุ่มด้วย env: ต้องไม่เปิดอะไร แต่บอกให้ครบว่าต้องทำอะไรต่อ ─────────
    boot ซ้ำโดยล้างค่า CONTRAST_FORM_ID เท่ากับ generate ด้วย XRAY_CONTRAST_FORM_ID=
@@ -3355,6 +3550,13 @@ assert.strictEqual(
   opened[opened.length - 1][4].params.appointment, undefined,
   'and it never carries the appointment flag',
 )
+/* หลังส่งใบสำเร็จให้รีเฟรช Worklist เท่านั้น — การสั่ง Order ไม่ใช่การย้ายคิว
+   การเงินเรียก VN มาคิดเงิน และระบบคิวกลางเป็นผู้ดูแล Visit Tran */
+const createCall = opened[opened.length - 1]
+const beforeMove = opened.length
+createCall[4].params.on_order_sent()
+assert.strictEqual(opened.length, beforeMove, 'successful send must not open Move Unit')
+assert.strictEqual(s.page.current, 1, 'successful send refreshes from the first Worklist page')
 s.resetScan()
 
 console.log('X-ray CPOE worklist Form tests passed')

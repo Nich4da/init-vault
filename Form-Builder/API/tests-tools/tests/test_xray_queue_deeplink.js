@@ -78,11 +78,20 @@ const run = async () => {
      ผู้ใช้สั่ง 2026-09-08: "กาง item แบบรูปที่ 2 ให้ด้วย" */
   {
     const { s, calls } = boot([ORDER_A, ORDER_B])
-    s.focusVisit({ visit_id: 'aaaaaaaaaaaaaaaaaaaaaaa1', vn: '6900205' })
+    /* 2026-10-18: ผู้ใช้สั่งให้แบนเนอร์คิวแสดงเฉพาะ HN และชื่อผู้ป่วย
+       โดยยังเก็บ VN ไว้ภายในสำหรับข้อความผิดพลาดเดิม */
+    s.focusVisit({
+      visit_id: 'aaaaaaaaaaaaaaaaaaaaaaa1',
+      vn: '6900205',
+      hn: 'HN6900001',
+      patient_name: 'น.ส.ดำ ใจดี',
+    })
     await settle()
 
     assert.strictEqual(s.focusVisitId, 'aaaaaaaaaaaaaaaaaaaaaaa1')
     assert.strictEqual(s.focusVisitVn, '6900205')
+    assert.strictEqual(s.focusVisitHn, '6900001')
+    assert.strictEqual(s.focusVisitPatientName, 'น.ส.ดำ ใจดี')
 
     /* 🔴 หัวใจของบั๊กที่เจอหน้างาน — คีย์ของ s.expanded ต้องตรงกับ row.id
        ไม่ใช่ order.id ที่ payload ดิบไม่มี */
@@ -104,7 +113,7 @@ const run = async () => {
   /* ── กดจากคิวแต่ visit นั้นไม่มีใบสั่งในสถานะที่เลือก = ต้องบอก ไม่ใช่เงียบ ── */
   {
     const { s, notices } = boot([])
-    s.focusVisit({ visit_id: 'aaaaaaaaaaaaaaaaaaaaaaa1', vn: '6900205' })
+    s.focusVisit({ visit_id: 'aaaaaaaaaaaaaaaaaaaaaaa1', vn: '6900205', hn: '6900001', patient_name: 'น.ส.ดำ ใจดี' })
     await settle()
     assert.deepStrictEqual(s.expanded, {})
     assert(notices.some(n => n.message.includes('6900205')), 'the user is told which VN came up empty')
@@ -121,6 +130,8 @@ const run = async () => {
     await settle()
     assert.strictEqual(s.focusVisitId, '')
     assert.strictEqual(s.focusVisitVn, '')
+    assert.strictEqual(s.focusVisitHn, '')
+    assert.strictEqual(s.focusVisitPatientName, '')
     assert.deepStrictEqual(s.expanded, {}, 'leaving focus mode collapses what focus mode opened')
     const last = calls.filter(c => c.action === 'list' && c.limit !== 1).pop()
     assert.strictEqual(last.visit_id, undefined, 'and the filter is gone from the query')
@@ -129,11 +140,13 @@ const run = async () => {
   /* ── สแกน HN ต้องล้างโหมดคิวทิ้ง ไม่กรองซ้อนกัน ────────────────────────── */
   {
     const { s } = boot([ORDER_A])
-    s.focusVisit({ visit_id: 'aaaaaaaaaaaaaaaaaaaaaaa1', vn: '6900205' })
+    s.focusVisit({ visit_id: 'aaaaaaaaaaaaaaaaaaaaaaa1', vn: '6900205', hn: '6900001', patient_name: 'น.ส.ดำ ใจดี' })
     await settle()
     s.scanPatientHn('6900002')
     await settle()
     assert.strictEqual(s.focusVisitId, '', 'scanning leaves queue-focus mode')
+    assert.strictEqual(s.focusVisitHn, '', 'scanning clears the queue patient heading')
+    assert.strictEqual(s.focusVisitPatientName, '')
     assert.strictEqual(s.scanMode, true)
     assert.strictEqual(s.scannedHn, '6900002')
   }

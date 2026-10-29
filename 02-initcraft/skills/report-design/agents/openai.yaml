@@ -1,0 +1,4 @@
+interface:
+  display_name: "Report Design"
+  short_description: "Design structured, data-rich reports and PDFs"
+  default_prompt: "Use $report-design to turn this content and data into a clear report design specification."

@@ -1,6 +1,6 @@
 # HIS–Agent Lab Interface Schema
 
-อัปเดต: 23 สิงหาคม 2569 (Asia/Bangkok)
+อัปเดต: 27 ตุลาคม 2569 (Asia/Bangkok)
 
 เอกสารนี้กำหนดขอบเขตเฉพาะการแลกเปลี่ยนข้อมูลระหว่าง **HIS** กับ
 **Agent/LISconnect API** เท่านั้น ระบบหลัง Agent ไม่อยู่ในขอบเขตของ HIS
@@ -53,6 +53,16 @@ technical trace สำหรับทีม API
     ไม่ใช้แทน `items[].comment` ซึ่งเป็นหมายเหตุระดับผลย่อย
 12. ขาส่ง Order ใช้ `visit_type = OPD|IPD`: AN มีค่าเป็น `IPD`, ไม่มี AN เป็น `OPD`;
     `encounter.class` ส่งค่าเดียวกันไว้เพื่อ compatibility ระหว่างการเปลี่ยน contract
+13. Order ของ LAB ปกติส่ง `event_type = "lab.order.submit"` ทุกครั้ง เพื่อให้ Agent
+    แยก protocol ได้ชัดเจน ส่วน Blood Bank อยู่นอก process/contract นี้และต้องใช้
+    contract แยกต่างหาก
+14. เพิ่ม `mother_name` (string) และ `is_maternal_blood` (boolean) เป็น optional
+    outbound fields ตาม contract ที่ได้รับ 26 ตุลาคม 2569; API boundary ส่งค่าต่อ
+    ตามที่ HIS ส่งมา แต่ยังไม่ทำให้บังคับเพื่อรักษา Order เดิม
+15. `mother_name` ประกอบที่ Receive adapter จาก Order → Visit `pid.value` →
+    `zdata_person.relate[]` เฉพาะแถว `r_code = "MTH"` แล้วต่อ `r_fname` + `r_lname`;
+    ถ้าไม่พบให้ละ field นี้ ห้ามใช้แถวความสัมพันธ์อื่น และห้ามนำการพบชื่อแม่ไปอนุมาน
+    `is_maternal_blood`
 
 ## Boundary
 
@@ -106,8 +116,11 @@ Content-Type: application/json
 
 | JSON field | ความหมาย | HIS source ที่คาดไว้ |
 |---|---|---|
+| `event_type` | ตัวระบุ event ของ Order LAB ปกติ; ค่าคงที่ `lab.order.submit` | กำหนดโดย HIS integration process |
 | `order_no` | HIS order id และ idempotency key | Center order/source order; ต้องยืนยันชื่อ live field ก่อน implement |
 | `labno` | LAB NO. ที่ HIS ออก | `lab_no`/`order_number` ตาม record จริง |
+| `mother_name` | ชื่อมารดาที่ส่งให้ Agent/LAB | Order → Visit `pid.value` → `zdata_person.relate[]`; เลือก `r_code = "MTH"` แล้วต่อ `r_fname` + `r_lname`; ไม่พบให้ละ field |
+| `is_maternal_blood` | ระบุว่า specimen เป็นเลือดมารดา (`true`/`false`) | CPOE Order `is_maternal_blood`; ส่งต่อเฉพาะเมื่อเป็น Boolean จริง และละ field เมื่อไม่มีหรือชนิดไม่ถูกต้อง ห้ามอนุมานจากเลข Orderหรือ `mother_name` |
 | `visit_type` | ประเภท encounter ที่ Agent ใช้ (`OPD`/`IPD`) | มี AN = `IPD`; ไม่มี AN = `OPD` |
 | `items[].test_code` | `his_code_id` | CPOE ordered item |
 | `items[].collected_at` | เวลาเก็บ specimen จริง | Specimen collection record |

@@ -1,6 +1,8 @@
 const s = this.vueState;
 const field = this;
 const LAB_BOARD_PROCESS_ID = '6ab3be31cec3020e8562a2c9';
+const LAB_RESULT_PDF_REPORT_ID = '6aa8f5a8b92813319a86ea11';
+const MLAB_RESULT_PDF_REPORT_ID = '6ab1c2d3e4f5061728394a5b';
 const params = () => field.params || {};
 const formRef = () => {
   try {
@@ -30,6 +32,10 @@ s.sensitivePassword = '';
 s.sensitivePurpose = 'ดูแลรักษาผู้ป่วย';
 s.sensitiveError = '';
 s.sensitiveExpiryTimer = null;
+s.sensitiveMode = 'view';
+s.reportGrantToken = '';
+s.reportGrantExpiresAt = 0;
+s.reportHostId = 'lab-rh-result-report-host';
 
 s.roomCode = () => asText(s.currentOrder && s.currentOrder.section_code).toUpperCase();
 s.room = () => { const code=s.roomCode(); return {code,label:[roomNames[code]||asText(s.currentOrder&&s.currentOrder.section)||'LAB',code].filter(Boolean).join(' · ')}; };
@@ -40,6 +46,13 @@ s.labNo = () => asText(s.currentOrder&&s.currentOrder.lab_no)||'—';
 s.specimen = () => asText(s.currentOrder&&s.currentOrder.specimen_name)||'—';
 s.reportedAt = () => asText(s.currentOrder&&(s.currentOrder.reported_at||s.currentOrder.resulted_at));
 s.orderComment = () => asText(s.currentOrder&&s.currentOrder.order_comment);
+s.reportIds = () => asArray(s.currentOrder&&s.currentOrder.result_report_ids).map(asText).filter(value=>/^[a-f0-9]{24}$/i.test(value));
+s.reportReady = () => s.reportIds().length===1;
+s.reportList = () => s.reportReady() ? [{reportId:s.isMlab()?MLAB_RESULT_PDF_REPORT_ID:LAB_RESULT_PDF_REPORT_ID,label:'PDF',type:'pdf'}] : [];
+s.reportParams = () => { const base=s.reportReady()?{xparentx:s.reportIds()[0]}:{}; return s.reportGrantToken&&s.reportGrantExpiresAt>Date.now()?{...base,grant_token:s.reportGrantToken}:base; };
+s.reportInstanceKey = () => ['lab-rh-report',s.roomCode(),s.reportIds()[0]||'',s.reportGrantToken||'redacted'].join('|');
+s.reportHint = () => !s.currentOrder ? 'ยังไม่มีผลตรวจสำหรับออกรายงาน' : s.reportIds().length>1 ? 'ใบนี้มีผลหลายชุด จึงไม่เลือก Result Report ให้อัตโนมัติ' : 'ยังไม่มี Result Report สำหรับ PDF';
+s.hasSensitive = () => asArray(s.currentOrder&&s.currentOrder.items).some(item=>{const visibility=item&&item.visibility||{};return visibility.sensitive===true||(asText(visibility.state)&&asText(visibility.state)!=='visible');});
 s.displayDate = (value,dateOnly) => { const text=asText(value); if(!text)return '—'; const m=text.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/); if(!m)return text; const short=m[3]+'/'+m[2]+'/'+String(Number(m[1])+543).slice(-2); return dateOnly||!m[4]?short:short+' '+m[4]+':'+m[5]; };
 s.headerStatus = () => { const statuses=asArray(s.currentOrder&&s.currentOrder.items).map(item=>asText(item&&item.result_status).toLowerCase()).filter(Boolean); if(statuses.indexOf('corrected')>=0)return 'Corrected'; if(statuses.indexOf('partial')>=0)return 'Partial result'; if(statuses.length&&statuses.every(value=>['final','completed','resulted'].indexOf(value)>=0))return 'Final'; const fallback=asText(s.currentOrder&&s.currentOrder.status).toLowerCase(); return statusLabels[fallback]||fallback||'—'; };
 s.subtitle = () => !s.currentOrder ? 'เปิดจาก EMR เพื่อโหลดผลจริงจากระบบ LAB' : (s.roomCode()==='IM'||s.roomCode()==='MI-OUT') ? 'ผล Sensitive ถูกปิดบังและต้องยืนยันตัวตนก่อนเปิดดู' : s.isMlab() ? 'Microbiology แสดงผลข้อความดิบจาก MLab และเลือกดูผลย้อนหลังได้ 1/5/10 ครั้ง' : 'ตารางเดียวรวมผลปัจจุบันและผลก่อนหน้า โดยหัวคอลัมน์ย้อนหลังแสดง VN';
@@ -69,12 +82,13 @@ const sessionUsername = () => { const api=apiRef()||{}; const user=api.user||fie
 const initialUser = (field.globalUserState && field.globalUserState.user) || {};
 s.sensitiveUsername = asText(initialUser.username || initialUser.user_name || params().username);
 s.syncSensitiveUsername = () => { s.sensitiveUsername = sessionUsername(); };
-s.openSensitive = row => { s.sensitiveRow=row; s.sensitivePassword=''; s.sensitivePurpose='ดูแลรักษาผู้ป่วย'; s.sensitiveError=''; s.sensitiveOpen=true; };
+s.openSensitive = (row,mode) => { s.sensitiveRow=row; s.sensitiveMode=mode==='pdf'?'pdf':'view'; s.sensitivePassword=''; s.sensitivePurpose=s.sensitiveMode==='pdf'?'ดูแลรักษาผู้ป่วยและเปิดรายงานผล PDF':'ดูแลรักษาผู้ป่วย'; s.sensitiveError=''; s.sensitiveOpen=true; };
 s.closeSensitive = () => { if(s.sensitiveLoading)return; s.sensitiveOpen=false;s.sensitiveRow=null;s.sensitivePassword='';s.sensitiveError=''; };
 s.setSensitivePassword = value => {s.sensitivePassword=String(value||'');};
 s.setSensitivePurpose = value => {s.sensitivePurpose=String(value||'');};
 const requestId = () => 'emr-lab-result-'+Date.now()+'-'+Math.random().toString(36).slice(2,10);
 const applySensitiveItems = data => { const ids=new Set(asArray(data.item_ids).map(asText)); const disclosed=asArray(data.items); const current=asArray(s.currentOrder&&s.currentOrder.items); const next=[]; let inserted=false; current.forEach(item=>{ const itemId=asText(item&&item.visibility&&item.visibility.item_id||item&&item.group_id); if(ids.has(itemId)){if(!inserted){next.push(...disclosed);inserted=true;}return;} next.push(item); }); if(!inserted)next.push(...disclosed); s.currentOrder={...s.currentOrder,items:next,reported_at:asText(data.reported_at)||s.currentOrder.reported_at,reported_by_source_name:asText(data.reported_by_source_name)||s.currentOrder.reported_by_source_name,verified_at:asText(data.verified_at)||s.currentOrder.verified_at,verified_by_source_name:asText(data.verified_by_source_name)||s.currentOrder.verified_by_source_name,result_report_ids:asArray(data.result_report_ids).length?data.result_report_ids:s.currentOrder.result_report_ids}; const expires=Number(data.sensitive_grant_expires_at_epoch||0); if(s.sensitiveExpiryTimer)clearTimeout(s.sensitiveExpiryTimer); if(expires>Date.now())s.sensitiveExpiryTimer=setTimeout(()=>s.load(),Math.max(0,expires-Date.now())); };
-s.submitSensitive = () => { const row=s.sensitiveRow; const api=apiRef(); if(!row||!api||typeof api.runProcess!=='function')return; if(!s.sensitiveUsername||!s.sensitivePassword||!asText(s.sensitivePurpose)){s.sensitiveError='กรุณากรอก Username, Password และเหตุผลให้ครบ';return;} const password=s.sensitivePassword; const visibility=row.source&&row.source.visibility||{}; s.sensitiveLoading=true;s.sensitiveError='';s.sensitivePassword=''; api.runProcess(LAB_BOARD_PROCESS_ID,{action:'open_sensitive',visit_id:asText(params().visit_id||params().history_id),source_order_id:asText(visibility.source_order_id||s.currentOrder.source_order_id),item_id:asText(visibility.item_id||row.source&&row.source.group_id),section_code:s.roomCode(),username:s.sensitiveUsername,password,purpose:asText(s.sensitivePurpose),request_id:requestId(),screen:'emr_lab_result_form'},res=>{const data=responseData(res);s.sensitiveLoading=false;if(!data.success){s.sensitiveError=data.message||'ยืนยันตัวตนไม่สำเร็จ';return;}applySensitiveItems(data);s.sensitiveOpen=false;s.sensitiveRow=null;s.sensitivePurpose='ดูแลรักษาผู้ป่วย';},err=>{s.sensitiveLoading=false;s.sensitiveError='เปิดผล Sensitive ไม่สำเร็จ: '+asText(err&&err.message||err);}); };
-s.openReport = () => field.notify('การเปิดรายงานผลจะใช้ Report binding ของ EMR ตอนเชื่อมปุ่มเปิดฟอร์ม','info',3000);
-s.closeForm = () => { const form=formRef(); if(form&&typeof form.subFormClose==='function')form.subFormClose(); };
+const clickReport = attempt => { const doc=typeof globalThis!=='undefined'?globalThis.document:null; const host=doc&&doc.getElementById(s.reportHostId); const button=host&&host.querySelector?host.querySelector('button:not([disabled])'):null; if(button&&typeof button.click==='function'){button.click();return;} if(Number(attempt||0)<20){setTimeout(()=>clickReport(Number(attempt||0)+1),50);return;} if(typeof field.notify==='function')field.notify('ระบบเปิด PDF ไม่สำเร็จ','error',4500); };
+s.openReport = () => { if(!s.reportReady()){if(typeof field.notify==='function')field.notify(s.reportHint(),'warning',4000);return;} if(s.hasSensitive()){const item=asArray(s.currentOrder&&s.currentOrder.items).find(row=>{const visibility=row&&row.visibility||{};return visibility.sensitive===true||(asText(visibility.state)&&asText(visibility.state)!=='visible');}); if(!item){if(typeof field.notify==='function')field.notify('ไม่พบรายการ Sensitive สำหรับยืนยันตัวตน','warning',4000);return;} s.openSensitive({name:asText(item.name||item.group_name)||'ผลตรวจ Sensitive',source:item},'pdf');return;} clickReport(0); };
+s.submitSensitive = () => { const row=s.sensitiveRow; const api=apiRef(); if(!row||!api||typeof api.runProcess!=='function')return; if(!s.sensitiveUsername||!s.sensitivePassword||!asText(s.sensitivePurpose)){s.sensitiveError='กรุณากรอก Username, Password และเหตุผลให้ครบ';return;} const mode=s.sensitiveMode; const password=s.sensitivePassword; const visibility=row.source&&row.source.visibility||{}; s.sensitiveLoading=true;s.sensitiveError='';s.sensitivePassword=''; api.runProcess(LAB_BOARD_PROCESS_ID,{action:'open_sensitive',visit_id:asText(params().visit_id||params().history_id),source_order_id:asText(visibility.source_order_id||s.currentOrder.source_order_id),item_id:asText(visibility.item_id||row.source&&row.source.group_id),section_code:s.roomCode(),username:s.sensitiveUsername,password,purpose:asText(s.sensitivePurpose),request_id:requestId(),screen:mode==='pdf'?'emr_lab_result_form_pdf':'emr_lab_result_form'},res=>{const data=responseData(res);s.sensitiveLoading=false;if(!data.success){s.sensitiveError=data.message||'ยืนยันตัวตนไม่สำเร็จ';return;} if(mode==='pdf'){s.reportGrantToken=asText(data.sensitive_grant_token);s.reportGrantExpiresAt=Number(data.sensitive_grant_expires_at_epoch||0);s.sensitiveOpen=false;s.sensitiveRow=null;s.sensitivePurpose='ดูแลรักษาผู้ป่วย';setTimeout(()=>clickReport(0),0);return;} applySensitiveItems(data);s.sensitiveOpen=false;s.sensitiveRow=null;s.sensitivePurpose='ดูแลรักษาผู้ป่วย';},err=>{s.sensitiveLoading=false;s.sensitiveError='เปิดผล Sensitive ไม่สำเร็จ: '+asText(err&&err.message||err);}); };
+s.closeForm = () => { const form=formRef(); if(form&&typeof form.closePopup==='function'){form.closePopup();return;} if(form&&typeof form.subFormClose==='function')form.subFormClose(); };

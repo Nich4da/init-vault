@@ -163,6 +163,7 @@ const makeHarness = ({
   const orders = new Map([
     [ids.opd, { _id: ids.opd, xrstatx: 1, order_number: 'ORD-0001', priority: '1',
       order_comment: 'สงสัยปอดอักเสบ',
+      xparentx: 'visit-dispatch-1', xunitx: { code: 'm0901', label: 'งานรังสีวิทยา' },
       vid: visitSnapshot }],
   ])
   const masterIdFor = id => id === ITEM_2 ? 'MASTER-2' : (id === ITEM_3 ? 'MASTER-3' : 'MASTER-1')
@@ -838,16 +839,18 @@ const risCall = h => h.calls.find(call => call.id === RIS_ORDER_PROCESS_ID)
   /* ── การปฏิเสธ ──────────────────────────────────────────────────────── */
   {
     const h = makeHarness()
-    /* ทั้งสามหน่วยของกลุ่มรังสีส่งเข้าเครื่องได้ (ผู้ใช้ยืนยันผัง 2026-09-01) */
-    for (const code of ['m0900', 'm0901', 'CT']) {
+    /* ทุกหน่วยยังผ่านประตู X-ray แต่ส่งได้เฉพาะหน่วยผู้สร้าง/ผู้ถือคิว */
+    const owned = makeHarness()
+    const ownedOut = await Process.call(owned.context, { order_id: ids.opd }, radiologyUser, owned.app)
+    assert.strictEqual(ownedOut.success, true, ownedOut.message)
+    assert.strictEqual(risCall(owned).payload.OrganizationUid, 'M0901', 'the sending organization travels with the order')
+    for (const code of ['m0900', 'CT']) {
       const scoped = makeHarness()
       const user = { roles: ['auth'], username: 'xray-test', unit: { code }, account: { name: 'xray-test' } }
       const out = await Process.call(scoped.context, { order_id: ids.opd }, user, scoped.app)
-      assert.strictEqual(out.success, true, code + ' must be allowed to dispatch')
-      assert.strictEqual(
-        risCall(scoped).payload.OrganizationUid, code.toUpperCase(),
-        'the sending organization travels with the order',
-      )
+      assert.strictEqual(out.success, false, code + ' must be view-only for an m0901 order')
+      assert.strictEqual(out.error, 'action_unit_denied')
+      assert.strictEqual(scoped.calls.length, 0)
     }
 
     const wrongOrg = await Process.call(h.context, { order_id: ids.opd }, otherUser, h.app)
@@ -914,7 +917,7 @@ const risCall = h => h.calls.find(call => call.id === RIS_ORDER_PROCESS_ID)
   )
   assert(apiBody.includes("const ACCESSION_PROCESS_ID = '" + ACCESSION_PROCESS_ID + "'"))
   assert(apiBody.includes("const RIS_ORDER_PROCESS_ID = '" + RIS_ORDER_PROCESS_ID + "'"))
-  assert(apiBody.includes("const XRAY_ORGANIZATION_CODES = ['m0900', 'm0901', 'CT']"), 'scope must match the other two Processes')
+  assert(apiBody.includes("const XRAY_ORGANIZATION_CODES = ['m0900', 'm0901', 'CT', 'RA-11', 'RA-1206', 'RA-309', 'CT-MRI']"), 'scope must match the other two Processes')
   assert(!/eyJhbGciOi/.test(apiBody), 'no token may be embedded')
   /* ผู้ใช้สั่งเพิ่มเส้นทางสำรอง HTTP 2026-09-02 ("แก้ให้ใช้ได้เลย") — URL ของ endpoint
      จึงมีได้ **หนึ่งตัวเท่านั้น** แต่กฎเดิมที่ห้าม token หลุดลงรีโปยังต้องคุมเข้มเหมือนเดิม

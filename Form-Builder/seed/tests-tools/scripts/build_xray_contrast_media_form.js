@@ -283,9 +283,7 @@ const headerWidget = html({
     content: HEAD_CSS + `<div class="cmr-head">
   <h2>บันทึกการใช้สารทึบรังสี</h2>
   <p>สถาบันสุขภาพเด็กแห่งชาติมหาราชินี · กลุ่มงานรังสีวิทยา</p>
-  <div class="cmr-note">เปิดจากคอลัมน์ "สารทึบ" ในหน้า X-ray CPOE Worklist ได้แล้ว (2026-09-23) ·
-  ตัวระบุรายการตรวจถูกเติมให้อัตโนมัติ ดูได้ที่การ์ดท้ายฟอร์ม ·
-  ยังไม่ได้เชื่อม API ประวัติย้อนหลัง และชื่อแพทย์ผู้สั่งยังเป็นรายการตัวอย่างไว้ทดสอบเท่านั้น</div>
+  <div class="cmr-note">เปิดจากคอลัมน์ที่มีการบันทึกการใช้สารทึบไว้แล้ว สามารถดูสรุปบันทึกการใช้สารทึบรังสีดูได้ด้านล่าง</div>
 </div>`
   })
 
@@ -386,7 +384,10 @@ const fields = [
       ],
       onChange: [
         TOGGLE_HELPER,
-        "const on=picked.indexOf('non_ionic')>=0;",
+        "/* คงค่าบันทึกเป็น Array เดิม แต่เลือกค้างได้เฉพาะตัวล่าสุด 1 ค่า */",
+        "const selected=picked.length>1?[picked[picked.length-1]]:picked;",
+        "if(picked.length>1&&typeof this.setValue==='function')this.setValue(selected);",
+        "const on=selected.indexOf('non_ionic')>=0;",
         "setShown('contrast_brand',on);",
         "setShown('contrast_concentration',on);",
         "setShown('contrast_lot_no',on);"
@@ -401,7 +402,13 @@ const fields = [
         { label: 'กิน', value: 'oral' },
         { label: 'สวน', value: 'enema' },
         { label: 'ฉีด', value: 'injection' }
-      ]
+      ],
+      onChange: [
+        "/* คงค่าบันทึกเป็น Array เดิม แต่เลือกค้างได้เฉพาะตัวล่าสุด 1 ค่า */",
+        "const picked=Array.isArray(value)?value.map(String):(value==null?[]:[String(value)]);",
+        "const selected=picked.length>1?[picked[picked.length-1]]:picked;",
+        "if(picked.length>1&&typeof this.setValue==='function')this.setValue(selected);"
+      ].join('\n')
     }),
     number({ name: 'contrast_volume_ml', label: '6. ปริมาณที่ใช้', span: 6,
       precision: 2, max: 10000, suffixText: 'ml.', placeholder: '0' })

@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Choice mockup — สีข้อความไฟล์แนบ</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --page: #f5f7fa;
+      --surface: #ffffff;
+      --surface-2: #fafafa;
+      --line: #dcdfe6;
+      --dash: #e4e7ed;
+      --text: #303133;
+      --regular: #606266;
+      --muted: #909399;
+      --accent: #626aef;
+      --accent-soft: #f1f0ff;
+      --green: #4e8e2f;
+      --green-bg: #f0f9eb;
+      --font: "Helvetica Neue", Helvetica, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Arial, "Noto Sans Thai", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-width: 1080px;
+      min-height: 100vh;
+      background: var(--page);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 14px;
+      line-height: 1.42;
+    }
+
+    .board {
+      width: min(1680px, calc(100vw - 64px));
+      margin: 0 auto;
+      padding: 34px 0 42px;
+    }
+
+    .eyebrow {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 7px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .eyebrow::before {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+      content: "";
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 26px;
+      font-weight: 650;
+      letter-spacing: -.01em;
+    }
+
+    .intro {
+      max-width: 880px;
+      margin: 8px 0 24px;
+      color: var(--regular);
+      font-size: 14px;
+    }
+
+    .choices {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .choice {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: 0 8px 22px rgba(48, 49, 51, .055);
+    }
+
+    .choice.recommended { border-color: rgba(98, 106, 239, .58); }
+
+    .choice-heading {
+      min-height: 112px;
+      padding: 17px 18px 15px;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface);
+    }
+
+    .choice-number {
+      display: inline-flex;
+      min-height: 24px;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 4px;
+      color: var(--regular);
+      background: #f1f2f5;
+      font-size: 11px;
+      font-weight: 650;
+    }
+
+    .recommended .choice-number {
+      color: #5148c8;
+      background: var(--accent-soft);
+    }
+
+    .choice-title {
+      margin: 9px 0 2px;
+      font-size: 18px;
+      font-weight: 650;
+    }
+
+    .choice-summary {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 400;
+    }
+
+    .mock-area {
+      padding: 18px;
+      background: var(--page);
+    }
+
+    .result-block {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--surface);
+    }
+
+    .column-head {
+      display: grid;
+      grid-template-columns: 1.9fr .8fr .86fr 1.05fr 28px;
+      min-height: 42px;
+      align-items: center;
+      padding: 0 12px;
+      border-bottom: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .previous { white-space: nowrap; }
+    .previous span { margin-left: 4px; font-weight: 400; }
+
+    .chevron {
+      width: 10px;
+      height: 10px;
+      justify-self: end;
+      border-right: 2px solid var(--regular);
+      border-bottom: 2px solid var(--regular);
+      transform: rotate(45deg) translateY(-2px);
+    }
+
+    .order-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) max-content max-content;
+      min-height: 66px;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-bottom: 1px dashed var(--dash);
+    }
+
+    .summary-line {
+      display: flex;
+      min-width: 0;
+      align-items: baseline;
+      gap: 7px;
+      white-space: nowrap;
+    }
+
+    .result-time {
+      flex: 0 0 auto;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 400;
+    }
+
+    .order-title {
+      overflow: hidden;
+      color: var(--regular);
+      font-size: 13px;
+      font-weight: 500;
+      text-overflow: ellipsis;
+    }
+
+    .order-comment {
+      margin-left: 0;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 400;
+    }
+
+    .status {
+      min-height: 29px;
+      padding: 4px 10px;
+      border: 1px solid var(--green);
+      border-radius: 5px;
+      color: var(--green);
+      background: var(--green-bg);
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .report {
+      min-height: 29px;
+      padding: 4px 10px;
+      border: 1px solid #a8abb2;
+      border-radius: 5px;
+      color: var(--text);
+      background: var(--surface);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .attachment-list { background: var(--surface-2); }
+
+    .attachment-row {
+      display: grid;
+      grid-template-columns: max-content minmax(0, 1fr) max-content;
+      min-height: 38px;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-bottom: 1px dashed var(--dash);
+      font-size: 11px;
+      line-height: 1.3;
+    }
+
+    .attachment-row:last-child { border-bottom: 0; }
+    .attachment-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .attachment-meta { white-space: nowrap; }
+
+    /* Choice 1: all primary attachment text uses the same calm gray and regular weight. */
+    .choice-1 .attachment-index { color: var(--regular); font-size: 11px; font-weight: 400; }
+    .choice-1 .attachment-name { color: var(--regular); font-weight: 400; }
+    .choice-1 .attachment-meta { color: var(--muted); font-weight: 400; }
+
+    /* Choice 2: recede the label and make the filename the anchor. */
+    .choice-2 .attachment-index { color: var(--muted); font-size: 11px; font-weight: 400; }
+    .choice-2 .attachment-name { color: var(--regular); font-size: 12px; font-weight: 500; }
+    .choice-2 .attachment-meta { color: var(--muted); font-weight: 400; }
+
+    /* Choice 3: make the whole row equally muted. */
+    .choice-3 .attachment-row { color: var(--muted); font-weight: 400; }
+    .choice-3 .attachment-index,
+    .choice-3 .attachment-name,
+    .choice-3 .attachment-meta { color: inherit; font-size: 11px; font-weight: inherit; }
+
+    .footnote {
+      margin-top: 18px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    @media (max-width: 1250px) {
+      body { min-width: 760px; }
+      .board { width: min(760px, calc(100vw - 32px)); }
+      .choices { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="board">
+    <div class="eyebrow">Choice mockup · ยังไม่แก้หน้าหลัก</div>
+    <h1>เลือกน้ำหนักสีข้อความ “ไฟล์แนบ”</h1>
+    <p class="intro">Baseline ใน HTML ล่าสุดใช้คำว่า “ไฟล์แนบ 1/2” สีดำและตัวหนา ส่วนทั้งสาม Choice ใหม่นี้ใช้ข้อมูล ระยะ และสถานะหุบ Order เหมือนกัน ต่างกันเฉพาะลำดับสีและน้ำหนักตัวอักษร</p>
+
+    <section class="choices" aria-label="ตัวเลือกสีข้อความไฟล์แนบ">
+      <article class="choice choice-1 recommended">
+        <header class="choice-heading">
+          <span class="choice-number">Choice 1 · แนะนำ</span>
+          <h2 class="choice-title">เทากลางทั้งข้อความหลัก</h2>
+          <p class="choice-summary">คำว่าไฟล์แนบและชื่อไฟล์เทากลาง ตัวบางเท่ากัน อ่านง่ายโดยไม่แย่งผลตรวจ</p>
+        </header>
+        <div class="mock-area"><div class="result-block">
+          <div class="order-head">
+            <div><div class="summary-line"><span class="order-title">Electrolyte · Liver Function Test · Glucose</span><span class="result-time">12:44 AM</span></div><div class="order-comment">หมายเหตุ: ตรวจหลังงดอาหาร 8 ชั่วโมง (ตัวอย่าง)</div></div>
+            <span class="status">Final</span><span class="report">รายงานผล</span>
+          </div>
+          <div class="column-head"><span>รายการ</span><span>ครั้งนี้</span><span>ค่าปกติ</span><span class="previous">ก่อนหน้า <span>21/10/69</span></span><i class="chevron"></i></div>
+          <div class="attachment-list">
+            <div class="attachment-row"><span class="attachment-index">ไฟล์แนบ 1</span><span class="attachment-name">เอกสารประกอบผลตรวจ.pdf</span><span class="attachment-meta">PDF · 248 KB</span></div>
+            <div class="attachment-row"><span class="attachment-index">ไฟล์แนบ 2</span><span class="attachment-name">กราฟจากเครื่องวิเคราะห์.jpg</span><span class="attachment-meta">JPG · 1.2 MB</span></div>
+          </div>
+        </div></div>
+      </article>
+
+      <article class="choice choice-2">
+        <header class="choice-heading">
+          <span class="choice-number">Choice 2</span>
+          <h2 class="choice-title">ชื่อไฟล์เข้มกว่า</h2>
+          <p class="choice-summary">ลดคำว่าไฟล์แนบเป็นเทาอ่อน แล้วใช้ชื่อไฟล์เป็นจุดนำสายตา</p>
+        </header>
+        <div class="mock-area"><div class="result-block">
+          <div class="order-head">
+            <div><div class="summary-line"><span class="order-title">Electrolyte · Liver Function Test · Glucose</span><span class="result-time">12:44 AM</span></div><div class="order-comment">หมายเหตุ: ตรวจหลังงดอาหาร 8 ชั่วโมง (ตัวอย่าง)</div></div>
+            <span class="status">Final</span><span class="report">รายงานผล</span>
+          </div>
+          <div class="column-head"><span>รายการ</span><span>ครั้งนี้</span><span>ค่าปกติ</span><span class="previous">ก่อนหน้า <span>21/10/69</span></span><i class="chevron"></i></div>
+          <div class="attachment-list">
+            <div class="attachment-row"><span class="attachment-index">ไฟล์แนบ 1</span><span class="attachment-name">เอกสารประกอบผลตรวจ.pdf</span><span class="attachment-meta">PDF · 248 KB</span></div>
+            <div class="attachment-row"><span class="attachment-index">ไฟล์แนบ 2</span><span class="attachment-name">กราฟจากเครื่องวิเคราะห์.jpg</span><span class="attachment-meta">JPG · 1.2 MB</span></div>
+          </div>
+        </div></div>
+      </article>
+
+      <article class="choice choice-3">
+        <header class="choice-heading">
+          <span class="choice-number">Choice 3</span>
+          <h2 class="choice-title">เทาเท่ากันทั้งแถว</h2>
+          <p class="choice-summary">สงบที่สุด แต่แยกเลขไฟล์ ชื่อไฟล์ และชนิดไฟล์ได้ช้าลง</p>
+        </header>
+        <div class="mock-area"><div class="result-block">
+          <div class="order-head">
+            <div><div class="summary-line"><span class="order-title">Electrolyte · Liver Function Test · Glucose</span><span class="result-time">12:44 AM</span></div><div class="order-comment">หมายเหตุ: ตรวจหลังงดอาหาร 8 ชั่วโมง (ตัวอย่าง)</div></div>
+            <span class="status">Final</span><span class="report">รายงานผล</span>
+          </div>
+          <div class="column-head"><span>รายการ</span><span>ครั้งนี้</span><span>ค่าปกติ</span><span class="previous">ก่อนหน้า <span>21/10/69</span></span><i class="chevron"></i></div>
+          <div class="attachment-list">
+            <div class="attachment-row"><span class="attachment-index">ไฟล์แนบ 1</span><span class="attachment-name">เอกสารประกอบผลตรวจ.pdf</span><span class="attachment-meta">PDF · 248 KB</span></div>
+            <div class="attachment-row"><span class="attachment-index">ไฟล์แนบ 2</span><span class="attachment-name">กราฟจากเครื่องวิเคราะห์.jpg</span><span class="attachment-meta">JPG · 1.2 MB</span></div>
+          </div>
+        </div></div>
+      </article>
+    </section>
+
+    <p class="footnote">ข้อมูลทั้งหมดเป็นข้อมูลสังเคราะห์สำหรับเลือกดีไซน์เท่านั้น</p>
+  </main>
+</body>
+</html>

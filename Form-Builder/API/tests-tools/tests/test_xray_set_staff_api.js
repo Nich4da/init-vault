@@ -21,6 +21,7 @@ assert(!apiBody.includes('mongoTxn'), 'MongoDB standalone — ห้ามเป
 const ITEM = 'bbbbbbbbbbbbbbbbbbbbbbb1'
 const ITEM_LAB = 'bbbbbbbbbbbbbbbbbbbbbbb2'
 const ITEM_CANCELLED = 'bbbbbbbbbbbbbbbbbbbbbbb3'
+const ORDER = 'aaaaaaaaaaaaaaaaaaaaaaa1'
 const MEMBER_RADIOGRAPHER = '111111111111111111111111'
 const MEMBER_RADIOLOGIST = '222222222222222222222222'
 const MEMBER_OTHER = '333333333333333333333333'
@@ -37,13 +38,13 @@ const wardUser = { roles: ['auth'], username: 'ward', employee_code: 'W1', unit:
 const makeHarness = () => {
   const rows = [
     {
-      _id: ITEM, xrstatx: 1, service_type: { value: 'xray' }, current_status: 'dispatched',
+      _id: ITEM, xrstatx: 1, order_ref_id: ORDER, service_type: { value: 'xray' }, current_status: 'dispatched',
       item_code: 'RD015', item_name: 'Neck AP',
       /* คนกดปุ่มส่งเข้าเครื่อง — คนละความหมายกับ Radiographer ห้ามถูกเขียนทับ */
       dispatched_by: { name: 'คนกดส่ง เดิม' },
     },
-    { _id: ITEM_LAB, xrstatx: 1, service_type: { value: 'lab' }, current_status: 'sent' },
-    { _id: ITEM_CANCELLED, xrstatx: 1, service_type: { value: 'xray' }, current_status: 'cancelled' },
+    { _id: ITEM_LAB, xrstatx: 1, order_ref_id: ORDER, service_type: { value: 'lab' }, current_status: 'sent' },
+    { _id: ITEM_CANCELLED, xrstatx: 1, order_ref_id: ORDER, service_type: { value: 'xray' }, current_status: 'cancelled' },
   ]
   const itemMap = new Map(rows.map(row => [row._id, clone(row)]))
   const memberMap = new Map([
@@ -86,6 +87,9 @@ const makeHarness = () => {
     dbFindAll: async () => ({ success: true, reply: { data: [] } }),
     db: { collection: name => ({
       zdata_cpoe_order_item: itemCollection,
+      zdata_cpoe_order: { findOne: async query => String(query._id) === ORDER
+        ? { _id: ORDER, xrstatx: 1, xparentx: 'visit-staff-1', xunitx: { code: 'M0901' } }
+        : null },
       zdata_xray_member_master: memberCollection,
     })[name] },
   }

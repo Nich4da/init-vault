@@ -108,6 +108,79 @@ resultCard = replaceOnce(
 	'MLab item-level card branch close',
 );
 
+// EMR History uses the user-confirmed compact Order result sheet instead of
+// the expandable Treat Summary card. One bordered sub-card is one LAB Order;
+// no Order/LAB No./room/status header is repeated inside the card. MB is a
+// special two-column raw-text presentation and intentionally gives the result
+// the whole remaining horizontal width.
+resultCard = `<section v-if="g.type === 'lab' && !ehLabLoading && !ehLabError" style="overflow:hidden;border:1px solid var(--el-border-color-light);border-radius:8px;background:var(--el-bg-color)">
+  <div style="padding:12px 14px;border-bottom:1px solid var(--el-border-color-lighter);background:var(--el-fill-color-lighter)">
+    <small style="display:block;margin-bottom:7px;color:var(--el-text-color-secondary);font-size:10.5px;font-weight:700">ผลตรวจ lab</small>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;min-width:0;padding:1px 1px 4px">
+      <el-button v-for="room in ehLabRooms" :key="room.code" size="small" :type="ehLabRoom===room.code?'primary':''" :plain="ehLabRoom!==room.code" style="flex:none;margin-left:0" @click.stop="ehLabSetRoom(room.code)">
+        {{ room.label }} <span style="display:inline-flex;min-width:18px;height:18px;align-items:center;justify-content:center;margin-left:4px;padding:0 5px;border-radius:9px;background:rgba(144,147,153,.12);font-size:9px">{{ ehLabRoomCount(g, room.code) }}</span>
+      </el-button>
+    </div>
+  </div>
+
+  <div style="padding:12px 14px 16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:7px;color:var(--el-text-color-secondary);font-size:10.5px">
+      <span><strong style="color:var(--el-text-color-regular)">{{ ehLabRoomLabel(ehLabRoom) }}</strong> · {{ ehLabVisibleCardsForGroup(g).length }} Order</span>
+      <span style="text-align:right">IM / MI-OUT ยังปกปิดผล Sensitive จนกว่าจะยืนยันตัวตน</span>
+    </div>
+
+    <div style="min-width:0;overflow:hidden">
+      <div v-if="ehLabRoom==='MB'" style="display:grid;grid-template-columns:minmax(180px,240px) minmax(0,1fr);column-gap:14px;min-width:0;padding:8px 13px;border:1px solid var(--el-border-color-light);border-radius:7px 7px 0 0;background:var(--el-fill-color-light);color:var(--el-text-color-secondary);font-size:10px;font-weight:700">
+        <span>รายการตรวจ</span><span>ผล LAB</span>
+      </div>
+      <div v-else style="display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1.2fr) minmax(48px,.55fr) minmax(64px,.8fr) minmax(54px,.62fr);column-gap:8px;min-width:0;padding:8px 10px;border:1px solid var(--el-border-color-light);border-radius:7px 7px 0 0;background:var(--el-fill-color-light);color:var(--el-text-color-secondary);font-size:10px;font-weight:700">
+        <span>รายการตรวจ</span><span>ผล LAB</span><span>หน่วย</span><span>Ref. Range</span><span>แปลผล</span>
+      </div>
+
+      <div style="display:grid;gap:9px;min-width:0;padding-top:9px">
+        <article v-for="o in ehLabVisibleCardsForGroup(g)" :key="o.key" style="position:relative;overflow:hidden;border:1px solid var(--el-border-color-light);border-radius:8px;background:var(--el-bg-color);box-shadow:0 1px 2px rgba(31,35,41,.04)">
+          <span :style="{position:'absolute',inset:'0 auto 0 0',width:'3px',background:o.criticals.length?'var(--el-color-danger)':(o.abnormals.length?'var(--el-color-warning)':'var(--el-border-color)')}"></span>
+
+          <template v-if="o.micro">
+            <div v-for="(r,rowIndex) in ehLabCardRows(o)" :key="r.result_item_id || r.code || rowIndex" style="display:grid;grid-template-columns:minmax(180px,240px) minmax(0,1fr);column-gap:14px;min-height:74px;align-items:start;padding:11px 13px 11px 16px;border-top:1px dashed var(--el-border-color-lighter)">
+              <strong style="min-width:0;color:var(--el-text-color-primary);font-size:12.5px;line-height:1.45;overflow-wrap:anywhere">{{ r.name || '-' }}</strong>
+              <div style="min-width:0;width:100%">
+                <template v-if="r.locked">
+                  <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap"><el-tag size="small" type="warning" effect="plain">ปกปิดผล Sensitive</el-tag><el-button v-if="r.reauth_required" size="small" type="warning" plain @click.stop="ehLabRequestSensitive(o,r)">ยืนยันตัวตนเพื่อดู</el-button></div>
+                </template>
+                <strong v-else-if="r.redacted" style="color:var(--el-color-danger);font-size:11.5px">ปกปิดผล</strong>
+                <pre v-else style="width:100%;max-width:none;margin:0;color:var(--el-text-color-regular);font:12px/1.65 'Noto Sans Thai','Leelawadee UI',Tahoma,Arial,sans-serif;white-space:pre-wrap;overflow-wrap:anywhere">{{ r.value || '—' }}</pre>
+              </div>
+            </div>
+          </template>
+
+          <template v-else>
+            <div v-for="(r,rowIndex) in ehLabCardRows(o)" :key="r.result_item_id || r.code || rowIndex" style="display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1.2fr) minmax(48px,.55fr) minmax(64px,.8fr) minmax(54px,.62fr);column-gap:8px;min-width:0;min-height:54px;align-items:start;padding:10px 10px 10px 16px;border-top:1px dashed var(--el-border-color-lighter)">
+              <strong style="min-width:0;color:var(--el-text-color-primary);font-size:12.5px;line-height:1.45;overflow-wrap:anywhere">{{ r.name || '-' }}</strong>
+              <div style="min-width:0">
+                <template v-if="r.locked"><div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap"><el-tag size="small" type="warning" effect="plain">ปกปิดผล Sensitive</el-tag><el-button v-if="r.reauth_required" size="small" type="warning" plain @click.stop="ehLabRequestSensitive(o,r)">ยืนยันตัวตนเพื่อดู</el-button></div></template>
+                <strong v-else :style="ehLabCardValueStyle(r)" style="font-size:13px;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere">{{ r.redacted ? 'ปกปิดผล' : (r.value || '—') }}</strong>
+              </div>
+              <span style="min-width:0;font-size:11.5px">{{ r.locked || r.redacted ? '—' : (r.unit || '—') }}</span>
+              <span style="min-width:0;font-size:11.5px;white-space:pre-wrap;overflow-wrap:anywhere">{{ r.locked || r.redacted ? '—' : (r.ref || '—') }}</span>
+              <span style="min-width:0"><el-tag v-if="!r.locked && !r.redacted" size="small" :type="ehLabCardFlagType(r)" effect="plain">{{ ehLabFlagLabel(r) }}</el-tag><span v-else>—</span></span>
+            </div>
+          </template>
+
+          <div v-if="!ehLabCardRows(o).length" style="padding:22px 16px;color:var(--el-text-color-placeholder);text-align:center">ยังไม่มีผล LAB ใน Order นี้</div>
+          <div style="display:flex;justify-content:flex-end;gap:6px;padding:7px 10px 8px;border-top:1px solid var(--el-border-color-lighter);background:var(--el-fill-color-lighter)" @click.stop>
+            <sd-report v-if="o.report_ready && !o.has_sensitive" :key="ehLabReportInstanceKey(o,'card')" :report-list="o.report_list" :params="o.report_params" size="small" />
+            <el-button v-else-if="o.report_ready" size="small" @click.stop="ehLabRequestSensitivePdf(o,'card')">PDF</el-button>
+            <span v-if="o.report_ready && o.has_sensitive && ehLabPdfGrantReady(o,'card')" :id="ehLabPdfHostId(o,'card')" style="display:none"><sd-report :key="ehLabPdfReportInstanceKey(o,'card')" :report-list="o.report_list" :params="ehLabPdfParams(o,'card')" size="small" /></span>
+            <el-button v-if="!o.report_ready" size="small" disabled :title="o.report_hint || 'ยังไม่มี Result Report'">PDF</el-button>
+            <el-button size="small" :disabled="!ehLabOrderTarget(o)" @click.stop="ehLabOpenResultForm(o)">ดูผลทั้งใบ</el-button>
+          </div>
+        </article>
+      </div>
+    </div>
+  </div>
+</section>`;
+
 // Keep the complete LAB Worklist-style read-only result viewer. Use semantic
 // markers because the Treat Summary template gains lines independently.
 const resultDialogStart = treatTemplate.indexOf('          <el-dialog v-model="tsLabDialog.visible"');
@@ -116,6 +189,9 @@ if (resultDialogStart < 0 || resultDialogEnd < 0) throw new Error('Cannot isolat
 let resultDialog = dedent(treatTemplate.slice(resultDialogStart, resultDialogEnd), 10);
 resultDialog = adaptTs(resultDialog);
 resultDialog = resultDialog.replace(/ehLabLabDialog/g, 'ehLabDialog').replace(/ehLabLabFlag/g, 'ehLabFlag').replace(/ehLabLabFile/g, 'ehLabFile');
+const reauthDialogStart = resultDialog.indexOf('<el-dialog v-model="ehLabReauth.visible"');
+if (reauthDialogStart < 0) throw new Error('Cannot isolate the LAB Sensitive re-auth dialog');
+const reauthDialog = resultDialog.slice(reauthDialogStart);
 
 // EMR History receives the same raw MLab result text as LAB Worklist, but its
 // normalized row shape is intentionally different. Keep the standard LAB
@@ -323,6 +399,7 @@ const labSiblings = [
 	'          <div v-if="g.type === \'lab\' && !ehLabLoading" style="text-align:right;margin-top:-4px">',
 	'            <el-button text size="small" style="font-size:11px;height:22px;color:var(--el-text-color-secondary)" @click="ehLabReload()">โหลดใหม่</el-button>',
 	'          </div>',
+	'          <!-- /EMR History LAB result board -->',
 ].join('\n');
 
 const orderAndResult = [
@@ -337,8 +414,8 @@ const rootClose = '\n  </template>\n</div>';
 builtTemplate = replaceOnce(
 	builtTemplate,
 	rootClose,
-	'\n  </template>\n\n  <!-- popup อ่านผลทั้งใบ: pattern เดียวกับ LAB Worklist / Treat Summary -->\n' + indent(resultDialog, 2) + '\n</div>',
-	'root close for result dialog',
+	'\n  </template>\n\n  <!-- ยืนยันตัวตน Sensitive/PDF เท่านั้น; ผลทั้งใบเปิดผ่าน Form กลาง lab_popup_result -->\n' + indent(reauthDialog, 2) + '\n</div>',
+	'root close for LAB re-auth dialog',
 );
 
 // Reuse the verified LAB mapping and viewer helpers, excluding trends and
@@ -388,6 +465,7 @@ const labExtension = `
  */
 const EH_LAB_RESULT_PDF_REPORT_ID = '6aa8f5a8b92813319a86ea11';
 const EH_LAB_MICRO_RESULT_PDF_REPORT_ID = '6ab1c2d3e4f5061728394a5b';
+const EH_LAB_RESULT_HISTORY_FORM_ID = '6ad789a39291822e416c02e7';
 const EH_LAB_MICRO_SECTIONS = ['MB'];
 const EH_LAB_STATUS = {
 	draft: { label: 'ร่าง', type: 'info' },
@@ -407,6 +485,20 @@ s.ehLabLoading = false;
 s.ehLabError = '';
 s.ehLabOrders = [];
 s.ehLabHn = '';
+s.ehLabRoom = 'ALL';
+s.ehLabRooms = [
+	{ code: 'ALL', label: 'ทั้งหมด' },
+	{ code: 'BC', label: 'BC' },
+	{ code: 'HM', label: 'HM' },
+	{ code: 'HH', label: 'HH' },
+	{ code: 'ML', label: 'ML' },
+	{ code: 'IM', label: 'IM' },
+	{ code: 'MI-OUT', label: 'MI-OUT' },
+	{ code: 'MB', label: 'MB' },
+	{ code: 'MY', label: 'MY' },
+	{ code: 'BB', label: 'BB' },
+	{ code: 'BG', label: 'BG' },
+];
 s.ehLabOgOpen = {};
 s.ehLabDialog = { visible: false, order: null };
 s.ehLabMbHistory = { visible: false, row: null };
@@ -420,6 +512,33 @@ s.ehLabSensitiveGrants = {};
 ${labCore}
 
 ${labInteractions}
+
+const ehLabRoomCode = (value) => {
+	const code = String(value || '').trim().toUpperCase().replace(/_/g, '-');
+	return code === 'MIOUT' ? 'MI-OUT' : code;
+};
+s.ehLabSetRoom = (code) => {
+	const normalized = ehLabRoomCode(code) || 'ALL';
+	s.ehLabRoom = s.ehLabRooms.some((room) => room.code === normalized) ? normalized : 'ALL';
+};
+s.ehLabRoomLabel = (code) => {
+	const room = s.ehLabRooms.find((item) => item.code === String(code || 'ALL'));
+	return room ? room.label : 'ทั้งหมด';
+};
+s.ehLabCardRows = (order) => (order && Array.isArray(order.display_rows) ? order.display_rows : []);
+s.ehLabCardValueStyle = (row) => ({
+	color: row && row.redacted ? 'var(--el-color-danger)' : row && row.flag === 'C' ? 'var(--el-color-danger)' : row && ehLabIsAbn(row) ? 'var(--el-color-warning)' : 'var(--el-text-color-primary)',
+});
+s.ehLabCardFlagType = (row) => (row && row.flag === 'C' ? 'danger' : row && ehLabIsAbn(row) ? 'warning' : 'success');
+s.ehLabRoomCount = (group, code) => {
+	const orders = s.ehLabCardsForGroup(group);
+	const roomCode = ehLabRoomCode(code);
+	return roomCode === 'ALL' ? orders.length : orders.filter((order) => ehLabRoomCode(order.section_code) === roomCode).length;
+};
+s.ehLabVisibleCardsForGroup = (group) => {
+	const orders = s.ehLabCardsForGroup(group);
+	return s.ehLabRoom === 'ALL' ? orders : orders.filter((order) => ehLabRoomCode(order.section_code) === s.ehLabRoom);
+};
 
 /* MLab read-only viewer parity with LAB Worklist.
  * Raw result_value is displayed and copied as received. Do not infer Gram
@@ -593,6 +712,7 @@ s.ehLabReset = () => {
 	s.ehLabError = '';
 	s.ehLabOrders = [];
 	s.ehLabHn = '';
+	s.ehLabRoom = 'ALL';
 	s.ehLabOgOpen = {};
 	s.ehLabDialog = { visible: false, order: null };
 	s.ehLabMbHistory = { visible: false, row: null };
@@ -682,10 +802,13 @@ builtCreated = builtCreated.trimEnd() + '\n\n' + labExtension.trim() + '\n';
 
 // Preserve the exact order card content (apart from the loop moving to an outer template).
 if (!builtTemplate.includes('ผล Lab เป็นการ์ดคนละความหมายกับการ์ดสั่งตรวจ')) throw new Error('LAB sibling marker missing');
-if (!builtTemplate.includes('v-for="o in ehLabCardsForGroup(g)"')) throw new Error('LAB card loop missing');
+if (!builtTemplate.includes('v-for="o in ehLabVisibleCardsForGroup(g)"')) throw new Error('filtered LAB card loop missing');
 // Names that already contained "Lab" in Treat Summary would otherwise receive it twice.
 builtTemplate = builtTemplate.replace(/ehLabLabDialog/g, 'ehLabDialog');
-builtCreated = builtCreated.replace(/ehLabLabDialog/g, 'ehLabDialog');
+builtCreated = builtCreated
+	.replace(/ehLabLabDialog/g, 'ehLabDialog')
+	.replace(/EH_LAB_LAB_RESULT_HISTORY_FORM_ID/g, 'EH_LAB_RESULT_HISTORY_FORM_ID')
+	.replace(/s\.ehLabVisit/g, 's.ehVisit');
 // Same normalization for helpers whose original names already contain the Lab prefix.
 builtTemplate = builtTemplate.replace(/ehLabLabFlag/g, 'ehLabFlag').replace(/ehLabLabFile/g, 'ehLabFile');
 builtCreated = builtCreated.replace(/ehLabLabFlag/g, 'ehLabFlag').replace(/ehLabLabFile/g, 'ehLabFile');
@@ -722,6 +845,19 @@ builtCreated = replaceOnce(
 	"\t\tcriticals: rows.filter((r) => r.flag === 'C'),\n\t\t// 🔴 ผลที่เป็น \"รายงานความเรียง\" (MB/MLab) แยกถังของตัวเอง — ต้องเห็นเสมอ\n\t\t//    LIS ไม่ได้ตีธงผิดปกติให้ ไม่ได้แปลว่าปกติ ⇒ ห้ามพับไปอยู่ใต้ \"ค่าปกติ\"\n\t\thidden_rows: rows.filter((r) => r.redacted),\n\t\tabnormals: rows.filter((r) => !r.redacted && ehLabIsAbn(r) && !r.text),\n\t\ttexts: rows.filter((r) => !r.redacted && r.text && !ehLabIsAbn(r)),\n\t\tnormals: rows.filter((r) => !r.redacted && !ehLabIsAbn(r) && !r.text),",
 	'EMR manual-hidden result buckets',
 );
+builtCreated = replaceOnce(
+	builtCreated,
+	"\t\tcriticals: rows.filter((r) => r.flag === 'C'),",
+	"\t\tdisplay_rows: allRows,\n\t\tcriticals: rows.filter((r) => r.flag === 'C'),",
+	'preserve LAB API row order for the compact result sheet',
+);
+builtCreated = replaceOnce(
+	builtCreated,
+	"s.ehLabOrderTarget = (o) => !!(o && ((Array.isArray(o.rows) && o.rows.length) || (Array.isArray(o.locked_rows) && o.locked_rows.some((row) => row.reauth_required))));",
+	"s.ehLabOrderTarget = (o) => !!String((o && (o.source_order_id || (o._raw && o._raw.source_order_id))) || '');",
+	'shared LAB popup target for every Order card',
+);
+builtCreated = builtCreated.replace('\n\ts.ehLabCloseReauth();\n\ts.ehLabOpenOrder(nextOrder);\n};', '\n\ts.ehLabCloseReauth();\n};');
 builtCreated = replaceOnce(
 	builtCreated,
 	"\to.abn_text = o.abnormals.length ? 'ผิดปกติ ' + o.abnormals.length : o.texts.length ? 'มีรายงานผล' : o.has_locked ? 'มีผล Sensitive' : rows.length ? 'ปกติทั้งหมด' : '';\n\to.abn_type = o.abnormals.length ? (o.criticals.length ? 'danger' : 'warning') : o.texts.length ? 'info' : o.has_locked ? 'warning' : 'success';",
@@ -806,10 +942,44 @@ builtCreated = replaceOnce(
 
 fs.mkdirSync(path.dirname(OUT_TEMPLATE), { recursive: true });
 fs.mkdirSync(path.dirname(OUT_CREATED), { recursive: true });
-const pasteReadyTemplate = builtTemplate.endsWith('\n') ? builtTemplate : builtTemplate + '\n';
+const mergeMarkedRegion = (current, generated, startMarker, endMarker) => {
+	const currentStart = current.indexOf(startMarker);
+	const currentEnd = current.indexOf(endMarker, currentStart);
+	const generatedStart = generated.indexOf(startMarker);
+	const generatedEnd = generated.indexOf(endMarker, generatedStart);
+	if (currentStart < 0 || currentEnd < 0 || generatedStart < 0 || generatedEnd < 0) return generated;
+	return current.slice(0, currentStart) + generated.slice(generatedStart, generatedEnd + endMarker.length) + current.slice(currentEnd + endMarker.length);
+};
+let outputTemplate = builtTemplate;
+if (fs.existsSync(OUT_TEMPLATE)) {
+	const currentTemplate = read(OUT_TEMPLATE);
+	if (currentTemplate.includes('ehXrayOrdersForGroup')) {
+		outputTemplate = mergeMarkedRegion(
+			currentTemplate,
+			builtTemplate,
+			'          <!-- ผล Lab เป็นการ์ดคนละความหมายกับการ์ดสั่งตรวจ จึงวางเป็น sibling ต่อท้าย ไม่ซ้อนในกรอบเดิม -->',
+			'          <!-- /EMR History LAB result board -->',
+		);
+	}
+}
+let outputCreated = builtCreated;
+if (fs.existsSync(OUT_CREATED)) {
+	const currentCreated = read(OUT_CREATED);
+	const labMarker = '/* ══ EMR History · LAB result sibling card';
+	const xrayMarker = '/* ══ EMR History · X-ray result card';
+	if (currentCreated.includes(xrayMarker)) {
+		const currentLab = currentCreated.indexOf(labMarker);
+		const currentXray = currentCreated.indexOf(xrayMarker, currentLab);
+		const generatedLab = builtCreated.indexOf(labMarker);
+		if (currentLab >= 0 && currentXray > currentLab && generatedLab >= 0) {
+			outputCreated = currentCreated.slice(0, currentLab) + builtCreated.slice(generatedLab).trimEnd() + '\n\n' + currentCreated.slice(currentXray);
+		}
+	}
+}
+const pasteReadyTemplate = outputTemplate.endsWith('\n') ? outputTemplate : outputTemplate + '\n';
 fs.writeFileSync(OUT_TEMPLATE, pasteReadyTemplate);
 fs.writeFileSync(OUT_TEMPLATE_TEXT, pasteReadyTemplate);
-fs.writeFileSync(OUT_CREATED, builtCreated);
+fs.writeFileSync(OUT_CREATED, outputCreated);
 
 console.log(path.relative(ROOT, OUT_TEMPLATE));
 console.log(path.relative(ROOT, OUT_TEMPLATE_TEXT));

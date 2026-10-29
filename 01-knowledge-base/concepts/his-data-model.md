@@ -2,7 +2,7 @@
 type: concept
 title: HIS data model (his MongoDB — zdata_person / zdata_visit / …)
 created: 2026-07-20
-updated: 2026-08-17
+updated: 2026-10-27
 tags: [initcraft, his, mongodb, data-model, schema, reference]
 sources: ["[[his-patient-form]]", "[[his-visit-form]]", "[[his-medical-record-report]]"]
 ---
@@ -53,8 +53,11 @@ _*row counts as sampled 2026-07-20 (tiny — looks like a test/seed dataset)._
 - **Insurance ([[his-insurance]]):** `inscl_main_code`, `inscl_sub_code`, `inscl_hos_main`,
   `inscl_hos_sub`, `inscl_hos` (**list** of `{inscl_item_main, inscl_item_sub}`).
 - **Relatives:** **`relate` (list)** — each `{ r_code (relationship), r_fname, r_lname, r_cid,
-  r_abogroup, r_occup (obj), r_contact, r_telecom }`. บิดา/มารดา/ผู้ปกครอง distinguished by `r_code`
-  (resolved against the `zdata_person_relate` master).
+  r_abogroup, r_occup (obj), r_contact, r_telecom }`. The current Person-form dropdown stores
+  `MTH` for แม่ and `FTH` for พ่อ. Live read-only inspection on 2026-10-27 found those same values
+  in Person records, while the separate `zdata_person_relate` master still exposed older numeric
+  codes such as `05` for มารดา. Consumers of current Person `relate[]` must therefore match
+  `r_code = "MTH"` for the mother row rather than translating through that older master.
 - **Medical:** `allergy_main` (**list** `{allergy_item, allergy_type, allergy_lvl, allergy_state}`)
   — the ประวัติการแพ้ยา source; `ailment_main` (list); `or_main`.
 - **Other:** `p_pic` (list `{url,…}`), `death_status`, `delivery_rajavithi`, `p_income`, `p_tags`.

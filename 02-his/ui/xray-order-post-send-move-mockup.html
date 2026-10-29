@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>X-ray Order — Post-send Move Unit Flow</title>
+  <style>
+    :root{
+      color-scheme:light;
+      --page:#f4f7f6;--surface:#fff;--soft:#f7f9fa;--line:#dfe6e3;--line2:#cbd7d2;
+      --text:#26322e;--muted:#78847f;--green:#0d7d5c;--green2:#076148;--green-soft:#eaf6f0;
+      --blue:#2e83c5;--blue-soft:#edf6fd;--orange:#d6801d;--orange-soft:#fff5e8;--red:#d84d4d;
+      --shadow:0 20px 60px rgba(27,53,44,.16);--radius:11px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--page);color:var(--text);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans Thai",sans-serif}
+    button,select,textarea{font:inherit}button{cursor:pointer}
+    button:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid rgba(46,131,197,.22);outline-offset:2px}
+    .prototype{height:42px;display:flex;align-items:center;gap:14px;padding:0 18px;background:#173b30;color:#fff;font-size:12px}
+    .prototype strong{letter-spacing:.05em}.prototype span{opacity:.76}.prototype button{margin-left:auto;border:1px solid rgba(255,255,255,.28);border-radius:6px;background:transparent;color:#fff;padding:5px 10px}
+    .workspace{min-height:calc(100vh - 42px);padding:22px;background:linear-gradient(#f7f9f8,#eef3f1)}
+    .module{width:min(1460px,100%);min-height:760px;margin:auto;border:1px solid var(--line);border-radius:12px;background:#fff;box-shadow:0 8px 30px rgba(34,59,50,.08);overflow:hidden}
+    .topbar{height:58px;display:flex;align-items:center;gap:12px;padding:0 18px;border-bottom:1px solid var(--line)}
+    .brand{width:31px;height:31px;display:grid;place-items:center;border-radius:7px;background:var(--blue-soft);color:var(--blue);font-size:17px}
+    .topbar h1{font-size:21px;margin:0}.room{margin-left:auto;color:var(--muted);font-size:12px}
+    .module-tabs{height:48px;display:flex;align-items:flex-end;padding-left:22px;border-bottom:1px solid var(--line)}
+    .module-tab{height:48px;padding:0 18px;display:flex;align-items:center;border-bottom:3px solid var(--green);color:var(--green);font-weight:700}
+    .queue{margin:18px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+    .queue-title{padding:13px 15px;border-bottom:1px solid var(--line);font-size:16px;font-weight:750}
+    .queue-row{display:grid;grid-template-columns:90px 1fr auto;gap:15px;align-items:center;padding:14px 16px}
+    .queue-no{font-size:18px;font-weight:800}.queue-no small{display:block;color:var(--muted);font-size:11px;font-weight:500}
+    .pt b{font-size:16px}.pt small{display:block;color:var(--muted);margin-top:4px}
+    .unit-tag{padding:7px 10px;border:1px solid #d4e9df;border-radius:7px;background:var(--green-soft);color:var(--green);font-weight:700}
+
+    .overlay{position:fixed;inset:42px 0 0;display:flex;align-items:flex-start;justify-content:center;padding:18px;background:rgba(21,36,31,.42);z-index:10;overflow:auto}
+    .overlay.hidden{display:none}
+    .order-dialog{width:min(1500px,100%);min-height:calc(100vh - 80px);border-radius:12px;background:#fff;box-shadow:var(--shadow);overflow:hidden}
+    .dialog-head{height:64px;display:flex;align-items:center;gap:11px;padding:0 20px;border-bottom:1px solid var(--line)}
+    .doc{width:31px;height:31px;display:grid;place-items:center;border-radius:7px;background:var(--green-soft);color:var(--green);font-size:18px}
+    .dialog-head h2{margin:0;font-size:23px}.version{padding:3px 8px;border:1px solid #cee8dc;border-radius:6px;background:#f0faf5;color:var(--green);font-size:11px}
+    .dialog-head .x{margin-left:auto;border:0;background:transparent;color:#939e99;font-size:24px}
+    .context{padding:14px 18px 0}
+    .picker{padding:12px 14px;border:1px solid var(--line);border-radius:9px;background:#f6f8fa}
+    .picker-label{display:flex;justify-content:space-between;gap:12px;margin-bottom:7px}.picker-label b{font-size:15px}.picker-label span{color:#929c98;font-size:12px}
+    .select-look{height:42px;display:flex;align-items:center;padding:0 13px;border:1px solid #63a9e0;border-radius:6px;background:#fff}.select-look span{margin-left:auto;color:#9aa5a1}
+    .picker small{display:block;margin-top:6px;color:#919c98}
+    .patient{display:flex;align-items:center;gap:14px;margin-top:11px;padding:13px 15px;border:1px solid #d7e9e1;border-radius:9px;background:#edf7f2}
+    .avatar{width:52px;height:52px;border:1px solid #d8dfdc;border-radius:9px;background:#fff;display:grid;place-items:center;color:#89958f;font-size:24px}
+    .pt-main{flex:1;min-width:0}.pt-name{font-size:18px;font-weight:760}.pt-line{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.pt-meta{margin-top:5px;color:var(--muted);font-size:12px}
+    .chip{height:24px;display:inline-flex;align-items:center;padding:0 8px;border:1px solid var(--line);border-radius:6px;background:#fff;font-size:12px;font-weight:700}
+    .chip.hn{color:var(--blue);background:var(--blue-soft);border-color:#d9eaf7}.chip.vn{color:var(--orange);background:var(--orange-soft);border-color:#f1dcbf}.chip.ok{color:var(--green);background:#eef9e8;border-color:#d7eccb}
+    .order-tools{display:flex;align-items:center;gap:10px;padding:13px 18px;border-bottom:1px solid var(--line)}
+    .seg{display:flex;padding:3px;border:1px solid var(--line);border-radius:24px;background:#fff}.seg button{height:32px;padding:0 20px;border:0;border-radius:20px;background:transparent;color:var(--muted);font-weight:700}.seg button.active{background:var(--green);color:#fff}
+    .prio{margin-left:auto;display:flex;gap:7px}.prio span{height:30px;display:flex;align-items:center;padding:0 12px;border:1px solid var(--line);border-radius:18px;color:var(--muted)}
+    .prio span.active{background:var(--green);border-color:var(--green);color:#fff;font-weight:700}
+    .right-field{height:36px;min-width:220px;display:flex;align-items:center;justify-content:space-between;padding:0 11px;border:1px solid var(--line2);border-radius:6px;color:var(--muted)}
+    .order-body{display:grid;grid-template-columns:210px 1fr 340px;gap:14px;padding:15px 18px 20px}
+    .box{border:1px solid var(--line);border-radius:var(--radius);background:#fff;overflow:hidden}.box-title{display:flex;align-items:center;padding:12px 13px;border-bottom:1px solid var(--line);font-weight:750}.box-title small{margin-left:auto;color:var(--muted);font-weight:500}
+    .category button{display:block;width:100%;padding:10px 13px;border:0;border-bottom:1px solid #edf1ef;background:#fff;color:#5d6964;text-align:left}.category button.active{border-left:3px solid var(--green);background:var(--green-soft);color:var(--green);font-weight:700}
+    .exam-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;padding:11px}.exam{padding:11px;border:1px solid var(--line);border-radius:8px}.exam b{display:block}.exam small{display:block;color:var(--muted);margin-top:3px}.exam button{margin-top:9px;padding:5px 9px;border:1px solid #b6dccd;border-radius:6px;background:#f3faf7;color:var(--green)}
+    .cart{align-self:start}.cart-row{display:grid;grid-template-columns:1fr auto;gap:8px;padding:11px 12px;border-bottom:1px dashed var(--line)}.cart-row small{display:block;margin-top:3px;color:var(--muted)}.cart-row strong{text-align:right}
+    .total{display:flex;justify-content:space-between;padding:12px;font-size:15px;font-weight:800}.actions{display:flex;gap:8px;padding:0 12px 12px}.actions button{height:36px;flex:1;border-radius:6px;font-weight:700}.secondary{border:1px solid var(--line2);background:#fff;color:#5b6762}.primary{border:1px solid var(--green);background:var(--green);color:#fff}.primary:hover{background:var(--green2)}.primary[disabled]{cursor:wait;opacity:.68}
+
+    .move-overlay{position:fixed;inset:42px 0 0;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(22,38,32,.43);z-index:20}.move-overlay.show{display:flex}
+    .move-modal{width:min(660px,100%);border-radius:12px;background:#fff;box-shadow:var(--shadow);overflow:hidden}
+    .move-head{display:flex;align-items:center;gap:10px;padding:16px 18px;border-bottom:1px solid var(--line)}.move-head h2{margin:0;font-size:20px}.move-head button{margin-left:auto;border:0;background:transparent;color:#8d9994;font-size:22px}
+    .success-strip{display:flex;gap:10px;align-items:flex-start;margin:16px 18px 0;padding:11px 12px;border:1px solid #cce6d9;border-radius:8px;background:var(--green-soft);color:#315e4f}.success-strip b{display:block}.success-strip small{display:block;margin-top:2px}
+    .move-body{padding:16px 18px}.patient-strip{padding:10px 12px;border-radius:8px;background:#f5f7f6}.patient-strip small{display:block;margin-top:2px;color:var(--muted)}
+    .field{margin-top:14px}.field label{display:block;margin-bottom:6px;font-weight:700}.queue-priority{display:flex}.queue-priority button{height:38px;padding:0 19px;border:1px solid var(--line2);background:#fff;color:#63706b}.queue-priority button:first-child{border-radius:7px 0 0 7px}.queue-priority button:last-child{border-radius:0 7px 7px 0}.queue-priority button.active{background:var(--blue);border-color:var(--blue);color:#fff}
+    select,textarea{width:100%;padding:9px 11px;border:1px solid var(--line2);border-radius:7px;background:#fff;color:var(--text)}textarea{min-height:78px;resize:vertical}.field-note{margin-top:6px;color:var(--muted);font-size:12px}
+    .move-foot{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:13px 18px;border-top:1px solid var(--line);background:#fafbfb}.move-foot button{height:37px;padding:0 15px;border-radius:7px;font-weight:700}
+    .skip{margin-right:auto;border:0;background:transparent;color:var(--muted)}
+    .toast{position:fixed;right:20px;bottom:20px;display:none;max-width:440px;padding:12px 15px;border-radius:8px;background:#173b30;color:#fff;box-shadow:var(--shadow);z-index:30}.toast.show{display:block;animation:pop .2s ease-out}@keyframes pop{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+    @media(max-width:900px){.order-body{grid-template-columns:180px 1fr}.cart{grid-column:1/-1}.right-field{display:none}}
+    @media(max-width:620px){.workspace{padding:0}.module{border-radius:0}.overlay,.move-overlay{inset:42px 0 0;padding:0}.order-dialog{border-radius:0}.avatar{display:none}.order-tools{align-items:flex-start;flex-wrap:wrap}.prio{margin-left:0}.order-body{grid-template-columns:1fr}.category{display:none}.exam-grid{grid-template-columns:1fr}.patient{align-items:flex-start}.prototype span{display:none}.move-modal{height:100%;border-radius:0;display:flex;flex-direction:column;justify-content:center}.move-foot{margin-top:auto}}
+  </style>
+</head>
+<body>
+  <div class="prototype"><strong>HTML PROTOTYPE · ไม่เชื่อม API</strong><span>หน้าสั่งรายการตรวจคงเดิม — เพิ่มเฉพาะ flow เปิด Move Unit หลังส่งสำเร็จ</span><button id="resetDemo">เริ่มตัวอย่างใหม่</button></div>
+  <main class="workspace">
+    <section class="module" aria-label="หน้าหลัก X-ray ที่อยู่หลัง popup">
+      <header class="topbar"><div class="brand">☢</div><h1>X-Ray</h1><div class="room" id="roomLabel">งานรังสีวิทยาทั่วไป อาคารเฉลิมฯ ชั้น 11</div></header>
+      <nav class="module-tabs"><div class="module-tab">Unit Queue</div></nav>
+      <section class="queue">
+        <div class="queue-title">ผู้ป่วยรอเข้าห้องตรวจ (1)</div>
+        <div class="queue-row"><div class="queue-no">VD003<small>รอเรียก</small></div><div class="pt"><b>น.ส. ดำ ใจดี · HN6900001</b><small>VN6900439 · มีใบสั่งตรวจ X-ray 2 รายการ</small></div><div class="unit-tag" id="queueUnit">ห้อง X-ray</div></div>
+      </section>
+    </section>
+  </main>
+
+  <div class="overlay" id="orderOverlay">
+    <section class="order-dialog" aria-label="ฟอร์มสั่งรายการตรวจแบบเดิม">
+      <header class="dialog-head"><div class="doc">▤</div><h2>สั่งรายการตรวจ</h2><span class="version">v1</span><button class="x" aria-label="ปิด">×</button></header>
+      <div class="context">
+        <div class="picker"><div class="picker-label"><b>เลือกผู้ป่วยที่เปิด Visit วันนี้</b><span>2026-10-18 · 2 Visit</span></div><div class="select-look">HN6900001 · VN6900439 · 18 ตุลาคม 2569 · น.ส. ดำ ใจดี <span>⌄</span></div><small>แสดงเฉพาะ Visit วันนี้ที่สถานะยังเปิดอยู่</small></div>
+        <div class="patient"><div class="avatar">●</div><div class="pt-main"><div class="pt-line"><span class="pt-name">น.ส. ดำ ใจดี</span><span class="chip hn">HN6900001</span><span class="chip">อายุ 8 · หญิง</span><span class="chip">เลือด O</span><span class="chip ok">✓ OFC</span></div><div class="pt-meta"><span class="chip vn">VN6900439</span> · มาตรวจ 18/10/2569 · งานรังสีวิทยาทั่วไป อาคารเฉลิมฯ ชั้น 11</div></div></div>
+      </div>
+      <div class="order-tools"><div class="seg"><button class="active">X-ray</button></div><div class="prio"><span class="active">ปกติ</span><span>ด่วน</span><span>อื่นๆ⌄</span></div><div class="right-field">สิทธิ์ที่ใช้ทั้งใบ <span>⌄</span></div><div class="right-field">แพทย์ผู้สั่ง: Nichada <span>⌄</span></div></div>
+      <div class="order-body">
+        <aside class="box category"><div class="box-title">หมวด X-ray</div><button class="active">ภาพถ่ายรังสีทั่วไป</button><button>Ultrasound</button><button>CT Scan</button><button>MRI</button><button>Fluoroscopy</button></aside>
+        <section class="box"><div class="box-title">ภาพถ่ายรังสีทั่วไป <small>รายการเดิมทั้งหมด</small></div><div class="exam-grid"><article class="exam"><b>Chest PA</b><small>D001 · Digital Radiography</small><button>＋ เพิ่มรายการ</button></article><article class="exam"><b>Chest AP Portable</b><small>D003 · Portable</small><button>＋ เพิ่มรายการ</button></article><article class="exam"><b>Skull AP, Lateral</b><small>D082 · 2 views</small><button>＋ เพิ่มรายการ</button></article><article class="exam"><b>Both Shoulder Axillary</b><small>D117 · 2 sides</small><button>＋ เพิ่มรายการ</button></article><article class="exam"><b>Hepatobiliary (DISIDA)</b><small>D891 · Nuclear Medicine</small><button>＋ เพิ่มรายการ</button></article><article class="exam"><b>Wrist AP, Lateral</b><small>D093 · Left / Right</small><button>＋ เพิ่มรายการ</button></article></div></section>
+        <aside class="box cart"><div class="box-title">รายการในใบ <small>2</small></div><div class="cart-row"><div><b>Chest PA</b><small>D001 · ปกติ</small></div><strong>฿500</strong></div><div class="cart-row"><div><b>Skull AP, Lateral</b><small>D082 · ปกติ</small></div><strong>฿500</strong></div><div class="total"><span>รวมทั้งใบ</span><span>฿1,000</span></div><div class="actions"><button class="secondary">บันทึกร่าง</button><button class="primary" id="sendOrder">ส่งใบสั่งตรวจ</button></div></aside>
+      </div>
+    </section>
+  </div>
+
+  <div class="move-overlay" id="moveOverlay" role="dialog" aria-modal="true" aria-labelledby="moveTitle">
+    <section class="move-modal">
+      <header class="move-head"><div class="doc">→</div><h2 id="moveTitle">ส่งต่อผู้ป่วย</h2><button id="closeMove" aria-label="ปิด">×</button></header>
+      <div class="success-strip"><span>✓</span><div><b>ส่งใบสั่งตรวจ R2610180003 สำเร็จแล้ว</b><small>2 รายการ · ฿1,000.00 · ระบบบันทึก Order เรียบร้อย</small></div></div>
+      <div class="move-body">
+        <div class="patient-strip"><b>น.ส. ดำ ใจดี · VN6900439</b><small>คิวปัจจุบัน: งานรังสีวิทยาทั่วไป อาคารเฉลิมฯ ชั้น 11 · Visit Tran ID พร้อมใช้งาน</small></div>
+        <div class="field"><label>คิวตรวจ</label><div class="queue-priority"><button class="active">ตามคิว</button><button>เร่งด่วน</button><button>STAT</button></div></div>
+        <div class="field"><label for="destination">แผนก/คลินิกปลายทาง</label><select id="destination"><option value="finance">f01 ห้องการเงิน</option><option value="premium">d01.p ห้องการเงินพรีเมี่ยม</option><option value="xray">งานรังสีวิทยาอื่น</option></select><div class="field-note">รายการหน่วยงานใช้จาก Move Unit เดิม ไม่ hard-code ในฟอร์มสั่งตรวจ</div></div>
+        <div class="field"><label for="moveNote">หมายเหตุ</label><textarea id="moveNote" placeholder="เช่น ส่งชำระค่าบริการหลังสั่งตรวจเพิ่มเติม"></textarea></div>
+      </div>
+      <footer class="move-foot"><button class="skip" id="skipMove">ยังไม่ส่งต่อ</button><button class="secondary" id="cancelMove">ยกเลิก</button><button class="primary" id="confirmMove">ส่งตัว →</button></footer>
+    </section>
+  </div>
+  <div class="toast" id="toast" role="status"></div>
+
+  <script>
+    const orderOverlay=document.getElementById('orderOverlay')
+    const moveOverlay=document.getElementById('moveOverlay')
+    const sendButton=document.getElementById('sendOrder')
+    const toast=document.getElementById('toast')
+    function notify(text){toast.textContent=text;toast.classList.add('show');clearTimeout(window.__toast);window.__toast=setTimeout(()=>toast.classList.remove('show'),3500)}
+    function closeMove(){moveOverlay.classList.remove('show')}
+    function reset(){closeMove();orderOverlay.classList.remove('hidden');sendButton.disabled=false;sendButton.textContent='ส่งใบสั่งตรวจ';document.getElementById('queueUnit').textContent='ห้อง X-ray';document.getElementById('roomLabel').textContent='งานรังสีวิทยาทั่วไป อาคารเฉลิมฯ ชั้น 11'}
+    sendButton.addEventListener('click',()=>{
+      sendButton.disabled=true;sendButton.textContent='กำลังส่ง…'
+      setTimeout(()=>{
+        orderOverlay.classList.add('hidden')
+        notify('ส่งใบ R2610180003 สำเร็จแล้ว')
+        setTimeout(()=>moveOverlay.classList.add('show'),220)
+      },650)
+    })
+    document.querySelectorAll('.queue-priority button').forEach(button=>button.addEventListener('click',()=>{document.querySelectorAll('.queue-priority button').forEach(x=>x.classList.remove('active'));button.classList.add('active')}))
+    document.getElementById('confirmMove').addEventListener('click',()=>{const select=document.getElementById('destination');const label=select.options[select.selectedIndex].text;document.getElementById('queueUnit').textContent=label;document.getElementById('roomLabel').textContent=label;closeMove();notify('ส่งต่อผู้ป่วยไป '+label+' แล้ว')})
+    document.getElementById('skipMove').addEventListener('click',()=>{closeMove();notify('ใบสั่งตรวจส่งแล้ว · ผู้ป่วยยังอยู่ที่ห้อง X-ray')})
+    document.getElementById('cancelMove').addEventListener('click',closeMove)
+    document.getElementById('closeMove').addEventListener('click',closeMove)
+    document.getElementById('resetDemo').addEventListener('click',reset)
+    moveOverlay.addEventListener('click',event=>{if(event.target===moveOverlay)closeMove()})
+    document.addEventListener('keydown',event=>{if(event.key==='Escape')closeMove()})
+  </script>
+</body>
+</html>

@@ -31,6 +31,7 @@
 const ITEM_COLLECTION = 'zdata_cpoe_order_item'
 const ORDER_COLLECTION = 'zdata_cpoe_order'
 const VISIT_COLLECTION = 'zdata_visit'
+const PERSON_COLLECTION = 'zdata_person'
 const ITEM_MASTER_COLLECTION = 'zdata_master_item_order'
 const SECTION_COLLECTION = 'zdata_section'
 const WORK_ITEM_COLLECTION = 'zdata_lab_work_item'
@@ -39,6 +40,8 @@ const ORDER_CANCELLATION_COLLECTION = 'zdata_lab_order_cancellation'
 const WORK_ITEM_FORM_ID = '6a95c750422c1ca959829e8a'
 const LAB_NO_PROCESS_ID = '6a94f1ed422c1ca959829d6e'
 const AGENT_SUBMIT_PROCESS_ID = '6a9468c7422c1ca959829d6a'
+const LAB_ORDER_EVENT_TYPE = 'lab.order.submit'
+const MOTHER_RELATION_CODE = 'MTH'
 const PRIORITY_MAP = {
   R: 'R', ROUTINE: 'R', '1': 'R',
   A: 'A', URGENT: 'A', '2': 'A',
@@ -122,29 +125,50 @@ const agentSexFromCode = value => {
 const encounterClassFromVisit = visit => {
   return text(visit && visit.an) ? 'IPD' : 'OPD'
 }
+// 2026-10-29 temporary production UAT override. Remove after this Order's round-trip.
+const maternalBloodFromOrder = order => text(order && order.order_number) === 'R2610290002' ? true : order && typeof order.is_maternal_blood === 'boolean' ? order.is_maternal_blood : undefined
+const motherNameFromPerson = person => {
+  const relatives = Array.isArray(person && person.relate) ? person.relate : []
+  const mother = relatives.find(relative => text(relative && relative.r_code).toUpperCase() === MOTHER_RELATION_CODE)
+  return mother ? [text(mother.r_fname), text(mother.r_lname)].filter(Boolean).join(' ') : ''
+}
 const agentVisitContextForOrder = async order => {
   const snapshot = order && order.vid || {}
   const snapshotCode = agentSexFromCode(snapshot.pid && snapshot.pid.p_gender)
   const visitId = text(snapshot.value)
-  if (!/^[a-f0-9]{24}$/i.test(visitId)) {
-    return { sex: snapshotCode, encounterClass: encounterClassFromVisit(snapshot) }
+  let source = null
+  if (/^[a-f0-9]{24}$/i.test(visitId)) {
+    try {
+      source = await app.db.collection(VISIT_COLLECTION).findOne(
+        { _id: app.dbObjectId(visitId), xrstatx: active },
+        { projection: { 'pid.value': 1, 'pid.p_gender': 1, an: 1, encounter_class: 1, 'encounter.class': 1 } }
+      )
+    } catch (error) {
+      source = null
+    }
   }
-  try {
-    const source = await app.db.collection(VISIT_COLLECTION).findOne(
-      { _id: app.dbObjectId(visitId), xrstatx: active },
-      { projection: { 'pid.p_gender': 1, an: 1, encounter_class: 1, 'encounter.class': 1 } }
-    )
-    const mergedVisit = {
-      ...snapshot,
-      ...(source || {}),
-      an: text(source && source.an) || text(snapshot.an)
+  const mergedVisit = {
+    ...snapshot,
+    ...(source || {}),
+    an: text(source && source.an) || text(snapshot.an)
+  }
+  const personId = text(source && source.pid && source.pid.value || snapshot.pid && snapshot.pid.value)
+  let motherName = ''
+  if (/^[a-f0-9]{24}$/i.test(personId)) {
+    try {
+      const person = await app.db.collection(PERSON_COLLECTION).findOne(
+        { _id: app.dbObjectId(personId), xrstatx: active },
+        { projection: { relate: 1 } }
+      )
+      motherName = motherNameFromPerson(person)
+    } catch (error) {
+      motherName = ''
     }
-    return {
-      sex: agentSexFromCode(source && source.pid && source.pid.p_gender) || snapshotCode,
-      encounterClass: encounterClassFromVisit(mergedVisit)
-    }
-  } catch (error) {
-    return { sex: snapshotCode, encounterClass: encounterClassFromVisit(snapshot) }
+  }
+  return {
+    sex: agentSexFromCode(source && source.pid && source.pid.p_gender) || snapshotCode,
+    encounterClass: encounterClassFromVisit(mergedVisit),
+    motherName
   }
 }
 const lastSentAt = order => {
@@ -461,6 +485,7 @@ if (requestedItemIds.length > 1) {
     return result
   })
   const batchPayload = {
+    event_type: LAB_ORDER_EVENT_TYPE,
     order_no: receiptBatchId,
     labno: batchLabNo,
     hn: text(batchPatient.hn),
@@ -486,6 +511,9 @@ if (requestedItemIds.length > 1) {
     items: batchItems
   }
   if (!batchPayload.birth_date) delete batchPayload.birth_date
+  if (batchVisitContext.motherName) batchPayload.mother_name = batchVisitContext.motherName
+  const batchMaternalBlood = maternalBloodFromOrder(batchOrder)
+  if (typeof batchMaternalBlood === 'boolean') batchPayload.is_maternal_blood = batchMaternalBlood
 
   const batchMissingOutbound = []
   if (!batchOrderedAt) batchMissingOutbound.push('ordered_at')
@@ -976,6 +1004,7 @@ const sectionCode = text(workItem.section_code).toUpperCase()
 const workItemId = text(workItem._id)
 const buildPayload = stableReceivedIso => {
   const payload = {
+    event_type: LAB_ORDER_EVENT_TYPE,
     order_no: workItemId,
     labno: labNo,
     hn: text(patient.hn),
@@ -1013,6 +1042,9 @@ const buildPayload = stableReceivedIso => {
     }]
   }
   if (!payload.birth_date) delete payload.birth_date
+  if (agentVisitContext.motherName) payload.mother_name = agentVisitContext.motherName
+  const maternalBlood = maternalBloodFromOrder(order)
+  if (typeof maternalBlood === 'boolean') payload.is_maternal_blood = maternalBlood
   if (!collectedAt) delete payload.items[0].collected_at
   if (sourceContext && master && master.req_commt === true) payload.items[0].comment = text(item.comment)
   if (sourceContext && master && master.multi_specimen === true) payload.items[0].specimens = outboundSpecimens(labData)

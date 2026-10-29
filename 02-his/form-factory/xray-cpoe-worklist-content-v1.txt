@@ -389,7 +389,6 @@
     <div class="xr-cancel-summary">
       <strong>Order No. {{ cancelDialog.order_no }}</strong>
       <span>ยกเลิกเฉพาะ {{ cancelDialog.item_names.length }} รายการที่เลือก: {{ cancelDialog.item_names.join(', ') }}</span>
-      <span>รายการที่ส่งแล้วจะส่ง Order JSON เดิมพร้อม IsDeleted:true ไป API Order ทีมก่อนเปลี่ยนสถานะใน HIS · ทีม API Order รับผิดชอบส่งต่อ RIS</span>
     </div>
     <label class="xr-cancel-reason"><span>เหตุผลการยกเลิก <b>*</b></span>
       <el-input :model-value="cancelDialog.reason" type="textarea" :rows="4" maxlength="1000"

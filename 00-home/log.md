@@ -2,7 +2,7 @@
 type: synthesis
 title: Wiki Log
 created: 2026-07-16
-updated: 2026-10-08
+updated: 2026-10-29
 tags: [meta, log]
 ---
 
@@ -5215,6 +5215,25 @@ Append-only, chronological. Newest at the bottom. Each entry header is
   The `git filter-branch` history rewrite was denied by the auto-mode classifier. Backup branch
   `backup/pre-scrub-20261016` (local only, contains the token).
 
+## [2026-10-18] note | X-ray Order module tabs prototype
+
+- Confirmed from the read-only EMR `item_card` that Order cards load by Visit ID, while Move Unit
+  moves the patient queue using Visit Tran `_id`; Move Unit is therefore a Visit-level action, not
+  an action belonging to an individual Order.
+- Added interactive `02-his/ui/xray-order-module-tabs-mockup.html`: shared patient context, separate
+  create/orders tabs, EMR-style Order cards, automatic switch after send, and a Visit-level Move dialog.
+- Browser-tested tab switching, send simulation, badge refresh and Move dialog with no console errors.
+  No live Form/API/DB change; design awaits user confirmation.
+
+## [2026-10-18] note | X-ray post-send Move Unit prototype
+
+- User rejected changing the Order UI or adding an Order-list tab. The existing screen and
+  `ส่งใบสั่งตรวจ` button must remain visually unchanged.
+- Added `02-his/ui/xray-order-post-send-move-mockup.html`: successful send closes the Order popup,
+  then opens the existing Move Unit as the next step; “ยังไม่ส่งต่อ” keeps the patient at X-ray.
+- Browser-tested successful send, popup sequencing, skip behavior and mobile layout; no console errors.
+  Implementation should be orchestrated by the user-owned X-ray launcher, not by mutating the admin CPOE Form.
+
 ## [2026-10-18] audit | LAB go-live readiness recheck
 
 - Verdict unchanged from 2026-10-01: NO-GO. `mongo-his` MCP was disconnected, so live deployment
@@ -5263,3 +5282,813 @@ Append-only, chronological. Newest at the bottom. Each entry header is
   `error` was the guard rejecting "same result_version, changed value", followed by seq 3 processed.
   Final receipts warn `ไม่มี explicit critical decision` (102501CD, 102504CD, 102504IC).
   `400305` 422 comes from the Agent/LISconnect catalog, not HIS.
+
+## [2026-10-19] design | EMR X-ray result/history audit and confirmation mockup
+
+- Read-only local audit: Treat Summary already renders X-ray report text and can open the result
+  record, but its contract has no image action and no same-exam latest-five history. It also reuses
+  a LAB-like `resulted today from a prior order` bucket, which conflicts with the confirmed X-ray
+  rule that the result stays with the examination VN.
+- EMR History still shows X-ray inside the generic order group; it has no X-ray result sibling card,
+  image action, full report, or same-exam history.
+- Added `02-his/ui/emr-xray-result-history-confirmation.html`: compact EMR card with `ดูภาพ` / `ดูผล`,
+  full EMR History view, long-report dialog, read-only image-viewer concept, and at most five prior
+  results matched by the same Radio Exam code. No live EMR artifact was changed.
+
+## [2026-10-19] design correction | X-ray tab only; preserve EMR/LAB pattern
+
+- User rejected the oversized standalone Card and the VN-list redesign. Rebuilt the same mockup
+  around the actual 395px Summary Card and the existing EMR History Visit navigator.
+- Scope is now explicit: only the X-Ray tab changes. Drug, LAB, SOAP, visit navigation and all other
+  EMR surfaces remain contextual placeholders and are not redesigned.
+- “Latest five” now means this HN + the exact same Radio Exam code, sorted newest first and limited
+  to five. VN appears only as provenance for each result; it is not the history grouping key.
+
+## [2026-10-19] design correction | X-ray history grouped by Order
+
+- Updated `02-his/ui/emr-xray-result-history-confirmation.html` so both the compact X-Ray Card and
+  EMR History use Order as the main header, then room/modality, then individual examination rows.
+- Matched Worklist actions at examination level: `ดูผลอ่าน` then `ดูภาพ`. The result dialog now
+  shows the raw read-only report with metadata and only a Close action; it no longer repeats a
+  `ดูภาพ` button or invents a separate Impression block.
+- Preserved latest-five matching by HN + exact Radio Exam code. JavaScript syntax, static rules,
+  diff whitespace and headless visual renders of Card, History and result dialog pass.
+
+## [2026-10-19] design correction | Collapsible X-ray Orders
+
+- Made Order headers collapsible/expandable in both the compact X-Ray Card and EMR History mockup,
+  including chevron state, `aria-expanded`, keyboard Enter/Space support and hover feedback.
+- Removed the redundant `X-ray N` tag from History Order headers and repeated item-level `Final`
+  tags; retained the single Order-level `Final` status.
+- JavaScript syntax, static rules, whitespace and headless runtime state transitions pass.
+
+## [2026-10-19] implementation | Separate EMR X-ray result/history API and isolated UI
+
+- Added read-only `Form-Builder/API/api-factory/processes/emr-xray-history-get.js` rather than
+  changing `emr-lab-board-get`. The new contract derives HN/VN from `visit_id`, groups
+  Order → room/modality → exam, joins reports by Accession No., and limits history to five earlier
+  results for the same HN + exact `ExamUid`; it never falls back to exam-name matching.
+- Updated only the X-ray branches in Treat Summary and EMR History paste-ready Vue artifacts.
+  Both support collapsible Orders and Worklist-style `ดูผลอ่าน` / `ดูภาพ`; History additionally
+  exposes exact-exam latest-five. Final is Order-level only and report dialogs do not repeat image.
+- Added import handoff and focused tests. New API/UI tests plus existing EMR LAB/sensitive-result
+  regression tests pass. No live Factory artifact was changed; both UI event files still require
+  the new Process ID after the user creates/publishes the API Process.
+
+## [2026-10-19] implementation | Connect EMR X-ray Process and default to medicine
+
+- Inserted confirmed `emr-xray-history-get` Process ID `6ad58d76481c196fbb339ae8` into the
+  Treat Summary and EMR History `onCreated` replacement files.
+- Changed only Treat Summary tab selection after loading: it now always opens `ยา` first instead
+  of auto-switching to LAB/X-ray according to available data. Data loading and other tabs remain.
+- Updated the focused regression test and import handoff. No live Factory artifact was changed.
+
+## [2026-10-19] query | Safe X-ray manual-result UAT seed path
+
+- Verified that `save_manual_report` needs an actionable X-ray item with an Accession No., but it
+  can fall back to the current item master mapping when no outbound RIS Order snapshot exists.
+- Recommended a separate, admin-only seed/cleanup API that uses the accession-only Process and
+  marks a test item dispatched without calling dispatch, API Order, Agent, or RIS.
+- Cleanup must restore the captured item state, soft-delete only seed manual result/log rows, and
+  leave the Accession counter advanced so an issued number is never reused. No API was created.
+
+## [2026-10-21] implementation | Add LAB Order event type for Agent
+
+- Added canonical `event_type: "lab.order.submit"` to normal LAB Order payloads built by
+  `lab_cpoe_receive_api` for both single-item and batch receive paths.
+- `lab_agent_order_submit_api` now injects the same value for backward-compatible callers and
+  rejects any supplied non-LAB value, including the separate Blood Bank event type.
+- Updated the outbound schema, UAT JSON examples, interface contract, tests and tracked checksums.
+  Submit tests and the Receive 500-case matrix pass. No live API Factory Process was changed;
+  live delivery mode remains subject to the artifact-specific write gate.
+
+## [2026-10-21] query | Verify Live LAB Order event type replacement
+
+- Read-only comparison confirmed Live `lab_cpoe_receive_api` matches the local replacement exactly;
+  Live `lab_agent_order_submit` also matches after excluding its protected URL/key configuration.
+- Verified `event_type: "lab.order.submit"` in single and batch payload builders, the audit snapshot,
+  Submit normalization, exact-value validation and the final normalized Agent POST body. No Blood Bank
+  event was introduced.
+- Submit tests and the Receive 500-case matrix pass. No active Outbound Order existed after the Live
+  replacement timestamps, so the first post-replacement wire/audit snapshot remains to be observed.
+
+## [2026-10-24] skill | Create QSNICH EMR v2 UI reference
+
+- Studied the live `EMR v2` runtime read-only across Unit Queue, My Room, EMR, Completed, prior
+  history, Disease Registry, SOAP density modes, current-visit orders, vaccine, appointment,
+  result-tracking drawer and history views. No clinical action, patient write, or live Factory edit occurred.
+- Created active skill `~/.codex/skills/emr-v2-ui/` and a byte-identical repository snapshot at
+  `02-initcraft/skills/emr-v2-ui/`. The reference records observed hierarchy, tokens, interaction
+  states, privacy rules and unverified boundaries without storing screenshots or patient data.
+- Recursive diff, frontmatter/name/description checks, YAML metadata checks, PHI-pattern scan,
+  checksum verification and `git diff --check` passed. The bundled validator could not start because
+  PyYAML is unavailable, matching the pre-existing migration-manifest limitation.
+
+## [2026-10-24] query | EMR History LAB/X-Ray result data and UI handoff
+
+- Created `02-his/handoff/emr-history-lab-xray-result-data-ui-handoff.md` from read-only live
+  HIS schema/API/Report inspection plus local canonical contracts; no patient values or live writes.
+- Documented exact LAB Order/Profile/Result and X-Ray Order/Exam/Reading joins, result/comment/
+  critical fields, current API payloads, Report/SQL IDs and parameters, additive payload gaps,
+  EMR v2 information architecture, sensitive-result boundaries and acceptance criteria.
+- Flagged two blocking contracts: LAB critical must use explicit `is_critical` rather than inferred
+  threshold/interpretation, and X-Ray `SeverityUid` has no verified critical mapping.
+
+## [2026-10-24] skill | Export and study EMR v2 Form Factory model
+
+- Used `Export Model` read-only on live Form `EMR v2` (`6ada06229291822e416c21cb`, owner
+  `QSNICH Admin`) and created
+  `Form-Builder/SDForm/form-factory/forms/emr-v2-form-model-export-sanitized-2026-10-24.json`.
+- The raw export contained one JWT query token in the Refer public-app URL. The repository copy
+  replaces only that token with an explicit redaction marker; the raw value was not retained.
+- Added `qsnich-emr-v2-form-model.md` to the active and repository `emr-v2-ui` skill packages.
+  It documents the 49-node SDForm v3 tree, 12 `vue-ui` widgets, `opd_card` visit-state fan-out,
+  queue filters/actions, key Form/API/Report IDs, dedupe/request-coalescing seams, cleanup behavior,
+  generated-code markers, environment coupling, and security/review findings.
+- SDForm validation passed with two warnings: root `scan_code` has ineffective `columnSpan`, and
+  no template exists for checking `scan-code-ui`. Active/repository skill copies are identical;
+  structural/YAML/link/checksum checks pass. The bundled skill validator still cannot import PyYAML.
+
+## [2026-10-24] implementation | Prepare LAB result-metadata API replacement
+
+- Created `Form-Builder/API/api-factory/processes/emr-lab-board-get-v2-REPLACE.js` as a full,
+  byte-identical replacement package for the verified local `emr-lab-board-get` process body.
+- Additively exposes report stage/sequence/history, OBX status, result version/change metadata,
+  tri-state critical, separated four-level comments and sanitized append-only revision history;
+  raw LIS payloads and revision value snapshots remain server-side.
+- Updated the EMR History LAB/X-Ray handoff with the exact response contract and marked the Live API
+  unchanged/pending UAT. Seven focused LAB/EMR tests, parse, byte comparison and diff checks passed.
+
+## [2026-10-26] note | Token scrub of unpushed history and push
+
+- User chose "rewrite history, then push" and "no extra commits". Created local backup branch
+  `backup/pre-token-scrub-20261026` (old `f581780`).
+- `git filter-branch --tree-filter` over `origin/main..main` (22 commits) in a separate worktree:
+  replaced the live Agent token with `__XRAY_LOCAL_AGENT_TOKEN__` and one personal Gmail (4 commits)
+  with `staff@example.invalid`. Two other Gmail addresses already on origin (backup exports) left as is.
+- Verified 0 commits with token/email, 22 commits and messages unchanged, final tree identical to the
+  old HEAD; uncommitted worktree untouched. Pushed `c84f22f..5ae7af0`; origin rechecked clean.
+- Token was public nowhere but is still unrotated; both local backup branches still contain it.
+
+## [2026-10-26] skill | Add EMR History LAB result-table pattern
+
+- Audited the iterative all-room LAB history mockup and confirmed that its accepted UI decisions had
+  not yet been captured as a reusable skill reference.
+- Added `references/emr-history-lab-result-table.md` and routing to both the active
+  `~/.codex/skills/emr-v2-ui/` package and its byte-identical repository snapshot. The reference
+  records Order/Profile/Test hierarchy, typography, compact grid sizes, MLab narrative behavior,
+  comments, prior-result dates, tooltips, sensitive controls, themes and accessibility boundaries.
+- Created the coding-ready design suite:
+  `design/emr-history-lab-results-design.md`,
+  `design/emr-history-lab-results-design-contract.md`, and
+  `design/emr-history-lab-results-implementation-handoff.md`.
+- Recursive skill comparison, Ruby YAML/frontmatter parsing, reference/link checks and
+  `git diff --check` passed. The bundled skill validator remains unavailable because Python lacks
+  PyYAML. No live EMR or Factory artifact was changed.
+
+## [2026-10-26] schema | Require design-skill checkpoints for confirmed UI work
+
+- Added a repository-wide UI workflow gate to `AGENTS.md` and `CLAUDE.md`: after explicit mockup
+  confirmation and before implementation, update the relevant UI/design skill first.
+- Added a per-function checkpoint: after each completed and verified user-visible function or
+  self-contained UI component, reconcile confirmed behavior, evidence and limitations into the
+  relevant skill before starting the next function. Existing rules receive evidence/status updates
+  rather than duplicated instructions.
+- Applied the same workflow directly to active `emr-v2-ui` and its repository snapshot. This does
+  not authorize live Factory writes; the ownership/write gate remains unchanged.
+
+## [2026-10-26] implementation | Add semantic control borders and Order collapse
+
+- Updated the all-room EMR LAB history mockup so Final/Partial/neutral controls use darker semantic
+  family border tokens instead of black/default borders in both Light and Dark modes.
+- Added an independent chevron toggle to every Order in the unlabelled header cell. All Orders start
+  expanded; collapse hides only that Order's result body while preserving headers, summary, status
+  and `ดูทั้งใบ`. The toggle synchronizes direction, `aria-expanded`, `aria-controls` and its name.
+- Local browser verified default-expanded state for all ten Orders, independent pointer/keyboard
+  collapse/re-expand, accessible state/name changes and Light/Dark rendering. Updated the active/repository skill
+  reference, design specification, decision contract and implementation handoff. No live artifact changed.
+
+## [2026-10-26] implementation | Add V2 LAB comparison layout and Order PDF action
+
+- Preserved V1 as the default and added a compact V1/V2 segmented control beside Light/Dark.
+- V2 pairs the standard-grid `ครั้งนี้` and `ค่าปกติ` columns around one boundary: current values
+  align right, reference ranges align left, and both use 6px inner insets. Narrative MLab remains
+  unchanged because it has no normal-range column.
+- V2 replaces the visible `ดูทั้งใบ` label with the Order-specific `PDF (ชื่อใบรายงานผล)` action;
+  long labels ellipsize while full title/accessible names remain available, and the centered mock
+  PDF dialog opens without implying a real file exists.
+- Local browser verified V1/V2 state, V2 at a 1440px viewport in the half-width component, Light/Dark
+  rendering and the PDF dialog. Updated the active/repository `emr-v2-ui` reference and all three
+  design handoff documents. No live EMR or Factory artifact changed.
+
+## [2026-10-26] correction | Unify report action and add Order attachments
+
+- Corrected the prior version-specific action: both V1 and V2 now use the same visible button label
+  `รายงานผล` to open the centered synthetic PDF report dialog. The Order/Test summary stays in the
+  accessible name/title rather than making the button variable-width.
+- Added a conditional `ไฟล์แนบ (N)` action beside `รายงานผล`. The BC synthetic example has two
+  files; its separate centered dialog lists sanitized file name, type and size. Orders without
+  attachments omit the action.
+- Browser checks confirmed identical actions in V1/V2, both dialogs, accessible names and a 708px
+  half-width component at a 1440px viewport. Updated the active/repository skill reference and the
+  design specification, decision contract and implementation handoff. No live artifact changed.
+
+## [2026-10-26] skill | Add three-choice UI mockup workflow
+
+- Created active `ui-choice-mockups` and its repository snapshot for choosing one small UI change
+  from three consistently framed image variants before editing the canonical mockup.
+- The workflow ranks choices from most to least recommended, adds plain-language tradeoffs, uses a
+  native clickable three-choice selector when available, and treats static image checkboxes only as
+  visual cues. Explicit confirmation is required before the large mockup changes.
+- The skill preserves confirmed UI behavior, supports another focused round for hybrids, and keeps
+  live Factory ownership/write gates unchanged.
+- Active and snapshot copies compare byte-identically; Ruby YAML/frontmatter checks and targeted
+  checksums pass. The bundled Python validator remains unavailable because PyYAML is not installed.
+
+## [2026-10-26] correction | Inline Order attachments and direct report PDFs
+
+- Removed the Order-header `ไฟล์แนบ (N)` action and its list dialog. The BC synthetic example now
+  appends one compact full-width row per attachment after the result rows in both V1 and V2.
+- Order collapse now hides only Profile/Test result rows; the Order heading, `รายงานผล` and every
+  attachment row remain visible. Local browser checks verified this in V1 and V2.
+- Changed `รายงานผล` from the former centered full-result dialog to a direct Order-specific PDF
+  link. Ten sanitized one-page mock PDFs were generated and validated; the BC link opened the PDF
+  in a new browser tab and returned `application/pdf`.
+- Updated the active/repository `emr-v2-ui` reference and all LAB result design/handoff documents.
+  No live EMR or Factory artifact changed.
+
+## [2026-10-26] correction | Place Order heading above LAB column labels
+
+- Reordered each LAB Order block in both V1 and V2 so the Test/Profile Order heading appears first,
+  followed by the column-heading row and then the Profile/Test result rows. The Order-heading text,
+  status and actions remain unchanged.
+- Local browser checks confirmed the new order in V1 and V2. Independent collapse still hides only
+  result rows while preserving the Order heading, column labels and inline attachment rows.
+- Updated the active/repository `emr-v2-ui` reference before implementation and reconciled its
+  verification evidence afterward; updated the design specification, decision contract, handoff,
+  index and migration manifest. No live EMR or Factory artifact changed.
+
+## [2026-10-26] correction | Move Order time and add explicit result-direction arrows
+
+- Moved the Order result time after the Test/Profile summary, removed the `ผล` prefix and formatted
+  synthetic times as `hh:mm AM/PM` in both V1 and V2; Order comments remain aligned with the summary.
+- Added `↑` after the current value/unit for explicit `H` and `↓` for explicit `L`, while retaining
+  the final H/L flag column. The UI does not infer direction from the displayed reference range and
+  does not invent a direction for `Critical`.
+- Local browser checks covered V1, V2, light/dark and collapsed Order state; existing attachment rows
+  remained visible while collapsed. Updated the active/repository skill before implementation and
+  reconciled the verified behavior into the design specification, contract and handoff afterward.
+  No live EMR or Factory artifact changed.
+
+## [2026-10-26] correction | Add multi-result history grid with sticky columns
+
+- Replaced the single previous-result column with a labelled `จำนวนผลก่อนหน้า` select offering
+  1, 5 and 10 occurrences. Every selected occurrence creates a column even when an individual Test
+  has no value; empty cells show `—`, and historical cells show values without repeated units.
+- Historical headers now use `DD – MMM` over `hh:mm AM/PM`. `รายการ` sticks left while `ครั้งนี้`,
+  `ค่าปกติ` where applicable and `แปลผล` stick right; only history columns move horizontally.
+- Moved each Order's chevron after `รายงานผล` in the Order heading and made `แปลผล` a visible header.
+  Browser checks confirmed 1/5/10 column counts, computed sticky positions, horizontal movement,
+  V1/V2, Light/Dark, and persistent attachments while collapsed.
+- Updated the active/repository `emr-v2-ui` reference before implementation and reconciled verified
+  evidence afterward; updated the design specification, decision contract, handoff, index and
+  migration manifest. No live EMR or Factory artifact changed.
+
+## [2026-10-26] correction | Collapse the full comparison region and simplify attachments
+
+- Changed each Order toggle to hide the complete comparison region, including column headings and
+  Profile/Test result rows. The Order heading, status, `รายงานผล`, chevron and attachments remain.
+- Removed `ไฟล์แนบ N` prefixes from attachment rows. The filename is now the primary left-side text;
+  type and size remain muted metadata on the right.
+- Browser accessibility-tree and visual checks confirmed the behavior in V1 and V2, including
+  re-expansion and persistent attachments. Console error/warning logs were empty.
+- Updated the active/repository `emr-v2-ui` reference before implementation and reconciled it after
+  verification; updated design contract, specification, handoff, index, manifest and Hot Cache.
+  No live EMR or Factory artifact changed.
+
+## [2026-10-26] enhancement | Add V3/V4 full-width LAB history layouts
+
+- Preserved V1/V2 as the half-width baseline and added V3/V4 as full-width forms of V1/V2.
+- Replaced the browser's full-table scrollbar with a slim accessible control limited to the history
+  corridor between sticky `รายการ` and sticky `ครั้งนี้/ค่าปกติ/แปลผล`; it is omitted when no
+  overflow exists and returns automatically for ten histories.
+- Local browser checks covered V1/V2/V3/V4, Light/Dark, V4 with ten histories, sticky boundaries,
+  collapse with persistent attachments and console logs. Restored the default to V1/Light/5.
+- Updated the active/repository `emr-v2-ui` reference before implementation and reconciled it after
+  verification; updated design docs, index, manifest and Hot Cache. No live Factory artifact changed.
+
+## [2026-10-26] correction | Tighten LAB history density and sticky stacking
+
+- Reduced standard result rows to 34px, Profile rows to 28px, column headings to 32px and ordinary
+  vertical cell padding to 3px while preserving the confirmed 13px Test/result typography.
+- Raised opaque sticky regions above every history cell/header so scrolled content and dividers no
+  longer bleed through. Attachment filenames now use thin muted-gray 11px text in 30px rows.
+- Local browser visual checks covered the compact V1 table and a horizontally scrolled Order; sticky
+  headers/cells remained on top and console error/warning logs were empty.
+- Updated the active/repository `emr-v2-ui` reference before implementation and reconciled it after
+  verification. No live EMR or Factory artifact changed.
+
+## [2026-10-26] correction | Seal sticky corridors and tighten LAB rows again
+
+- Reduced standard result rows to 28px, Profile rows to 24px, column-header minimum to 28px, Order
+  header minimum to 30px, ordinary vertical padding to 1px and attachment rows to 26px without
+  shrinking the confirmed 13px Test/result typography.
+- Converted sticky sides into continuous opaque shields across column headings, Profile bands and
+  result rows; structural Profile rows now render blank sticky current/reference/flag fills.
+- Removed the competing CSS snap behavior, fitted a whole number of history columns into the visible
+  corridor and made the slim range control move in complete-column increments. At 1440px, V4/Dark/10
+  histories verified seven complete 132px columns at scroll positions 0, 132 and 396 with no clipped
+  fragments or bleed-through at either boundary.
+- Reconciled active/repository `emr-v2-ui` references and the design specification, contract and
+  implementation handoff. No live EMR or Factory artifact changed.
+
+## [2026-10-26] correction | Remove V1/V3 and prevent sticky collision at narrow widths
+
+- Removed V1 and V3 from the mockup control and state model. V2 is now the default half-width layout;
+  V4 remains its full-width form.
+- Added responsive sticky-column budgeting for standard and narrative Orders. Sticky widths shrink
+  before collision while reserving one complete history column; the confirmed text sizes are unchanged.
+- Added row-level opaque left/right masks under the sticky cells so history text and dividers cannot
+  bleed through during intermediate trackpad offsets. Existing Profile blank fills remain.
+- Browser checks covered V2/V4 at 472px and 1440px, standard and narrative Orders, whole-column slider
+  boundaries, default V2/Light/5 restoration and empty console warning/error logs.
+- Reconciled active/repository `emr-v2-ui` references and LAB design/contract/handoff docs. No live
+  EMR or Factory artifact changed.
+
+## [2026-10-26] correction | Eliminate residual history text around sticky headers
+
+- Identified the remaining fragment as a height-painting defect: `align-items: center` let sticky
+  column-heading backgrounds stay at text-line height while two-line history headers defined a taller
+  grid row, leaving uncovered strips above or below the sticky label.
+- Made `รายการ`, `ครั้งนี้`, `ค่าปกติ` and `แปลผล` header cells stretch and paint opaquely across the
+  full computed row height, then re-centered their labels and preserved V2 current/reference pairing.
+- Visual checks at 472px and 612px covered a scrolled first history position and the maximum history
+  position; no residual date/time text was visible. Default V2/Light/5 was restored and console
+  warning/error logs were empty.
+- Reconciled the active/repository skill reference plus LAB design, contract, handoff and Hot Cache.
+  No live EMR or Factory artifact changed.
+
+## [2026-10-26] correction | Free-scroll V2/V4 and compact Order actions
+
+- Updated the confirmed `emr-v2-ui` rule before implementation: history scrolling is continuous at
+  pixel precision with no snap, auto-alignment or pull-back. Partial history columns may appear only
+  inside the history corridor and must remain fully clipped behind both sticky regions.
+- Added frame-level clipping/isolation and explicit lower stacking for history headers/cells so V2
+  and V4 cannot paint outside the comparison frame or above sticky `รายการ/ครั้งนี้/ค่าปกติ/แปลผล`.
+- Reduced `Final`, `รายงานผล`, chevron and sensitive-result controls to 24px. Action text uses 12px
+  with tight 4px horizontal padding; the locked-result visible label is now exactly `ยืนยันดูผล`.
+- Local-browser checks held V4/1440px and V2/472px at a non-column-aligned 37px offset with range
+  `step=1`, zero page-level horizontal overflow and clean sticky boundaries. Inline JavaScript parsed.
+  Active/repository skill references and LAB design/contract/handoff documents were reconciled.
+  No live EMR or Factory artifact changed.
+
+## [2026-10-26] correction | Remove residual Profile-row grid fragments
+
+- Traced the remaining overlap-looking marks to a partial Profile-row bottom border and inherited
+  sticky boundary shadows, not to history text or the scroll position.
+- Converted every Profile heading into one uninterrupted opaque band by removing that partial border
+  and suppressing sticky left/right borders and shadows in the structural row only.
+- Browser visual checks covered V2 and V4 in Light and Dark at 680px plus V4/Light at 1440px. The
+  Profile bands stayed solid with no line fragments; computed borders were `0px`, shadows were `none`,
+  page overflow was zero and console warning/error logs were empty.
+- Reconciled the active/repository `emr-v2-ui` reference and LAB design/contract/handoff documents.
+  No live EMR or Factory artifact changed.
+
+## [2026-10-26] correction | Remove the max-scroll sticky shield overlap
+
+- Reproduced the user's circled blank overlay with V4/Dark/10 histories at maximum scroll. The real
+  cause was a row-level sticky pseudo-element shield whose constraint diverged from the overflowing
+  grid row; the V4 `width:100%` override also shortened the sticky containing block.
+- Removed both pseudo-element shields and the V4 width override. Every grid row now spans its full
+  column track, while real opaque sticky cells and Profile fills own the left/right boundaries.
+- Browser checks covered V2/V4, Light/Dark, widths 472/768/1440px, scroll positions 0/37/max and ten
+  histories. The last history cell met `ครั้งนี้` at a zero-gap boundary, both sticky offsets were
+  zero, document horizontal overflow was zero and console warning/error logs were empty.
+- Reconciled the active/repository `emr-v2-ui` reference and LAB design/contract/handoff documents.
+  No live EMR or Factory artifact changed.
+
+## [2026-10-26] ingest | Add Typst authoring to Report Factory skill
+
+- Preserved `/Users/nichada/Downloads/LLM-Typst.md` unchanged as
+  `03-source-materials/llm-typst.md` and as `references/typst.md` in both the active and repository
+  `report-factory` skill packages; all copies share SHA-256
+  `51e1953a33ca7d8bf9165c8bc58e5ec1c649614d50d4a988bf45e67511aae882`.
+- Extended `report-factory/SKILL.md` so Typst is routed as a separate authoring model using
+  `sdthai.typ` and `data/raw/rows/params`, while preserving the existing pdfmake, Excel, Word and
+  LaTeX workflows.
+- Added `[[report-typst-reference]]`, updated the Report Factory source/concept/index and migration
+  manifest, synchronized the active skill with its repository snapshot, and refreshed checksums.
+- Documentation import only: no live Report/SQL/Form/API artifact was edited. Runtime timings,
+  server packages and helper behavior remain source claims until verified in the live environment.
+
+## [2026-10-26] enhancement | Add custom multi-date history filter
+
+- Added a compact `เลือกวันที่` dropdown beside `จำนวนผลก่อนหน้า`. Its mini calendar supports
+  month/year selection, arbitrary non-contiguous dates, deselection, Clear, Cancel, Apply and Escape
+  focus return, with a hard maximum of 10 distinct dates.
+- Applying custom dates creates the same newest-first date columns for every visible Order. Matching
+  synthetic occurrences keep their value/time; unmatched selected dates render `—`. Changing the
+  1/5/10 select returns to count mode without discarding the saved custom selection.
+- Browser checks covered selection across 2025–2026, three/four/ten selected dates, max-limit locking
+  and release after deselection, missing values, V2/V4, Light/Dark, zero page overflow and empty
+  console warning/error logs.
+- Reconciled the active/repository `emr-v2-ui` reference and LAB design/contract/handoff documents.
+  No live EMR or Factory artifact changed.
+
+## [2026-10-26] refinement | Add removable selected-date boxes
+
+- Changed history date labels to compact Thai `D MMM` in count mode and `D MMM YY` in custom mode,
+  with no dash separators; for example `11 ก.ย. 68`.
+- Added compact neutral boxes beneath the mini calendar for every draft date. Each box has a small,
+  date-labelled `×` button that removes the matching selection without closing the popover.
+- Local-browser checks confirmed immediate day deselection, count updates, two applied custom
+  columns, V2/V4 Light/Dark, zero page overflow and no console warnings/errors.
+- Reconciled the active/repository `emr-v2-ui` reference and LAB design/contract/handoff documents.
+  No live EMR or Factory artifact changed.
+
+## [2026-10-26] refinement | Replace date picker with ordered VN selection
+
+- Replaced the custom multi-date calendar with a compact `เลือก VN` multi-select dropdown that lists
+  only synthetic visits with LAB orders.
+- Each option now shows a VN identifier, full Buddhist visit date, concise Test/Profile summary and
+  `ผิดปกติ N รายการ` only when the synthetic abnormal count is positive.
+- Verified three-VN newest-first columns, missing-result `—` values, cancel persistence, Escape focus
+  return, the 10-VN limit and release, V2/V4 Light/Dark, zero page overflow and clean console logs.
+- Reconciled the active/repository `emr-v2-ui` reference and LAB design/contract/handoff documents.
+  No live EMR or Factory artifact changed.
+
+## [2026-10-26] refinement | Clarify Visit picker and add removable VN summary
+
+- Removed the redundant `VN` badge from the `เลือก VN` trigger and renamed the dropdown heading to
+  `Visit ที่มีการสั่ง LAB`.
+- Added compact VN/date summary boxes for every draft selection. Each box has an accessible `×`
+  control that removes only that Visit without closing the dropdown and keeps keyboard focus in the
+  summary.
+- Browser checks covered three selected Visits, 10-VN lock, removal-driven checkbox/count/limit
+  updates and option release, applied three-column history, V2/V4, Light/Dark, zero page overflow
+  and empty console warning/error logs.
+- Reconciled the active/repository `emr-v2-ui` reference and LAB design/contract/handoff documents.
+  No live EMR or Factory artifact changed.
+
+## [2026-10-26] correction | Preserve authoritative VN format and inset dropdown arrows
+
+- Recorded that production supplies the complete VN display value, for example `VN6900470`; UI code
+  must render it verbatim and must not prepend `VN` or insert a hyphen. Synthetic mockup IDs now use
+  the same no-hyphen shape.
+- Changed the Visit-picker primary action from `ใช้ VN` to `เลือก` and inset the history-count/VN
+  dropdown chevrons from their right borders.
+- Browser verification confirmed exact VN rendering, enabled/apply behavior, one matching history
+  column, zero page overflow and empty console warning/error logs. Active/repository skill references
+  and LAB design docs were reconciled; no live EMR or Factory artifact changed.
+
+## [2026-10-26] refinement | Make VN selection unrestricted and compare context tags
+
+- Removed the 10-VN client cap. Every available LAB-order Visit remains selectable, and the selected
+  VN/date summary now wraps and grows vertically without its own max-height or scrollbar; the option
+  list remains bounded and scrollable.
+- Browser checks selected all 12 synthetic Visits with zero disabled options, measured equal 166 px
+  client/scroll summary heights with visible overflow, applied 12 history columns, and retained V2/V4,
+  Light/Dark, zero page overflow and clean console logs.
+- Created isolated `02-his/ui/emr-history-lab-vn-context-tag-choice-mockup.html` with exactly three
+  unconfirmed tag treatments: Visit type + clinic + short Dx, diagnosis only, and Visit workflow
+  context without Dx. The canonical mockup has no context tags pending explicit user choice.
+- Reconciled the active/repository `emr-v2-ui` reference and LAB design/contract/handoff documents.
+  No live EMR or Factory artifact changed.
+
+## [2026-10-26] refinement | Apply diagnosis-only context tags to VN picker
+
+- Applied the user-selected Choice 2 to the canonical LAB-history mockup: each Visit option can show
+  one compact `Dx:` tag from its supplied primary diagnosis between VN and visit date. Long labels
+  ellipsize with full hover/focus text; the tag is omitted when diagnosis is absent.
+- Added synthetic diagnosis fields only for the local mockup. The production contract must supply the
+  authoritative primary diagnosis; the UI must not infer it from LAB orders, results or abnormal flags.
+- Browser checks covered V2/Light and V4/Dark at 472px: 11 tags plus one absent-Dx row had zero
+  VN/tag/date overlaps and zero page overflow. All 12 Visits remained selectable with zero disabled
+  options, 12 summary boxes, matching 166px client/scroll heights and 12 applied result columns.
+- Reconciled the active/repository `emr-v2-ui` reference and LAB design/contract/handoff documents.
+  No live EMR or Factory artifact changed.
+
+## [2026-10-26] correction | Restore the selected Diagnosis box styling
+
+- The user's screenshot showed that Diagnosis rendered as plain inline text instead of the selected
+  Choice 2 box. Root cause: canonical CSS referenced an undefined `--warning` token, invalidating the
+  tag's border, background and text-color declarations.
+- Added dedicated Light/Dark Diagnosis tokens and applied an explicit amber background, visible 1px
+  amber border, rounded corners and amber text.
+- Browser-computed styles confirmed the box in V2/Light and V4/Dark at 472px; all 11 synthetic tags
+  had zero VN/date overlaps and the page had zero horizontal overflow.
+- Reconciled the active/repository `emr-v2-ui` reference and LAB design/contract/handoff documents.
+  No live EMR or Factory artifact changed.
+
+## [2026-10-26] handoff | Prepare production-ready EMR LAB History implementation contract
+
+- Rewrote `design/emr-history-lab-results-implementation-handoff.md` as a 23-section production
+  handoff covering exact typography, tokens, dimensions, margins/padding, responsive shell, sticky
+  grid ownership, pixel-level free scroll, room/count/VN filters, state, accessibility, full LAB room
+  coverage, DB/LIS field mapping, joins, Profile hierarchy, status/version semantics and acceptance QA.
+- Recorded the production-only decisions that V2/V4 and Light/Dark controls stay in the comparison
+  mockup and do not ship; production uses one container-responsive component and the host theme.
+- Changed the Sensitive contract to host re-authentication followed by inline disclosure in the same
+  cell, with no central full-result popup. Documented the current API gap: historical Sensitive
+  occurrences remain redacted and require an exact-occurrence backend authorization extension.
+- Verified PDF routing: general LAB sections use Report `6aa8f5a8b92813319a86ea11` / SQL
+  `6ab0a1c4d0c3ef2e97911e55`; MB uses Report `6ab1c2d3e4f5061728394a5b` / SQL
+  `6ac2f1a0d0c3ef2e97912a01`, each with one authoritative Result Report ID as `xparentx`.
+- Reconciled the design contract/spec and synchronized active/repository `emr-v2-ui` references by
+  exact comparison. Documentation only; no live Form/API/Report/SQL artifact changed.
+
+## [2026-10-27] note | Add maternal-name lookup to LAB Agent payload
+
+- Updated the local `lab_cpoe_receive_api.js` replacement to resolve Order → Visit → Person and
+  select only `zdata_person.relate[]` rows whose current Person-form dropdown value is `MTH`.
+- The adapter joins `r_fname` + `r_lname` into optional outbound `mother_name` for both single and
+  batch receive paths; it omits the field when no `MTH` row exists and does not infer
+  `is_maternal_blood`.
+- Added regression coverage for MTH-vs-spouse/father selection, omission, single and batch payloads.
+  The 500-case receive matrix and Agent submit contract tests pass. No live Factory artifact changed.
+## [2026-10-27] note | Preserve maternal-blood boolean from CPOE Order
+
+- Updated the local `lab_cpoe_receive_api` replacement to copy `is_maternal_blood` into both
+  single and batch Agent payloads only when the Order value is an explicit boolean.
+- Preserved `true` and `false`; absent/non-boolean values remain omitted and `mother_name` remains
+  independently derived from Person `relate[]` code `MTH`.
+- Added regression coverage for batch, single, explicit false, and absent-field behavior. The
+  500-case Receive matrix and Agent-submit tests pass. No live API or patient/order data was changed.
+## [2026-10-27] note | Temporary maternal-blood UAT Order rule
+
+- Superseded the preceding local source-field mapping for the immediate UAT: `R2610270001` now
+  yields `is_maternal_blood: true`; all other Orders yield explicit `false`.
+- Kept the rule centralized and marked temporary so its body can be replaced with the official
+  order-form boolean when available. No Order-number condition was applied to `mother_name`.
+- Single, batch, 500-case Receive and Agent-submit regressions pass. Live API remains unchanged
+  until the user explicitly replaces it.
+
+## [2026-10-27] verification | Confirm live maternal-blood UAT replacement
+
+- Read-only inspection confirmed the user replaced live `lab_cpoe_receive_api`; it now contains
+  the Person/MTH mother-name mapping, `is_maternal_blood`, and the temporary `R2610270001` rule.
+- Before Receive, `R2610270001` remained `ready` with zero LAB Work Items and zero outbound
+  snapshots. No live record was changed during verification.
+- Cleanup is mandatory after this UAT: remove the Order-number hardcode and explicit fallback,
+  then map the official order-form boolean before production. Do not retain a manual override.
+
+## [2026-10-27] query | Diagnose maternal UAT Agent send failure
+
+- Read-only inspection found that Receive created the Work Item, LAB No. and one outbound snapshot;
+  its stored payload contains `mother_name` and `is_maternal_blood: true`.
+- Attempt 1 received HTTP 502 with a non-JSON Agent response. The outbound remains `new`, has no
+  dispatch ID and cannot prove whether Agent committed the Order before the gateway error.
+- Do not click Receive again until Agent/gateway logs or the status endpoint checks the same
+  idempotent outbound Order number. Confirm the deployed Agent supports the two maternal fields;
+  the current dated source contract does not document them. No live record or Factory artifact changed.
+
+## [2026-10-27] note | Prepare no-transport manual-result UAT for every LAB room
+
+- Added additive `preview_manual_suite` and `create_manual_suite` actions to the local LAB UAT seed.
+- The new mode creates one accepted Order per 10 LAB sections, bypasses Receive, locks outbound as
+  `uat_bypassed`, creates no initial result, and does not reference Finance or call Agent/LIS/HTTP.
+- Added regression coverage for read-only preview, all-room creation, manual-entry readiness,
+  transport locks, no Finance/results, and reversible cleanup without LAB-number reuse.
+- Relevant seed, 810-case manual-order, MY lifecycle, retest and Worklist Form tests pass. No live API
+  or clinical test record changed; live replacement and UAT execution still require confirmation.
+
+## [2026-10-27] schema | Add three-confirmation exception for non-owned live artifacts
+
+- Changed the live Form/API/Report/SQL write gate in `AGENTS.md` at the user's request.
+- A non-user-owned artifact remains read-only unless the authoritative owner is known and the user
+  gives three separate sequential confirmations for one exact artifact and action.
+- Every prompt must state that the owner is not the user, name the owner, show N/3, and reconfirm both
+  owner authorization and permission for Codex. Scope changes and later actions restart at 0/3.
+- No live artifact or data record was changed by this governance update.
+
+## [2026-10-27] blocked | Stop Lab Catalog creation after Code (HIS) mismatch
+
+- After the user completed 3/3 confirmation for one exact non-owned live action, preflight confirmed
+  690 Catalog records and no duplicates across the 25 prepared target codes.
+- Created `BB405` correctly at sequence 691. Created `BB406` at sequence 692, but the form regenerated
+  Code (HIS) as `50BB406EB` when Setsection was selected after the field had been corrected.
+- Stopped immediately: 23 remaining records were not created, and CPOE was not changed. Read-only HIS
+  verification confirms total 692 and the mismatch. Correction/continuation needs a new 3/3 approval.
+- Evidence: `outputs/lab-catalog-live-partial-2026-10-27.jpg`.
+
+## [2026-10-27] verification | BB406 corrected; 23 Catalog records remain
+
+- The user corrected live `BB406` manually. Read-only HIS verification confirms C-Test, Code (HIS),
+  and Lab Code are now all `BB406`; sequence remains 692 and total Catalog count remains 692.
+- None of BB407–BB427, BB6 or BB95 exists in any of the three code fields. CPOE remains untouched.
+- The remaining 23-record creation is a changed exact scope and therefore starts a fresh 3/3 approval.
+
+## [2026-10-27] live | Complete 25 Blood Bank Lab Catalog records
+
+- After a fresh 3/3 approval for the non-user-owned `Lab Catalog` (owner `SuperAdmin InitAPI`), created
+  BB407–BB427, BB6 and BB95, completing the prepared 25-row set with BB405/BB406.
+- Selected Blood Bank, EDTA blood and Type Test before manually setting all three code fields, avoiding
+  the form's automatic Code (HIS) regeneration. CPOE was not changed.
+- Read-only HIS verification confirms 715 total records and exactly 25 unique target records at
+  sequences 691–715. Every target has identical C-Test/Code (HIS)/Lab Code, the approved name,
+  section/specimen/type, blank TMT/short/flag, and chart off.
+- Evidence: `outputs/lab-catalog-25-complete-2026-10-27.jpg`.
+
+## [2026-10-27] verification | Confirm all 25 Blood Bank CPOE links
+
+- Compared the original prepared workbook with live `zdata_master_item_order` and joined each embedded
+  `lab_item.his_lab_code` to `zdata_lab_catalog` using read-only HIS queries.
+- All 25 target CPOE Items exist exactly once and are active Lab/Blood Bank records. Item codes and
+  names match the workbook; embedded value/HIS/C-Test/name, EDTA specimen and sequences 691–715 match
+  the corresponding unique Catalog records. No missing, duplicate or mismatched target was found.
+- No live record, Factory artifact or workbook was changed during this verification.
+
+## [2026-10-27] verification | Audit all 103 Blood Bank CPOE-to-Catalog mappings
+
+- Compared all 103 unique code/name rows in `bloodbank-test-list.xlsx` with live CPOE Item and Lab
+  Catalog records using read-only HIS queries. All 103 CPOE Items exist once, are active, and have
+  exact source code/name plus Lab/Blood Bank classification.
+- Only 82 have exactly one Catalog record matching embedded `lab_item.his_lab_code`. Eighteen Items
+  have no `lab_item`; BB38 has a same-name Catalog record with incomplete codes, while the other 17
+  have no exact code/name Catalog candidate. Three linked Items are stale after code changes: BB2,
+  BB4 and BB67. BB296, BB401 and BB402 now match Catalog exactly.
+- BB1 links correctly by code but its embedded/Catalog name contains hidden zero-width characters.
+  No live record, Factory artifact or workbook was changed.
+
+## [2026-10-28] query | Document live LAB result Reports and SQL providers
+
+- Audited live `module_report`, `module_sql`, and related LAB result collections read-only.
+- Created `02-his/handoff/lab-result-report-factory-handoff.md` for a new team member, covering the
+  three live LAB result Reports and their provider IDs/names, parameters, Report bindings, output
+  fields, joins, routing rules, Sensitive-result gates, ownership, risks, and verification checklist.
+- Recorded only schema/contract information. No patient identifier, sample parameter value, live
+  Report/SQL/UI artifact, or clinical data was persisted or changed.
+
+## [2026-10-28] note | Remove temporary maternal Order-number rule locally
+
+- Updated the local `lab_cpoe_receive_api` replacement to copy `is_maternal_blood` only when the
+  CPOE Order contains an exact Boolean. Missing or non-Boolean values are omitted; `mother_name`
+  remains independent and never implies maternal blood.
+- Updated the Agent interface documentation and regression coverage for batch/single `true`,
+  explicit `false`, missing and invalid values. Receive 500-case, Agent Submit, Worklist Form and
+  LAB UAT seed suites pass.
+- The broader Worklist API suite still stops on a pre-existing LAB/X-ray Organization-list mismatch;
+  this task did not change that mapping. Read-only live inspection confirms the user-owned API still
+  has the temporary rule. No live mutation occurred; delivery mode must be selected first.
+
+## [2026-10-28] verification | Confirm Live maternal hard-code removal and reassign EMR History
+
+- Read-only inspection confirmed the user updated Live `lab_cpoe_receive_api`: the temporary Order
+  number is absent, while the CPOE `is_maternal_blood` source and Boolean type guard are present.
+- Removed hard-code replacement from the active backlog. The real maternal end-to-end round-trip
+  remains part of production transport/result UAT, not a code-cleanup task.
+- The user assigned EMR LAB History implementation to the team, so it is no longer tracked as
+  Codex's remaining LAB work. Existing design/handoff files were preserved for team continuity.
+
+## [2026-10-28] verification | Complete LAB Report Factory runtime UAT
+
+- Ran read-only runtime UAT from the live LAB viewer with synthetic UAT data; no live Factory artifact
+  or clinical record was saved, replaced, published or changed.
+- All 10 per-Order room routes opened a valid PDF: BC, HM, HH, ML, IM, MI-OUT, MB, MY, BB and BG.
+  Standard rooms used the general report and MB used the microbiology narrative report.
+- No-grant checks for both Sensitive routes (IM and MI-OUT) showed `ปกปิดผล` in the result UI and
+  rendered PDF, with value/unit/interpretation/reference/comment suppressed. Console warnings/errors
+  were empty during the run.
+- Updated `02-his/handoff/lab-result-report-factory-handoff.md` with evidence and the explicit limit
+  that packet-level/browser-cache forensic inspection and the separate Visit report were not invoked.
+
+## [2026-10-28] query | Measure LAB list filter runtime
+
+- Timed the live LAB screen read-only with no record or Factory mutation. Opening the date-range
+  calendar averaged 284 ms over three runs.
+- The current-room BB Today path for yesterday (3 Orders) averaged 1.909 s over three runs
+  (1.573–2.364 s). The all-room lookup path on the busiest inspected date returned 41 eligible
+  Orders and averaged 0.914 s (0.787–1.063 s), with 30 rows on page 1.
+- A read-only DB precheck found 46 source Orders / 50 LAB Items on that heavy date before runtime
+  eligibility/routing filters. No browser console warning/error occurred.
+- The delay is not proportional to rendered rows. Local API inspection indicates the likely cause:
+  the daily Item-root pipeline performs several lookups before applying derived day scope, while the
+  cross-section Order-root path applies `created_at` date scope early. This is an evidence-backed
+  inference, not a full server-profiler trace; the next safe step is full aggregate execution stats.
+- Reconfirmed that the active LAB remainder is exactly two team-dependent items: production
+  transport/result UAT and Blood Bank master debt.
+
+## [2026-10-28] query | Diagnose LAB worklist end-to-end latency
+
+- Expanded the live read-only timing matrix across Refresh, Search, every status chip, synthetic
+  name/HN/VN/exact-Order searches, date-range lookup, lookup mode switching and pagination. No
+  clinical record or Form/API/Report/SQL Factory artifact was changed.
+- Current-room Today operations remained roughly 1.1–1.75 seconds, while the cross-section date
+  search returned 41 eligible Orders in 0.897 seconds average. This confirms row rendering is not
+  the primary cause; no browser warning/error was emitted.
+- Mapped Form events to API calls: Today Search performs one list request plus six count requests;
+  Refresh uses one batched list/status-count request; lookup Search performs one list plus two count
+  requests; status, mode and page changes perform one list request; the date picker performs none.
+  Report Factory and secondary Forms are lazy actions and are not part of list loading.
+- Read-only code/index/execution-stat inspection identified three leading causes: count requests send
+  `include_specimens=false` but the API never consumes it; the daily Item-root pipeline applies the
+  derived date/search scope after expensive lookups; and the Work Item lookup lacks an index on
+  `source_specimen_record_id`, examining all 270 active Work Items for one exact lookup. There are
+  currently 608 active LAB Order Items entering the daily root path.
+- Recorded the performance target as an engineering judgment: interactive filters should aim for
+  p95 under one second. No optimization was applied; the next step is a profiler/full-pipeline explain
+  and a proposal before any ownership-gated live mutation.
+
+## [2026-10-28] fix | Stabilize LAB Worklist PDF/HN/EMR action columns
+
+- Replaced direct stateful action grid children with persistent named PDF, HN and EMR wrappers in the
+  local LAB Worklist generator and regenerated SDForm. Desktop, lookup, 1100px and 720px layouts now
+  place wrappers explicitly instead of using `nth-last-child`, so `sd-report` preview DOM changes do
+  not move HN or EMR into another action slot.
+- Added regression assertions, synchronized the reusable rule/evidence between the active and
+  repository `element-plus-initcraft` skills, and refreshed its repository checksum. The skill copies
+  byte-compare equal.
+- Generator syntax, task-scoped action-grid assertions, the remaining full Form suite when one
+  unrelated pre-existing Sensitive-result assertion is excluded, and SDForm static validation pass.
+  Live Form Factory was not changed; Builder/runtime visual confirmation still requires importing the
+  local artifact under the ownership/write gate.
+
+## [2026-10-28] query | Trace LAB cancellation and rejection into EMR status
+
+- Live read-only inspection confirmed LAB rejection writes `work_status=rejected` and synchronizes the
+  matching `zdata_cpoe_order_item.current_status=rejected`; Section cancellation writes
+  `work_status=cancelled` and synchronizes matching CPOE Items to `current_status=cancelled`.
+- Both flows intentionally leave the `zdata_cpoe_order` header unchanged because one Order can span
+  multiple Items and LAB sections. No clinical record or live Factory artifact was changed.
+- Live `cpoe-order-list`, used by the EMR Order Card, returns `o.current_status` from the Order header
+  without aggregating Item states. Therefore LAB cancel/reject does not currently change that card's
+  status even though the shared CPOE Item projection is updated.
+- The separate EMR `emr2_labs` drawer calls `emr-lab-board-get`, which derives each Item from both
+  CPOE Item and LAB Work Item and aggregates dead states, so it can show cancelled/rejected correctly.
+- Recommended boundary: do not blindly write a Section result onto the whole Order header. Define an
+  Item-derived aggregate for the Order Card, including mixed/partial behavior, then expose/map it in
+  the read process and UI. `ready` is the Finance-cleared pre-receipt Item state, not a universal LAB
+  result state; result progress is derived separately from accepted Items and persisted results.
+
+## [2026-10-28] query | Reconcile EMR LAB board and History handoff scope
+
+- Confirmed `emr-lab-board-get` starts from every current-Visit CPOE LAB Item, joins LAB Work Item and
+  Result Item, and returns `ordered_today`, `resulted_today` and backward-compatible `lab_orders`.
+  Item/Work Item dead states therefore support cancelled/rejected rendering without mutating the
+  mixed-purpose CPOE Order header.
+- Found a documentation contradiction: the team data handoff currently requires History to show only
+  result/protected-result Orders and hide sent/cancelled Orders without results, while the approved
+  History design/skill requires the VN selector to contain every Visit with LAB orders and display
+  `—` when a selected occurrence has no result.
+- Recorded the safe proposed boundary, pending user confirmation: current-Visit tracking and History
+  order context show every ordered Item/attempt including rejected/cancelled; default result comparison
+  remains result-driven, while explicitly selected no-result VNs render `—` plus their terminal status.
+  No production code, live artifact or team handoff requirement was changed in this query.
+## [2026-10-29] verification | Restore one-Order maternal-blood UAT override
+
+- The user chose Live API mode for user-owned `lab_cpoe_receive_api` and supplied Order
+  `R2610290002`; Live now forces `is_maternal_blood: true` only for that exact
+  `order_number` while every other Order retains the explicit-Boolean/omission contract.
+- Added the same temporary rule and regression to the local replacement. The 500-case Receive
+  matrix, Agent-submit tests, and `git diff --check` pass.
+- Reopened the Live API after Save and visually verified the dated cleanup comment and exact
+  Order condition. No Receive, patient/order record, outbound, Agent call, or Finance mutation
+  was performed. Remove the override immediately after this Order's round-trip.
+
+## [2026-10-29] query | Verify two Blood Bank Agent payloads and transport state
+
+- Read-only HIS inspection found LAB NO. `506910290001` (Order `R2610290001`) and
+  `506910290002` (Order `R2610290002`) each produced one Outbound attempt and received
+  HTTP 202 `queued`, non-duplicate, routed to `hclab-lab`; Work Items are `received` and
+  CPOE Items are `accepted`.
+- The first payload omits `is_maternal_blood`; the second contains exact Boolean `true` as
+  intended by the temporary override. Both omit `mother_name` because the linked Person was
+  found but has only relation code `SPS`, with no `MTH` row.
+- No active inbound Receipt, Result Report, or Result Item exists yet for either LAB NO.
+  Do not resend while the Outbounds remain queued; wait for Agent/LIS reconciliation or result.
+  No live record or Factory artifact was changed.
+
+## [2026-10-29] note | Create LAB Order Request redesign PDF mockup
+
+- Created PHI-free A4 portrait mockup `output/pdf/lab-order-request-redesign-mockup-v1.pdf` with a
+  structured hospital/order header, section identity band, grouped patient/clinical/specimen/requester
+  cards, compact test table, print metadata, and an explicit design-mockup badge.
+- Verified one A4 page by Poppler rendering and visual inspection; no overlap or clipping was observed.
+  PDF reopen/text extraction passed and the final artifact contains none of the patient/order/operator
+  identifiers visible in the source screenshot.
+- No Live Report, SQL, Form, API, skill, or production record was changed. Production work remains
+  gated on explicit user confirmation of this mockup direction.
+
+## [2026-10-29] note | Revise LAB Order Request mockup to government-document pattern
+
+- The user rejected the colorful/card-style first mockup and clarified that the goal is order and a
+  consistent government-document pattern, not decorative color.
+- Created `output/pdf/lab-order-request-government-mockup-v2.pdf`: formal black-and-white identity
+  header, double rule, aligned numbered sections, light-gray section/table headings, thin full-grid
+  fields, and restrained print metadata. The production Typst target is `#show: gov` with TH Sarabun
+  New; the local mockup uses the available Thai font only for visual direction.
+- Poppler render/visual inspection, PDF reopen, A4/one-page checks, text extraction, and PHI scan
+  passed. No Live Report, SQL, Form, API, or skill changed; this revised direction is still unconfirmed.
+
+## [2026-10-29] note | Create report-design skill
+
+- Synthesized the user-provided `design-report-skill.md` into the new active `report-design` skill,
+  separating report information architecture, page flow, table/figure packaging, export planning,
+  accessibility and final-size QA from initCraft `report-factory` binding/runtime implementation.
+- Added a focused figure-packaging/export reference and UI metadata. The source was treated as
+  reference material: unresolved external paths and mandatory specialist delegation were not copied,
+  and the unconfirmed LAB Order Request mockup direction was not promoted into a durable rule.
+- Synchronized `/Users/nichada/.codex/skills/report-design/` with
+  `02-initcraft/skills/report-design/`, updated manifest/index/checksums, and verified recursive byte
+  equality plus frontmatter, link, YAML and checksum structure. The bundled quick validator remains
+  unavailable because the current Python environment lacks the `yaml` module. No Live artifact changed.

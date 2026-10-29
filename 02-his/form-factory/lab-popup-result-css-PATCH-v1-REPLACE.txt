@@ -1,0 +1,1 @@
+.lab-rh{height:min(820px,calc(100vh - 48px));min-height:0}

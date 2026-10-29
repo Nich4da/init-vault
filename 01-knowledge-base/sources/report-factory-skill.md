@@ -2,8 +2,8 @@
 type: source
 title: Report Factory Skill (SKILL.md + references)
 created: 2026-07-19
-updated: 2026-07-19
-tags: [initcraft, report-factory, pdfmake, latex, skill, reference]
+updated: 2026-10-26
+tags: [initcraft, report-factory, pdfmake, latex, typst, skill, reference]
 sources: []
 source_file: "02-his/report_factory/SKILL.md"
 source_type: note
@@ -15,9 +15,9 @@ url:
 # Report Factory Skill (`SKILL.md` + `references/`)
 
 > An internal **skill doc-set** for [[initcraft|initCraft]]'s [[report-factory|Report Factory]],
-> reverse-engineered from the actual renderer source (`SdReport.vue`, `TLatexReport.ts`). Four
-> files under `02-his/report_factory/`: `SKILL.md` (workflow) + `references/{binding,fields,latex}.md`.
-> This is the **authoritative** reference — it supersedes the earlier hands-on notes where they differ.
+> reverse-engineered from renderer source and extended with the user-provided
+> [[report-typst-reference|Typst reference]]. The active package and maintained repository snapshot
+> live under `/Users/nichada/.codex/skills/report-factory/` and `02-initcraft/skills/report-factory/`.
 
 ## Summary
 - **A report = one record** in the Report Factory form (seed model `sdform/report-model.json`).
@@ -34,11 +34,14 @@ url:
 - ⚠️ **`content_var` (Variable Name) is NOT used at render time** — design-time label only. Bind
   with `{{field}}`, never `content_var`.
 - **LaTeX is a separate authoring model** — see [[report-latex]].
+- **Typst is another separate authoring model** — the template imports `sdthai.typ` and reads
+  server-created `data.json` through `data`, `raw`, `rows`, and `params`; it does not use
+  pdfmake `{{field}}` or LaTeX `\VAR{}` binding ([[report-typst-reference]]).
 
 ## Key takeaways
 - **Render pipeline** (`createReport`): `sdformGetOne` → permission gate → (required `pdf_params`
   dialog) → `typeReport` splits **pdf** (client pdfmake) / **excel** (client XLSX) / **word**
-  (server, from `pdf_temp` .docx) / **latex** (server, Tectonic).
+  (server, from `pdf_temp` .docx) / **latex** (server, Tectonic) / **Typst** (server Typst CLI → PDF).
 - **Output support differs:** PDF = all widgets. **Excel = only `table`/`subtable`/`sub_report`**
   (text/image/qr/barcode silently skipped). Word = `.docx` template. LaTeX = Nunjucks (see below).
 - **Column model (`pdf_column`, per column):** `col_field` (pick a variable from `pdf_sql`) ·
@@ -65,6 +68,7 @@ url:
 ## Entities & concepts touched
 - [[report-factory]] — the concept page this source now authoritatively backs (updated).
 - [[report-latex]] — the separate LaTeX/Nunjucks/Tectonic output model (new page from `references/latex.md`).
+- [[report-typst-reference]] — the imported Typst/sdthai authoring and helper reference.
 - [[sql-factory]] — the mandatory data source (`pdf_sql`); `col_field` reads its `sql_options.variable`.
 - [[his-med-dispense-voucher-report]] — the worked example whose `{{}}` placeholders this explains.
 - [[initcraft]] — the platform; Report Factory is its 4th factory.
@@ -78,3 +82,6 @@ url:
   source confirms it is inert at runtime.
 - Full generated syntax reference lives at `initcraft/public/LLM-Report.md` (Builder → Docs →
   **Report Docs**) — not ingested here; a candidate if deeper coverage is needed.
+- The older `references/fields.md` catalog does not yet name the persisted Typst Code field or list
+  Typst among `pdf_type` options. Refresh it from the current live Report model before treating it as
+  a complete raw-record schema; do not infer a storage key from the UI label.

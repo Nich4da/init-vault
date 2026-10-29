@@ -1,0 +1,170 @@
+const s = this.vueState;
+const field = this;
+const LAB_BOARD_PROCESS_ID = '6ab3be31cec3020e8562a2c9';
+const LAB_RESULT_PDF_REPORT_ID = '6aa8f5a8b92813319a86ea11';
+const MLAB_RESULT_PDF_REPORT_ID = '6ab1c2d3e4f5061728394a5b';
+const params = () => {
+  const direct = field.params && typeof field.params === 'object' ? field.params : {};
+  const localForm = field.formParams && typeof field.formParams === 'object' ? field.formParams : {};
+  let inherited = {};
+  try {
+    inherited = typeof formParams !== 'undefined' && formParams && typeof formParams === 'object' ? formParams : {};
+  } catch (error) {
+    inherited = {};
+  }
+  // openForm(..., { params: ctx }) exposes the popup-specific order keys here.
+  // Keep inherited site/unit context, but let the popup's exact order context win.
+  return Object.assign({}, inherited, direct, localForm);
+};
+const formRef = () => {
+  try {
+    return typeof field.getFormRef === 'function' ? field.getFormRef() : null;
+  } catch (error) {
+    return null;
+  }
+};
+const apiRef = () => { const f=formRef(); return (f&&f.userState)||field.globalUserState||null; };
+const asText = value => value==null ? '' : String(value).trim();
+const asArray = value => Array.isArray(value) ? value : [];
+const responseData = res => (res&&res.data)||res||{};
+const roomNames = {BC:'ชีวเคมี',HM:'Hematology',ML:'Clinical Microscopy Laboratory',HH:'Hematology-Homeostasis',IM:'Immunology','MI-OUT':'Immunology ส่งนอกรพ.',MB:'Microbiology',MY:'Mycology',BB:'Blood Bank',BG:'Biomolecular and Genetics',PA:'Pathology'};
+const statusLabels = {partial:'Partial result',final:'Final',corrected:'Corrected',completed:'Final',resulted:'Final',pending:'Pending',entered:'Entered'};
+
+s.loading = false;
+s.error = '';
+s.currentOrder = null;
+s.currentVn = '';
+s.historyCount = 5;
+s.mlabHistoryCount = 5;
+s.mlabHistoryOpen = false;
+s.sensitiveOpen = false;
+s.sensitiveLoading = false;
+s.sensitiveRow = null;
+s.sensitivePassword = '';
+s.sensitivePurpose = 'ดูแลรักษาผู้ป่วย';
+s.sensitiveError = '';
+s.sensitiveExpiryTimer = null;
+s.sensitiveMode = 'view';
+s.reportGrantToken = '';
+s.reportGrantExpiresAt = 0;
+s.reportHostId = 'lab-rh-result-report-host';
+
+s.roomCode = () => asText(s.currentOrder && s.currentOrder.section_code).toUpperCase();
+s.room = () => { const code=s.roomCode(); return {code,label:[roomNames[code]||asText(s.currentOrder&&s.currentOrder.section)||'LAB',code].filter(Boolean).join(' · ')}; };
+s.isMlab = () => s.roomCode()==='MB';
+s.hasSiteColumn = () => s.roomCode()==='MY';
+s.patientLabel = () => { const o=s.currentOrder||{}; return [asText(o.patient_hn),asText(o.patient_name)].filter(Boolean).join(' · ')||'—'; };
+s.labNo = () => asText(s.currentOrder&&s.currentOrder.lab_no)||'—';
+s.specimen = () => asText(s.currentOrder&&s.currentOrder.specimen_name)||'—';
+s.reportedAt = () => asText(s.currentOrder&&(s.currentOrder.reported_at||s.currentOrder.resulted_at));
+s.orderComment = () => asText(s.currentOrder&&s.currentOrder.order_comment);
+
+s.attachmentUrl = file => {
+  const value = asText(file && (file.url || file.response && file.response.filePath));
+  return /^(https?:\/\/|\/)/i.test(value) ? value : '';
+};
+s.attachments = () => asArray(s.currentOrder && s.currentOrder.attachments).filter(file => s.attachmentUrl(file));
+s.attachmentCount = () => s.attachments().length;
+s.attachmentName = file => asText(file && (file.name || file.response && file.response.fileName)) || 'ไฟล์แนบผลตรวจ';
+s.attachmentKey = (file,index) => asText(file && (file.uid || file.url || file.response && file.response.filePath || file.name)) || 'attachment-' + index;
+s.attachmentSize = file => {
+  const bytes = Number(file && file.size);
+  if (!Number.isFinite(bytes) || bytes <= 0) return '—';
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes / 1024).toFixed(bytes < 10240 ? 1 : 0) + ' KB';
+  return (bytes / 1048576).toFixed(bytes < 10485760 ? 1 : 0) + ' MB';
+};
+s.attachmentType = file => {
+  const match = s.attachmentName(file).match(/\.([^.]+)$/);
+  return match ? match[1].toUpperCase() : 'FILE';
+};
+s.reportIds = () => asArray(s.currentOrder&&s.currentOrder.result_report_ids).map(asText).filter(value=>/^[a-f0-9]{24}$/i.test(value));
+s.reportReady = () => s.reportIds().length===1;
+s.reportList = () => s.reportReady() ? [{reportId:s.isMlab()?MLAB_RESULT_PDF_REPORT_ID:LAB_RESULT_PDF_REPORT_ID,label:'PDF',type:'pdf'}] : [];
+s.reportParams = () => { const base=s.reportReady()?{xparentx:s.reportIds()[0]}:{}; return s.reportGrantToken&&s.reportGrantExpiresAt>Date.now()?{...base,grant_token:s.reportGrantToken}:base; };
+s.reportInstanceKey = () => ['lab-rh-report',s.roomCode(),s.reportIds()[0]||'',s.reportGrantToken||'redacted'].join('|');
+s.reportHint = () => !s.currentOrder ? 'ยังไม่มีผลตรวจสำหรับออกรายงาน' : s.reportIds().length>1 ? 'ใบนี้มีผลหลายชุด จึงไม่เลือก Result Report ให้อัตโนมัติ' : s.reportReady() ? 'เปิดรายงานผล PDF' : 'ยังไม่มี Result Report สำหรับ PDF';
+s.hasSensitive = () => asArray(s.currentOrder&&s.currentOrder.items).some(item=>{const visibility=item&&item.visibility||{};return visibility.sensitive===true||(asText(visibility.state)&&asText(visibility.state)!=='visible');});
+s.displayDate = (value,dateOnly) => { const text=asText(value); if(!text)return '—'; const m=text.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/); if(!m)return text; const short=m[3]+'/'+m[2]+'/'+String(Number(m[1])+543).slice(-2); return dateOnly||!m[4]?short:short+' '+m[4]+':'+m[5]; };
+s.headerStatus = () => { const statuses=asArray(s.currentOrder&&s.currentOrder.items).map(item=>asText(item&&item.result_status).toLowerCase()).filter(Boolean); if(statuses.indexOf('corrected')>=0)return 'Corrected'; if(statuses.indexOf('partial')>=0)return 'Partial result'; if(statuses.length&&statuses.every(value=>['final','completed','resulted'].indexOf(value)>=0))return 'Final'; const fallback=asText(s.currentOrder&&s.currentOrder.status).toLowerCase(); return statusLabels[fallback]||fallback||'—'; };
+s.subtitle = () => !s.currentOrder ? 'เปิดจาก EMR เพื่อโหลดผลจริงจากระบบ LAB' : (s.roomCode()==='IM'||s.roomCode()==='MI-OUT') ? 'ผล Sensitive ถูกปิดบังและต้องยืนยันตัวตนก่อนเปิดดู' : s.isMlab() ? 'Microbiology แสดงผลข้อความดิบจาก MLab และเลือกดูผลย้อนหลังได้ 1/5/10 ครั้ง' : 'ตารางเดียวรวมผลปัจจุบันและผลก่อนหน้า โดยหัวคอลัมน์ย้อนหลังแสดง VN';
+
+const historyKey = item => [asText(item&&item.visit_vn),asText(item&&item.lab_no),asText(item&&item.entered_at).slice(0,10)].join('|');
+const historyItems = item => asArray(item&&item.previous_values).map(previous=>({...previous,key:historyKey(previous)})).filter(previous=>previous.key!=='||');
+s.allVisits = () => { const byKey={}; asArray(s.currentOrder&&s.currentOrder.items).forEach(item=>historyItems(item).forEach(previous=>{ const saved=byKey[previous.key]; if(!saved||asText(previous.entered_at)>asText(saved.entered_at))byKey[previous.key]={key:previous.key,vn:asText(previous.visit_vn),lab_no:asText(previous.lab_no),entered_at:asText(previous.entered_at)}; })); return Object.keys(byKey).map(key=>byKey[key]).sort((a,b)=>asText(b.entered_at).localeCompare(asText(a.entered_at))).slice(0,10); };
+s.visibleVisits = () => {
+  const requested = Number(s.historyCount||5);
+  const limit = [1,5,10].indexOf(requested)>=0 ? requested : 5;
+  const visits = s.allVisits().slice(0,limit);
+  while(visits.length<limit){
+    const slot = visits.length+1;
+    visits.push({key:'empty-history-slot|'+slot,vn:'ครั้งก่อนหน้า '+slot,lab_no:'',entered_at:'ยังไม่มีผล',placeholder:true});
+  }
+  return visits;
+};
+s.setHistoryCount = value => { s.historyCount=Number(value||5); };
+const toneOf = item => { const visibility=asText(item&&item.visibility&&item.visibility.state); if(visibility&&visibility!=='visible')return 'sensitive'; const status=asText(item&&item.result_status).toLowerCase(); if(['pending','waiting'].indexOf(status)>=0)return 'pending'; const flag=asText(item&&(item.flag||item.interpretation)).toUpperCase(); return ['H','L','HH','LL','AA','C','CRITICAL','ABNORMAL'].indexOf(flag)>=0||item&&item.critical===true?'abnormal':'normal'; };
+const siteOf = item => { const name=asText(item&&(item.actual_site_name||item.ordered_site_name)); const detail=asText(item&&item.actual_site_detail); return name&&detail?name+' ('+detail+')':name||detail||'—'; };
+const rowOf = (item,index,siteOnly) => { const visibility=(item&&item.visibility)||{}; const locked=asText(visibility.state)&&asText(visibility.state)!=='visible'; const map={}; historyItems(item).forEach(previous=>{map[previous.key]=previous.value==null||previous.value===''?'—':String(previous.value)}); return {key:'row|'+index+'|'+asText(item&&(item.result_item_id||item.code||item.name)),index:'',siteOnly:!!siteOnly,site:siteOf(item),name:asText(item&&(item.name||item.group_name))||'—',note:asText(item&&item.result_comment),current:locked?'':(item&&item.value!=null&&item.value!==''?String(item.value):'—'),unit:asText(item&&item.unit),ref:asText(item&&item.ref),interpretation:asText(item&&(item.flag||item.interpretation)),tone:toneOf(item),locked,historyByKey:map,source:item}; };
+s.rows = () => { const items=asArray(s.currentOrder&&s.currentOrder.items); const out=[]; const groups=[]; const byKey={}; items.forEach((item,index)=>{ const key=asText(item&&(item.group_id||item.group_name))||'item|'+index; if(!byKey[key]){byKey[key]={key,name:asText(item&&(item.test_name||item.group_name||item.name))||'—',items:[]};groups.push(byKey[key]);} byKey[key].items.push(item); }); let sequence=0; groups.forEach(group=>{sequence++; const needsHeader=s.hasSiteColumn()||group.items.length>1; if(needsHeader)out.push({key:'group|'+group.key,group:true,index:String(sequence),name:group.name,pill:s.hasSiteColumn()?group.items.length+' ตำแหน่ง Specimen':group.items.length+' ผลย่อย'}); group.items.forEach((item,childIndex)=>{ const row=rowOf(item,sequence+'-'+childIndex,s.hasSiteColumn()); row.index=needsHeader?sequence+'.'+(childIndex+1):String(sequence); if(!needsHeader)row.name=asText(item&&(item.name||item.group_name))||group.name; out.push(row); }); }); return out; };
+s.historyValue = (row,visit) => row&&row.historyByKey&&Object.prototype.hasOwnProperty.call(row.historyByKey,visit.key)?row.historyByKey[visit.key]:'—';
+
+s.mlab = () => { const item=asArray(s.currentOrder&&s.currentOrder.items).find(row=>asText(row&&row.visibility&&row.visibility.state)==='visible')||asArray(s.currentOrder&&s.currentOrder.items)[0]||{}; return {testName:asText(item.group_name||item.name)||'—',testCode:asText(item.code)||'—',statusLabel:statusLabels[asText(item.result_status).toLowerCase()]||asText(item.result_status)||s.headerStatus(),hisResultCode:asText(item.result_item_id)||'—',sourceResultName:asText(item.name)||'—',resultStatus:asText(item.result_status)||'—',reportedAt:asText(item.reported_at)||s.reportedAt(),rawText:item.value==null||item.value===''?'—':String(item.value),source:item}; };
+s.mlabHistory = () => historyItems(s.mlab().source).map(previous=>({key:previous.key,vn:asText(previous.visit_vn),labNo:asText(previous.lab_no),status:asText(previous.status),entered_at:asText(previous.entered_at),rawText:previous.value==null||previous.value===''?'—':String(previous.value)}));
+s.visibleMlabHistory = () => s.mlabHistory().slice(0,Number(s.mlabHistoryCount||5));
+s.setMlabHistoryCount = value => { s.mlabHistoryCount=Number(value||5); };
+s.openMlabHistory = () => { if(s.mlabHistory().length)s.mlabHistoryOpen=true; };
+s.closeMlabHistory = () => { s.mlabHistoryOpen=false; };
+
+const selectOrder = data => {
+  const orders = asArray(data && data.lab_orders);
+  const p = params();
+  const targetOrder = asText(p.source_order_id || p.order_id);
+  const targetSection = asText(p.section_code || p.lab_section).toUpperCase();
+  const targetLabNo = asText(p.lab_no);
+  const unique = rows => rows.length === 1 ? rows[0] : null;
+  const orderId = order => asText(order && (order.source_order_id || order.order_id || order.source_order_number || order.order_number));
+  const section = order => asText(order && (order.section_code || order.lab_section)).toUpperCase();
+  const labNo = order => asText(order && (order.lab_no || order.filler_order_no));
+
+  // Prefer the full context, then relax one identifier at a time. Every fallback
+  // must still be unique, so the popup can never silently open another LAB order.
+  let selected = unique(orders.filter(order =>
+    (!targetOrder || orderId(order) === targetOrder) &&
+    (!targetSection || section(order) === targetSection) &&
+    (!targetLabNo || labNo(order) === targetLabNo)
+  ));
+  if (selected) return selected;
+  if (targetLabNo) {
+    selected = unique(orders.filter(order => labNo(order) === targetLabNo));
+    if (selected) return selected;
+  }
+  if (targetOrder) {
+    selected = unique(orders.filter(order => orderId(order) === targetOrder));
+    if (selected) return selected;
+  }
+  // If EMR supplied an exact Order/LAB number but this visit does not contain it,
+  // stop here. Falling back by room could silently show another visit's result.
+  if (targetOrder || targetLabNo) return null;
+  if (targetSection) {
+    selected = unique(orders.filter(order => section(order) === targetSection));
+    if (selected) return selected;
+  }
+  return !targetSection && orders.length === 1 ? orders[0] : null;
+};
+s.load = () => { const visitId=asText(params().visit_id||params().history_id); const api=apiRef(); s.currentOrder=null; s.currentVn=''; s.error=''; if(!visitId){s.error='ยังไม่ได้รับ visit_id จาก EMR จึงไม่สามารถโหลดผล LAB ได้';return;} if(!api||typeof api.runProcess!=='function'){s.error='ไม่พบตัวเชื่อม API ของฟอร์ม';return;} s.loading=true; api.runProcess(LAB_BOARD_PROCESS_ID,{visit_id:visitId,history_limit:10},res=>{ const data=responseData(res); s.loading=false; if(data.success===false){s.error=data.message||'อ่านผล LAB ไม่สำเร็จ';return;} const selected=selectOrder(data); if(!selected){s.error='ไม่พบรายการ LAB ที่ตรงกับ Order/ห้องที่ EMR ส่งมา';return;} s.currentVn=asText(data.current_vn); s.currentOrder=selected; },err=>{s.loading=false;s.error='อ่านผล LAB ไม่สำเร็จ: '+asText(err&&err.message||err);}); };
+
+const sessionUsername = () => { const api=apiRef()||{}; const user=api.user||field.globalUserState&&field.globalUserState.user||{}; return asText(user.username||user.user_name||params().username); };
+const initialUser = (field.globalUserState && field.globalUserState.user) || {};
+s.sensitiveUsername = asText(initialUser.username || initialUser.user_name || params().username);
+s.syncSensitiveUsername = () => { s.sensitiveUsername = sessionUsername(); };
+s.openSensitive = (row,mode) => { s.sensitiveRow=row; s.sensitiveMode=mode==='pdf'?'pdf':'view'; s.sensitivePassword=''; s.sensitivePurpose=s.sensitiveMode==='pdf'?'ดูแลรักษาผู้ป่วยและเปิดรายงานผล PDF':'ดูแลรักษาผู้ป่วย'; s.sensitiveError=''; s.sensitiveOpen=true; };
+s.closeSensitive = () => { if(s.sensitiveLoading)return; s.sensitiveOpen=false;s.sensitiveRow=null;s.sensitivePassword='';s.sensitiveError=''; };
+s.setSensitivePassword = value => {s.sensitivePassword=String(value||'');};
+s.setSensitivePurpose = value => {s.sensitivePurpose=String(value||'');};
+const requestId = () => 'emr-lab-result-'+Date.now()+'-'+Math.random().toString(36).slice(2,10);
+const applySensitiveItems = data => { const ids=new Set(asArray(data.item_ids).map(asText)); const disclosed=asArray(data.items); const current=asArray(s.currentOrder&&s.currentOrder.items); const next=[]; let inserted=false; current.forEach(item=>{ const itemId=asText(item&&item.visibility&&item.visibility.item_id||item&&item.group_id); if(ids.has(itemId)){if(!inserted){next.push(...disclosed);inserted=true;}return;} next.push(item); }); if(!inserted)next.push(...disclosed); s.currentOrder={...s.currentOrder,items:next,reported_at:asText(data.reported_at)||s.currentOrder.reported_at,reported_by_source_name:asText(data.reported_by_source_name)||s.currentOrder.reported_by_source_name,verified_at:asText(data.verified_at)||s.currentOrder.verified_at,verified_by_source_name:asText(data.verified_by_source_name)||s.currentOrder.verified_by_source_name,result_report_ids:asArray(data.result_report_ids).length?data.result_report_ids:s.currentOrder.result_report_ids}; const expires=Number(data.sensitive_grant_expires_at_epoch||0); if(s.sensitiveExpiryTimer)clearTimeout(s.sensitiveExpiryTimer); if(expires>Date.now())s.sensitiveExpiryTimer=setTimeout(()=>s.load(),Math.max(0,expires-Date.now())); };
+const clickReport = attempt => { const doc=typeof globalThis!=='undefined'?globalThis.document:null; const host=doc&&doc.getElementById(s.reportHostId); const button=host&&host.querySelector?host.querySelector('button:not([disabled])'):null; if(button&&typeof button.click==='function'){button.click();return;} if(Number(attempt||0)<20){setTimeout(()=>clickReport(Number(attempt||0)+1),50);return;} if(typeof field.notify==='function')field.notify('ระบบเปิด PDF ไม่สำเร็จ','error',4500); };
+s.openReport = () => { if(!s.reportReady()){if(typeof field.notify==='function')field.notify(s.reportHint(),'warning',4000);return;} if(s.hasSensitive()){const item=asArray(s.currentOrder&&s.currentOrder.items).find(row=>{const visibility=row&&row.visibility||{};return visibility.sensitive===true||(asText(visibility.state)&&asText(visibility.state)!=='visible');}); if(!item){if(typeof field.notify==='function')field.notify('ไม่พบรายการ Sensitive สำหรับยืนยันตัวตน','warning',4000);return;} s.openSensitive({name:asText(item.name||item.group_name)||'ผลตรวจ Sensitive',source:item},'pdf');return;} clickReport(0); };
+s.submitSensitive = () => { const row=s.sensitiveRow; const api=apiRef(); if(!row||!api||typeof api.runProcess!=='function')return; if(!s.sensitiveUsername||!s.sensitivePassword||!asText(s.sensitivePurpose)){s.sensitiveError='กรุณากรอก Username, Password และเหตุผลให้ครบ';return;} const mode=s.sensitiveMode; const password=s.sensitivePassword; const visibility=row.source&&row.source.visibility||{}; s.sensitiveLoading=true;s.sensitiveError='';s.sensitivePassword=''; api.runProcess(LAB_BOARD_PROCESS_ID,{action:'open_sensitive',visit_id:asText(params().visit_id||params().history_id),source_order_id:asText(visibility.source_order_id||s.currentOrder.source_order_id),item_id:asText(visibility.item_id||row.source&&row.source.group_id),section_code:s.roomCode(),username:s.sensitiveUsername,password,purpose:asText(s.sensitivePurpose),request_id:requestId(),screen:mode==='pdf'?'emr_lab_result_form_pdf':'emr_lab_result_form'},res=>{const data=responseData(res);s.sensitiveLoading=false;if(!data.success){s.sensitiveError=data.message||'ยืนยันตัวตนไม่สำเร็จ';return;} if(mode==='pdf'){s.reportGrantToken=asText(data.sensitive_grant_token);s.reportGrantExpiresAt=Number(data.sensitive_grant_expires_at_epoch||0);s.sensitiveOpen=false;s.sensitiveRow=null;s.sensitivePurpose='ดูแลรักษาผู้ป่วย';setTimeout(()=>clickReport(0),0);return;} applySensitiveItems(data);s.sensitiveOpen=false;s.sensitiveRow=null;s.sensitivePurpose='ดูแลรักษาผู้ป่วย';},err=>{s.sensitiveLoading=false;s.sensitiveError='เปิดผล Sensitive ไม่สำเร็จ: '+asText(err&&err.message||err);}); };
+s.closeForm = () => { const form=formRef(); if(form&&typeof form.closePopup==='function'){form.closePopup();return;} if(form&&typeof form.subFormClose==='function')form.subFormClose(); };

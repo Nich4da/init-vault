@@ -1,0 +1,134 @@
+<section class="lab-rh" aria-label="ผลตรวจทางห้องปฏิบัติการ">
+  <header class="lab-rh__header">
+    <div class="lab-rh__header-main">
+      <div class="lab-rh__header-copy">
+        <div class="lab-rh__title-line">
+          <h1>ผลตรวจทางห้องปฏิบัติการ</h1>
+          <span v-if="currentOrder" class="lab-rh__tag">{{ room().label }}</span>
+          <span v-if="currentOrder" class="lab-rh__tag lab-rh__tag--success">{{ headerStatus() }}</span>
+          <span class="lab-rh__tag lab-rh__tag--warning">โหมดดูอย่างเดียว</span>
+        </div>
+        <p class="lab-rh__subtitle">{{ subtitle() }}</p>
+      </div>
+      <div class="lab-rh__header-actions">
+        <el-button plain :disabled="!reportReady()" :title="reportHint()" @click="openReport">▣ รายงานผล</el-button>
+        <span v-if="reportReady()" :id="reportHostId" style="position:absolute;left:-9999px;top:0;width:1px;height:1px;overflow:hidden" aria-hidden="true"><sd-report :key="reportInstanceKey()" :report-list="reportList()" :params="reportParams()" size="small" /></span>
+        <button class="lab-rh__icon-button" type="button" aria-label="ปิด Popup" @click="closeForm">×</button>
+      </div>
+    </div>
+
+    <div v-if="currentOrder" class="lab-rh__patient-strip" aria-label="ข้อมูล Order ปัจจุบัน">
+      <div class="lab-rh__patient-cell"><span>ผู้ป่วย</span><strong>{{ patientLabel() }}</strong></div>
+      <div class="lab-rh__patient-cell"><span>VN ปัจจุบัน</span><strong class="lab-rh__mono">{{ currentVn || '—' }}</strong></div>
+      <div class="lab-rh__patient-cell"><span>LAB No.</span><strong class="lab-rh__mono">{{ labNo() }}</strong></div>
+      <div class="lab-rh__patient-cell"><span>สิ่งส่งตรวจ</span><strong>{{ specimen() }}</strong></div>
+      <div class="lab-rh__patient-cell"><span>ออกรายงานล่าสุด</span><strong class="lab-rh__mono">{{ displayDate(reportedAt()) }}</strong></div>
+    </div>
+  </header>
+
+  <div class="lab-rh__body">
+    <div v-if="loading" class="lab-rh__state"><span class="lab-rh__spinner" aria-hidden="true"></span><strong>กำลังโหลดผลตรวจจากระบบ LAB</strong></div>
+    <el-alert v-else-if="error" :title="error" type="warning" :closable="false" show-icon />
+    <div v-else-if="!currentOrder" class="lab-rh__state lab-rh__state--empty"><strong>ยังไม่มีผลตรวจสำหรับแสดง</strong><span>ต้องเปิดฟอร์มนี้จาก EMR พร้อม visit_id และรายการ LAB ที่ต้องการดู</span></div>
+
+    <template v-else>
+      <aside v-if="orderComment()" class="lab-rh__order-note" aria-label="Comment ระดับ Order">
+        <span class="lab-rh__order-note-label">Comment ระดับ Order</span>
+        <span class="lab-rh__order-note-copy">{{ orderComment() }}</span>
+      </aside>
+
+      <section v-if="!isMlab()" class="lab-rh__standard-view">
+        <div class="lab-rh__toolbar">
+          <div class="lab-rh__toolbar-copy">
+            <h2>รายการผลตรวจ</h2>
+            <p>หัวคอลัมน์ย้อนหลังแสดง VN และวันที่ ส่วนในช่องแสดงเฉพาะค่าผลของครั้งนั้น</p>
+          </div>
+          <label class="lab-rh__field-control">
+            <span>จำนวนผลก่อนหน้า</span>
+            <el-select :model-value="historyCount" class="lab-rh__count-select" @change="setHistoryCount">
+              <el-option :value="1" label="1 ครั้ง" />
+              <el-option :value="5" label="5 ครั้ง" />
+              <el-option :value="10" label="10 ครั้ง" />
+            </el-select>
+          </label>
+        </div>
+
+        <div class="lab-rh__table-shell" tabindex="0" aria-label="ตารางผล LAB เลื่อนซ้ายขวาได้">
+          <div class="lab-rh__scroll-hint">⇆ เลื่อนแนวนอนเพื่อดู VN ย้อนหลัง · คอลัมน์รายการตรวจจะติดอยู่ด้านซ้าย</div>
+          <table class="lab-rh__table" aria-label="ผลตรวจปัจจุบันและผลก่อนหน้า">
+            <thead>
+              <tr>
+                <th class="lab-rh__index-col lab-rh__sticky-index">#</th>
+                <th class="lab-rh__test-col lab-rh__sticky-test">รายการตรวจ</th>
+                <th v-if="hasSiteColumn()" class="lab-rh__site-col">ตำแหน่ง Specimen</th>
+                <th v-for="visit in visibleVisits()" :key="visit.key" class="lab-rh__history-col">
+                  <span class="lab-rh__history-head"><strong>{{ visit.vn || '—' }}</strong><small>{{ displayDate(visit.entered_at, true) }}</small></span>
+                </th>
+                <th class="lab-rh__ref-col lab-rh__sticky-result lab-rh__sticky-ref">ค่าปกติ</th>
+                <th class="lab-rh__current-col lab-rh__sticky-result lab-rh__sticky-current">ค่าปัจจุบัน</th>
+                <th class="lab-rh__unit-col lab-rh__sticky-result lab-rh__sticky-unit">หน่วย</th>
+                <th class="lab-rh__interpret-col lab-rh__sticky-result lab-rh__sticky-interpret">แปลผล</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template v-for="row in rows()" :key="row.key">
+                <tr v-if="row.group" class="lab-rh__group-row">
+                  <td class="lab-rh__index-col lab-rh__sticky-index"><span class="lab-rh__row-index">{{ row.index }}</span></td>
+                  <td class="lab-rh__test-col lab-rh__sticky-test"><span class="lab-rh__group-title"><span><strong>{{ row.name }}</strong></span><span class="lab-rh__group-pill">{{ row.pill }}</span></span></td>
+                  <td v-if="hasSiteColumn()" class="lab-rh__site-col"></td>
+                  <td v-for="visit in visibleVisits()" :key="visit.key" class="lab-rh__history-col"></td>
+                  <td class="lab-rh__ref-col lab-rh__sticky-result lab-rh__sticky-ref"></td><td class="lab-rh__current-col lab-rh__sticky-result lab-rh__sticky-current"></td><td class="lab-rh__unit-col lab-rh__sticky-result lab-rh__sticky-unit"></td><td class="lab-rh__interpret-col lab-rh__sticky-result lab-rh__sticky-interpret"></td>
+                </tr>
+                <tr v-else>
+                  <td class="lab-rh__index-col lab-rh__sticky-index"><span class="lab-rh__row-index">{{ row.index }}</span></td>
+                  <td class="lab-rh__test-col lab-rh__sticky-test">
+                    <span v-if="row.siteOnly" class="lab-rh__visually-hidden">รายการเดียวกับหัวข้อ Mycology ด้านบน</span>
+                    <span v-else class="lab-rh__test-name-line"><i class="lab-rh__signal" :class="'lab-rh__signal--' + row.tone" aria-hidden="true"></i><span class="lab-rh__test-copy"><strong>{{ row.name }}</strong><span v-if="row.note" class="lab-rh__test-comment">{{ row.note }}</span></span></span>
+                  </td>
+                  <td v-if="hasSiteColumn()" class="lab-rh__site-col"><span class="lab-rh__site-copy"><strong>{{ row.site || '—' }}</strong></span></td>
+                  <td v-for="visit in visibleVisits()" :key="visit.key" class="lab-rh__history-col"><span v-if="row.locked" class="lab-rh__sensitive-locked">🔒 ปิดบัง</span><strong v-else class="lab-rh__history-value">{{ historyValue(row, visit) }}</strong></td>
+                  <td class="lab-rh__ref-col lab-rh__sticky-result lab-rh__sticky-ref"><span class="lab-rh__ref-value">{{ row.ref || '—' }}</span></td>
+                  <td class="lab-rh__current-col lab-rh__sticky-result lab-rh__sticky-current"><button v-if="row.locked" class="lab-rh__sensitive-action" type="button" @click="openSensitive(row)">ยืนยันตัวตนเพื่อดูผล</button><strong v-else class="lab-rh__current-value" :class="'lab-rh__current-value--' + row.tone">{{ row.current }}</strong></td>
+                  <td class="lab-rh__unit-col lab-rh__sticky-result lab-rh__sticky-unit"><span class="lab-rh__unit-value">{{ row.unit || '—' }}</span></td>
+                  <td class="lab-rh__interpret-col lab-rh__sticky-result lab-rh__sticky-interpret"><span class="lab-rh__interpretation" :class="row.locked ? 'lab-rh__interpretation--sensitive' : 'lab-rh__interpretation--' + row.tone">{{ row.locked ? '🔒 Sensitive' : (row.interpretation || '—') }}</span></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section v-else class="lab-rh__mlab-view">
+        <div class="lab-rh__mlab-summary">
+          <div><span>ผู้ป่วย</span><strong>{{ patientLabel() }}</strong></div><div><span>LAB NO.</span><strong class="lab-rh__mono">{{ labNo() }}</strong></div><div><span>สิ่งส่งตรวจ</span><strong>{{ specimen() }}</strong></div><div><span>สถานะผล</span><strong><span class="lab-rh__tag lab-rh__tag--warning">{{ headerStatus() }}</span></strong></div>
+        </div>
+        <div class="lab-rh__mlab-note"><strong>หลักการแสดงผล MLab</strong> · คงข้อความ raw ตามที่ได้รับ ไม่ parse หรือสรุป Gram stain, เชื้อ, MIC หรือ S/I/R เพิ่มใน HIS</div>
+        <div class="lab-rh__toolbar lab-rh__toolbar--mlab"><div class="lab-rh__toolbar-copy"><h2>รายการตรวจ</h2></div></div>
+        <article class="lab-rh__mlab-card">
+          <header class="lab-rh__mlab-card-head"><strong class="lab-rh__mono">01</strong><span><strong>{{ mlab().testName }}</strong><small>{{ mlab().testCode }}</small></span><span class="lab-rh__tag lab-rh__tag--warning">{{ mlab().statusLabel }}</span><el-button type="primary" :disabled="!mlabHistory().length" @click="openMlabHistory">ผลก่อนหน้า</el-button></header>
+          <div class="lab-rh__mlab-meta"><div><span>รหัสผลที่บันทึกใน HIS</span><strong class="lab-rh__mono">{{ mlab().hisResultCode }}</strong></div><div><span>ชื่อ/รหัสที่มากับผล</span><strong>{{ mlab().sourceResultName }}</strong></div><div><span>สถานะผล</span><strong>{{ mlab().resultStatus }}</strong></div><div><span>เวลารายงาน</span><strong>{{ displayDate(mlab().reportedAt) }}</strong></div></div>
+          <pre class="lab-rh__raw-result">{{ mlab().rawText }}</pre>
+        </article>
+      </section>
+    </template>
+  </div>
+
+  <footer class="lab-rh__footer"><el-button @click="closeForm">ปิด</el-button></footer>
+
+  <div v-if="mlabHistoryOpen" class="lab-rh__child-overlay">
+    <section class="lab-rh__child-dialog" role="dialog" aria-modal="true" aria-label="ผลก่อนหน้าจาก MLab">
+      <header class="lab-rh__child-head"><div><h2>ผลก่อนหน้า · {{ mlab().testName }}</h2><p>{{ currentOrder.patient_hn || '—' }} · {{ mlab().testCode }} · MB · ข้อความ raw จาก MLab</p></div><button class="lab-rh__icon-button" type="button" aria-label="ปิดผลก่อนหน้า" @click="closeMlabHistory">×</button></header>
+      <div class="lab-rh__child-toolbar"><div><strong>จำนวนผลก่อนหน้าที่ใช้เปรียบเทียบ</strong><small>เรียงจากครั้งล่าสุดไปเก่าสุด</small></div><label class="lab-rh__child-select">แสดง<el-select :model-value="mlabHistoryCount" class="lab-rh__count-select" @change="setMlabHistoryCount"><el-option :value="1" label="1 ครั้ง" /><el-option :value="5" label="5 ครั้ง" /><el-option :value="10" label="10 ครั้ง" /></el-select></label></div>
+      <div class="lab-rh__child-body"><div class="lab-rh__mlab-history-list"><details v-for="(item,index) in visibleMlabHistory()" :key="item.key" class="lab-rh__history-card" :open="index === 0"><summary><span><strong>{{ displayDate(item.entered_at, true) }}</strong><small>ครั้งก่อนหน้า {{ index + 1 }}</small></span><span><strong class="lab-rh__mono">{{ item.vn || '—' }}</strong><small class="lab-rh__mono">{{ item.labNo || '—' }}</small></span><span class="lab-rh__summary-text">ผลข้อความจาก MLab · เปิดดูเต็มใบ</span><span class="lab-rh__tag lab-rh__tag--success">{{ item.status || '—' }}</span><span class="lab-rh__chevron">⌃</span></summary><pre class="lab-rh__history-raw">{{ item.rawText }}</pre></details></div></div>
+      <footer class="lab-rh__child-foot"><el-button @click="closeMlabHistory">ปิด</el-button></footer>
+    </section>
+  </div>
+
+  <div v-if="sensitiveOpen" class="lab-rh__child-overlay">
+    <section class="lab-rh__child-dialog lab-rh__reauth-dialog" role="dialog" aria-modal="true" aria-label="ยืนยันตัวตนเพื่อดูผล Sensitive">
+      <header class="lab-rh__child-head"><div><h2>ยืนยันตัวตนเพื่อดูผล Sensitive</h2><p>ใช้กับผลของห้อง IM และ MI-OUT</p></div><button class="lab-rh__icon-button" type="button" aria-label="ปิดการยืนยันตัวตน" @click="closeSensitive">×</button></header>
+      <div class="lab-rh__child-body"><div class="lab-rh__reauth-form"><div class="lab-rh__reauth-context"><strong>{{ sensitiveRow ? sensitiveRow.name : 'ผลตรวจ Sensitive' }}</strong><small>{{ currentOrder.patient_hn || '—' }} · {{ room().label }} · ผลถูกปิดบังจนกว่าจะยืนยันตัวตน</small></div><label class="lab-rh__reauth-field"><span>Username แพทย์</span><el-input :model-value="sensitiveUsername" disabled /></label><label class="lab-rh__reauth-field"><span>Password</span><el-input :model-value="sensitivePassword" type="password" autocomplete="current-password" placeholder="กรอกรหัสผ่านเพื่อยืนยัน" show-password @input="setSensitivePassword" /></label><label class="lab-rh__reauth-field"><span>เหตุผลในการเปิดดู</span><el-input :model-value="sensitivePurpose" type="textarea" :rows="3" maxlength="200" @input="setSensitivePurpose" /></label><p v-if="sensitiveError" class="lab-rh__reauth-error">{{ sensitiveError }}</p></div></div>
+      <footer class="lab-rh__child-foot"><el-button :disabled="sensitiveLoading" @click="closeSensitive">ยกเลิก</el-button><el-button type="primary" :loading="sensitiveLoading" @click="submitSensitive">ยืนยันและเปิดดู</el-button></footer>
+    </section>
+  </div>
+</section>

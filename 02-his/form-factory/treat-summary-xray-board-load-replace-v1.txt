@@ -1,0 +1,32 @@
+s.tsXrayBoardLoad = (visitId) => {
+	const api = s.tsApi();
+	if (!visitId) return;
+	if (!api) {
+		s.tsXrayBoardError = 'ไม่พบ API Process connector';
+		return;
+	}
+	if (String(TS_XRAY_HISTORY_PROC).indexOf('__') === 0) return; // fallback UI เดิมยังทำงาน
+	s.tsXrayBoardLoading = true;
+	s.tsXrayBoardError = '';
+	api.runProcess(
+		TS_XRAY_HISTORY_PROC,
+		{ visit_id: String(visitId) },
+		(res) => {
+			const data = (res && res.data) || {};
+			s.tsXrayBoardLoading = false;
+			if (data.success === false) {
+				s.tsXrayBoardError = data.message || 'อ่านผล X-ray ไม่สำเร็จ';
+				return;
+			}
+			s.tsXrayBoardOn = true;
+			// Treat Summary แสดงเฉพาะผลตรวจ; ใบสั่ง sent/ready ที่ยังไม่มีผลอยู่ในการ์ดใบสั่งตรวจแล้ว
+			s.tsXrayOrders = s.tsXrayResultOrders(data.orders);
+			// ค่าเริ่มต้นพับทุกใบ ผู้ใช้กดกางเฉพาะ Order ที่ต้องการดู
+			s.tsXrayOrderOpen = {};
+		},
+		(err) => {
+			s.tsXrayBoardLoading = false;
+			s.tsXrayBoardError = 'อ่านผล X-ray ไม่สำเร็จ: ' + ((err && err.message) || err);
+		}
+	);
+};

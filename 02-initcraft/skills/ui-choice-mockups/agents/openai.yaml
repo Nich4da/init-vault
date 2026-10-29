@@ -1,0 +1,4 @@
+interface:
+  display_name: "UI Choice Mockups"
+  short_description: "Compare three UI variants before updating the main mockup"
+  default_prompt: "Use $ui-choice-mockups to create three focused UI options for this change and let me choose."

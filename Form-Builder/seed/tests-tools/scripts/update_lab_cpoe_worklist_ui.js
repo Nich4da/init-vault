@@ -381,23 +381,29 @@ widget.content = `<div class="lab-cpoe">
               <i class="lab-order-status-dot" aria-hidden="true"></i><b>{{ step.count }}</b>
             </span>
           </div>
-          ${orderRequestPdfAction}
-          <el-button v-else-if="viewMode==='today'" class="lab-plain-action" type="primary" size="small"
-            :loading="isRetesting(order)" :disabled="isRetesting(order)"
-            title="นำรายการเดิมกลับไปรอรับ specimen · ล้าง LAB NO. เดิมและสร้างใหม่เมื่อกดรับ"
-            @click="retestOrder(order)">ตรวจใหม่</el-button>
-          <span v-else class="lab-action-placeholder" aria-hidden="true"></span>
-          <el-button v-if="!isCancelledOrder(order)&&detailTab(order)==='results'&&!isMicrobiologyOrder(order)" class="lab-plain-action" size="small"
-            :disabled="!resultItems(order).length"
-            :aria-label="(isManualPathologyOrder(order)?'ลงผล':'ดูผล')+'ของ '+(text(order.patient&&order.patient.hn)||'Order นี้')"
-            @click="openOrderResults(order)">{{ isManualPathologyOrder(order) ? 'ลงผล' : 'ดูผล' }}</el-button>
-          <span v-else-if="!isCancelledOrder(order)&&detailTab(order)==='results'" class="lab-action-placeholder" aria-hidden="true"></span>
-          <template v-else>
-            ${hnPrintAction}
+          <div class="lab-row-action lab-row-action-pdf">
+            ${orderRequestPdfAction}
+            <el-button v-else-if="viewMode==='today'" class="lab-plain-action" type="primary" size="small"
+              :loading="isRetesting(order)" :disabled="isRetesting(order)"
+              title="นำรายการเดิมกลับไปรอรับ specimen · ล้าง LAB NO. เดิมและสร้างใหม่เมื่อกดรับ"
+              @click="retestOrder(order)">ตรวจใหม่</el-button>
             <span v-else class="lab-action-placeholder" aria-hidden="true"></span>
-          </template>
-          <el-button v-if="!isCancelledOrder(order)" class="lab-plain-action" size="small" @click="openEmr(order)">EMR</el-button>
-          <span v-else class="lab-action-placeholder" aria-hidden="true"></span>
+          </div>
+          <div class="lab-row-action lab-row-action-hn">
+            <el-button v-if="!isCancelledOrder(order)&&detailTab(order)==='results'&&!isMicrobiologyOrder(order)" class="lab-plain-action" size="small"
+              :disabled="!resultItems(order).length"
+              :aria-label="(isManualPathologyOrder(order)?'ลงผล':'ดูผล')+'ของ '+(text(order.patient&&order.patient.hn)||'Order นี้')"
+              @click="openOrderResults(order)">{{ isManualPathologyOrder(order) ? 'ลงผล' : 'ดูผล' }}</el-button>
+            <span v-else-if="!isCancelledOrder(order)&&detailTab(order)==='results'" class="lab-action-placeholder" aria-hidden="true"></span>
+            <template v-else>
+              ${hnPrintAction}
+              <span v-else class="lab-action-placeholder" aria-hidden="true"></span>
+            </template>
+          </div>
+          <div class="lab-row-action lab-row-action-emr">
+            <el-button v-if="!isCancelledOrder(order)" class="lab-plain-action" size="small" @click="openEmr(order)">EMR</el-button>
+            <span v-else class="lab-action-placeholder" aria-hidden="true"></span>
+          </div>
         </div>
 
         <div v-if="isExpanded(order)" class="lab-detail-panel">
@@ -1004,6 +1010,8 @@ const RECEIVE_PROCESS_ID='6a94f634422c1ca959829d70';
 const REJECT_PROCESS_ID='6a79ff46d5218a5b6a26bebc';
 const REJECTION_FORM_ID='6a7713fdcc7d0a8451130331';
 const CPOE_ORDER_APP_ID='6a995d064744260ea8c9498c';
+/* เปิดหลัง CPOE ยืนยันส่งสำเร็จเท่านั้น; launcher เป็นเจ้าของ flow คิว */
+const MOVE_UNIT_FORM_ID='6a4f828d22f95f21b606d9a2';
 const LAB_SPECIMEN_FORM_ID='6a597657d448dfc9d33e2d3a';
 /* ใช้แหล่งตำแหน่งเดียวกับใบสั่ง CPOE: PE Items (code + name_th)
    จำกัดการใช้งานไว้ที่ popup ลงผล Manual ของห้อง MY เท่านั้น */
@@ -2689,6 +2697,13 @@ s.createOrderVisitContext=visit=>{
     p_pic:Array.isArray(p.p_pic)?p.p_pic:null,
     allergy_tags:[],
     visit_id:s.text(visit&&visit._id||visit&&visit.value),
+    visit_tran_id:s.text(visit&&visit.visit_tran_id),
+    visit_tran_count:Number(visit&&visit.visit_tran_count||0),
+    visit_tran_ambiguous:!!(visit&&visit.visit_tran_ambiguous),
+    current_unit:visit&&(visit.current_unit||visit.unit_to)||null,
+    current_room:visit&&(visit.current_room||visit.room_to)||null,
+    visit_tran_status:s.text(visit&&visit.visit_tran_status),
+    visit_priority:s.text(visit&&visit.visit_priority)||'10',
     vn:s.text(visit&&visit.vn),
     visit_type:s.text(visit&&visit.visit_type),
     an:s.text(visit&&visit.an),
@@ -2703,6 +2718,29 @@ s.createOrderVisitContext=visit=>{
     inscl_hos:Array.isArray(visit&&visit.inscl_hos)?visit.inscl_hos:[]
   };
 };
+s.queueUnitCode=context=>{
+  const raw=context&&(context.current_unit||context.unit_to);
+  return s.text(raw&&typeof raw==='object'?(raw.value||raw.code):raw).toUpperCase();
+};
+s.openMoveUnitAfterOrder=context=>{
+  const ctx=context||{};
+  const tranCount=Number(ctx.visit_tran_count||0);
+  const tranId=s.text(ctx.visit_tran_id||ctx.tran_id||ctx.vtran_id);
+  const currentUnit=s.queueUnitCode(ctx);
+  const workUnit=s.unitCode();
+  const warn=message=>field.notify('ส่งใบสั่งแล้ว แต่ยังส่งต่อคิวไม่ได้ — '+message,'warning',6500);
+  if(ctx.visit_tran_ambiguous||tranCount>1){warn('Visit นี้มีคิวเปิดอยู่มากกว่า 1 คิว กรุณาตรวจสอบคิวปัจจุบันก่อนส่งต่อ');return;}
+  if(tranCount!==1||!tranId){warn('ไม่พบ Visit Tran ที่เปิดอยู่สำหรับผู้ป่วยรายนี้');return;}
+  if(!workUnit||!currentUnit||currentUnit!==workUnit){warn('คิวปัจจุบันอยู่ที่ '+(currentUnit||'หน่วยงานอื่น')+' ไม่ใช่ห้อง '+(workUnit||'LAB')+' จึงไม่ย้ายคิวอัตโนมัติ');return;}
+  const host=field.getFormRef&&field.getFormRef();
+  if(!host||typeof host.openForm!=='function'){warn('ไม่พบตัวเปิดฟอร์ม Move Unit');return;}
+  const moveContext={tran_id:tranId,cur_unit:currentUnit,visit_priority:s.text(ctx.visit_priority)||'10',tran_note:'',consult_id:''};
+  setTimeout(()=>host.openForm(MOVE_UNIT_FORM_ID,'','',moveContext,{params:moveContext,cancelCallback:()=>{
+    if(typeof host.subFormClose==='function')host.subFormClose();
+    s.page={...s.page,current:1};
+    s.refreshWorklist();
+  }}),450);
+};
 s.openCreateOrder=async()=>{
   if(s.viewMode==='lookup'){field.notify('โหมดสืบค้นเป็นแบบอ่านอย่างเดียว','warning',3000);return;}
   const form=field.getFormRef&&field.getFormRef();
@@ -2716,7 +2754,7 @@ s.openCreateOrder=async()=>{
     lab_scope:true,
     organization_code:s.unitCode(),
     section_codes:sectionCodes,
-    on_order_sent:()=>{s.page={...s.page,current:1};s.refreshWorklist();}
+    on_order_sent:context=>{s.page={...s.page,current:1};s.refreshWorklist();s.openMoveUnitAfterOrder(context);}
   });
   const hn=s.createOrderSearchHn();
   if(hn){
@@ -2941,9 +2979,10 @@ form.formConfig.cssCode = `.lab-cpoe{--primary:var(--el-color-primary,#409eff);-
 .lab-section-code{display:inline-flex;min-width:36px;min-height:23px;align-items:center;justify-content:center;padding:1px 7px;border:1px solid var(--el-color-primary-light-5,#a0cfff);border-radius:5px;background:var(--primary-50);color:var(--primary);font-family:var(--mono);font-size:11px;font-weight:750}
 .lab-field-value{display:block;min-width:0;overflow:hidden;color:var(--ink);font-size:12px;font-weight:650;text-overflow:ellipsis;white-space:nowrap}.lab-hover-summary{cursor:help}.lab-time-value{margin-top:3px;line-height:1.25}.lab-time-value span{display:block}.lab-order-no-tag{display:inline-flex;max-width:100%;min-height:18px;align-items:center;padding:0 6px;overflow:hidden;border:1px solid var(--el-color-primary-light-5,#a0cfff);border-radius:999px;background:var(--primary-50);color:var(--primary);font-family:var(--mono);font-size:9px;text-overflow:ellipsis;white-space:nowrap}.lab-diagnosis-summary{display:block;max-width:100%;margin-top:2px;overflow:hidden;color:var(--muted);font-size:10px;text-overflow:ellipsis;white-space:nowrap;cursor:help}.lab-cpoe-list-popper .lab-pop-line{line-height:1.5;white-space:nowrap}.lab-cpoe-diagnosis-popper{max-width:420px}.lab-cpoe-diagnosis-popper .lab-diagnosis-pop{line-height:1.5;white-space:normal;overflow-wrap:anywhere}
 .lab-row-status-check{display:flex;min-width:0;align-items:center;justify-self:start;gap:8px}.lab-order-status-step{display:inline-flex;align-items:center;gap:3px;color:var(--text);font-size:10px;cursor:default}.lab-order-status-step b{font-weight:650;line-height:1}.lab-order-status-dot{width:10px;height:10px;flex:none;border-radius:50%}.lab-order-status-step.is-waiting .lab-order-status-dot{background:#fadb14}.lab-order-status-step.is-waiting b{color:var(--lab-wait-text)}.lab-order-status-step.is-received .lab-order-status-dot{background:#e6a23c}.lab-order-status-step.is-received b{color:var(--warning)}.lab-order-status-step.is-partial .lab-order-status-dot{background:var(--el-color-success-light-3,#95d475)}.lab-order-status-step.is-partial b{color:var(--el-color-success-dark-2,#529b2e)}.lab-order-status-step.is-complete .lab-order-status-dot{background:#67c23a}.lab-order-status-step.is-complete b{color:var(--success)}.lab-order-status-step.is-cancelled .lab-order-status-dot{background:#f56c6c}.lab-order-status-step.is-cancelled b{color:var(--danger)}
-.lab-plain-action{width:100%;min-width:0;margin:0!important;padding:5px 7px!important;font-size:11px;white-space:nowrap}
-.lab-order-report{display:block;width:100%;padding:0!important}
-.lab-order-report .el-button{width:100%;margin:0!important;padding:5px 7px!important;font-size:11px}
+.lab-row-action{display:flex;width:100%;min-width:0;max-width:100%;align-items:stretch}.lab-row-action-pdf{grid-column:9}.lab-row-action-hn{grid-column:10}.lab-row-action-emr{grid-column:11}.lab-patient-row.is-lookup>.lab-row-action-pdf{grid-column:10}.lab-patient-row.is-lookup>.lab-row-action-hn{grid-column:11}.lab-patient-row.is-lookup>.lab-row-action-emr{grid-column:12}.lab-action-placeholder{display:block;width:100%;min-width:0}
+.lab-plain-action{width:100%;min-width:0;max-width:100%;margin:0!important;padding:5px 7px!important;font-size:11px;white-space:nowrap}
+.lab-order-report{display:block;width:100%;min-width:0;max-width:100%;padding:0!important}
+.lab-order-report .el-button{width:100%;min-width:0;max-width:100%;margin:0!important;padding:5px 7px!important;font-size:11px}
 .lab-detail-panel{padding:0 10px 14px 42px;border-top:1px solid var(--border-lighter);background:var(--fill-lighter)}.lab-detail-top{display:flex;min-height:42px;align-items:flex-end;gap:16px;border-bottom:1px solid var(--border-light)}.lab-detail-tab{height:42px;padding:0;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:650;cursor:pointer}.lab-detail-tab.is-active{border-bottom-color:var(--primary);color:var(--primary)}.lab-detail-tab:disabled{color:var(--placeholder);cursor:not-allowed}.lab-bulk-actions{display:flex;align-items:center;gap:6px;margin-left:auto;padding-bottom:6px}.lab-bulk-actions .el-button+.el-button{margin-left:0}.lab-receive-tooltip{display:inline-flex}.lab-receive-tooltip .el-button{margin-left:0}
 /* ใช้ pattern เดียวกับ X-ray เฉพาะงานภาพ: header ชิด tab, ครบความกว้าง และ checkbox sticky
    โครงคอลัมน์/การเลือก specimen/LAB NO. ของ LAB ไม่เปลี่ยน */
@@ -2974,12 +3013,12 @@ form.formConfig.cssCode = `.lab-cpoe{--primary:var(--el-color-primary,#409eff);-
 .lab-result-dialog:not(.is-microbiology) .lab-result-summary-tag{display:inline-flex;min-height:23px;align-items:center;padding:2px 8px;border:1px solid var(--lab-result-border);border-radius:999px;background:var(--lab-result-surface-soft);color:var(--lab-result-muted);font-size:10px;font-weight:700;white-space:nowrap}.lab-result-dialog:not(.is-microbiology) .lab-result-summary-tag.is-final{border-color:#b3e19d;background:#f0f9eb;color:#529b2e}.lab-result-dialog:not(.is-microbiology) .lab-result-summary-tag.is-partial,.lab-result-dialog:not(.is-microbiology) .lab-result-summary-tag.is-abnormal{border-color:#f3d19e;background:#fdf6ec;color:#b88230}.lab-result-dialog:not(.is-microbiology) .lab-result-summary-tag.is-critical{border-color:#fab6b6;background:#fef0f0;color:#c45656}.lab-result-dialog:not(.is-microbiology) .lab-result-test-name strong{display:block;color:var(--lab-result-ink);font-size:13px}.lab-result-dialog:not(.is-microbiology) .lab-result-test-name small{display:block;margin-top:2px;color:var(--lab-result-muted);font-size:10px;font-weight:400}
 .lab-result-dialog:not(.is-microbiology){display:flex;max-height:calc(100vh - 48px);flex-direction:column;margin:24px auto!important}.lab-result-dialog:not(.is-microbiology) .el-dialog__header,.lab-result-dialog:not(.is-microbiology) .el-dialog__footer{flex:none}.lab-result-dialog:not(.is-microbiology) .el-dialog__body{flex:1;min-height:0;max-height:none;overflow:auto;overscroll-behavior:contain}.lab-result-dialog:not(.is-microbiology) .lab-result-index,.lab-result-dialog:not(.is-microbiology) .lab-result-profile-index{white-space:nowrap}.lab-result-dialog:not(.is-microbiology) .lab-result-value-row>.lab-result-index{padding-right:6px;padding-left:6px}
 .lab-empty{padding:34px 20px;text-align:center;color:var(--muted);line-height:1.7}.lab-empty strong{color:var(--ink)}.lab-pagination{display:flex;justify-content:flex-end;padding-top:10px}.lab-mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
-@media(max-width:1100px){.lab-list-head{display:none}.lab-patient-row{grid-template-columns:32px minmax(160px,1.25fr) minmax(120px,1fr) minmax(125px,1fr) 72px 78px 64px;gap:6px 10px}.lab-expand-button{grid-column:1;grid-row:1/3}.lab-patient-summary{grid-column:2;grid-row:1}.lab-context-tags{grid-column:3;grid-row:1}.lab-row-status-check{grid-column:4;grid-row:1}.lab-patient-row>.lab-plain-action:nth-last-child(3){grid-column:5;grid-row:1}.lab-patient-row>.lab-plain-action:nth-last-child(2){grid-column:6;grid-row:1}.lab-patient-row>.lab-plain-action:last-child{grid-column:7;grid-row:1}.lab-items-cell{grid-column:2;grid-row:2}.lab-specimen-cell{grid-column:3;grid-row:2}.lab-order-cell{grid-column:4;grid-row:2}.lab-doctor-cell{grid-column:2/8;grid-row:3}.lab-patient-row.is-lookup .lab-section-cell{grid-column:4;grid-row:2}.lab-patient-row.is-lookup .lab-order-cell{grid-column:2;grid-row:3}.lab-patient-row.is-lookup .lab-doctor-cell{grid-column:3/8;grid-row:3}.lab-metric:before,.lab-doctor-cell:before{display:block;content:attr(data-label);margin-bottom:3px;color:var(--muted);font-size:10px;font-weight:650}}
+@media(max-width:1100px){.lab-list-head{display:none}.lab-patient-row{grid-template-columns:32px minmax(160px,1.25fr) minmax(120px,1fr) minmax(125px,1fr) 72px 78px 64px;gap:6px 10px}.lab-expand-button{grid-column:1;grid-row:1/3}.lab-patient-summary{grid-column:2;grid-row:1}.lab-context-tags{grid-column:3;grid-row:1}.lab-row-status-check{grid-column:4;grid-row:1}.lab-patient-row>.lab-row-action-pdf,.lab-patient-row.is-lookup>.lab-row-action-pdf{grid-column:5;grid-row:1}.lab-patient-row>.lab-row-action-hn,.lab-patient-row.is-lookup>.lab-row-action-hn{grid-column:6;grid-row:1}.lab-patient-row>.lab-row-action-emr,.lab-patient-row.is-lookup>.lab-row-action-emr{grid-column:7;grid-row:1}.lab-items-cell{grid-column:2;grid-row:2}.lab-specimen-cell{grid-column:3;grid-row:2}.lab-order-cell{grid-column:4;grid-row:2}.lab-doctor-cell{grid-column:2/8;grid-row:3}.lab-patient-row.is-lookup .lab-section-cell{grid-column:4;grid-row:2}.lab-patient-row.is-lookup .lab-order-cell{grid-column:2;grid-row:3}.lab-patient-row.is-lookup .lab-doctor-cell{grid-column:3/8;grid-row:3}.lab-metric:before,.lab-doctor-cell:before{display:block;content:attr(data-label);margin-bottom:3px;color:var(--muted);font-size:10px;font-weight:650}}
 .lab-order-condition{display:grid;gap:2px;margin-top:5px;padding:5px 7px;border-left:2px solid var(--primary);border-radius:0 5px 5px 0;background:var(--primary-50);font-size:10px;font-weight:500;line-height:1.4}
 .lab-order-condition span{color:var(--muted);font-weight:700}.lab-order-condition strong{color:var(--text);font-weight:650;white-space:pre-wrap;overflow-wrap:anywhere}.lab-order-condition.is-missing{border-left-color:var(--danger);background:var(--danger-50)}.lab-order-condition.is-missing strong{color:var(--danger)}
 .lab-multi-specimen-list,.lab-multi-specimen-entry,.lab-multi-collection-entry{display:grid;min-width:0}.lab-multi-specimen-list{gap:10px}.lab-multi-specimen-entry{gap:5px}.lab-specimen-site{display:inline-flex;width:max-content;max-width:100%;min-height:20px;align-items:center;padding:2px 8px;border:1px solid var(--el-color-primary-light-5,#a0cfff);border-radius:999px;background:var(--primary-50);color:var(--primary);font-size:10px;font-weight:700;line-height:1.4;overflow-wrap:anywhere}.lab-multi-collection-entry{gap:0}.lab-multi-collection-entry+.lab-multi-collection-entry{margin-top:10px}.lab-specimen-condition-line{display:flex;min-width:0;align-items:center;gap:5px;flex-wrap:wrap}.lab-specimen-temperature{display:inline-flex;min-height:19px;align-items:center;margin-top:4px;padding:1px 7px;border:1px solid var(--border);border-radius:999px;background:var(--fill-light);color:var(--text);font-size:10px;font-weight:700;line-height:1.4;white-space:nowrap}.lab-specimen-temperature.is-immediate{border-color:var(--el-color-success-light-5,#b3e19d);background:var(--success-50);color:var(--el-color-success-dark-2,#529b2e)}.lab-specimen-temperature.is-refrigerated{border-color:var(--el-color-primary-light-5,#a0cfff);background:var(--primary-50);color:var(--primary)}.lab-specimen-temperature.is-room-temperature{border-color:var(--el-color-warning-light-5,#f3d19e);background:var(--warning-50);color:var(--el-color-warning-dark-2,#b88230)}.lab-multi-specimen-empty{padding:6px 7px;border:1px dashed var(--danger);border-radius:6px;background:var(--danger-50);color:var(--danger);font-size:10px;font-weight:700}
 @media(max-width:900px){.lab-search-control{width:calc(50% - 5px)}.lab-date-control{width:calc(50% - 5px)}.lab-create-button{margin-left:0}.lab-item-grid-wrap{overflow:visible;margin-left:0}.lab-item-head{display:none}.lab-item-grid.lab-item-row{display:grid;grid-template-columns:1fr 1fr;gap:0 14px;min-width:0;padding:10px 0}.lab-item-grid.lab-item-row>.lab-item-check-cell{position:static;z-index:auto;padding-left:0;background:transparent;box-shadow:none}.lab-item-row>div{display:grid;grid-template-columns:minmax(92px,.42fr) minmax(0,1fr);align-items:center;gap:8px;min-height:34px;padding:3px 0;border-bottom:1px dashed var(--border-lighter)}.lab-item-row>div:before{display:block;content:attr(data-label);color:var(--muted);font-size:10px;font-weight:650}.lab-item-row>div:last-child{border-bottom:0}.lab-item-specimen-cell{padding-right:0;transform:none}.lab-item-collected-time{align-items:start}.lab-item-collected-time>.lab-collected-date-time,.lab-item-collected-time>.lab-specimen-storage,.lab-item-collected-time>.lab-specimen-source-line,.lab-item-collected-time>.lab-multi-collection-entry{grid-column:2}.lab-specimen-select{max-width:none}.lab-result-list{margin-left:0}.lab-result-list-head,.lab-result-list-row{grid-template-columns:44px minmax(180px,1fr) 110px 120px 100px 140px 140px;min-width:900px;padding:6px 0}.lab-result-list.is-lookup .lab-result-list-head,.lab-result-list.is-lookup .lab-result-list-row{grid-template-columns:44px minmax(220px,1fr) 110px 120px 140px 140px;min-width:824px}.lab-result-list.is-microbiology .lab-result-list-head,.lab-result-list.is-microbiology .lab-result-list-row{grid-template-columns:44px minmax(180px,1fr) 100px 110px 100px 130px 130px 70px 76px;min-width:980px}.lab-result-list.is-microbiology.is-lookup .lab-result-list-head,.lab-result-list.is-microbiology.is-lookup .lab-result-list-row{grid-template-columns:44px minmax(210px,1fr) 100px 110px 130px 130px 70px 76px;min-width:870px}}
-@media(max-width:720px){.lab-toolbar{display:grid;grid-template-columns:1fr 1fr;gap:8px}.lab-search-control,.lab-toolbar .lab-date-control{width:100%!important;max-width:none;flex:auto;grid-column:1/-1}.lab-toolbar>.el-button,.lab-toolbar>.el-dropdown{width:100%}.lab-toolbar>.el-dropdown .el-button{width:100%}.lab-create-button{grid-column:1/-1}.lab-scan-context .el-button{width:100%;margin-left:0}.lab-status-strip{flex-wrap:nowrap;overflow-x:auto;padding-bottom:3px}.lab-status-chip,.lab-status-legend{flex:0 0 auto}.lab-lookup-strip>small{width:100%;margin-left:0}.lab-patient-row{grid-template-columns:28px minmax(0,1fr) 58px 58px 58px;padding:9px 8px}.lab-expand-button{grid-column:1;grid-row:1}.lab-patient-summary{grid-column:2;grid-row:1}.lab-row-status-check{grid-column:3/6;grid-row:1;justify-self:end}.lab-context-tags{grid-column:2/6;grid-row:2}.lab-items-cell{grid-column:2;grid-row:3}.lab-specimen-cell{grid-column:3/6;grid-row:3}.lab-order-cell{grid-column:2/6;grid-row:4}.lab-doctor-cell{grid-column:2/6;grid-row:5}.lab-patient-row.is-lookup .lab-section-cell{grid-column:2;grid-row:4}.lab-patient-row.is-lookup .lab-order-cell{grid-column:3/6;grid-row:4}.lab-patient-row>.lab-plain-action:nth-last-child(3){grid-column:2/6;grid-row:6}.lab-patient-row>.lab-plain-action:nth-last-child(2){grid-column:2/6;grid-row:7}.lab-patient-row>.lab-plain-action:last-child{grid-column:2/6;grid-row:8}.lab-detail-panel{padding:0 8px 12px}.lab-detail-top{align-items:flex-start;flex-wrap:wrap}.lab-bulk-actions{width:100%;margin:0;padding-bottom:7px;flex-wrap:wrap}.lab-item-grid.lab-item-row{grid-template-columns:1fr}.lab-pagination{justify-content:flex-start;overflow-x:auto}.lab-result-patient-card{grid-template-columns:44px 1fr}.lab-result-avatar{grid-row:auto}.lab-result-patient-main{grid-column:2}.lab-result-meta{grid-column:1/-1}.lab-manual-fields{grid-template-columns:1fr}.lab-result-list-head{display:none}.lab-result-list-row{grid-template-columns:1fr 1fr;min-width:0;padding:8px 0}.lab-result-list-row>div:nth-child(2){grid-column:1/-1;grid-row:1}.lab-micro-patient-strip{grid-template-columns:1fr 1fr}.lab-micro-patient-main{grid-column:1/-1}.lab-micro-timeline{grid-template-columns:1fr 1fr}.lab-micro-result-head{grid-template-columns:28px minmax(0,1fr) auto 22px}.lab-micro-result-head>span:nth-child(3){display:none}.lab-micro-result-body{padding-left:13px}.lab-micro-wire-meta{grid-template-columns:1fr 1fr}.lab-micro-wire-meta>div:nth-child(2){border-right:0}}
+@media(max-width:720px){.lab-toolbar{display:grid;grid-template-columns:1fr 1fr;gap:8px}.lab-search-control,.lab-toolbar .lab-date-control{width:100%!important;max-width:none;flex:auto;grid-column:1/-1}.lab-toolbar>.el-button,.lab-toolbar>.el-dropdown{width:100%}.lab-toolbar>.el-dropdown .el-button{width:100%}.lab-create-button{grid-column:1/-1}.lab-scan-context .el-button{width:100%;margin-left:0}.lab-status-strip{flex-wrap:nowrap;overflow-x:auto;padding-bottom:3px}.lab-status-chip,.lab-status-legend{flex:0 0 auto}.lab-lookup-strip>small{width:100%;margin-left:0}.lab-patient-row{grid-template-columns:28px minmax(0,1fr) 58px 58px 58px;padding:9px 8px}.lab-expand-button{grid-column:1;grid-row:1}.lab-patient-summary{grid-column:2;grid-row:1}.lab-row-status-check{grid-column:3/6;grid-row:1;justify-self:end}.lab-context-tags{grid-column:2/6;grid-row:2}.lab-items-cell{grid-column:2;grid-row:3}.lab-specimen-cell{grid-column:3/6;grid-row:3}.lab-order-cell{grid-column:2/6;grid-row:4}.lab-doctor-cell{grid-column:2/6;grid-row:5}.lab-patient-row.is-lookup .lab-section-cell{grid-column:2;grid-row:4}.lab-patient-row.is-lookup .lab-order-cell{grid-column:3/6;grid-row:4}.lab-patient-row>.lab-row-action-pdf,.lab-patient-row.is-lookup>.lab-row-action-pdf{grid-column:2/6;grid-row:6}.lab-patient-row>.lab-row-action-hn,.lab-patient-row.is-lookup>.lab-row-action-hn{grid-column:2/6;grid-row:7}.lab-patient-row>.lab-row-action-emr,.lab-patient-row.is-lookup>.lab-row-action-emr{grid-column:2/6;grid-row:8}.lab-detail-panel{padding:0 8px 12px}.lab-detail-top{align-items:flex-start;flex-wrap:wrap}.lab-bulk-actions{width:100%;margin:0;padding-bottom:7px;flex-wrap:wrap}.lab-item-grid.lab-item-row{grid-template-columns:1fr}.lab-pagination{justify-content:flex-start;overflow-x:auto}.lab-result-patient-card{grid-template-columns:44px 1fr}.lab-result-avatar{grid-row:auto}.lab-result-patient-main{grid-column:2}.lab-result-meta{grid-column:1/-1}.lab-manual-fields{grid-template-columns:1fr}.lab-result-list-head{display:none}.lab-result-list-row{grid-template-columns:1fr 1fr;min-width:0;padding:8px 0}.lab-result-list-row>div:nth-child(2){grid-column:1/-1;grid-row:1}.lab-micro-patient-strip{grid-template-columns:1fr 1fr}.lab-micro-timeline{grid-template-columns:1fr 1fr}.lab-micro-result-head{grid-template-columns:28px minmax(0,1fr) auto 22px}.lab-micro-result-head>span:nth-child(3){display:none}.lab-micro-result-body{padding-left:13px}.lab-micro-wire-meta{grid-template-columns:1fr 1fr}.lab-micro-wire-meta>div:nth-child(2){border-right:0}}
 @media(max-width:820px){.lab-result-revision-view{grid-template-columns:1fr}.lab-result-revision-rail{max-height:190px;overflow:auto;border-right:0;border-bottom:1px solid var(--border)}.lab-result-revision-sheet>footer{grid-template-columns:1fr}.lab-result-revision-sheet>footer span{margin-top:4px}}
 @media(max-width:520px){.lab-cbc-patient-card{grid-template-columns:38px minmax(0,1fr)}.lab-cbc-avatar{width:38px;height:38px}.lab-cbc-patient-card>.lab-source-pill{grid-column:1/-1;justify-self:start}.lab-cbc-swap-summary{grid-template-columns:1fr}.lab-cbc-swap-summary>i{transform:rotate(90deg)}.lab-cbc-swap-cell{min-height:auto}.lab-micro-patient-strip,.lab-micro-timeline,.lab-micro-summary-grid,.lab-micro-wire-meta{grid-template-columns:1fr}.lab-micro-wire-meta>div{border-right:0}.lab-micro-notice{flex-direction:column;gap:3px}.lab-micro-result-head{grid-template-columns:24px minmax(0,1fr) auto 20px;gap:7px}.lab-micro-section-head{align-items:flex-start;flex-direction:column;gap:2px}.lab-result-order-note{grid-template-columns:26px minmax(0,1fr)}.lab-result-order-note-key{grid-column:2;justify-self:start}}
 .lab-result-value-row.is-redacted{background:var(--danger-50)}.lab-result-redacted-value{color:var(--danger);font-weight:800}

@@ -142,6 +142,17 @@ const cpoeOrderAppId = String(
 if (!/^[a-f0-9]{24}$/i.test(cpoeOrderAppId)) {
   throw new Error('XRAY_CPOE_ORDER_APP_ID must be the 24-character Form ID of the CPOE Order App')
 }
+/* X-ray reject rollout is two separately imported artifacts.  Keep defaults
+   empty so a local JSON never guesses a live Process/Form ID; wire the real
+   IDs at generate time after the user imports/deploys them. */
+const rejectProcessId = String(process.env.XRAY_REJECT_PROCESS_ID || '').trim()
+const rejectionFormId = String(process.env.XRAY_REJECTION_FORM_ID || '').trim()
+if (rejectProcessId && !/^[a-f0-9]{24}$/i.test(rejectProcessId)) {
+  throw new Error('XRAY_REJECT_PROCESS_ID must be the 24-character deployed API Process ID')
+}
+if (rejectionFormId && !/^[a-f0-9]{24}$/i.test(rejectionFormId)) {
+  throw new Error('XRAY_REJECTION_FORM_ID must be the 24-character imported rejection Form ID')
+}
 
 /* ── ปุ่ม "ดูภาพ" → โปรแกรมดูภาพของ RIS (ผู้ใช้แจ้ง contract 2026-09-15) ──────
    ทีม RIS ยืนยัน 2026-09-15 ว่าเปิดได้ 2 level ด้วย base เดียวกัน:
@@ -178,9 +189,9 @@ const orderRequestPdfAction = orderRequestReportId
   ? `<sd-report v-if="!row.cancelled&&orderReportReady(row)" class="xr-plain-action xr-order-report"
               :report-list="orderRequestReportList" :params="orderReportParams(row)" size="small" />
             <el-button v-else-if="!row.cancelled" class="xr-plain-action" size="small" disabled
-              title="Order นี้ไม่มี Order ID หรือ Visit ID สำหรับสร้าง PDF">PDF</el-button>`
+              title="Order นี้ไม่มี Order ID หรือ Visit ID สำหรับสร้างใบสั่ง">ใบสั่ง</el-button>`
   : `<el-button v-if="!row.cancelled" class="xr-plain-action" size="small"
-              @click="notifyPending('PDF ใบสั่งตรวจ')">PDF</el-button>`
+              @click="notifyPending('ใบสั่งตรวจ')">ใบสั่ง</el-button>`
 /* 🔴 ไม่ถูก render แล้ว — ผู้ใช้สั่งเอาปุ่ม HN (sd-report เปิด PDF) ออกจากแถว Order
    2026-09-11 ("เอาปุ่มนี้ระดับ Order เราออกไปเลย") หลังได้ปุ่ม "พิมพ์ HN" ที่กดแล้วพิมพ์เลย
    เก็บนิยามไว้เฉย ๆ เอากลับมาได้ด้วยการใส่ ${hnOrderPdfAction} กลับในแถบปุ่มบรรทัดเดียว
@@ -245,7 +256,9 @@ const scanField = {
     columnSpan: 4,
     hidden: false,
     disabled: false,
-    preset: 'both',
+    /* ผู้ใช้ยืนยัน 2026-10-19: ตัวสแกนของ X-ray ใช้ Keyboard เท่านั้น
+       เพื่อไม่ให้โหมด Paste (mobile) แย่งค่าจากช่องค้นหา LAB */
+    preset: 'keyboard',
     target: 'document',
     minLength: 6,
     avgTimeByChar: 30,
@@ -263,19 +276,24 @@ const scanField = {
     onScan: [
       'const form=this.getFormRef&&this.getFormRef();',
       'if(!form)return;',
-      '/* มี popup เปิดอยู่ = ห้ามสลับผู้ป่วยกลางคัน (กฎเดียวกับ LAB) */',
-      'if(form.showPopupFlag)return;',
       "const raw=String(value==null?'':value).trim();",
       "if(!raw){this.notify('อ่านบาร์โค้ดไม่ได้','warning');return;}",
-      '/* ถ้าคีย์บอร์ด/เครื่องสแกนส่งค่าขณะโฟกัสช่อง Search ให้ถือเป็นคำค้น */',
-      "const focused=globalThis.document&&globalThis.document.activeElement;",
-      "const searchInput=focused&&typeof focused.closest==='function'&&focused.closest('.xray-cpoe .xr-search-control');",
-      "if(searchInput){const worklist=form.getFieldRef&&form.getFieldRef('xray_cpoe_worklist');const state=worklist&&worklist.vueState;if(state){const typed=String(focused.value==null?'':focused.value).trim();state.setSearch(typed||raw);state.applyFilters();}return;}",
+      '/* ช่อง LAB ใช้ setSearch ของ LAB เดิมเป็นเจ้าของค่า input อยู่แล้ว ส่วน Scan Code',
+      '   ระดับ document ของ X-ray ต้องหยุดทันทีเมื่อ callback นี้เกิดจาก input เดียวกัน',
+      '   ใช้ marker บน form เพราะ sandbox ของ Field Event ไม่ expose document/activeElement */',
+      "const searchOwner=String(form.$xraySearchOwner||'');",
+      "const searchValue=String(form.$xraySearchValue||'').trim();",
+      'const searchOwnerAt=Number(form.$xraySearchOwnerAt||0);',
+      "form.$xraySearchOwner='';form.$xraySearchValue='';form.$xraySearchOwnerAt=0;",
+      'const searchAge=Date.now()-searchOwnerAt;',
+      "if(searchOwner==='lab'&&searchValue===raw&&searchAge>=0&&searchAge<=2000)return;",
+      '/* มี popup เปิดอยู่ = ห้ามสลับผู้ป่วยกลางคัน (กฎเดียวกับ LAB) */',
+      'if(form.showPopupFlag)return;',
+      "const tab=form.getFieldRef&&form.getFieldRef('xray_app');",
       '/* ส่งค่าดิบไปให้ widget ตัดสิน — การแปลงอักษรไทยกลับเป็นตัวเลขและการตรวจความยาว',
       '   อยู่ที่ scanPatientHn ที่เดียว ไม่งั้นสองที่จะตรวจคนละเกณฑ์แล้วเพี้ยน */',
       '/* สแกนได้จากทุกแท็บ — สลับมาแท็บ X-ray ก่อน ไม่งั้นตอนยืนอยู่แท็บคิว',
       '   widget worklist ยังไม่ถูก mount แล้ว getFieldRef จะคืน null (tab lazy) */',
-      "const tab=form.getFieldRef&&form.getFieldRef('xray_app');",
       "if(tab&&tab.activeTabName!=='xray_tab_worklist')tab.activeTabName='xray_tab_worklist';",
       "const worklist=form.getFieldRef&&form.getFieldRef('xray_cpoe_worklist');",
       'const state=worklist&&worklist.vueState;',
@@ -451,6 +469,8 @@ form.formConfig.cssCode = `.xray-cpoe{--primary:var(--el-color-primary,#409eff);
 .xray-cpoe-test-popper .xr-test-pop-line{line-height:1.5;white-space:nowrap}
 .xray-cpoe-dx-popper{max-width:420px}
 .xray-cpoe-dx-popper .xr-dx-pop{line-height:1.5;white-space:normal;overflow-wrap:anywhere}
+.xray-cpoe-note-popper{max-width:420px}
+.xray-cpoe-note-popper .xr-note-pop{line-height:1.5;white-space:normal;overflow-wrap:anywhere}
 .xray-cpoe-modality-popper .xr-opt-label{margin-right:16px}
 .xray-cpoe-modality-popper .xr-opt-count{float:right;color:var(--el-text-color-secondary,#909399);font-family:"SFMono-Regular","Roboto Mono",Consolas,monospace;font-size:11px;font-variant-numeric:tabular-nums}
 /* แถบโหมดสแกน — ลอกทรงจาก LAB ที่ใช้งานจริงแล้ว */
@@ -470,6 +490,8 @@ form.formConfig.cssCode = `.xray-cpoe{--primary:var(--el-color-primary,#409eff);
 .xray-cpoe .xr-status-legend-dot.is-waiting{background:#fadb14}.xray-cpoe .xr-status-legend-dot.is-pending{background:#e6a23c}.xray-cpoe .xr-status-legend-dot.is-resulted{background:#67c23a}.xray-cpoe .xr-status-legend-dot.is-cancelled{background:#f56c6c}
 .xray-cpoe .xr-notice{margin:0 0 8px;padding:8px 11px;border:1px solid var(--border-light);border-radius:6px;background:var(--fill-light);color:var(--text);font-size:12px}
 .xray-cpoe .xr-notice.is-warning{border-color:#f3d19e;background:#fdf6ec;color:#b88230}
+.xray-cpoe .xr-action-lock-notice{display:flex;align-items:flex-start;gap:8px;margin:10px 0 0;padding:9px 12px;border:1px solid #f3d19e;border-radius:6px;background:#fdf6ec;color:#b88230;font-size:12px;line-height:1.55}
+.xray-cpoe .xr-action-lock-notice strong{flex:0 0 auto;color:#8a5a13}
 .xray-cpoe .xr-list-summary{margin:0 0 8px;color:var(--muted);font-size:12px}.xray-cpoe .xr-list-summary.is-error{color:var(--danger)}
 .xray-cpoe .xr-worklist-shell{overflow-x:auto;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
 .xray-cpoe .xr-worklist{min-width:1173px;background:var(--white)}
@@ -479,6 +501,7 @@ form.formConfig.cssCode = `.xray-cpoe{--primary:var(--el-color-primary,#409eff);
 .xray-cpoe .xr-patient-row{min-height:84px;background:var(--white);cursor:pointer;transition:background-color .15s}.xray-cpoe .xr-patient-row:hover{background:var(--fill-light)}.xray-cpoe .xr-patient-block.is-open>.xr-patient-row{background:var(--fill)}
 .xray-cpoe .xr-expand-button{display:grid;width:28px;height:30px;place-items:center;padding:0;border:0;border-radius:4px;background:transparent;color:var(--muted);cursor:pointer}.xray-cpoe .xr-expand-button:hover{background:var(--fill-light);color:var(--primary)}.xray-cpoe .xr-expand-button svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;transition:transform .16s}.xray-cpoe .xr-patient-block.is-open .xr-expand-button svg{transform:rotate(90deg)}
 .xray-cpoe .xr-patient-summary,.xray-cpoe .xr-context-tags,.xray-cpoe .xr-metric,.xray-cpoe .xr-doctor-cell{min-width:0}
+.xray-cpoe .xr-admission-badge{display:flex;width:max-content;max-width:100%;min-height:21px;align-items:center;margin-bottom:4px;padding:1px 8px;overflow:hidden;border:1px solid #f9a8d4;border-radius:999px;background:#fdf2f8;color:#be185d;font-size:10px;font-weight:700;line-height:1.35;text-overflow:ellipsis;white-space:nowrap}
 .xray-cpoe .xr-patient-hn{display:flex;align-items:center;gap:6px;min-width:0;color:var(--ink);font-weight:700}.xray-cpoe .xr-patient-hn .xr-mono{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .xray-cpoe .xr-patient-name{margin-top:1px;overflow:hidden;color:var(--ink);font-weight:650;text-overflow:ellipsis;white-space:nowrap}
 .xray-cpoe .xr-patient-demographic{display:flex;align-items:center;gap:6px;margin-top:1px;color:var(--muted);font-size:11px}
@@ -503,6 +526,7 @@ form.formConfig.cssCode = `.xray-cpoe{--primary:var(--el-color-primary,#409eff);
 .xray-cpoe .xr-test-cell{position:relative}
 /* ไม่มีเส้นใต้ — ผู้ใช้ขอเอาออก 2026-09-03 (tooltip ยังทำงานเหมือนเดิมทุกอย่าง) */
 .xray-cpoe .xr-test-count{display:inline-block;color:var(--ink);font-size:12px;font-weight:650;cursor:default}
+.xray-cpoe .xr-order-note{display:block;max-width:100%;margin-top:2px;overflow:hidden;color:var(--muted);font-size:10px;font-weight:400;text-overflow:ellipsis;white-space:nowrap;cursor:default}
 /* เครื่องต้องไม่ชิดคอลัมน์เวลา — กันที่ด้านขวาไว้ 26px ส่วนคอลัมน์กว้างขึ้นชดเชย
    ทำให้ tag ยังมีเนื้อที่เท่าเดิม (130-26 = 104 เท่ากับของเดิม 118-14) */
 .xray-cpoe .xr-modality-cell,.xray-cpoe .xr-item-modality{padding-right:26px}
@@ -598,9 +622,17 @@ form.formConfig.cssCode = `.xray-cpoe{--primary:var(--el-color-primary,#409eff);
 .xr-cancel-summary{display:grid;gap:6px;margin-bottom:14px;padding:13px 14px;border:1px solid #fab6b6;border-radius:6px;background:#fef0f0;color:#c45656}
 .xr-cancel-summary strong{color:var(--el-text-color-primary,#303133)}
 .xr-cancel-summary span{font-size:12px;line-height:1.5}
+.xr-cancel-finance{display:grid;gap:6px;margin-bottom:14px;padding:12px 14px;border:1px solid var(--border-light);border-radius:6px;background:var(--fill-lighter);color:var(--text)}
+.xr-cancel-finance strong{color:var(--ink)}
+.xr-cancel-finance span{font-size:12px;line-height:1.5}
+.xr-cancel-finance.is-checking{border-color:var(--el-color-primary-light-5,#a0cfff);background:var(--primary-50);color:var(--primary)}
+.xr-cancel-finance.is-ready{border-color:var(--el-color-success-light-5,#b3e19d);background:var(--success-50);color:var(--el-color-success-dark-2,#529b2e)}
+.xr-cancel-finance.is-blocked{border-color:var(--el-color-warning-light-5,#f3d19e);background:var(--warning-50);color:#b88230}
+.xr-cancel-finance .el-button{justify-self:start;margin:4px 0 0}
 .xr-cancel-reason{display:block}
 .xr-cancel-reason>span{display:block;margin-bottom:6px;color:var(--el-text-color-primary,#303133);font-weight:650}
 .xr-cancel-reason b{color:var(--el-color-danger,#f56c6c)}
+.xr-cancel-reason>.el-textarea{margin-top:12px}
 .xr-report-doc{display:grid;gap:14px;min-height:200px}
 .xr-report-doc .xr-mode-badge{display:inline-flex;min-height:20px;align-items:center;padding:1px 8px;border:1px solid #c8c9cc;border-radius:999px;background:#f4f4f5;color:#73767a;font-size:10px;font-weight:650}
 .xr-report-head{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;padding:13px 14px;border:1px solid var(--el-border-color-lighter,#ebeef5);border-radius:6px;background:var(--el-fill-color-light,#f5f7fa)}
@@ -694,8 +726,8 @@ widget.options.content = `<div class="xray-cpoe">
 
     <div v-if="focusVisitId" class="xr-scan-context" role="status" aria-live="polite">
       <span class="xr-scan-context-label">เปิดจากคิว</span>
-      <strong class="xr-mono">VN {{ focusVisitVn || '-' }}</strong>
-      <span>แสดงเฉพาะใบสั่งของ Visit นี้</span>
+      <strong class="xr-mono">HN{{ focusVisitHn || '-' }}</strong>
+      <span>{{ focusVisitPatientName || '' }}</span>
       <el-button size="small" plain @click="clearFocusVisit">แสดงทั้งหมด</el-button>
     </div>
 
@@ -751,6 +783,7 @@ widget.options.content = `<div class="xray-cpoe">
           </button>
 
           <div class="xr-patient-summary">
+            <div v-if="row.an" class="xr-admission-badge" :title="'AN : '+row.an">AN : {{ row.an }}</div>
             <div class="xr-patient-hn">
               <span class="xr-mono">{{ row.hn }}</span>
               <span v-if="row.urgent" class="xr-inline-tag xr-urgent-tag">{{ row.urgent_label }}</span>
@@ -783,6 +816,10 @@ widget.options.content = `<div class="xray-cpoe">
               <template #content>
                 <div v-for="line in row.test_list" :key="line" class="xr-test-pop-line">{{ line }}</div>
               </template>
+            </el-tooltip>
+            <el-tooltip v-if="row.order_note_has" placement="top" popper-class="xray-cpoe-note-popper">
+              <span class="xr-order-note">{{ row.order_note_short }}</span>
+              <template #content><div class="xr-note-pop">{{ row.order_note_full }}</div></template>
             </el-tooltip>
           </div>
 
@@ -831,14 +868,13 @@ widget.options.content = `<div class="xray-cpoe">
             ${hnPrintAction}
             <el-button v-if="!row.cancelled" class="xr-plain-action" size="small"
               @click="openEmr(row)">EMR</el-button>
-            <!-- 2026-09-18: ปุ่มสรุปเปิดรายการให้เลือกก่อน ห้ามตรวจใหม่ทั้ง Order โดยไม่ติ๊ก item -->
-            <el-button v-else class="xr-plain-action" size="small" type="warning" plain
-              title="เปิดรายการเพื่อเลือก X-ray ที่ต้องการตรวจใหม่"
-              @click="openRetestSelection(row)">ตรวจใหม่</el-button>
           </div>
         </div>
 
         <div v-if="isExpanded(row.id)" class="xr-detail-panel">
+          <div v-if="row.action_locked" class="xr-action-lock-notice" role="status" aria-live="polite">
+            <strong>ดูข้อมูลอย่างเดียว</strong><span>{{ row.action_lock_reason }}</span>
+          </div>
           <div class="xr-detail-top" role="tablist">
             <button class="xr-detail-tab" :class="{'is-active':detailTab(row.id)==='order'}" type="button"
               role="tab" :aria-selected="detailTab(row.id)==='order'"
@@ -852,25 +888,25 @@ widget.options.content = `<div class="xray-cpoe">
                 :content="row.dispatch_disabled_reason" popper-class="xray-cpoe-list-popper">
                 <span class="xr-dispatch-tooltip">
                   <el-button size="small" type="success" :loading="row.dispatching"
-                    :disabled="row.dispatching||row.rejecting||row.retesting||!row.dispatch_ready"
-                    :title="row.dispatch_hint"
+                    :disabled="!row.can_action||row.dispatching||row.rejecting||row.retesting||!row.dispatch_ready"
+                    :title="row.can_action?row.dispatch_hint:row.action_lock_reason"
                     @click="dispatchOrder(row)">{{ row.dispatch_label }}</el-button>
                 </span>
               </el-tooltip>
               <el-button v-if="row.can_reject" size="small" type="warning"
                 :loading="row.rejecting"
-                :disabled="row.dispatching||row.rejecting||!row.reject_ready"
-                :title="row.reject_hint"
+                :disabled="!row.can_action||row.dispatching||row.rejecting||!row.reject_ready"
+                :title="row.can_action?row.reject_hint:row.action_lock_reason"
                 @click="rejectSelected(row)">ปฏิเสธรายการ</el-button>
               <el-button v-if="!row.cancelled" size="small" type="danger"
                 :loading="cancelDialog.loading&&cancelDialog.order_id===row.id"
-                :disabled="row.dispatching||row.rejecting||cancelDialog.loading||!row.can_cancel"
-                :title="row.cancel_hint"
+                :disabled="!row.can_action||row.dispatching||row.rejecting||cancelDialog.loading||!row.can_cancel"
+                :title="row.can_action?row.cancel_hint:row.action_lock_reason"
                 @click="openCancelOrder(row)">ยกเลิกรายการที่เลือก</el-button>
               <el-button v-if="row.can_retest" size="small" type="warning" plain
                 :loading="row.retesting"
-                :disabled="row.retesting||row.dispatching||row.rejecting||!row.retest_ready"
-                :title="row.retest_hint"
+                :disabled="!row.can_action||row.retesting||row.dispatching||row.rejecting||!row.retest_ready"
+                :title="row.can_action?row.retest_hint:row.action_lock_reason"
                 @click="retestOrder(row)">ตรวจใหม่เฉพาะที่เลือก</el-button>
             </div>
           </div>
@@ -893,9 +929,7 @@ widget.options.content = `<div class="xray-cpoe">
               <div data-label="Accession No." class="xr-mono">{{ item.accession_no }}<span
                 v-if="item.ris_status_label" class="xr-ris-chip" :class="item.ris_status_class"
                 :title="item.ris_status_title">{{ item.ris_status_label }}</span></div>
-              <div data-label="รายการตรวจ" class="xr-test-name">
-                {{ item.name }}<span class="xr-mono xr-test-code-inline">{{ item.code }}</span>
-              </div>
+              <div data-label="รายการตรวจ" class="xr-test-name">{{ item.name }}</div>
               <div data-label="เครื่อง" class="xr-item-modality"><span v-if="item.modality" class="xr-modality-tag" :title="item.modality_label">{{ item.modality }}</span></div>
               <div data-label="เวลาส่งเข้าเครื่อง" class="xr-mono">
                 {{ item.dispatched_text }}
@@ -908,7 +942,7 @@ widget.options.content = `<div class="xray-cpoe">
               <div data-label="Radiographer" class="xr-item-radiographer"
                 :title="item.dispatched_by?('ผู้กดส่งเข้าเครื่อง: '+item.dispatched_by):''">
                 <el-select :model-value="item.radiographer" size="small" clearable filterable
-                  :loading="staffOptionsLoading || item.radiographer_saving" :disabled="item.radiographer_saving"
+                  :loading="staffOptionsLoading || item.radiographer_saving" :disabled="!row.can_action||item.radiographer_saving"
                   placeholder="เลือก Radiographer" :aria-label="'Radiographer ของ '+item.name"
                   @change="value=>setRadiographer(row,item,value)">
                   <el-option v-for="tech in radiographerOptions" :key="tech.member_id||tech.value"
@@ -920,7 +954,7 @@ widget.options.content = `<div class="xray-cpoe">
               <div data-label="Radiologist" class="xr-item-radiologist">
                 <el-select :model-value="item.radiologist" size="small" clearable filterable
                   allow-create default-first-option
-                  :loading="staffOptionsLoading || item.radiologist_saving" :disabled="item.radiologist_saving"
+                  :loading="staffOptionsLoading || item.radiologist_saving" :disabled="!row.can_action||item.radiologist_saving"
                   placeholder="เลือกหรือพิมพ์ Radiologist" :aria-label="'Radiologist ของ '+item.name"
                   @change="value=>setRadiologist(row,item,value)">
                   <el-option v-for="doc in radiologistOptions" :key="doc.member_id||doc.value"
@@ -1009,16 +1043,39 @@ widget.options.content = `<div class="xray-cpoe">
     <div class="xr-cancel-summary">
       <strong>Order No. {{ cancelDialog.order_no }}</strong>
       <span>ยกเลิกเฉพาะ {{ cancelDialog.item_names.length }} รายการที่เลือก: {{ cancelDialog.item_names.join(', ') }}</span>
-      <span>รายการที่ส่งแล้วจะส่ง Order JSON เดิมพร้อม IsDeleted:true ไป API Order ทีมก่อนเปลี่ยนสถานะใน HIS · ทีม API Order รับผิดชอบส่งต่อ RIS</span>
+    </div>
+    <div class="xr-cancel-finance" :class="cancelFinanceClass()">
+      <template v-if="cancelDialog.financeLoading">
+        <strong>กำลังตรวจสอบสถานะการเงิน...</strong>
+        <span>กรุณารอสักครู่ ระบบกำลังตรวจ Bill และใบเสร็จล่าสุดของรายการที่เลือก</span>
+      </template>
+      <template v-else>
+        <strong>{{ cancelFinanceTitle() }}</strong>
+        <span>{{ cancelDialog.financeMessage || 'ยังไม่ได้ตรวจสอบสถานะการเงิน' }}</span>
+        <span v-if="cancelDialog.receiptNumbers && cancelDialog.receiptNumbers.length">
+          ใบเสร็จ: {{ cancelDialog.receiptNumbers.join(', ') }}
+        </span>
+        <el-button v-if="cancelDialog.financeChecked && !cancelDialog.canCancel" size="small" plain
+          :loading="cancelDialog.financeLoading" :disabled="cancelDialog.loading"
+          @click="checkCancelFinance">ตรวจสอบสถานะการเงินอีกครั้ง</el-button>
+      </template>
     </div>
     <label class="xr-cancel-reason"><span>เหตุผลการยกเลิก <b>*</b></span>
-      <el-input :model-value="cancelDialog.reason" type="textarea" :rows="4" maxlength="1000"
-        show-word-limit :disabled="cancelDialog.loading" placeholder="ระบุเหตุผลการยกเลิกรายการ"
-        @update:model-value="setCancelReason" />
+      <el-select :model-value="cancelDialog.reason_code" style="width:100%" filterable clearable
+        :loading="cancelDialog.reasonLoading"
+        :disabled="cancelDialog.loading||cancelDialog.financeLoading||!cancelDialog.canCancel"
+        placeholder="เลือกเหตุผลการยกเลิกรายการ"
+        @update:model-value="setCancelReasonCode">
+        <el-option v-for="option in cancelDialog.reason_options" :key="option.value"
+          :label="option.label" :value="option.value" />
+      </el-select>
+      <el-input :model-value="cancelDialog.reason_detail" type="textarea" :rows="2" maxlength="1000"
+        show-word-limit :disabled="cancelDialog.loading||cancelDialog.financeLoading||!cancelDialog.canCancel"
+        placeholder="รายละเอียดเพิ่มเติม (ถ้ามี)" @update:model-value="setCancelReasonDetail" />
     </label>
     <template #footer>
       <el-button :disabled="cancelDialog.loading" @click="setCancelVisible(false)">ไม่ยกเลิก</el-button>
-      <el-button type="danger" :loading="cancelDialog.loading" :disabled="!cancelDialog.reason||!cancelDialog.item_ids.length"
+      <el-button type="danger" :loading="cancelDialog.loading" :disabled="cancelDialog.financeLoading||cancelDialog.reasonLoading||!cancelDialog.financeChecked||!cancelDialog.canCancel||!cancelDialog.reason_code||!cancelDialog.item_ids.length"
         @click="submitCancelOrder">ยืนยันยกเลิกรายการที่เลือก</el-button>
     </template>
   </el-dialog>
@@ -1030,8 +1087,8 @@ widget.options.content = `<div class="xray-cpoe">
       <div class="xr-report-dialog-title">
         <strong>ผลอ่าน</strong>
         <el-button v-if="report.data.accession_no" class="xr-report-edit" text circle
-          :disabled="report.loading || report.saving"
-          :title="report.editing?'กลับไปดูผลอ่าน':'กรอกหรือแก้ไขผลอ่าน Manual'"
+          :disabled="!report.order || !report.order.can_action || report.loading || report.saving"
+          :title="report.order&&!report.order.can_action?report.order.action_lock_reason:(report.editing?'กลับไปดูผลอ่าน':'กรอกหรือแก้ไขผลอ่าน Manual')"
           :aria-label="report.editing?'กลับไปดูผลอ่าน':'กรอกหรือแก้ไขผลอ่าน Manual'"
           :aria-pressed="report.editing?'true':'false'" @click="toggleManualReport">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10L4 20Z"/><path d="m14.5 7.5 3 3"/></svg>
@@ -1206,12 +1263,16 @@ const WORKLIST_PROCESS_ID='6a957009422c1ca959829e45';
    และหลาย accession แต่กดส่งทีละรายการ เพราะผลอ่านกลับมาเป็นราย item
    ลำดับฝั่ง server: ออกเลข → บันทึกรับ → ส่ง RIS ด้วย API ของทีม → เก็บผล transport */
 const DISPATCH_PROCESS_ID='6a967029422c1ca959829edc';
-/* xray-cpoe-reject — source: Form-Builder/API/api-factory/processes/xray_cpoe_reject_api.js
-   ยังไม่ได้ deploy: paste เข้า API Factory แล้วเอา Process ID มาใส่ที่นี่
-   ฟอร์มเหตุผลการปฏิเสธของรังสีก็ยังไม่ได้สร้าง — ใส่ Form ID เมื่อมีแล้ว
-   ทั้งสองค่าว่างอยู่ ปุ่มปฏิเสธจะยังกดไม่ได้และบอกสาเหตุตรง ๆ ไม่เงียบหาย */
-const REJECT_PROCESS_ID='';
-const REJECTION_FORM_ID='';
+/* xray-cpoe-reject + X-ray Rejection Record: IDs มาจาก env ตอน generate
+   หลัง deploy/import แล้วเท่านั้น จึงไม่เสี่ยงชี้ไป artifact ผิดตัวในระบบจริง */
+const REJECT_PROCESS_ID='${rejectProcessId}';
+const REJECTION_FORM_ID='${rejectionFormId}';
+const REJECT_REASON_OPTIONS=[
+  {value:'PATIENT_ABSENT',label:'ผู้ป่วยไม่มาตามนัด'},
+  {value:'PHYSICIAN_CANCELLED',label:'แพทย์ยกเลิกคำสั่ง'},
+  {value:'WRONG_PATIENT',label:'สั่งผิดคน'},
+  {value:'OTHER',label:'อื่น ๆ'}
+];
 /* ฟอร์มที่ปุ่ม "สร้างรายการใหม่" เปิด — ตั้งค่าตอน generate ผ่าน XRAY_CPOE_ORDER_APP_ID
    (ค่าเริ่มต้นคือ CPOE Order App ตัวจริง) ⇒ สลับไปฟอร์มโคลนได้โดยไม่ต้องแก้โค้ดในนี้ */
 const CPOE_ORDER_APP_ID='${cpoeOrderAppId}';
@@ -1272,6 +1333,8 @@ s.resetScan();
    ทั้งคู่จึงล้างอีกฝั่งทิ้งเมื่อถูกเปิดใช้ */
 s.focusVisitId='';
 s.focusVisitVn='';
+s.focusVisitHn='';
+s.focusVisitPatientName='';
 /* เลือกเครื่องได้หลายตัว (ผู้ใช้ขอ 2026-09-02) — เก็บเป็น array ของ code
    ว่าง = ไม่กรอง ซึ่งให้ผลเท่ากับ "Select all" เดิมทุกประการ */
 s.modality=[];
@@ -1303,12 +1366,15 @@ s.appointmentHint=APPOINTMENT_FORM_ID
 s.contrastHint=CONTRAST_FORM_ID
   ?'บันทึกการใช้สารทึบรังสีของรายการนี้'
   :'ยังไม่ได้เชื่อมฟอร์มบันทึกการใช้สารทึบรังสี — import xray-contrast-media-record-v1 แล้วตั้ง XRAY_CONTRAST_FORM_ID';
-s.orderRequestReportList=ORDER_REQUEST_REPORT_ID?[{reportId:ORDER_REQUEST_REPORT_ID,label:'PDF',type:'pdf'}]:[];
+s.orderRequestReportList=ORDER_REQUEST_REPORT_ID?[{reportId:ORDER_REQUEST_REPORT_ID,label:'ใบสั่ง',type:'pdf'}]:[];
 s.hnOrderReportList=HN_ORDER_REPORT_ID?[{reportId:HN_ORDER_REPORT_ID,label:'HN',type:'pdf'}]:[];
 s.hnStickerReportList=HN_STICKER_REPORT_ID?[{reportId:HN_STICKER_REPORT_ID,label:'สติ๊กเกอร์ HN',type:'pdf'}]:[];
-/* ยกเลิกทั้งใบ — เหตุผลเป็น free text บังคับกรอก ไม่ต้องมีฟอร์มแยกเหมือนการปฏิเสธ
-   (ทรงเดียวกับ LAB ที่ใช้งานจริงแล้ว) */
-s.cancelDialog={visible:false,loading:false,order_id:'',order_no:'',item_ids:[],item_names:[],reason:''};
+/* ยกเลิกรายการที่เลือก — เลือกเหตุผลจาก X-ray reason master และกรอกรายละเอียดเพิ่มได้
+   โดยคง finance preflight แบบ LAB ก่อนยืนยัน และ API ตรวจซ้ำอีกครั้งตอนเขียนจริง */
+s.emptyCancelDialog=()=>({visible:false,loading:false,financeLoading:false,financeChecked:false,financeStatus:'',financeMessage:'',canCancel:false,receiptNumbers:[],order_id:'',order_no:'',item_ids:[],item_names:[],reason_code:'',reason_label:'',reason_detail:'',reason_options:[],reasonLoading:false});
+s.cancelDialog=s.emptyCancelDialog();
+s.rejectReasonOptions=REJECT_REASON_OPTIONS.slice();
+s.reasonOptionCache={};
 /* ── X-ray Member Master (ผู้ใช้ยืนยันให้เชื่อม 2026-09-30) ────────────────
    อ่านรายชื่อจาก Form จริง ไม่ hard-code ชื่อบุคลากรใน Worklist
    · Radiographer: เฉพาะ RADIOGRAPHER_* และห้ามพิมพ์คนใหม่
@@ -1377,6 +1443,7 @@ s.staffOption=(kind,value)=>{
   return options.find(option=>option.value===s.text(value))||null;
 };
 s.setStaff=async(row,item,kind,value)=>{
+  if(!row||row.can_action!==true){field.notify(s.text(row&&row.action_lock_reason)||'ห้องนี้ดูข้อมูลได้อย่างเดียว','warning',5200);return;}
   const itemId=s.text(item&&item.id);
   if(!itemId||!['radiographer','radiologist'].includes(kind))return;
   const picked=s.text(value);
@@ -1442,14 +1509,13 @@ s.actionAnswered=(p,key)=>{
 };
 s.staleProcessNote=name=>'Process worklist ที่ deploy อยู่ยังไม่มี action "'+name+
   '" — ต้องเอาโค้ดล่าสุดของ xray_cpoe_worklist_api.js ไป replace body ก่อน';
-s.openRetestSelection=row=>{
-  const id=s.text(row&&row.id);
-  if(!id)return;
-  if(!s.isExpanded(id))s.toggleOrder(id);
-  s.setDetailTab(id,'order');
-  field.notify('เลือกรายการ X-ray ที่ยกเลิกแล้วในตาราง จากนั้นกด “ตรวจใหม่เฉพาะที่เลือก”','info',4600);
+s.guardRowAction=row=>{
+  if(row&&row.can_action===true)return true;
+  field.notify(s.text(row&&row.action_lock_reason)||'ห้องนี้ดูข้อมูลได้อย่างเดียว','warning',5200);
+  return false;
 };
 s.retestOrder=async row=>{
+  if(!s.guardRowAction(row))return;
   const id=s.text(row&&row.id);
   if(!id){field.notify('ไม่พบรหัส Order','error',3200);return;}
   const selectedItems=((row&&row.items)||[]).filter(i=>i&&i.selected);
@@ -1488,7 +1554,6 @@ s.retestOrder=async row=>{
     field.notify(s.text(p.message)||'เปิดตรวจใหม่แล้ว',d.audit_sync_pending?'warning':'success',d.audit_sync_pending?6000:3600);
     s.selected={};
     s.loadOrders();
-    s.refreshCounts();
   }catch(error){
     field.notify(s.text(error&&error.message)||'เรียก API ตรวจใหม่ไม่สำเร็จ','error',6000);
   }finally{
@@ -1660,13 +1725,15 @@ s.showPaymentStatus=o=>{const f=(o&&o.finance)||{};return Number(f.total_amount|
 /* Finance เป็นเจ้าของ transition sent → ready เหมือน LAB: ยอดเงินหรือสิทธิ์ใช้เพียง
    ตัดสินว่าต้องแสดงกล่องสถานะการเงินหรือไม่ ส่วนข้อความ/สีและสิทธิ์กดส่งเครื่อง
    ต้องยึด current_status ของ Item เพื่อไม่ให้ยอดที่ sync ช้าปลด gate ผิดจังหวะ.
-   สถานะหลังรับทั้งหมดถือว่าผ่าน gate ไปแล้ว เพื่อไม่ย้อน badge เป็นแดงกลาง flow. */
+   สถานะหลังรับทั้งหมดถือว่าผ่าน gate ไปแล้ว เพื่อไม่ย้อน badge เป็นแดงกลาง flow.
+   รายการ terminal ไม่ใช่หลักฐานว่าชำระเงิน: ยกเลิก/ปฏิเสธต้องไม่ทำให้ badge
+   พลิกเป็นเขียวเพียงเพราะไม่มี active item เหลือ และห้าม fallback ไป paid_amount. */
 s.isFinancePassed=o=>{
   const terminal=['cancelled','rejected','returned','reversed'];
   const passed=['ready','accepted','prepared','dispensed','dispatched','in_progress','resulted','completed'];
   const items=o&&Array.isArray(o.items)?o.items:[];
   const active=items.filter(item=>!terminal.includes(s.text(item&&item.current_status).toLowerCase()));
-  return active.length?active.every(item=>passed.includes(s.text(item&&item.current_status).toLowerCase())):s.isPaid(o);
+  return active.length>0&&active.every(item=>passed.includes(s.text(item&&item.current_status).toLowerCase()));
 };
 /* ชื่อระดับความเร่งด่วน — ชุดค่าเดียวกับ PRIORITY ของฟอร์ม CPOE Order App
    1 ปกติ · 2 ด่วน · 3 ด่วนที่สุด · 4 ด่วน OR · 5 ด่วน อุบัติเหตุ
@@ -1936,15 +2003,15 @@ s.itemCancellable=i=>{
   if(state==='resulted')return false;
   return true;
 };
-/* ── สรุปสารทึบระดับ item (เพิ่ม 2026-09-23 · ตัวเลือก A) ──────────────────
-   อ่านจาก payload ของ API เท่านั้น — รับได้ทั้งทรงซ้อน item.contrast{brand,volume_ml,
-   used_at,recorded_by} และทรงแบน item.contrast_brand / item.contrast_volume_ml
-   🔴 ตอนนี้ xray_cpoe_worklist_api ยังไม่คืนค่าชุดนี้ ⇒ ทุกแถวขึ้นปุ่ม "+ บันทึก"
-      ซึ่งถูกต้องแล้ว "ไม่มีข้อมูล" = "ยังไม่ได้บันทึก" ไม่ใช่ "ไม่ได้ฉีด"
-      วันที่ API คืนค่ามา ชิปจะขึ้นเองโดยไม่ต้อง generate ฟอร์มใหม่
-   Process รุ่นเดิมที่ไม่มีคีย์นี้จึงไม่พัง แค่ไม่ขึ้นชิปเท่านั้น */
+/* ── สรุปสารทึบระดับ item (เปิดใบเดิม read-only 2026-10-18) ───────────────
+   อ่านจาก payload ของ API เท่านั้น — รับได้ทั้งทรงซ้อน item.contrast{record_id,
+   brand,types,volume_ml,used_at,recorded_by} และทรงแบนเดิมเพื่อ backward compatibility
+   ไม่มีข้อมูล = "ยังไม่ได้บันทึก" ไม่ใช่ "ไม่ได้ฉีด" · ข้อมูลนี้เป็น display-only */
 s.contrastInfo=i=>(i&&typeof i.contrast==='object'&&i.contrast)||{};
-s.contrastBrand=i=>s.text(s.contrastInfo(i).brand||s.contrastInfo(i).name)||s.text(i&&i.contrast_brand);
+s.CONTRAST_LABEL={non_ionic:'Non-Ionic contrast',barium_sulphate:'Barium Sulphate'};
+s.contrastTypes=i=>{const c=s.contrastInfo(i),raw=c.types||c.contrast_types||(i&&i.contrast_types);return (Array.isArray(raw)?raw:[raw]).map(value=>s.text(value)).filter(Boolean);};
+s.contrastBrand=i=>{const c=s.contrastInfo(i),direct=s.text(c.brand||c.contrast_brand||c.name)||s.text(i&&i.contrast_brand);return direct||s.contrastTypes(i).map(value=>s.CONTRAST_LABEL[value]||value).join(' · ');};
+s.contrastRecordId=i=>s.text(s.contrastInfo(i).record_id||s.contrastInfo(i)._id||s.contrastInfo(i).id)||s.text(i&&i.contrast_record_id);
 s.contrastVolume=i=>{
   const c=s.contrastInfo(i);
   const v=c.volume_ml==null?(i&&i.contrast_volume_ml):c.volume_ml;
@@ -1955,9 +2022,10 @@ s.contrastTitle=i=>{
   const c=s.contrastInfo(i);
   const when=s.compactDateTime(c.used_at||(i&&i.contrast_used_at));
   const who=s.personName(c.recorded_by||(i&&i.contrast_recorded_by));
-  return ['บันทึกการใช้สารทึบแล้ว — กดเพื่อแก้ไข',when?'เวลาที่ใช้ '+when:'',who?'ผู้บันทึก '+who:''].filter(Boolean).join(' · ');
+  return ['บันทึกการใช้สารทึบแล้ว — คลิกเพื่อเปิดและแก้ไขใบเต็ม',when?'เวลาที่ใช้ '+when:'',who?'ผู้บันทึก '+who:''].filter(Boolean).join(' · ');
 };
 s.buildItem=(o,i)=>{
+  const canAction=!!(o&&o.can_action===true);
   const state=s.itemState(i);
   const failed=s.transportFailed(i);
   const stuck=s.needsAccession(i);
@@ -1967,7 +2035,7 @@ s.buildItem=(o,i)=>{
   return {
     id:s.text(i&&i.item_id)||s.text(i&&i._id),
     accession_no:accessionNo,
-    can_select:state==='waiting'||failed||stuck||resend||state==='cancelled',
+    can_select:canAction&&(state==='waiting'||failed||stuck||resend||state==='cancelled'),
     can_retest:state==='cancelled',
     can_dispatch_item:state!=='cancelled'&&((state==='waiting'&&financeReady)||failed||stuck||resend),
     finance_ready:financeReady,
@@ -1978,7 +2046,7 @@ s.buildItem=(o,i)=>{
     needs_accession:stuck,
     can_resend:resend,
     result_versions:Number(i&&i.result_versions)||0,
-    selected:!!s.selected[s.text(i&&i.item_id)||s.text(i&&i._id)],
+    selected:canAction&&!!s.selected[s.text(i&&i.item_id)||s.text(i&&i._id)],
     /* ทั้งสองค่ามาจากฐานข้อมูลจริง; field string เดิมคงไว้เพื่อ backward compatibility */
     radiologist:s.text(i&&i.radiologist),
     radiologist_source:s.text(i&&i.radiologist_source),
@@ -2031,7 +2099,8 @@ s.buildItem=(o,i)=>{
        can_dispatch_item / can_reject / can_sticker ของเดิมสักตัว */
     contrast_label:s.contrastLabel(i),
     contrast_title:s.contrastTitle(i),
-    contrast_hint:s.contrastLabel(i)?'แก้ไขบันทึกการใช้สารทึบรังสีของรายการนี้':s.contrastHint
+    contrast_record_id:s.contrastRecordId(i),
+    contrast_hint:s.contrastLabel(i)?'เปิดและแก้ไขใบบันทึกการใช้สารทึบรังสี':s.contrastHint
   };
 };
 s.buildResultItem=(o,i,index)=>{
@@ -2069,6 +2138,7 @@ s.buildResultItem=(o,i,index)=>{
    จึงกาง item ไม่ขึ้นทั้งที่กรองถูกใบแล้ว */
 s.orderKey=o=>s.text(o&&o.order_id)||s.text(o&&o._id);
 s.buildRow=o=>{
+  const canAction=!!(o&&o.can_action===true);
   const items=(o&&Array.isArray(o.items))?o.items:[];
   const state=s.orderState(o);
   const st=s.statusTime(o);
@@ -2076,12 +2146,13 @@ s.buildRow=o=>{
   const resultItems=items.map((i,index)=>s.buildResultItem(o,i,index));
   const hasResult=resultItems.some(r=>r.done);
   const dx=s.diagnosisText(o);
+  const orderNote=s.text(o&&o.order_comment);
   const builtItems=items.map(i=>s.buildItem(o,i));
   const dispatchChoices=builtItems.filter(i=>i.can_select&&!i.can_retest);
   const selectedItems=builtItems.filter(i=>i.selected);
   const selectedCount=selectedItems.length;
   const picked=selectedCount===1?selectedItems[0]:null;
-  const selectedRaw=items.filter(i=>!!s.selected[s.text(i&&i.item_id)||s.text(i&&i._id)]);
+  const selectedRaw=canAction?items.filter(i=>!!s.selected[s.text(i&&i.item_id)||s.text(i&&i._id)]):[];
   const cancelStates=selectedRaw.map(s.itemCancellable);
   const cancelCheck=cancelled?{can:false,hint:'Order นี้ถูกยกเลิกแล้ว'}
     :(!selectedRaw.length?{can:false,hint:'เลือกรายการ X-ray ที่ต้องการยกเลิก'}
@@ -2090,6 +2161,14 @@ s.buildRow=o=>{
       :{can:false,hint:'ยกเลิกไม่ได้ — รายการที่เลือกมีผลอ่านหรือถูกยกเลิกแล้ว'}));
   return {
     id:s.orderKey(o),
+    can_action:canAction,
+    action_locked:!canAction,
+    action_lock_reason:s.text(o&&o.action_lock_reason)||s.text(o&&o.action_access&&o.action_access.lock_reason)||
+      'ไม่สามารถยืนยันหน่วยที่ถือคิวหรือหน่วยที่สร้าง Order ได้ · ห้องนี้ดูข้อมูลได้อย่างเดียว',
+    creator_unit_code:s.text(o&&o.action_access&&o.action_access.creator_unit_code),
+    queue_holder_unit_code:s.text(o&&o.action_access&&o.action_access.queue_holder_unit_code),
+    /* แสดงเฉพาะ IPD ที่ payload มี visit.an; OPD คง layout เดิมเพราะ template ใช้ v-if */
+    an:s.text(o&&o.visit&&o.visit.an),
     hn:s.text(o&&o.patient&&o.patient.hn),
     name:s.patientName(o),
     gender:s.text(o&&o.patient&&o.patient.gender_text),
@@ -2109,7 +2188,11 @@ s.buildRow=o=>{
        ห้ามโชว์ชื่อ test ตัวแรกตัวเดียว เพราะทำให้เข้าใจผิดว่าใบนี้มีรายการเดียว */
     test_count:items.length,
     test_summary:items.length?(items.length+' รายการ'):'',
-    test_list:items.map(i=>[s.text(i&&i.item_name),s.text(i&&i.item_code)].filter(Boolean).join(' · ')).filter(Boolean),
+    /* item_code เป็นรหัสภายใน CPOE: คงไว้ใน item object/flow เดิม แต่ไม่แสดงใน UI */
+    test_list:items.map(i=>s.text(i&&i.item_name)).filter(Boolean),
+    order_note_short:'หมายเหตุ: '+orderNote,
+    order_note_full:orderNote,
+    order_note_has:!!orderNote,
     modalities:s.orderModalities(o),
     order_no:s.text(o&&o.order_number),
     ordered_date:s.datePart(o&&o.requested_at),
@@ -2229,8 +2312,16 @@ s.recompute=()=>{
 
 /* ── interaction ────────────────────────────────────────────────────────── */
 s.isExpanded=id=>!!s.expanded[id];
-/* ย่อแถวแล้วล้างที่ติ๊กไว้ กันเผลอกดส่งของที่มองไม่เห็น (แบบเดียวกับ LAB) */
-s.toggleOrder=id=>{s.expanded={...s.expanded,[id]:!s.expanded[id]};s.selected={};s.recompute();};
+/* ย่อแถวแล้วล้างที่ติ๊กไว้ กันเผลอกดส่งของที่มองไม่เห็น (แบบเดียวกับ LAB)
+   optimize 2026-10-18: expanded เป็น reactive state ที่ template อ่านตรงอยู่แล้ว
+   จึงไม่ต้อง rebuild ทุก row เมื่อไม่มี selection; ถ้ามี selection ยัง recompute เหมือนเดิม
+   เพื่อให้ปุ่ม action/selected ของ item ถูกล้างทันทีและ flow ไม่เปลี่ยน */
+s.toggleOrder=id=>{
+  const hadSelection=Object.keys(s.selected||{}).length>0;
+  s.expanded={...s.expanded,[id]:!s.expanded[id]};
+  s.selected={};
+  if(hadSelection)s.recompute();
+};
 /* ผู้ใช้ขอ 2026-09-11: กดพื้นที่ใดก็ได้ของแถว Order เพื่อเปิด/ย่อ
    แต่ control ภายในแถวเป็นเจ้าของ click ของตัวเอง และการลากเลือกข้อความต้องไม่สลับแถว */
 s.toggleOrderFromRow=(row,event)=>{
@@ -2316,7 +2407,6 @@ s.setModality=v=>{
   s.modality=next;
   s.page={...s.page,current:1};
   s.loadOrders();
-  s.refreshCounts();
 };
 /* เอาเครื่องออกทีละตัวแบบเจาะจง — ผู้ใช้ตัดปุ่มกากบาททิ้ง 2026-09-02 เพราะกดซ้ำที่แถว
    ก็ยกเลิกได้อยู่แล้ว · คงเมธอดไว้เป็นทางเรียกแบบระบุตัว (ใช้โดย clearModality และเทส)
@@ -2353,6 +2443,8 @@ s.scanPatientHn=hn=>{
   /* สแกน HN ทับโหมดเปิดจากคิว — ไม่งั้นจะกรองซ้อนกันจนไม่เจออะไรเลย */
   s.focusVisitId='';
   s.focusVisitVn='';
+  s.focusVisitHn='';
+  s.focusVisitPatientName='';
   s.filters={...s.filters,q:''};
   s.expanded={};
   s.detailTabs={};
@@ -2360,7 +2452,6 @@ s.scanPatientHn=hn=>{
   s.orders=[];
   s.page={...s.page,current:1,total:0};
   s.loadOrders();
-  s.refreshCounts();
 };
 s.clearScan=()=>{
   if(!s.scanMode)return;
@@ -2370,7 +2461,6 @@ s.clearScan=()=>{
   s.selected={};
   s.page={...s.page,current:1,total:0};
   s.loadOrders();
-  s.refreshCounts();
 };
 /* ── เปิดจากคิว (เพิ่ม 2026-09-08) ─────────────────────────────────────────
    ผู้ใช้ยืนยันว่าปุ่ม X-ray ในคิว "แค่กาง order ให้ดู" ⇒ ที่นี่อ่านอย่างเดียวล้วน
@@ -2386,22 +2476,22 @@ s.focusVisit=target=>{
   s.filters={...s.filters,q:'',dates:[]};
   s.focusVisitId=visitId;
   s.focusVisitVn=s.text(target&&target.vn);
+  s.focusVisitHn=s.text(target&&target.hn).replace(/^HN\s*/i,'');
+  s.focusVisitPatientName=s.text(target&&target.patient_name);
   s.expanded={};s.detailTabs={};s.selected={};
   s.page={...s.page,current:1};
   s.loadOrders();
-  s.refreshCounts();
 };
 s.clearFocusVisit=()=>{
   if(!s.focusVisitId)return;
-  s.focusVisitId='';s.focusVisitVn='';
+  s.focusVisitId='';s.focusVisitVn='';s.focusVisitHn='';s.focusVisitPatientName='';
   s.expanded={};s.detailTabs={};s.selected={};
   s.page={...s.page,current:1};
   s.loadOrders();
-  s.refreshCounts();
 };
 
 /* กด Search เอง = ออกจากโหมดสแกน (ผู้ใช้ตั้งใจค้นด้วยเงื่อนไขของตัวเอง) */
-s.applyFilters=()=>{s.resetScan();s.focusVisitId='';s.focusVisitVn='';s.modalityPool=[];s.page={...s.page,current:1};s.loadOrders();s.refreshCounts();};
+s.applyFilters=()=>{s.resetScan();s.focusVisitId='';s.focusVisitVn='';s.focusVisitHn='';s.focusVisitPatientName='';s.modalityPool=[];s.page={...s.page,current:1};s.loadOrders();};
 s.clearModality=()=>s.setModality([]);
 
 s.notifyPending=label=>field.notify(label+' รอการเชื่อมต่อ','info',2500);
@@ -2455,6 +2545,7 @@ s.openImage=(row,item)=>{
    เรียก Process เดียว ลำดับทั้งหมดอยู่ฝั่ง server (spec.md §4.2)
    success:true + transport.status==='failed' = รับไว้แล้วแต่ RIS ไม่รับ ⇒ กดใหม่ได้ */
 s.dispatchOrder=async row=>{
+  if(!s.guardRowAction(row))return;
   const id=s.text(row&&row.id);
   if(!id){field.notify('ไม่พบรหัส Order','error',3200);return;}
   if(!DISPATCH_PROCESS_ID){field.notify('ยังไม่ได้ตั้งค่า Process ID ของ xray-cpoe-dispatch — ใส่ค่าที่ตัวแปร DISPATCH_PROCESS_ID ใน onCreated ก่อน','warning',5200);return;}
@@ -2493,7 +2584,7 @@ s.dispatchOrder=async row=>{
       if(failed.length)parts.push('ไม่สำเร็จ '+failed.length+' รายการ');
       field.notify(parts.join(' · '),failed.length?'error':(transportFailed.length?'warning':'success'),8000);
     }
-    if(sent.length||transportFailed.length){s.selected={};s.loadOrders();s.refreshCounts();}
+    if(sent.length||transportFailed.length){s.selected={};s.loadOrders();}
   }finally{
     const next={...s.dispatching};delete next[id];s.dispatching=next;s.recompute();
   }
@@ -2503,7 +2594,8 @@ s.dispatchOrder=async row=>{
    ฟอร์มคือหลักฐาน · API แค่ทำให้สถานะตรงกับหลักฐาน ไม่มีทางลัดที่ข้ามฟอร์มได้ */
 s.recordId=v=>{if(v==null)return '';if(typeof v==='object')return s.recordId(v.$oid||v._id||v.id||v.value||'');return String(v).trim();};
 s.savedRow=v=>{const c=[v&&v.data&&v.data.data,v&&v.reply&&v.reply.data,v&&v.data,v];for(let i=0;i<c.length;i++){if(c[i]&&typeof c[i]==='object'&&!Array.isArray(c[i]))return c[i];}return {};};
-s.rejectSelected=row=>{
+s.rejectSelected=async row=>{
+  if(!s.guardRowAction(row))return;
   const orderId=s.text(row&&row.id);
   const itemId=s.text(row&&row.selected_item_id);
   if(!orderId){field.notify('ไม่พบรหัส Order','error',3200);return;}
@@ -2516,9 +2608,11 @@ s.rejectSelected=row=>{
   if(!item||!item.can_reject){field.notify('ปฏิเสธได้เฉพาะรายการที่ยังไม่ได้ส่งเข้าเครื่อง','warning',3600);return;}
   const form=field.getFormRef&&field.getFormRef();
   if(!form||typeof form.openForm!=='function'){field.notify('ไม่พบตัวเปิดฟอร์มเหตุผลการปฏิเสธ','error',3500);return;}
+  const reasonOptions=await s.loadReasonOptions('ITEM_REJECT');
+  if(!reasonOptions.length){field.notify('ยังไม่มีเหตุผลปฏิเสธ X-ray ที่เปิดใช้งาน กรุณาเพิ่มใน X-ray Reject Reason Settings','warning',5000);return;}
   const initData={
     source_item_id:itemId,
-    source_order_id:itemId,
+    source_order_id:orderId,
     order_group_id:s.text(row.order_no)||orderId,
     patient_hn:s.text(row.hn),
     patient_name:s.text(row.name),
@@ -2527,11 +2621,13 @@ s.rejectSelected=row=>{
     modality:s.text(item.modality),
     accession_no:s.text(item.accession_no),
     selected_items_json:JSON.stringify([{source_item_id:itemId,item_code:s.text(item.code),item_name:s.text(item.name),modality:s.text(item.modality)}]),
+    treatment_right:s.coverage(row),
+    payment_status:s.isPaid(row)?'ชำระเงินแล้ว':'ยังไม่ได้ชำระเงิน',
     revision_no:'1',
     rejection_status:'recorded'
   };
   form.openForm(REJECTION_FORM_ID,null,null,initData,{
-    params:Object.assign({},form.formParams||{},{from:'xray-cpoe-worklist',item_id:itemId,order_id:orderId,order_number:s.text(row.order_no)}),
+    params:Object.assign({},form.formParams||{},{from:'xray-cpoe-worklist',item_id:itemId,order_id:orderId,order_number:s.text(row.order_no),reason_options:reasonOptions}),
     popupType:'dialog',backdrop:false,
     beforeSaveCallback:()=>({source_item_id:itemId,order_group_id:s.text(row.order_no)||orderId,rejection_status:'recorded'}),
     afterSaveCallback:async saved=>{
@@ -2546,7 +2642,7 @@ s.rejectSelected=row=>{
         field.notify(s.text(p.message)||'ปฏิเสธรายการแล้ว',d.audit_sync_pending?'warning':'success',d.audit_sync_pending?6000:3600);
         s.selected={};
         if(typeof form.subFormClose==='function')form.subFormClose();
-        s.loadOrders();s.refreshCounts();
+        s.loadOrders();
       }catch(error){
         field.notify(s.text(error&&error.message)||'เรียก API ปฏิเสธไม่สำเร็จ','error',6000);
       }finally{
@@ -2563,41 +2659,84 @@ s.setCancelVisible=v=>{
   if(v)return;
   s.cancelDialog={...s.cancelDialog,visible:false};
 };
-s.setCancelReason=v=>{s.cancelDialog={...s.cancelDialog,reason:s.text(v)};};
+s.setCancelReasonCode=v=>{
+  const code=s.text(v);
+  const option=(s.cancelDialog.reason_options||[]).find(row=>s.text(row&&row.value)===code);
+  s.cancelDialog={...s.cancelDialog,reason_code:code,reason_label:s.text(option&&option.label)};
+};
+s.setCancelReasonDetail=v=>{s.cancelDialog={...s.cancelDialog,reason_detail:s.text(v)};};
 s.resetCancelDialog=()=>{
   if(s.cancelDialog.loading)return;
-  s.cancelDialog={visible:false,loading:false,order_id:'',order_no:'',item_ids:[],item_names:[],reason:''};
+  s.cancelDialog=s.emptyCancelDialog();
 };
-s.openCancelOrder=row=>{
+s.cancelFinanceClass=()=>{
+  if(s.cancelDialog.financeLoading)return 'is-checking';
+  if(!s.cancelDialog.financeChecked)return 'is-unknown';
+  return s.cancelDialog.canCancel?'is-ready':'is-blocked';
+};
+s.cancelFinanceTitle=()=>{
+  if(s.cancelDialog.financeLoading)return 'กำลังตรวจสอบสถานะการเงิน';
+  const status=s.text(s.cancelDialog.financeStatus);
+  if(status==='not_billed')return 'ยังไม่ส่งการเงิน';
+  if(status==='unpaid')return 'ยังไม่ชำระเงิน';
+  if(status==='receipt_withdrawn')return 'ถอนใบเสร็จแล้ว';
+  if(status==='paid_receipt_active')return 'ชำระเงินแล้ว — ยังยกเลิกไม่ได้';
+  if(status==='review_required')return 'ต้องให้การเงินตรวจสอบ';
+  return 'สถานะการเงิน';
+};
+s.applyCancelFinance=payload=>{
+  const d=payload&&payload.data||{},ok=payload&&payload.success!==false&&d.can_cancel===true;
+  s.cancelDialog={...s.cancelDialog,financeLoading:false,financeChecked:true,financeStatus:s.text(d.finance_status)||'review_required',financeMessage:s.text(d.finance_message||payload&&payload.message)||'ตรวจสอบสถานะการเงินไม่สำเร็จ',canCancel:ok,receiptNumbers:Array.isArray(d.receipt_numbers)?d.receipt_numbers:[]};
+};
+s.checkCancelFinance=async()=>{
+  const id=s.text(s.cancelDialog.order_id),itemIds=Array.isArray(s.cancelDialog.item_ids)?s.cancelDialog.item_ids.slice():[];
+  if(!id||!itemIds.length){s.applyCancelFinance({success:false,message:'ไม่พบ Order หรือรายการ X-ray ที่เลือก'});return;}
+  s.cancelDialog={...s.cancelDialog,financeLoading:true,financeChecked:false,canCancel:false,financeMessage:'กำลังตรวจสอบ Bill และใบเสร็จล่าสุด',receiptNumbers:[]};
+  try{
+    const p=await s.processCall(WORKLIST_PROCESS_ID,{action:'check_cancel_finance',organization_code:s.unitCode(),order_id:id,order_number:s.text(s.cancelDialog.order_no),item_ids:itemIds});
+    s.applyCancelFinance(p||{success:false,message:'ไม่พบผลตรวจสอบสถานะการเงิน'});
+  }catch(error){s.applyCancelFinance({success:false,message:s.text(error&&error.message)||'เรียกตรวจสอบสถานะการเงินไม่สำเร็จ'});}
+};
+s.openCancelOrder=async row=>{
+  if(!s.guardRowAction(row))return;
   const id=s.text(row&&row.id);
   if(!id){field.notify('ไม่พบรหัส Order','error',3200);return;}
   if(!row.can_cancel){field.notify(s.text(row.cancel_hint)||'ยกเลิก Order นี้ไม่ได้','warning',4200);return;}
   const picked=(row.items||[]).filter(item=>item.selected);
   const itemIds=picked.map(item=>s.text(item.id)).filter(Boolean);
   if(!itemIds.length){field.notify('กรุณาเลือกรายการ X-ray','warning',3200);return;}
-  s.cancelDialog={visible:true,loading:false,order_id:id,order_no:s.text(row.order_no),item_ids:itemIds,item_names:picked.map(item=>s.text(item.name)||s.text(item.code)),reason:''};
+  s.cancelDialog={...s.emptyCancelDialog(),visible:true,reasonLoading:true,order_id:id,order_no:s.text(row.order_no),item_ids:itemIds,item_names:picked.map(item=>s.text(item.name)||s.text(item.code))};
+  const results=await Promise.all([s.checkCancelFinance(),s.loadReasonOptions('ORDER_CANCEL')]);
+  const options=Array.isArray(results[1])?results[1]:[];
+  s.cancelDialog={...s.cancelDialog,reason_options:options,reasonLoading:false};
+  if(!options.length)field.notify('ยังไม่มีเหตุผลยกเลิก X-ray ที่เปิดใช้งาน กรุณาเพิ่มใน X-ray Reject Reason Settings','warning',5000);
 };
 s.submitCancelOrder=async()=>{
   const id=s.text(s.cancelDialog.order_id);
-  const reason=s.text(s.cancelDialog.reason);
+  const reasonCode=s.text(s.cancelDialog.reason_code);
+  const reasonLabel=s.text(s.cancelDialog.reason_label);
+  const reasonDetail=s.text(s.cancelDialog.reason_detail);
+  const reason=[reasonLabel,reasonDetail].filter(Boolean).join(' — ');
   if(!id){field.notify('ไม่พบรหัส Order','error',3200);return;}
   if(!s.cancelDialog.item_ids.length){field.notify('กรุณาเลือกรายการ X-ray','warning',3200);return;}
-  if(!reason){field.notify('กรุณาระบุเหตุผลการยกเลิกรายการ','warning',3200);return;}
+  if(!s.cancelDialog.financeChecked||!s.cancelDialog.canCancel){field.notify('กรุณาตรวจสอบสถานะการเงินให้ผ่านก่อนยกเลิก','warning',4500);return;}
+  if(!reasonCode||!reasonLabel){field.notify('กรุณาเลือกเหตุผลการยกเลิกรายการ','warning',3200);return;}
   if(s.cancelDialog.loading)return;
   s.cancelDialog={...s.cancelDialog,loading:true};
   try{
-    const p=await s.processCall(WORKLIST_PROCESS_ID,{action:'cancel_order',organization_code:s.unitCode(),order_id:id,order_number:s.text(s.cancelDialog.order_no),item_ids:s.cancelDialog.item_ids.slice(),cancel_reason:reason});
+    const p=await s.processCall(WORKLIST_PROCESS_ID,{action:'cancel_order',organization_code:s.unitCode(),order_id:id,order_number:s.text(s.cancelDialog.order_no),item_ids:s.cancelDialog.item_ids.slice(),cancel_reason:reason,cancel_reason_code:reasonCode,cancel_reason_detail:reasonDetail});
     if(!p||p.success===false){
       s.cancelDialog={...s.cancelDialog,loading:false};
+      if(p&&['finance_receipt_active','finance_state_unknown','finance_item_sync_failed'].includes(s.text(p.error))){s.applyCancelFinance(p);}
       field.notify(s.text(p&&p.message)||'ยกเลิก Order ไม่สำเร็จ','error',7000);
       return;
     }
     const d=p.data||{};
-    s.cancelDialog={visible:false,loading:false,order_id:'',order_no:'',item_ids:[],item_names:[],reason:''};
+    s.cancelDialog=s.emptyCancelDialog();
     s.selected={};
     const needsAttention=d.audit_sync_pending||d.upstream_delivery_issue;
     field.notify(s.text(p.message)||'ยกเลิก Order แล้ว',needsAttention?'warning':'success',needsAttention?8000:3600);
-    s.loadOrders();s.refreshCounts();
+    s.loadOrders();
   }catch(error){
     s.cancelDialog={...s.cancelDialog,loading:false};
     field.notify(s.text(error&&error.message)||'เรียก API ยกเลิก Order ไม่สำเร็จ','error',6000);
@@ -2639,7 +2778,7 @@ s.openConsentLibrary=()=>{
     service_type:'xray'
   })});
 };
-/* ── บันทึกการใช้สารทึบรังสี ระดับ item (ผู้ใช้เลือกตัวเลือก A 2026-09-23) ──
+/* ── บันทึกการใช้สารทึบรังสี ระดับ item (saved record editable 2026-10-18) ──
    ผู้ใช้ยืนยันว่า log การใช้สารทึบเก็บไว้ในฟอร์มการใช้สารทึบเอง ⇒ ปุ่มนี้แค่เปิดฟอร์ม
    ไม่มีการเขียนสถานะ ไม่เรียก Process ไม่แตะข้อมูล Order/item ใด ๆ ทั้งสิ้น
    ยังไม่เชื่อมฟอร์ม = บอกให้ชัดว่าติดอะไรและต้องทำอะไรต่อ (ทรงเดียวกับปุ่มคลังหนังสือยินยอม)
@@ -2656,7 +2795,8 @@ s.openContrastRecord=(row,item)=>{
   }
   const form=field.getFormRef&&field.getFormRef();
   if(!form||typeof form.openForm!=='function'){field.notify('ไม่พบตัวเปิดฟอร์มบันทึกการใช้สารทึบรังสี','error',3000);return;}
-  form.openForm(CONTRAST_FORM_ID,'','',{
+  const recordId=s.text(item&&item.contrast_record_id);
+  const initData=recordId?null:{
     hn:s.text(row&&row.hn),
     patient_name:s.text(row&&row.name),
     patient_age:s.text(row&&row.age),
@@ -2669,7 +2809,8 @@ s.openContrastRecord=(row,item)=>{
     modality:s.text(item&&item.modality),
     item_code:s.text(item&&item.code),
     item_name:s.text(item&&item.name)
-  },{
+  };
+  const options={
     backdrop:false,
     popupType:'dialog',
     params:Object.assign({},form.formParams||{},{
@@ -2684,8 +2825,19 @@ s.openContrastRecord=(row,item)=>{
       item_code:s.text(item&&item.code),
       item_name:s.text(item&&item.name),
       modality:s.text(item&&item.modality)
-    })
-  });
+    }),
+    /* ทั้ง Create และ Edit ปิดเฉพาะตอนผู้ใช้ Submit สำเร็จ แล้ว reload ชิปทันที
+       autoSave ต้องไม่ปิด popup ระหว่างที่ผู้ใช้ยังกรอกใบอยู่ */
+    afterSaveCallback:(saved,autoSave)=>{
+      if(autoSave)return;
+      if(typeof form.subFormClose==='function')form.subFormClose();
+      s.page={...s.page,current:1};
+      s.loadOrders();
+    }
+  };
+  /* มี recordId = เปิด _id เดิมในโหมดแก้ไขแบบเดียวกับปุ่ม Edit ของ Form Manage
+     และ initData เป็น null จึงไม่เอาค่าจาก Worklist ไปทับข้อมูลเดิมในใบ */
+  form.openForm(CONTRAST_FORM_ID,recordId||null,'',initData,options);
 };
 s.createOrderTarget=()=>{
   if(s.scanMode){
@@ -2711,6 +2863,13 @@ s.createOrderVisitContext=visit=>{
     p_pic:Array.isArray(p.p_pic)?p.p_pic:null,
     allergy_tags:[],
     visit_id:s.text(visit&&visit._id||visit&&visit.value),
+    visit_tran_id:s.text(visit&&visit.visit_tran_id),
+    visit_tran_count:Number(visit&&visit.visit_tran_count||0),
+    visit_tran_ambiguous:!!(visit&&visit.visit_tran_ambiguous),
+    current_unit:visit&&(visit.current_unit||visit.unit_to)||null,
+    current_room:visit&&(visit.current_room||visit.room_to)||null,
+    visit_tran_status:s.text(visit&&visit.visit_tran_status),
+    visit_priority:s.text(visit&&visit.visit_priority)||'10',
     vn:s.text(visit&&visit.vn),
     visit_type:s.text(visit&&visit.visit_type),
     visit_datetime:s.text(visit&&visit.visit_date||visit&&visit.created_at),
@@ -2725,7 +2884,18 @@ s.openCreateOrder=async()=>{
   if(!form||typeof form.openForm!=='function'){field.notify('ไม่พบตัวเปิด CPOE Order App','error',3000);return;}
   if(s.createOrderLoading)return;
   s.dismissCreateOrderNotice();
-  const launchParams=Object.assign({},form.formParams||{},{manual_visit:true,source:'xray-worklist'});
+  const launchParams=Object.assign({},form.formParams||{}, {
+    manual_visit:true,
+    source:'xray-worklist',
+    xray_scope:true,
+    organization_code:s.unitCode(),
+    /* การสั่ง X-ray บันทึก Order/Item เท่านั้น ไม่ย้ายหรือสร้าง Visit Tran
+       การเงินเรียก VN มาคิดเงิน และระบบคิวกลางเป็นผู้เปิด/ส่งคิวตาม flow ของ Visit */
+    on_order_sent:()=>{s.page={...s.page,current:1};s.loadOrders();}
+  });
+  /* ปุ่มนี้สร้างใบใหม่เสมอ — หน้า X-ray อาจถูกเปิดจาก deep link ของ Order เดิม
+     จึงห้ามส่ง order_id ของฟอร์มแม่ต่อไป ไม่งั้น CPOE จะเข้าโหมดแก้ใบเดิมและใช้เลขเดิม */
+  delete launchParams.order_id;
   const target=s.createOrderTarget();
   if(target){
     s.createOrderLoading=true;
@@ -2864,6 +3034,7 @@ s.setManualReportField=(name,value)=>{
   s.report={...s.report,manual:{...s.report.manual,[name]:value==null?'':String(value)}};
 };
 s.beginManualReport=()=>{
+  if(!s.guardRowAction(s.report.order))return;
   if(s.report.loading||s.report.saving||!s.text(s.report.data&&s.report.data.accession_no))return;
   const current=s.currentReportVersion(),hasVersions=Array.isArray(s.report.versions)&&s.report.versions.length>0;
   s.report={...s.report,editing:true,history_open:false,selected:0,manual:{
@@ -2879,11 +3050,12 @@ s.cancelManualReport=()=>{s.report={...s.report,editing:false,manual:{manual_req
 s.toggleManualReport=()=>{if(s.report.editing)s.cancelManualReport();else s.beginManualReport();};
 s.canSaveManualReport=()=>{
   const manual=s.report.manual||{};
-  return !s.report.loading&&!s.report.saving&&!!s.text(s.report.data&&s.report.data.accession_no)&&
+  return !!(s.report.order&&s.report.order.can_action)&&!s.report.loading&&!s.report.saving&&!!s.text(s.report.data&&s.report.data.accession_no)&&
     !!s.text(manual.manual_request_id)&&!!s.text(manual.result_text)&&!!s.text(manual.radiologist_uid)&&
     !!s.text(manual.result_datetime)&&['F','P','C'].includes(s.text(manual.result_status).toUpperCase());
 };
 s.saveManualReport=async()=>{
+  if(!s.guardRowAction(s.report.order))return;
   if(!s.canSaveManualReport())return;
   const row=s.report.order,item=s.report.item,manual={...s.report.manual};
   s.report={...s.report,saving:true};
@@ -2908,7 +3080,7 @@ s.saveManualReport=async()=>{
         manual:{manual_request_id:'',result_text:'',radiologist_uid:'',result_datetime:'',result_status:'F',severity_uid:''}};
       field.notify(s.text(saved&&saved.message)||'บันทึกผล Manual เรียบร้อยแล้ว','success',3200);
     }
-    s.loadOrders();s.refreshCounts();
+    s.loadOrders();
   }catch(error){
     s.report={...s.report,saving:false};
     field.notify(s.text(error&&error.message)||'บันทึกผล Manual ไม่สำเร็จ','error',5200);
@@ -2985,6 +3157,20 @@ s.processCall=(id,params)=>new Promise((resolve,reject)=>{
   api.runProcess(id,params||{},out=>resolve(s.extractProcess(out)),error=>reject(error||new Error('เรียก API Process ไม่สำเร็จ')));
 });
 s.unitCode=()=>{const user=field.globalUserState&&field.globalUserState.user;return s.text(user&&user.unit&&user.unit.code).toUpperCase();};
+s.normalizeReasonOptions=rows=>(Array.isArray(rows)?rows:[]).map(row=>({value:s.text(row&&row.value),label:s.text(row&&row.label)})).filter(row=>row.value&&row.label);
+s.loadReasonOptions=async reasonType=>{
+  const type=s.text(reasonType||'ITEM_REJECT').toUpperCase();
+  if(Array.isArray(s.reasonOptionCache[type]))return s.reasonOptionCache[type].slice();
+  try{
+    const p=await s.processCall(WORKLIST_PROCESS_ID,{action:'get_reason_options',organization_code:s.unitCode(),reason_type:type});
+    const rows=p&&p.success!==false&&p.data&&Array.isArray(p.data.options)?p.data.options:null;
+    if(rows===null)return type==='ITEM_REJECT'?REJECT_REASON_OPTIONS.slice():[];
+    const clean=s.normalizeReasonOptions(rows);
+    s.reasonOptionCache={...s.reasonOptionCache,[type]:clean};
+    if(type==='ITEM_REJECT')s.rejectReasonOptions=clean;
+    return clean.slice();
+  }catch(error){return type==='ITEM_REJECT'?REJECT_REASON_OPTIONS.slice():[];}
+};
 s.params=(statuses,limit,page)=>{
   const p={action:'list',statuses:statuses,page:page||s.page.current,limit:limit||s.page.size,organization_code:s.unitCode()};
   /* ไม่ส่ง sort = พฤติกรรมเดิมทุกประการ · ใส่ก่อน early return ทุกอันเพื่อให้
@@ -3072,7 +3258,10 @@ s.loadOrders=()=>{
     }
     s.modalityMaster=Array.isArray(payload.modalities)?payload.modalities:[];
     s.mergeModalityPool(s.orders);
-    s.applyCounts(payload);
+    /* optimize 2026-10-18: Process ปัจจุบันคืน split counts มากับ list อยู่แล้ว
+       ใช้คำตอบก้อนเดียวเพื่อตัด aggregate ซ้ำ 5 รอบ; ถ้าเป็น Process รุ่นเก่าที่
+       ไม่มี split counts ค่อย fallback ไปเส้นทางเดิมหลังรับ rows สำเร็จ */
+    const countsReady=s.applyCounts(payload);
     s.dateScope=(payload.date_scope&&typeof payload.date_scope==='object')?payload.date_scope:{from:'',to:'',defaulted:false};
     s.page={...s.page,current:Number(payload.page||s.page.current),size:Number(payload.limit||s.page.size),total:Number(payload.total||0)};
     s.loading=false;
@@ -3081,6 +3270,7 @@ s.loadOrders=()=>{
       field.notify(s.orders.length?('พบรายการของ '+s.scanLabel+' '+s.scanDisplay):('ไม่พบรายการของ '+s.scanLabel+' '+s.scanDisplay+' ในสถานะนี้'),s.orders.length?'success':'warning',3500);
     }
     s.recompute();
+    if(!countsReady)s.refreshCounts();
   },error=>{
     if(seq!==s.loadSeq)return;
     s.orders=[];
@@ -3101,7 +3291,6 @@ s.handleUnitChange=()=>{
   s.modalityPool=[];
   s.page={...s.page,current:1,total:0};
   s.loadOrders();
-  s.refreshCounts();
 };
 
 s.recompute();`
@@ -3118,19 +3307,20 @@ if(pending&&pending.visit_id){
   host.$xrayQueueTarget=null;
   s.focusVisitId=s.text(pending.visit_id);
   s.focusVisitVn=s.text(pending.vn);
+  s.focusVisitHn=s.text(pending.hn).replace(/^HN\s*/i,'');
+  s.focusVisitPatientName=s.text(pending.patient_name);
   s.scanMode=false;s.scannedHn='';s.scanNoticePending=false;
   s.filters={...s.filters,q:'',dates:[]};
   s.expanded={};s.detailTabs={};s.selected={};
   s.page={...s.page,current:1};
   /* mount แล้วมาก่อนหน้านี้ = โหลดครั้งแรกผ่านไปแล้ว ต้องยิงใหม่เอง */
-  if(s.__initialLoadStarted){s.loadOrders();s.refreshCounts();}
+  if(s.__initialLoadStarted)s.loadOrders();
 }
 if(!s.__initialLoadStarted){
   s.__initialLoadStarted=true;
   s.currentUnitCode=s.unitCode();
   s.loadStaffOptions();
   s.loadOrders();
-  s.refreshCounts();
 }
 if(!s.__unitWatch){
   s.__unitWatch=setInterval(()=>s.handleUnitChange(),1000);
@@ -3371,10 +3561,15 @@ const goXrayScript = ({ startQueue }) => `const form = this.getFormRef();
 const goXray = (row) => {
   const visitId = row && row.vid && row.vid.value ? String(row.vid.value) : String((row && row.visit_id) || '');
   if (!visitId) { this.alert('คิวนี้ไม่มี Visit ID', 'warning'); return; }
+  const patient = row && row.vid && row.vid.pid ? row.vid.pid : ((row && row.patient) || {});
+  const prename = patient.prename && (patient.prename.label || patient.prename.prename_min_name || patient.prename.value) || '';
+  const firstName = patient.p_fname || patient.first_name || '';
+  const lastName = patient.p_lname || patient.last_name || '';
   const target = {
     visit_id: visitId,
     vn: String((row && row.vn) || (row && row.vid && row.vid.label) || ''),
-    hn: String((row && row.hn) || (row && row.patient && row.patient.hn) || '')
+    hn: String((row && row.hn) || patient.hn || ''),
+    patient_name: String((prename + firstName + ' ' + lastName).trim())
   };
   form.$xrayQueueTarget = target;
   const worklist = form.getFieldRef('xray_cpoe_worklist');
@@ -3429,14 +3624,18 @@ const nativeQueuePane = bucket => {
     const callButton = (list.options.buttonsRow || []).find(button => button && button.label === 'เรียก')
     if (!callButton) throw new Error('EMR Unit Queue call button not found')
     callButton.onClick = callSelectedQueueScript
+    /* 2026-10-18: ผู้ใช้สั่งเอา action "ซักประวัติ" ออกจาก X-ray Unit Queue
+       โดยตรง; action อื่นและลำดับเดิมต้องคงอยู่ครบ */
+    const historyButtons = (list.options.buttonsRow || []).filter(button => button && button.label === 'ซักประวัติ')
+    if (historyButtons.length !== 1) throw new Error('expected exactly one EMR Unit Queue history action')
+    list.options.buttonsRow = (list.options.buttonsRow || []).filter(button => button !== historyButtons[0])
   } else if (bucket === 'room') {
     list.options.where = "`visit_date` = DATE_TO_STRING(DATE_ADD(CURRENT_DATE(), 'hour', 7), '%Y-%m-%d') AND vtran_status IN ('called', 'in_progress', 'skipped') AND `unit_path` = :xunit_codex AND `room_to.value` = CASE WHEN :xroom_codex = '__NONE__' THEN 'FRONT' ELSE :xroom_codex END"
     list.options.orderBy = [
       { column: 'vid.visit_priority', sort: 'DESC' },
       { column: 'queue_ts', sort: 'ASC' }
     ]
-    /* 2026-10-15: ผู้ใช้สั่งเอาเฉพาะ action "ซักประวัติ" ออกจากแถว My Room
-       ปุ่มเดียวกันใน Unit Queue และ action อื่นทุกตัวต้องคงเดิม */
+    /* 2026-10-15: ผู้ใช้สั่งเอา action "ซักประวัติ" ออกจากแถว My Room */
     const historyButtons = (list.options.buttonsRow || []).filter(button => button && button.label === 'ซักประวัติ')
     if (historyButtons.length !== 1) throw new Error('expected exactly one EMR My Room history action')
     list.options.buttonsRow = (list.options.buttonsRow || []).filter(button => button !== historyButtons[0])
@@ -3605,6 +3804,18 @@ s.expanded={};
 s.detailTabs={};
 s.selected={};
 s.page={...s.page,current:1,total:0};
+/* ห้ามแก้ LAB source/API: ครอบเฉพาะ setSearch ของ clone นี้เพื่อบอก Scan Code
+   ส่วนกลางว่า keystroke/paste ชุดเดียวกันมีเจ้าของแล้ว แล้วคง LAB setSearch เดิมทุกอย่าง */
+const xrayLabBaseSetSearch=s.setSearch;
+s.setSearch=value=>{
+  const parent=field.getFormRef&&field.getFormRef();
+  if(parent){
+    parent.$xraySearchOwner='lab';
+    parent.$xraySearchValue=String(value==null?'':value).trim();
+    parent.$xraySearchOwnerAt=Date.now();
+  }
+  return xrayLabBaseSetSearch(value);
+};
 const xrayLabReadActions=['','list','get_manual_result'];
 const xrayLabBaseProcessCall=s.processCall;
 s.processCall=(id,params)=>{
@@ -3910,6 +4121,8 @@ form.formConfig.cssCode += `
 .dark .xray-cpoe .xr-urgent-tag{border-color:#7a3a3a;background:rgba(245,108,108,.16);color:#ffa8a8}
 .dark .xray-cpoe .xr-transport-note{color:#ffa8a8}
 .dark .xray-cpoe .xr-notice.is-warning{border-color:#7a5a22;background:rgba(230,162,60,.14);color:#ffc978}
+.dark .xray-cpoe .xr-action-lock-notice{border-color:#7a5a22;background:rgba(230,162,60,.14);color:#ffc978}
+.dark .xray-cpoe .xr-action-lock-notice strong{color:#ffd99a}
 .dark .xray-cpoe .xr-scan-context{border-color:#2f4a68;background:rgba(90,171,255,.14);color:#9ccbff}
 .dark .xray-cpoe .xr-context-top .xr-source-pill{border-color:#2f4a68;background:rgba(90,171,255,.14);color:#9ccbff}
 .dark .xray-cpoe .xr-context-top .xr-payment-pill{border-color:#3f6b30;background:rgba(103,194,58,.14);color:#a6e08a}

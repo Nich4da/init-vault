@@ -39,6 +39,12 @@ assert(source.includes("const RECEIVED_STATUSES = ['accepted', 'prepared', 'disp
   'Worklist/Accession dispatch semantics remain unchanged')
 assert(source.includes("const RESULT_COLLECTION = 'zdata_xray_result'"),
   'RIS result integration remains unchanged')
+assert(source.includes("from: VISIT_COLLECTION"),
+  'queue tracking validates the parent Visit instead of trusting a cross-midnight Visit Tran date')
+assert(source.includes("as: '_tracking_today_visit'"),
+  'queue tracking keeps only Visit Tran rows whose real Visit belongs to the requested day')
+assert(source.includes("{ $match: { '_tracking_today_visit.0': { $exists: true } } }"),
+  'cross-midnight transfers for an older VN are excluded from the daily tracking view')
 assert(source.includes("if (action === 'resolve_open_visit')"),
   'existing patient/visit resolution remains')
 assert(source.includes("if (action === 'get_report')"),

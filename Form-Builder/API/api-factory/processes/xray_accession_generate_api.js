@@ -76,13 +76,15 @@ const MODALITY_SEGMENT_ALIAS = {
 }
 
 /* หน่วยงานรังสีที่เข้าหน้าจอนี้ได้ — ต้องตรงกันทั้งสาม Process ของ X-ray
-   ผู้ใช้ยืนยันผัง 2026-09-01:
-     m0900 กลุ่มงานรังสีวิทยา (xray)  = กลุ่มแม่
-       ├─ m0901 งานรังสีวิทยา (clinic) = X-ray ธรรมดา
-       └─ CT    CT scan / CT-MRI SCAN  = CT/MRI
+   ผังเดิม 2026-09-01 เก็บไว้รองรับข้อมูลเก่า และเพิ่ม code ของหน่วยงานที่ active
+   ใน UAT ณ 2026-10-21:
+     m0900 กลุ่มงานรังสีวิทยา (xray) = กลุ่มแม่
+       ├─ m0901, CT                  = code เดิม (legacy)
+       ├─ RA-11, RA-1206, RA-309    = ห้อง X-ray ที่ active
+       └─ CT-MRI                     = ห้อง CT/MRI ที่ active
    นี่เป็น "ประตู" เท่านั้น ไม่ได้กรองข้อมูล — ทุก org ที่ผ่านเข้ามาเห็นรายการรังสี
    ทั้งหมดเหมือนกัน (ผู้ใช้ยืนยัน 2026-09-01 ว่ายังไม่ต้องแยกตาม org) */
-const XRAY_ORGANIZATION_CODES = ['m0900', 'm0901', 'CT']
+const XRAY_ORGANIZATION_CODES = ['m0900', 'm0901', 'CT', 'RA-11', 'RA-1206', 'RA-309', 'CT-MRI']
 
 const valueText = value => {
   if (value == null) return ''

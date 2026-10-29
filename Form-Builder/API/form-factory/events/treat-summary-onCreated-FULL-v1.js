@@ -15,6 +15,8 @@ const s = this.vueState;
 const field = this;
 
 const SUMMARY_PROC = '6a9574cc1812c7078a067299'; // emr-summary-get
+const TS_XRAY_HISTORY_PROC = '6ad58d76481c196fbb339ae8'; // X-ray only; ไม่เปลี่ยน emr-lab-board-get
+const TS_XRAY_RESULT_PDF_REPORT_ID = '6ab2d3e4f5061728394a5b6c'; // Xray result
 
 /* ══ state ════════════════════════════════════════════════════════════════ */
 s.tsPid = null; // person _id ของคนไข้ที่เปิดอยู่
@@ -36,6 +38,14 @@ s.tsXray = [];
 s.tsLoading = false;
 s.tsErr = '';
 s.tsUi = { tab: 'med' };
+s.tsXrayBoardOn = false;
+s.tsXrayBoardLoading = false;
+s.tsXrayBoardError = '';
+s.tsXrayOrders = [];
+s.tsXrayOrderOpen = {};
+s.tsXrayReport = { visible: false, item: null, order: null, room: null };
+s.tsXrayHistory = { visible: false, item: null, order: null, limit: 5 };
+s.tsXrayPdfReportList = [{ reportId: TS_XRAY_RESULT_PDF_REPORT_ID, label: 'PDF', type: 'pdf' }];
 
 // ทุกหัวข้อมาจาก visit ใบเดียวกัน (พี่เคาะ: เอาแค่ใบล่าสุด) ⇒ ที่มาโชว์ที่หัวการ์ดที่เดียวพอ
 s.tsFrom = null;
@@ -60,6 +70,13 @@ s.tsFromText = (f) => {
 	return f.vn ? d + ' · VN ' + f.vn : d;
 };
 
+// initCraft อาจสร้าง vue-ui ก่อน parent Form พร้อม: เลือก connector แบบ fail-safe
+s.tsApi = () => {
+	const form = field.getFormRef && field.getFormRef();
+	const api = (form && form.userState) || field.globalUserState || null;
+	return api && typeof api.runProcess === 'function' ? api : null;
+};
+
 /* ══ โหลดสรุป ═════════════════════════════════════════════════════════════
    เรียกจาก opd_card.setTran (เปลี่ยนคนไข้) · onMounted (เข้าแท็บ EMR ทีหลัง) */
 s.tsLoad = (personId, hn, curVisitId) => {
@@ -79,14 +96,25 @@ s.tsLoad = (personId, hn, curVisitId) => {
 	s.tsHasPlan = false;
 	s.tsLab = [];
 	s.tsXray = [];
+	s.tsXrayBoardOn = false;
+	s.tsXrayBoardLoading = false;
+	s.tsXrayBoardError = '';
+	s.tsXrayOrders = [];
+	s.tsXrayOrderOpen = {};
+	s.tsXrayReport = { visible: false, item: null, order: null, room: null };
+	s.tsXrayHistory = { visible: false, item: null, order: null, limit: 5 };
 	s.tsErr = '';
 	if (!s.tsPid && !s.tsHn) return;
 
-	const form = field.getFormRef();
-	if (!form) return;
+	const api = s.tsApi();
+	if (!api) {
+		s.tsErr = 'ไม่พบ API Process connector';
+		return;
+	}
 
 	s.tsLoading = true;
-	form.userState.runProcess(
+	if (s.tsXrayBoardLoad && s.tsCurVisit) s.tsXrayBoardLoad(s.tsCurVisit);
+	api.runProcess(
 		SUMMARY_PROC,
 		{ person_id: s.tsPid, hn: s.tsHn, visit_id: s.tsCurVisit },
 		(res) => {
@@ -117,12 +145,8 @@ s.tsLoad = (personId, hn, curVisitId) => {
 			s.tsAbsorb(d); // แท็บ Lab/X-Ray แบบจัดกลุ่ม — ดูบล็อกท้ายไฟล์
 			if (d.lab_form_id) s.tsLabFormId = d.lab_form_id;
 			if (d.xray_form_id) s.tsXrayFormId = d.xray_form_id;
-			// เปิดแท็บที่มีของให้ก่อน — ค่าเริ่มเป็นยา (ตัวที่หมอดูบ่อยสุด) ไม่มียาค่อยตกไป Lab แล้ว X-ray
-			if (s.tsMeds.length) s.tsUi.tab = 'med';
-			else if (s.tsLab.length) s.tsUi.tab = 'lab';
-			else if (s.tsXray.length) s.tsUi.tab = 'xray';
-			else if (s.tsOther.length) s.tsUi.tab = 'proc';
-			else s.tsUi.tab = 'med';
+			// ผู้ใช้ยืนยัน 19/10/2569: เปิดแท็บยาเป็นค่าเริ่มต้นเสมอ ไม่สลับตามข้อมูลที่มี
+			s.tsUi.tab = 'med';
 		},
 		(err) => {
 			s.tsLoading = false;
@@ -223,6 +247,9 @@ s.tsOpenVisit = () => {
                   ถ้ามีหลายชุด (เช่น Gram stain แยกใบ) ให้หยุด ไม่เดาเลือกผลให้ */
 const LAB_RESULT_PDF_REPORT_ID = '6aa8f5a8b92813319a86ea11';
 const MICRO_RESULT_PDF_REPORT_ID = '6ab1c2d3e4f5061728394a5b';
+// ฟอร์ม UI อ่านผล LAB แบบตารางประวัติที่ผู้ใช้สร้างและเป็นเจ้าของ
+// ใช้เฉพาะปุ่ม "ดูผลทั้งใบ" ใน EMR; ห้ามนำไปแทน popup ของ LAB Worklist/X-ray
+const TS_LAB_RESULT_HISTORY_FORM_ID = '6ad789a39291822e416c02e7';
 const MICRO_SECTIONS = ['MB'];
 const TS_LAB_BOARD_PROC = '6ab3be31cec3020e8562a2c9'; // action=open_sensitive ใช้ process เดียวกับ board
 
@@ -743,6 +770,33 @@ s.tsXrClamp = (key) =>
 // เปิดผลทั้งใบใน popup อ่านอย่างเดียวแบบเดียวกับ LAB Worklist
 // 🔴 ห้าม fallback ไปเปิด Result Item ตัวแรก — นั่นคือหน้ากรอก/แก้ไขผลของห้อง LAB ไม่ใช่หน้าดูผลของ EMR
 s.tsOrderTarget = (o) => !!(o && ((Array.isArray(o.rows) && o.rows.length) || (Array.isArray(o.locked_rows) && o.locked_rows.some((row) => row.reauth_required))));
+s.tsOpenResultForm = (o) => {
+	const order = o || {};
+	if (!s.tsOrderTarget(order)) return;
+	const form = field.getFormRef && field.getFormRef();
+	if (!form || typeof form.openForm !== 'function') return;
+	const raw = order._raw || {};
+	const visit = s.tsVisit || {};
+	// The card can show today's LAB orders while `tsVisit` still points to the
+	// previous treatment summary. The selected order therefore owns visit_id.
+	const visitId = String(raw.visit_id || order.visit_id || visit.visit_id || visit._id || visit.value || visit.data_id || '');
+	const sourceOrderId = String(order.source_order_id || raw.source_order_id || '');
+	if (!visitId || !sourceOrderId) {
+		if (typeof field.notify === 'function') field.notify('เปิดผล LAB ไม่ได้: ไม่พบ visit_id หรือ source_order_id', 'warning', 3000);
+		return;
+	}
+	const ctx = Object.assign({}, form.formParams || {}, {
+		visit_id: visitId,
+		source_order_id: sourceOrderId,
+		section_code: String(order.section_code || raw.section_code || '').toUpperCase(),
+		lab_no: String(order.lab_no || raw.lab_no || ''),
+	});
+	form.openForm(TS_LAB_RESULT_HISTORY_FORM_ID, '', '', ctx, {
+		readonly: true,
+		params: ctx,
+		cancelCallback: () => form.subFormClose(),
+	});
+};
 s.tsOpenOrder = (o) => {
 	let order = o;
 	if (!s.tsOrderTarget(order)) return;
@@ -1052,4 +1106,132 @@ s.tsLoad = (personId, hn, curVisitId) => {
 	s.tsReauth = { visible: false, loading: false, error: '', username: '', password: '', purpose: 'ดูแลรักษาผู้ป่วย', mode: 'view', placement: '', order: null, item: null };
 	s.tsPdfGrant = { orderKey: '', placement: '', token: '', expiresAt: 0 };
 	return tsLoadBase(personId, hn, curVisitId);
+};
+
+/* ══ X-ray current-Visit card · isolated read-only board ════════════════ */
+const TS_XRAY_VIEWER_BASE = 'http://localhost:9090';
+const TS_XRAY_VIEWER_ENABLED = true;
+s.tsXrayOrderKey = (order) => String((order && (order.order_id || order.order_number)) || '');
+s.tsXrayOrderIsOpen = (order) => !!s.tsXrayOrderOpen[s.tsXrayOrderKey(order)];
+s.tsXrayToggleOrder = (order) => {
+	const key = s.tsXrayOrderKey(order);
+	if (!key) return;
+	s.tsXrayOrderOpen = Object.assign({}, s.tsXrayOrderOpen, { [key]: !s.tsXrayOrderOpen[key] });
+};
+s.tsXrayRoomLabel = (room) => {
+	const modality = String((room && room.modality) || '');
+	const modalityLabel = String((room && room.modality_label) || '');
+	const roomCode = String((room && room.room_code) || '');
+	return [modality && modality !== modalityLabel ? modality + (modalityLabel ? ' · ' + modalityLabel : '') : (modalityLabel || modality), roomCode].filter(Boolean).join(' · ');
+};
+s.tsXrayOrderResultedAt = (order) => {
+	const times = [];
+	(Array.isArray(order && order.rooms) ? order.rooms : []).forEach((room) => {
+		(Array.isArray(room && room.items) ? room.items : []).forEach((item) => {
+			const value = String((item && item.resulted_at) || '');
+			if (value) times.push(value);
+		});
+	});
+	times.sort();
+	return times.length ? times[times.length - 1] : '';
+};
+s.tsXrayItemHasResult = (item) => !!(item && /^[a-f0-9]{24}$/i.test(String(item.result_id || '')));
+s.tsXrayResultOrders = (orders) => (Array.isArray(orders) ? orders : []).map((order) => {
+	const rooms = (Array.isArray(order && order.rooms) ? order.rooms : []).map((room) => {
+		const items = (Array.isArray(room && room.items) ? room.items : []).filter(s.tsXrayItemHasResult);
+		return items.length ? Object.assign({}, room, { items, item_count: items.length }) : null;
+	}).filter(Boolean);
+	const items = rooms.reduce((rows, room) => rows.concat(room.items), []);
+	return items.length ? Object.assign({}, order, {
+		rooms,
+		item_count: items.length,
+		is_final: items.every((item) => !!item.is_final),
+	}) : null;
+}).filter(Boolean);
+s.tsXrayPdfReady = (item) => !!(TS_XRAY_RESULT_PDF_REPORT_ID && item && /^[a-f0-9]{24}$/i.test(String(item.result_id || '')));
+s.tsXrayPdfParams = (item) => (s.tsXrayPdfReady(item) ? { dataid: String(item.result_id) } : {});
+s.tsXrayViewerUrl = (item) => {
+	if (!TS_XRAY_VIEWER_BASE) return '';
+	const accession = String((item && item.accession_no) || '').trim();
+	const hn = String(s.tsHn || '').trim();
+	const mode = accession ? 'AN' : hn ? 'PID' : '';
+	if (!mode) return '';
+	return TS_XRAY_VIEWER_BASE + (TS_XRAY_VIEWER_BASE.indexOf('?') >= 0 ? '&' : '?') + 'QueryMode=' + mode + '&Value=' + encodeURIComponent(accession || hn);
+};
+s.tsXrayViewerHref = (item) => (TS_XRAY_VIEWER_ENABLED ? s.tsXrayViewerUrl(item) : '');
+s.tsXrayImageHint = (item) => {
+	if (!TS_XRAY_VIEWER_ENABLED) return 'ดูภาพ · RIS ยังไม่เปิดลิงก์';
+	const accession = String((item && item.accession_no) || '').trim();
+	return accession ? 'เปิดภาพ Accession No. ' + accession + ' ในโปรแกรม RIS' : (s.tsHn ? 'เปิดภาพทั้งหมดด้วย HN ' + s.tsHn : 'ไม่มี Accession No. หรือ HN สำหรับเปิดภาพ');
+};
+s.tsXrayOpenImage = (item) => {
+	const url = s.tsXrayViewerUrl(item);
+	if (!TS_XRAY_VIEWER_ENABLED || !url) {
+		if (field.notify) field.notify(s.tsXrayImageHint(item), 'warning', 3200);
+		return;
+	}
+	const win = typeof window !== 'undefined' && window.open ? window.open(url, '_blank') : null;
+	if (!win) {
+		if (field.notify) field.notify('เบราว์เซอร์บล็อกแท็บ RIS กรุณาอนุญาต pop-up แล้วกดใหม่', 'warning', 4800);
+		return;
+	}
+	try { win.opener = null; } catch (error) {}
+};
+s.tsXrayOpenReport = (order, item, room) => {
+	if (!item || !String(item.result_text || '').trim()) {
+		if (field.notify) field.notify('รายการนี้ยังไม่มีผลอ่านจาก RIS', 'warning', 2800);
+		return;
+	}
+	s.tsXrayReport = { visible: true, order: order || null, item, room: room || null };
+};
+s.tsXrayCloseReport = () => {
+	s.tsXrayReport = { visible: false, order: null, item: null, room: null };
+};
+s.tsXrayOpenHistory = (order, item) => {
+	if (!item) return;
+	s.tsXrayHistory = { visible: true, order: order || null, item, limit: 5 };
+};
+s.tsXrayCloseHistory = () => {
+	s.tsXrayHistory = { visible: false, order: null, item: null, limit: 5 };
+};
+s.tsXraySetHistoryLimit = (value) => {
+	s.tsXrayHistory.limit = Math.max(1, Math.min(5, Number(value) || 5));
+};
+s.tsXrayHistoryItems = () => {
+	const items = Array.isArray(s.tsXrayHistory && s.tsXrayHistory.item && s.tsXrayHistory.item.same_exam_history)
+		? s.tsXrayHistory.item.same_exam_history
+		: [];
+	return items.slice(0, Math.max(1, Math.min(5, Number(s.tsXrayHistory && s.tsXrayHistory.limit) || 5)));
+};
+s.tsXrayBoardLoad = (visitId) => {
+	const api = s.tsApi();
+	if (!visitId) return;
+	if (!api) {
+		s.tsXrayBoardError = 'ไม่พบ API Process connector';
+		return;
+	}
+	if (String(TS_XRAY_HISTORY_PROC).indexOf('__') === 0) return; // fallback UI เดิมยังทำงาน
+	s.tsXrayBoardLoading = true;
+	s.tsXrayBoardError = '';
+	api.runProcess(
+		TS_XRAY_HISTORY_PROC,
+		{ visit_id: String(visitId) },
+		(res) => {
+			const data = (res && res.data) || {};
+			s.tsXrayBoardLoading = false;
+			if (data.success === false) {
+				s.tsXrayBoardError = data.message || 'อ่านผล X-ray ไม่สำเร็จ';
+				return;
+			}
+			s.tsXrayBoardOn = true;
+			// Treat Summary แสดงเฉพาะผลตรวจ; ใบสั่ง sent/ready ที่ยังไม่มีผลอยู่ในการ์ดใบสั่งตรวจแล้ว
+			s.tsXrayOrders = s.tsXrayResultOrders(data.orders);
+			// ค่าเริ่มต้นพับทุกใบ ผู้ใช้กดกางเฉพาะ Order ที่ต้องการดู
+			s.tsXrayOrderOpen = {};
+		},
+		(err) => {
+			s.tsXrayBoardLoading = false;
+			s.tsXrayBoardError = 'อ่านผล X-ray ไม่สำเร็จ: ' + ((err && err.message) || err);
+		}
+	);
 };

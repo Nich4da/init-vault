@@ -11,7 +11,7 @@
  *
  * Input:
  * {
- *   action?: 'list' | 'queue_tracking' | 'resolve_open_visit' | 'get_report' | 'save_manual_report' | 'set_staff' | 'cancel_order',
+ *   action?: 'list' | 'queue_tracking' | 'resolve_open_visit' | 'get_report' | 'save_manual_report' | 'set_staff' | 'get_reason_options' | 'check_cancel_finance' | 'cancel_order',
  *   // get_report อ่านจาก zdata_xray_result ด้วย AccessionNo (RIS เขียนเข้ามา)
  *   organization_code?: string,       // App Organization; ต้องตรงกับ unit ของผู้ใช้
  *   modality?: string | string[],     // code ของเครื่อง (array/CSV/ค่าเดี่ยว) — ตัวกรองการแสดงผลเท่านั้น
@@ -75,6 +75,10 @@ const RESULT_COLLECTION = 'zdata_xray_result'
    🔴 ตารางผลอ่านเดิมไม่ถูกแตะเลย — action list และฟิลด์ "ฉบับปัจจุบัน" ทั้งหมด
       ยังอ่านจาก zdata_xray_result เหมือนเดิมทุกประการ */
 const RESULT_LOG_COLLECTION = 'zdata_zdata_xray_result_log'
+/* ใบบันทึกการใช้สารทึบรังสี · Form 6aa2424809c1bad08952da71
+   อ่านอย่างเดียวและผูกระดับรายการด้วย item_id ที่ฟอร์มบันทึกเป็นข้อความ
+   ข้อมูลนี้ใช้แสดงชิป/เปิดใบเดิมเท่านั้น ห้ามนำไปคำนวณสถานะหรือสิทธิ์ของรายการ */
+const CONTRAST_COLLECTION = 'zdata_xray_contrast_media'
 const RESULT_FORM_ID = '6aa180f009c1bad08952da58'
 const RESULT_LOG_FORM_ID = '6a860980f851000f28e44ab0'
 const RESULT_COUNTER_COLLECTION = 'xray_api_counters'
@@ -102,6 +106,11 @@ const ASSESSMENT_COLLECTION = 'zdata_patient_assessment'
 /* บันทึกการยกเลิกของ Order — item_ids ระบุชุดที่กำลังยกเลิก และ history
    เก็บชุดก่อนหน้าเมื่อยกเลิกบางรายการใน Order เดิมซ้ำ */
 const ORDER_CANCELLATION_COLLECTION = 'zdata_xray_order_cancellation'
+/* Master เหตุผลปฏิเสธ X-ray และ Finance collections ใช้ contract เดียวกับ LAB.
+   Worklist อ่าน master อย่างเดียว; การแก้รายการทำผ่าน Form Settings แยก. */
+const REASON_SETTINGS_COLLECTION = 'zdata_xray_reject_reason_settings'
+const BILL_COLLECTION = 'zdata_fa_bill'
+const BILL_ITEM_COLLECTION = 'zdata_fa_bill_item'
 /* Process เดียวกับปุ่มส่งเข้าเครื่อง: HIS → xray_api_order → Envision GetOrder.
    ผู้ใช้ยืนยัน 2026-09-18 ว่ายกเลิกด้วย Order JSON เดิมและ IsDeleted:true */
 const RIS_ORDER_PROCESS_ID = '6a8f1ef87632d182ef6914fe'
@@ -145,7 +154,7 @@ const RADIOLOGY_NAME_HINTS = ['รังสี', 'เอกซเรย์', '�
  * (ผู้ใช้ยืนยัน 2026-09-01 ว่ายังไม่ต้องแยกให้แต่ละ org เห็นเฉพาะงานตัวเอง)
  * เทียบแบบไม่สนตัวพิมพ์ · ปล่อยว่าง = ปฏิเสธทุก Organization (fail-closed)
  */
-const XRAY_ORGANIZATION_CODES = ['m0900', 'm0901', 'CT']
+const XRAY_ORGANIZATION_CODES = ['m0900', 'm0901', 'CT', 'RA-11', 'RA-1206', 'RA-309', 'CT-MRI']
 /* ทุกห้องที่จัดอยู่ใต้กลุ่มรังสีต้องใช้คิวกลางชุดเดียวกัน รวมถึงหน่วย/ห้องที่เพิ่มภายหลัง
    (เช่น Organization RA-301 และ Room US1/US2/RF/Serv) จึง resolve ทั้งสาย
    unit_parent.value และ zdata_room.unit_id.value ห้ามอนุญาตด้วยการเดาจากชื่อ */
@@ -504,6 +513,178 @@ if (!organizationAllowed) {
   return blocked
 }
 
+/* ── สิทธิ์ Action ระดับหน่วย ─────────────────────────────────────────────
+   ทุกหน่วยรังสียังมองเห็น Worklist ชุดเดียวกัน แต่เขียนได้เมื่ออย่างน้อยหนึ่งข้อเป็นจริง:
+   1) หน่วยปัจจุบันเป็นหน่วยรังสีที่สร้าง Order (`order.xunitx`)
+   2) คิวล่าสุดของ Visit ถูกส่งมาที่หน่วยปัจจุบัน (`zdata_visit_tran`)
+
+   Room ถูก normalize กลับเป็นหน่วยแม่ก่อนเปรียบเทียบ เช่น X11 → RA-11.
+   สารทึบรังสีไม่ใช้ guard นี้ตามข้อกำหนดผู้ใช้ 2026-10-19. */
+const roomParentByCode = new Map()
+const roomParentById = new Map()
+roomRows.forEach(row => {
+  const parentId = valueText(row && row.unit_id && row.unit_id.value).trim().toUpperCase()
+  const parentCode = organizationCodeById.get(parentId) || ''
+  const roomCode = valueText(row && row.code).trim().toUpperCase()
+  const roomId = valueText(row && row._id).trim().toUpperCase()
+  if (roomCode && parentCode) roomParentByCode.set(roomCode, parentCode)
+  if (roomId && parentCode) roomParentById.set(roomId, parentCode)
+})
+
+const normalizeActionUnitCode = raw => {
+  let code = valueText(raw).trim().toUpperCase()
+  if (!code) return ''
+  code = organizationCodeById.get(code) || roomParentById.get(code) || code
+  return roomParentByCode.get(code) || code
+}
+
+const embeddedUnitCode = reference => {
+  if (!reference) return ''
+  if (typeof reference === 'object') {
+    const explicit = valueText(reference.code || reference.unit_code).trim()
+    if (explicit) return normalizeActionUnitCode(explicit)
+    const id = valueText(reference.value || reference._id || reference.id).trim()
+    if (id) return normalizeActionUnitCode(id)
+  }
+  return normalizeActionUnitCode(reference)
+}
+
+const actionUnitLabel = code => {
+  const normalized = normalizeActionUnitCode(code)
+  const row = organizationDirectory.find(candidate =>
+    valueText(candidate && candidate.code).trim().toUpperCase() === normalized)
+  return [normalized, valueText(row && row.name).trim()].filter(Boolean).join(' ')
+}
+
+const currentActionUnitCode = normalizeActionUnitCode(organizationCode)
+const actionQueueStatuses = ['waiting', 'called', 'in_progress']
+
+const orderCreatorActionUnit = order => embeddedUnitCode(order && order.xunitx) ||
+  normalizeActionUnitCode(order && order.origin_unit)
+const orderVisitActionId = order => valueText(
+  (order && order.visit && order.visit.visit_id) || (order && order.xparentx)
+).trim()
+
+const readLatestActionQueues = async visitIds => {
+  const ids = Array.from(new Set((Array.isArray(visitIds) ? visitIds : [])
+    .map(value => valueText(value).trim()).filter(Boolean)))
+  if (!ids.length) return new Map()
+  const candidates = []
+  ids.forEach(id => {
+    candidates.push(id)
+    if (/^[a-f0-9]{24}$/i.test(id)) candidates.push(app.dbObjectId(id))
+  })
+  let rows = []
+  try {
+    rows = await app.db.collection(VISIT_TRAN_COLLECTION).find({
+      xrstatx: { $nin: [0, 3] },
+      vtran_status: { $in: actionQueueStatuses },
+      'vid.value': { $in: candidates }
+    }).sort({ checkin_at: -1, updated_at: -1, _id: -1 }).toArray()
+  } catch (error) {
+    rows = []
+  }
+  const latest = new Map()
+  rows.forEach(row => {
+    const visitId = valueText(row && row.vid && row.vid.value).trim()
+    if (visitId && !latest.has(visitId)) latest.set(visitId, row)
+  })
+  return latest
+}
+
+const actionAccessForOrder = (order, queueByVisit) => {
+  const creatorUnitCode = orderCreatorActionUnit(order)
+  const visitId = orderVisitActionId(order)
+  const queue = queueByVisit && queueByVisit.get(visitId)
+  const queueHolderUnitCode = embeddedUnitCode(queue && (queue.room_to || queue.unit_to)) ||
+    embeddedUnitCode(queue && queue.unit_to)
+  const canAction = Boolean(currentActionUnitCode && (
+    currentActionUnitCode === creatorUnitCode || currentActionUnitCode === queueHolderUnitCode
+  ))
+  const hn = valueText(order && order.patient && order.patient.hn).trim() ||
+    valueText(order && order.vid && order.vid.pid && order.vid.pid.hn).trim()
+  const queueLabel = valueText(queue && queue.unit_to && queue.unit_to.label).trim() ||
+    actionUnitLabel(queueHolderUnitCode)
+  const creatorLabel = actionUnitLabel(creatorUnitCode)
+  const facts = []
+  if (queueHolderUnitCode) facts.push('คิวของ HN ' + (hn || '-') + ' อยู่ที่ ' + (queueLabel || queueHolderUnitCode))
+  if (creatorUnitCode) facts.push('Order นี้ถูกสร้างที่ ' + (creatorLabel || creatorUnitCode))
+  const lockReason = canAction
+    ? ''
+    : (facts.length
+        ? facts.join(' · ') + ' · ห้องนี้ดูข้อมูลได้อย่างเดียว'
+        : 'ไม่สามารถยืนยันหน่วยที่ถือคิวหรือหน่วยที่สร้าง Order ได้ · ห้องนี้ดูข้อมูลได้อย่างเดียว')
+  return {
+    can_action: canAction,
+    current_unit_code: currentActionUnitCode,
+    creator_unit_code: creatorUnitCode,
+    creator_unit_label: creatorLabel,
+    queue_holder_unit_code: queueHolderUnitCode,
+    queue_holder_unit_label: queueLabel,
+    lock_reason: lockReason
+  }
+}
+
+const requireOrderActionAccess = async order => {
+  const visitId = orderVisitActionId(order)
+  const queueByVisit = await readLatestActionQueues(visitId ? [visitId] : [])
+  const access = actionAccessForOrder(order, queueByVisit)
+  return access.can_action
+    ? { success: true, access }
+    : { success: false, error: 'action_unit_denied', message: access.lock_reason, data: { action_access: access } }
+}
+
+/* Master-backed rejection choices.  This is read-only and does not share the
+   LAB reason table because the two departments own different vocabularies. */
+if (action === 'get_reason_options') {
+  const requestedReasonType = valueText(params.reason_type || 'ITEM_REJECT').trim().toUpperCase()
+  if (!['ITEM_REJECT', 'ORDER_CANCEL'].includes(requestedReasonType)) {
+    return { success: false, error: 'reason_type_invalid', message: 'ประเภทเหตุผล X-ray ไม่ถูกต้อง' }
+  }
+  let reasonRows = []
+  try {
+    const found = await app.dbFindAll({
+      from: REASON_SETTINGS_COLLECTION,
+      nosql: {
+        type: 'query',
+        collection: REASON_SETTINGS_COLLECTION,
+        query: { xrstatx: { $nin: [0, 3] } },
+        projection: { reason_code: 1, reason_text: 1, reason_type: 1, is_active: 1, created_at: 1 },
+        limit: 500
+      }
+    }, false, false)
+    if (!found || found.success === false) {
+      return { success: false, error: 'reason_settings_read_failed', message: 'อ่านรายการเหตุผลปฏิเสธ X-ray ไม่สำเร็จ' }
+    }
+    reasonRows = found.reply && Array.isArray(found.reply.data) ? found.reply.data : []
+  } catch (error) {
+    return { success: false, error: 'reason_settings_read_failed', message: 'อ่านรายการเหตุผลปฏิเสธ X-ray ไม่สำเร็จ' }
+  }
+  const activeValue = value => value === true || value === 1 ||
+    ['true', '1'].includes(valueText(value).trim().toLowerCase())
+  const seen = {}
+  const options = reasonRows
+    .filter(row => {
+      if (!row || !activeValue(row.is_active)) return false
+      const rowType = valueText(row.reason_type || 'BOTH').trim().toUpperCase()
+      return rowType === 'BOTH' || rowType === requestedReasonType
+    })
+    .sort((left, right) => {
+      const createdDiff = valueText(left && left.created_at).localeCompare(valueText(right && right.created_at))
+      if (createdDiff) return createdDiff
+      return valueText(left && left._id).localeCompare(valueText(right && right._id))
+    })
+    .reduce((rows, row) => {
+      const value = valueText(row.reason_code).trim()
+      const label = valueText(row.reason_text).trim()
+      if (!value || !label || seen[value]) return rows
+      seen[value] = true
+      rows.push({ value, label, reason_type: valueText(row.reason_type || 'BOTH').trim().toUpperCase() })
+      return rows
+    }, [])
+  return { success: true, data: { options, reason_type: requestedReasonType, source: 'xray_reject_reason_settings' } }
+}
+
 /* ── เปิด CPOE จาก HN/เลขบัตรที่ค้นหรือสแกน — อ่าน Visit วันนี้เท่านั้น ───
    ใช้นิยาม Visit เปิดเดียวกับ LAB: คิว Visit Tran สถานะเปิดก่อน แล้ว fallback
    Visit วันนี้เมื่อไม่มีคิวของ HN นี้ ไม่ใช้ใบสั่ง X-ray เป็นตัวตัดสิน เพราะผู้ป่วย
@@ -552,6 +733,7 @@ if (action === 'resolve_open_visit') {
       return found.reply && Array.isArray(found.reply.data) ? found.reply.data : []
     }
     let visitIds = []
+    let visitTranRows = []
     try {
       const tranFound = await app.dbFindAll({
         from: VISIT_TRAN_COLLECTION,
@@ -559,13 +741,15 @@ if (action === 'resolve_open_visit') {
           query: { xrstatx: { $nin: [0, 3] },
             vtran_status: { $in: ['waiting', 'called', 'in_progress'] },
             $or: [{ visit_date: day }, { checkin_at: day }] },
-          projection: { 'vid.value': 1 }, limit: 2000 }
+          projection: { _id: 1, 'vid.value': 1, 'vid.visit_priority': 1,
+            vtran_status: 1, visit_priority: 1, unit_to: 1, room_to: 1 }, limit: 2000 }
       }, false, false)
       if (tranFound && tranFound.success !== false) {
         const trans = tranFound.reply && Array.isArray(tranFound.reply.data) ? tranFound.reply.data : []
+        visitTranRows = trans
         visitIds = [...new Set(trans.map(row => valueText(row && row.vid && row.vid.value).trim()).filter(Boolean))]
       }
-    } catch (error) { visitIds = [] }
+    } catch (error) { visitIds = []; visitTranRows = [] }
     let visits = []
     if (visitIds.length) {
       const ids = visitIds.flatMap(id => {
@@ -577,8 +761,22 @@ if (action === 'resolve_open_visit') {
     }
     if (!visits.length) visits = await readVisits({ xrstatx: { $nin: [0, 3] },
       visit_date: day, visit_status: { $ne: false } })
-    const visit = visits.filter(row => valueText(row && row.pid && row.pid.hn).trim() === hn)
+    let visit = visits.filter(row => valueText(row && row.pid && row.pid.hn).trim() === hn)
       .sort((a, b) => valueText(a.vn).localeCompare(valueText(b.vn))).pop() || null
+    if (visit) {
+      const visitId = valueText(visit._id || visit.value).trim()
+      const trans = visitTranRows.filter(row => valueText(row && row.vid && row.vid.value).trim() === visitId)
+      visit = { ...visit, visit_tran_count: trans.length, visit_tran_ambiguous: trans.length > 1 }
+      /* ไม่เดาว่าจะย้ายคิวใดเมื่อ Visit เดียวมีหลายคิวเปิดอยู่ */
+      if (trans.length === 1) {
+        const tran = trans[0] || {}
+        visit.visit_tran_id = valueText(tran._id).trim()
+        visit.current_unit = tran.unit_to || null
+        visit.current_room = tran.room_to || null
+        visit.visit_tran_status = valueText(tran.vtran_status).trim()
+        visit.visit_priority = valueText(tran.visit_priority || (tran.vid && tran.vid.visit_priority)).trim() || '10'
+      }
+    }
     return { success: true, data: { hn, visit } }
   } catch (error) {
     return { success: false, message: valueText(error && error.message) || 'ตรวจสอบ Visit วันนี้ไม่สำเร็จ' }
@@ -663,6 +861,8 @@ if (action === 'save_manual_report') {
   if (!order || [0, 3].includes(Number(order.xrstatx))) {
     return { success: false, error: 'order_not_found', message: 'ไม่พบ Order ของรายการตรวจนี้' }
   }
+  const manualAccess = await requireOrderActionAccess(order)
+  if (!manualAccess.success) return manualAccess
 
   /* ผล manual ต้องอ้าง Exam เดียวกับใบที่เคยส่งจริงตาม AccessionNo ก่อนเสมอ
      เพื่อรองรับทั้งใบใหม่ที่ใช้ Radio Exam code และใบเก่าที่เคยใช้ CPOE item_code.
@@ -1073,6 +1273,18 @@ if (action === 'set_staff') {
   const item = await itemCollection.findOne({ _id: app.dbObjectId(itemId), xrstatx: active })
   if (!item) return { success: false, error: 'item_not_found', message: 'ไม่พบรายการที่ต้องการบันทึก' }
 
+  const staffOrderRef = valueText(
+    (item.order_id && item.order_id.value) || item.order_ref_id || item.xparentx
+  ).trim()
+  const staffOrder = /^[a-f0-9]{24}$/i.test(staffOrderRef)
+    ? await app.db.collection(ORDER_COLLECTION).findOne({ _id: app.dbObjectId(staffOrderRef), xrstatx: active })
+    : null
+  if (!staffOrder) {
+    return { success: false, error: 'order_not_found', message: 'ไม่พบ Order ของรายการที่ต้องการบันทึก' }
+  }
+  const staffAccess = await requireOrderActionAccess(staffOrder)
+  if (!staffAccess.success) return staffAccess
+
   const serviceType = valueText(
     (item.service_type && item.service_type.value != null) ? item.service_type.value : item.service_type
   ).trim().toLowerCase()
@@ -1192,6 +1404,8 @@ if (action === 'retest_items' || action === 'retest_order') {
 
   const order = await orderCollection.findOne({ _id: orderObjectId, xrstatx: active })
   if (!order) return { success: false, error: 'order_not_found', message: 'ไม่พบ CPOE Order ที่ต้องการตรวจใหม่' }
+  const retestAccess = await requireOrderActionAccess(order)
+  if (!retestAccess.success) return retestAccess
   const orderNumber = valueText(order.order_number).trim()
 
   const orderLinks = [orderObjectId, orderId]
@@ -1256,6 +1470,16 @@ if (action === 'retest_items' || action === 'retest_order') {
         cancelled_by: '',
         cancel_type: '',
         cancellation_record_id: '',
+        /* รายการอาจมาจากปุ่มปฏิเสธ หรือเคยผ่านปฏิเสธก่อนยกเลิกในรอบถัดมา
+           ตรวจใหม่ต้องเริ่ม attempt ใหม่จริง ๆ จึงห้ามทิ้งเหตุผล/ผู้ปฏิเสธไว้บน item
+           หลักฐานเดิมยังอยู่ใน zdata_xray_reject และ retest_log ด้านล่าง */
+        reject_reason_code: '',
+        reject_reason_detail: '',
+        reject_reason: '',
+        rejected_at: '',
+        rejected_by: '',
+        rejection_record_id: '',
+        rejected_organization_code: '',
         retest_at: now,
         retest_by: actorAudit,
         updated_at: now,
@@ -1266,6 +1490,9 @@ if (action === 'retest_items' || action === 'retest_order') {
           from_status: status,
           to_status: 'sent',
           cleared_accession_no: previousAccession,
+          cleared_reject_reason_code: valueText(item.reject_reason_code).trim(),
+          cleared_reject_reason: valueText(item.reject_reason).trim(),
+          cleared_rejection_record_id: valueText(item.rejection_record_id).trim(),
           at: now,
           by: actorAudit
         }
@@ -1303,14 +1530,18 @@ if (action === 'retest_items' || action === 'retest_order') {
     const reopenedIds = new Set(targets.map(item => valueText(item._id).toLowerCase()))
     const stillCancelled = xrayItems.some(item => !reopenedIds.has(valueText(item._id).toLowerCase()) &&
       terminalStatuses.includes(valueText(item.current_status).trim().toLowerCase()))
-    const stamped = await cancellationCollection.updateOne(
-      { _id: orderObjectId, xrstatx: active },
-      {
-        $set: { cancel_status: stillCancelled ? 'applied' : 'reopened', reopened_at: now, reopened_by: actorAudit, updated_at: now, updated_by: actorAudit },
-        $push: { reopen_log: { at: now, by: actorAudit, item_ids: targets.map(item => valueText(item._id)), reopened_item_count: reopened } }
-      }
-    )
-    auditSyncPending = !stamped || Number(stamped.matchedCount) !== 1
+    /* รายการที่มาจาก "ปฏิเสธ" ไม่มี Order cancellation record เป็นเรื่องปกติ
+       ห้ามตีความว่า audit ค้าง; อัปเดตเฉพาะเมื่อมี cancellation audit จริงเท่านั้น */
+    if (auditBefore) {
+      const stamped = await cancellationCollection.updateOne(
+        { _id: orderObjectId, xrstatx: active },
+        {
+          $set: { cancel_status: stillCancelled ? 'applied' : 'reopened', reopened_at: now, reopened_by: actorAudit, updated_at: now, updated_by: actorAudit },
+          $push: { reopen_log: { at: now, by: actorAudit, item_ids: targets.map(item => valueText(item._id)), reopened_item_count: reopened } }
+        }
+      )
+      auditSyncPending = !stamped || Number(stamped.matchedCount) !== 1
+    }
   } catch (error) {
     auditSyncPending = true
   }
@@ -1335,24 +1566,27 @@ if (action === 'retest_items' || action === 'retest_order') {
   }
 }
 
-if (action === 'cancel_order') {
+if (action === 'cancel_order' || action === 'check_cancel_finance') {
+  const isCancelWrite = action === 'cancel_order'
   const orderId = valueText(params.order_id).trim()
   const requestedOrderNumber = valueText(params.order_number).trim()
   const cancelReason = valueText(params.cancel_reason || params.reason).trim()
+  const cancelReasonCode = valueText(params.cancel_reason_code).trim()
+  const cancelReasonDetail = valueText(params.cancel_reason_detail).trim()
   if (!/^[a-f0-9]{24}$/i.test(orderId)) {
     return { success: false, error: 'invalid_order_id', message: 'order_id ไม่ถูกต้อง' }
   }
-  if (!cancelReason) {
+  if (isCancelWrite && !cancelReason) {
     return { success: false, error: 'cancel_reason_missing', message: 'กรุณาระบุเหตุผลการยกเลิก Order' }
   }
-  if (cancelReason.length > 1000) {
+  if (isCancelWrite && cancelReason.length > 1000) {
     return { success: false, error: 'cancel_reason_too_long', message: 'เหตุผลการยกเลิกต้องไม่เกิน 1000 ตัวอักษร' }
   }
 
   const now = valueText(app.curDate('YYYY-MM-DD HH:mm:ss')).trim()
   const actorCode = valueText(userInfo.employee_code || userInfo.username ||
     (userInfo.account && (userInfo.account.code || userInfo.account.name))).trim()
-  if (!actorCode) {
+  if (isCancelWrite && !actorCode) {
     return { success: false, error: 'actor_missing', message: 'ไม่พบผู้ยกเลิกจากบัญชีผู้ใช้' }
   }
   const actorName = valueText(userInfo.fullname || userInfo.display_name ||
@@ -1366,9 +1600,13 @@ if (action === 'cancel_order') {
   const orderCollection = app.db.collection(ORDER_COLLECTION)
   const itemCollection = app.db.collection(ITEM_COLLECTION)
   const cancellationCollection = app.db.collection(ORDER_CANCELLATION_COLLECTION)
+  const billCollection = app.db.collection(BILL_COLLECTION)
+  const billItemCollection = app.db.collection(BILL_ITEM_COLLECTION)
 
   const order = await orderCollection.findOne({ _id: orderObjectId, xrstatx: active })
   if (!order) return { success: false, error: 'order_not_found', message: 'ไม่พบ CPOE Order ที่ต้องการยกเลิก' }
+  const cancelAccess = await requireOrderActionAccess(order)
+  if (!cancelAccess.success) return cancelAccess
   const orderNumber = valueText(order.order_number).trim()
   if (requestedOrderNumber && requestedOrderNumber !== orderNumber) {
     return { success: false, error: 'order_number_mismatch', message: 'เลขที่ใบสั่งไม่ตรงกับ Order ที่เลือก' }
@@ -1441,6 +1679,107 @@ if (action === 'cancel_order') {
           message: 'Accession ' + valueText(item.accession_no).trim() + ' ผูกกับรายการที่ไม่ได้เลือก — ยังไม่ส่งยกเลิก RIS' }
       }
       risTargets.push({ item: item, accessionNo: valueText(item.accession_no).trim(), label: label })
+    }
+  }
+
+  /* Finance preflight ใช้ item_ids ชุดเดียวกับที่ผู้ใช้เลือกเท่านั้น และทำทั้ง
+     ตอนเปิด dialog กับตอนเขียนจริง เพื่อปิด race ที่มีการออกใบเสร็จระหว่างนั้น. */
+  const financeTerminalItemStatuses = ['cancelled', 'void', 'refunded', 'reversed']
+  const financeTerminalBillStatuses = ['cancelled', 'void', 'refunded', 'reversed']
+  const financeOpenBillStatuses = ['', 'draft', 'issued', 'open', 'pending']
+  const targetFinanceItemIds = cancelTargets.map(item => item._id)
+  const allFinanceBillItems = targetFinanceItemIds.length
+    ? await billItemCollection.find({
+      xrstatx: active,
+      'order_item.value': { $in: targetFinanceItemIds }
+    }).toArray()
+    : []
+  const activeFinanceBillItems = allFinanceBillItems.filter(row => {
+    const status = valueText(row && row.item_status).trim().toLowerCase()
+    return !financeTerminalItemStatuses.includes(status)
+  })
+  const financeBillIds = activeFinanceBillItems
+    .map(row => row && row.bill_id && row.bill_id.value)
+    .filter(Boolean)
+    .filter((value, index, rows) => rows.findIndex(other => valueText(other) === valueText(value)) === index)
+  const financeBills = financeBillIds.length
+    ? await billCollection.find({ _id: { $in: financeBillIds }, xrstatx: active }).toArray()
+    : []
+  const financeBillById = {}
+  financeBills.forEach(bill => { financeBillById[valueText(bill && bill._id)] = bill })
+  const unpaidFinanceBillItems = []
+  const withdrawnFinanceBillItems = []
+  const paidFinanceBillItems = []
+  const unknownFinanceBillItems = []
+  const activeReceiptNumbers = []
+  activeFinanceBillItems.forEach(billItem => {
+    const billId = valueText(billItem && billItem.bill_id && billItem.bill_id.value).trim()
+    const bill = financeBillById[billId]
+    if (!bill) {
+      unknownFinanceBillItems.push(billItem)
+      return
+    }
+    const billStatus = valueText(bill.bill_status).trim().toLowerCase()
+    const receiptNumber = valueText(bill.receipt_number).trim()
+    const isRefund = bill.is_refund === true || ['true', '1'].includes(valueText(bill.is_refund).trim().toLowerCase())
+    if (isRefund || financeTerminalBillStatuses.includes(billStatus)) {
+      withdrawnFinanceBillItems.push(billItem)
+      return
+    }
+    if (billStatus === 'paid' || receiptNumber) {
+      paidFinanceBillItems.push(billItem)
+      if (receiptNumber && !activeReceiptNumbers.includes(receiptNumber)) activeReceiptNumbers.push(receiptNumber)
+      return
+    }
+    if (financeOpenBillStatuses.includes(billStatus)) {
+      unpaidFinanceBillItems.push(billItem)
+      return
+    }
+    unknownFinanceBillItems.push(billItem)
+  })
+
+  let financeStatus = 'not_billed'
+  let financeMessage = 'ยังไม่มีรายการการเงินของ X-ray Item ที่เลือก สามารถยกเลิกได้'
+  let financeCanCancel = true
+  if (paidFinanceBillItems.length) {
+    financeStatus = 'paid_receipt_active'
+    financeCanCancel = false
+    financeMessage = 'พบใบเสร็จที่ยังใช้งานอยู่ กรุณาโทรแจ้งการเงินให้ถอนใบเสร็จก่อน แล้วกดตรวจสอบสถานะการเงินอีกครั้ง'
+  } else if (unknownFinanceBillItems.length) {
+    financeStatus = 'review_required'
+    financeCanCancel = false
+    financeMessage = 'ข้อมูลการเงินของรายการนี้ไม่สมบูรณ์ กรุณาให้การเงินตรวจสอบก่อนยกเลิก'
+  } else if (unpaidFinanceBillItems.length) {
+    financeStatus = 'unpaid'
+    financeMessage = 'รายการยังไม่ชำระเงิน สามารถยกเลิกได้ทันที'
+  } else if (withdrawnFinanceBillItems.length) {
+    financeStatus = 'receipt_withdrawn'
+    financeMessage = 'การเงินถอนใบเสร็จแล้ว สามารถยกเลิกได้'
+  }
+  const financeData = {
+    can_cancel: financeCanCancel,
+    finance_status: financeStatus,
+    finance_message: financeMessage,
+    active_bill_item_count: activeFinanceBillItems.length,
+    unpaid_bill_item_count: unpaidFinanceBillItems.length,
+    withdrawn_bill_item_count: withdrawnFinanceBillItems.length,
+    paid_bill_item_count: paidFinanceBillItems.length,
+    unknown_bill_item_count: unknownFinanceBillItems.length,
+    receipt_numbers: activeReceiptNumbers
+  }
+  if (!isCancelWrite) {
+    return {
+      success: true,
+      data: { order_id: orderId, order_number: orderNumber, item_ids: cancelTargets.map(item => valueText(item._id).trim()), ...financeData },
+      message: financeMessage
+    }
+  }
+  if (!financeCanCancel) {
+    return {
+      success: false,
+      error: financeStatus === 'paid_receipt_active' ? 'finance_receipt_active' : 'finance_state_unknown',
+      data: financeData,
+      message: financeMessage
     }
   }
 
@@ -1561,6 +1900,8 @@ if (action === 'cancel_order') {
       cancel_type: 'xray_order_cancelled',
       cancel_status: 'pending',
       cancel_reason: cancelReason,
+      cancel_reason_code: cancelReasonCode,
+      cancel_reason_detail: cancelReasonDetail,
       cancelled_at: now,
       cancelled_by: actorAudit,
       organization_code: organizationCode,
@@ -1596,6 +1937,8 @@ if (action === 'cancel_order') {
       item_ids: Array.isArray(cancellation.item_ids) ? cancellation.item_ids : [],
       cancel_status: cancellation.cancel_status,
       cancel_reason: cancellation.cancel_reason,
+      cancel_reason_code: cancellation.cancel_reason_code,
+      cancel_reason_detail: cancellation.cancel_reason_detail,
       cancelled_at: cancellation.cancelled_at,
       cancelled_by: cancellation.cancelled_by,
       ris_cancel: cancellation.ris_cancel || null
@@ -1604,7 +1947,8 @@ if (action === 'cancel_order') {
     const nextFields = {
       cancel_status: 'pending', cancel_scope: 'items',
       item_ids: cancelTargets.map(item => valueText(item._id).trim()),
-      cancel_reason: cancelReason, cancelled_at: now, cancelled_by: actorAudit,
+      cancel_reason: cancelReason, cancel_reason_code: cancelReasonCode,
+      cancel_reason_detail: cancelReasonDetail, cancelled_at: now, cancelled_by: actorAudit,
       ris_cancel: null, history: nextHistory, updated_at: now, updated_by: actorAudit
     }
     const reset = await cancellationCollection.updateOne(
@@ -1619,6 +1963,8 @@ if (action === 'cancel_order') {
 
   const cancellationId = valueText(cancellation._id).trim() || orderId
   const authoritativeReason = valueText(cancellation.cancel_reason).trim() || cancelReason
+  const authoritativeReasonCode = valueText(cancellation.cancel_reason_code).trim() || cancelReasonCode
+  const authoritativeReasonDetail = valueText(cancellation.cancel_reason_detail).trim() || cancelReasonDetail
   const authoritativeAt = valueText(cancellation.cancelled_at).trim() || now
   const authoritativeBy = cancellation.cancelled_by || actorAudit
 
@@ -1731,6 +2077,38 @@ if (action === 'cancel_order') {
     )
   }
 
+  let financeCancelledItemCount = 0
+  for (let index = 0; index < unpaidFinanceBillItems.length; index += 1) {
+    const billItem = unpaidFinanceBillItems[index]
+    const saved = await billItemCollection.updateOne(
+      { _id: billItem._id, xrstatx: active, item_status: { $nin: financeTerminalItemStatuses } },
+      { $set: {
+        item_status: 'cancelled',
+        cancel_source: 'xray_order',
+        cancel_reason: authoritativeReason,
+        cancel_reason_code: authoritativeReasonCode,
+        cancel_reason_detail: authoritativeReasonDetail,
+        cancelled_at: authoritativeAt,
+        cancelled_by: authoritativeBy,
+        updated_at: now,
+        updated_by: actorAudit
+      } }
+    )
+    if (!saved || Number(saved.matchedCount) !== 1) {
+      await cancellationCollection.updateOne(
+        { _id: orderObjectId, xrstatx: active },
+        { $set: { cancel_status: 'conflict', conflict_bill_item_id: valueText(billItem._id), updated_at: now, updated_by: actorAudit } }
+      )
+      return {
+        success: false,
+        error: 'finance_item_sync_failed',
+        data: financeData,
+        message: 'สถานะรายการการเงินเปลี่ยนระหว่างยกเลิก จึงหยุดก่อนแก้สถานะ X-ray กรุณาโหลดใหม่'
+      }
+    }
+    financeCancelledItemCount += 1
+  }
+
   let cancelledCount = 0
   for (let index = 0; index < cancellable.length; index += 1) {
     const target = cancellable[index]
@@ -1742,6 +2120,8 @@ if (action === 'cancel_order') {
           cancellation_record_id: cancellationId,
           cancel_type: 'xray_item_cancelled',
           cancel_reason: authoritativeReason,
+          cancel_reason_code: authoritativeReasonCode,
+          cancel_reason_detail: authoritativeReasonDetail,
           cancelled_at: authoritativeAt,
           cancelled_by: authoritativeBy,
           updated_at: now,
@@ -1797,6 +2177,8 @@ if (action === 'cancel_order') {
         ? 'partially_cancelled' : 'cancelled',
       cancel_type: 'xray_item_cancelled',
       cancel_reason: authoritativeReason,
+      cancel_reason_code: authoritativeReasonCode,
+      cancel_reason_detail: authoritativeReasonDetail,
       cancelled_at: authoritativeAt,
       cancelled_by: authoritativeBy,
       item_count: cancelTargets.length,
@@ -1806,7 +2188,9 @@ if (action === 'cancel_order') {
       cancellation_record_id: cancellationId,
       already_cancelled: alreadyCancelled,
       audit_sync_pending: auditSyncPending,
-      upstream_delivery_issue: upstreamItems.length > 0
+      upstream_delivery_issue: upstreamItems.length > 0,
+      finance_status: financeStatus,
+      finance_cancelled_item_count: financeCancelledItemCount
     },
     message: auditSyncPending
       ? 'ยกเลิกรายการแล้ว แต่บันทึกการยกเลิกยังรอ reconcile' + upstreamNote
@@ -1930,6 +2314,28 @@ if (action === 'queue_tracking') {
       }
     },
     { $replaceRoot: { newRoot: '$queue' } },
+    /* Visit Tran ที่ถูกส่งต่อหลังเที่ยงคืนอาจได้ visit_date ของวันใหม่ แม้
+       VN/Visit ต้นทางเป็นของเมื่อวาน จึงต้องยืนยันวันที่จาก Visit จริงด้วย
+       เพื่อให้แท็บติดตามคิวรีเซ็ตรายวันเหมือนหน้าผู้ป่วย โดยไม่แก้คิวกลาง. */
+    {
+      $lookup: {
+        from: VISIT_COLLECTION,
+        let: { visit_id: '$vid.value' },
+        pipeline: [
+          {
+            $match: {
+              xrstatx: { $nin: [0, 3] },
+              visit_date: trackingDate,
+              $expr: { $eq: [{ $toString: '$_id' }, { $toString: '$$visit_id' }] }
+            }
+          },
+          { $project: { _id: 1 } },
+          { $limit: 1 }
+        ],
+        as: '_tracking_today_visit'
+      }
+    },
+    { $match: { '_tracking_today_visit.0': { $exists: true } } },
     {
       $lookup: {
         from: ORDER_COLLECTION,
@@ -2284,6 +2690,27 @@ const lastStage = statusList => ({
 
 const pipeline = [
   { $match: itemMatch },
+  /* optimize 2026-10-18: ผูก Order และตัดรายการคนละ Visit/HN ตั้งแต่ต้น
+     orderMatch ใช้เฉพาะฟิลด์ใน order เท่านั้น จึงให้ผลลัพธ์ชุดเดียวกับตำแหน่งเดิม
+     แต่ไม่ส่งรายการที่ต้องถูกตัดอยู่แล้วไปผ่าน master/section/result/RIS lookup */
+  {
+    $addFields: {
+      order_ref_id: { $ifNull: ['$order_id.value', '$xparentx'] },
+      /* text-input `item_id` ในฟอร์มสารทึบเก็บค่า string จึงแปลงเพียงฝั่งต้นทาง
+         แล้วใช้ localField/foreignField เพื่อเปิดทางให้ index ของ item_id ทำงานได้ */
+      item_record_id: { $toString: '$_id' }
+    }
+  },
+  {
+    $lookup: {
+      from: ORDER_COLLECTION,
+      localField: 'order_ref_id',
+      foreignField: '_id',
+      as: 'order'
+    }
+  },
+  { $unwind: { path: '$order', preserveNullAndEmptyArrays: false } },
+  { $match: orderMatch },
   {
     $lookup: {
       from: ITEM_MASTER_COLLECTION,
@@ -2300,8 +2727,7 @@ const pipeline = [
           '$section_snapshot',
           { $ifNull: ['$xray_context_snapshot.section', '$master.section'] }
         ]
-      },
-      order_ref_id: { $ifNull: ['$order_id.value', '$xparentx'] }
+      }
     }
   },
   {
@@ -2370,17 +2796,16 @@ const pipeline = [
        ⇒ อาการที่ผู้ใช้แจ้งตั้งแต่ 2026-09-15 มาจากตรงนี้ที่เดียว */
     $lookup: {
       from: RESULT_COLLECTION,
-      let: { accession: '$accession_no' },
+      /* optimize 2026-10-18: localField/foreignField ทำให้ Mongo ใช้
+         ipd_xrayres_accession ได้โดยตรง แทนการสแกน xrstatx แล้วค่อยเทียบ $expr.
+         เงื่อนไข exists/non-empty รักษากติกาเดิมที่ accession ว่างห้าม match */
+      localField: 'accession_no',
+      foreignField: 'AccessionNo',
       pipeline: [
         {
           $match: {
             xrstatx: { $nin: [0, 3] },
-            $expr: {
-              $and: [
-                { $ne: [{ $ifNull: ['$$accession', ''] }, ''] },
-                { $eq: ['$AccessionNo', '$$accession'] }
-              ]
-            }
+            AccessionNo: { $exists: true, $nin: ['', null] }
           }
         },
         { $sort: { ResultDateTime: -1, xupdatx: -1, _id: -1 } },
@@ -2402,17 +2827,15 @@ const pipeline = [
        ไม่ทำให้รายการหายแม้แต่ใบเดียว เพราะเป็น lookup ที่ไม่ได้ตามด้วย $match */
     $lookup: {
       from: XRAY_RIS_ORDER_COLLECTION,
-      let: { accession: '$accession_no' },
+      /* รูปเดียวกับผลอ่าน: ใช้ ipd_xrayord_accession โดยไม่เปลี่ยนกติกา
+         เลือกสถานะล่าสุดของ accession เดิม */
+      localField: 'accession_no',
+      foreignField: 'AccessionNo',
       pipeline: [
         {
           $match: {
             xrstatx: { $nin: [0, 3] },
-            $expr: {
-              $and: [
-                { $ne: [{ $ifNull: ['$$accession', ''] }, ''] },
-                { $eq: ['$AccessionNo', '$$accession'] }
-              ]
-            }
+            AccessionNo: { $exists: true, $nin: ['', null] }
           }
         },
         { $sort: { updated_at: -1, _id: -1 } },
@@ -2423,6 +2846,55 @@ const pipeline = [
     }
   },
   { $addFields: { ris_order: { $arrayElemAt: [{ $ifNull: ['$_ris_order', []] }, 0] } } },
+  {
+    /* ใบที่ Submit แล้วเท่านั้น: blank record ที่เคยเกิดจากการเปิด popup จะไม่มี
+       ชนิด/ยี่ห้อ/ปริมาณ จึงถูกตัดทิ้งและไม่สามารถบังใบจริงที่เก่ากว่าได้
+       ไม่มี $unwind เพื่อให้ item ที่ไม่เคยบันทึกสารทึบยังอยู่ครบเหมือนเดิม */
+    $lookup: {
+      from: CONTRAST_COLLECTION,
+      localField: 'item_record_id',
+      foreignField: 'item_id',
+      pipeline: [
+        {
+          $match: {
+            xrstatx: { $nin: [0, 3] },
+            $or: [
+              { 'contrast_types.0': { $exists: true } },
+              { contrast_brand: { $exists: true, $nin: ['', null] } },
+              { contrast_volume_ml: { $exists: true, $nin: ['', null] } }
+            ]
+          }
+        },
+        { $sort: { updated_at: -1, xupdatx: -1, created_at: -1, _id: -1 } },
+        { $limit: 1 },
+        {
+          $project: {
+            _id: 1,
+            contrast_types: 1,
+            contrast_brand: 1,
+            contrast_concentration: 1,
+            contrast_lot_no: 1,
+            route_types: 1,
+            contrast_volume_ml: 1,
+            used_at: 1,
+            order_doctor: 1,
+            order_doctor_license: 1,
+            extravasation: 1,
+            acute_symptoms: 1,
+            delay_symptoms: 1,
+            adverse_note: 1,
+            recorded_by: { $ifNull: ['$updated_by', { $ifNull: ['$created_by', '$xuserx'] }] }
+          }
+        }
+      ],
+      as: '_contrast_record'
+    }
+  },
+  {
+    $addFields: {
+      contrast_record: { $arrayElemAt: [{ $ifNull: ['$_contrast_record', []] }, 0] }
+    }
+  },
   {
     /* **สถานะที่ใช้จริง** — RIS เขียนผลลงตารางของมัน ไม่ได้แตะ current_status ของเรา
        ถ้าปล่อยให้ chip นับจาก current_task เดิม chip จะบอก "รอผลอ่าน" ขณะที่แถวบอก
@@ -2450,16 +2922,6 @@ const pipeline = [
       }
     }
   },
-  {
-    $lookup: {
-      from: ORDER_COLLECTION,
-      localField: 'order_ref_id',
-      foreignField: '_id',
-      as: 'order'
-    }
-  },
-  { $unwind: { path: '$order', preserveNullAndEmptyArrays: false } },
-  { $match: orderMatch },
   { $addFields: { origin_unit_code: originUnitExpr } },
   { $sort: { 'order.created_at': -1, created_at: 1, item_no: 1, item_code: 1 } },
   {
@@ -2502,6 +2964,24 @@ const pipeline = [
           ris_order_status: { $ifNull: ['$ris_order.Status', ''] },
           ris_order_status_at: { $ifNull: ['$ris_order.updated_at', ''] },
           ris_order_captured_at: { $ifNull: ['$ris_order.ImageCapturedDateTime', ''] },
+          /* ข้อมูลแสดงผล/เปิดใบแบบ read-only เท่านั้น ไม่แตะ effective_status */
+          contrast: {
+            record_id: { $toString: '$contrast_record._id' },
+            types: { $ifNull: ['$contrast_record.contrast_types', []] },
+            brand: { $ifNull: ['$contrast_record.contrast_brand', ''] },
+            concentration: { $ifNull: ['$contrast_record.contrast_concentration', ''] },
+            lot_no: { $ifNull: ['$contrast_record.contrast_lot_no', ''] },
+            routes: { $ifNull: ['$contrast_record.route_types', []] },
+            volume_ml: '$contrast_record.contrast_volume_ml',
+            used_at: { $ifNull: ['$contrast_record.used_at', ''] },
+            order_doctor: { $ifNull: ['$contrast_record.order_doctor', ''] },
+            order_doctor_license: { $ifNull: ['$contrast_record.order_doctor_license', ''] },
+            extravasation: { $ifNull: ['$contrast_record.extravasation', ''] },
+            acute_symptoms: { $ifNull: ['$contrast_record.acute_symptoms', []] },
+            delay_symptoms: { $ifNull: ['$contrast_record.delay_symptoms', []] },
+            adverse_note: { $ifNull: ['$contrast_record.adverse_note', ''] },
+            recorded_by: '$contrast_record.recorded_by'
+          },
           dispatched_at: { $ifNull: ['$dispatched_at', '$dispatch_stage.stage_at'] },
           dispatched_by: { $ifNull: ['$dispatched_by', '$dispatch_stage.stage_by'] },
           /* Radiographer (ผู้ถ่าย) ที่ห้องรังสีเลือกเอง — คนละเรื่องกับ dispatched_by
@@ -2815,6 +3295,35 @@ pipeline.push({
       { $sort: sortSpec },
       { $skip: skip },
       { $limit: limit },
+      /* สร้าง candidate ทั้งชนิดเดิม/string/ObjectId หลังแบ่งหน้าแล้วเท่านั้น
+         เพื่อคงความสามารถอ่านข้อมูลเก่าที่ id เก็บคนละชนิด แต่ให้ lookup ใช้ index
+         แทน $toString ที่ฟิลด์ฝั่ง collection ซึ่งบังคับให้สแกนทั้งตาราง */
+      {
+        $addFields: {
+          _person_lookup_ids: {
+            $filter: {
+              input: [
+                '$_person_id',
+                { $toString: '$_person_id' },
+                { $convert: { input: '$_person_id', to: 'objectId', onError: null, onNull: null } }
+              ],
+              as: 'id',
+              cond: { $and: [{ $ne: ['$$id', null] }, { $ne: ['$$id', ''] }] }
+            }
+          },
+          _visit_lookup_ids: {
+            $filter: {
+              input: [
+                '$_diagnosis_visit_id',
+                { $toString: '$_diagnosis_visit_id' },
+                { $convert: { input: '$_diagnosis_visit_id', to: 'objectId', onError: null, onNull: null } }
+              ],
+              as: 'id',
+              cond: { $and: [{ $ne: ['$$id', null] }, { $ne: ['$$id', ''] }] }
+            }
+          }
+        }
+      },
       /* join หลัง skip/limit เพื่ออ่านแค่ visit ของหน้านั้น ไม่ใช่ทั้งชุดผลลัพธ์ */
       {
         $lookup: {
@@ -2838,17 +3347,16 @@ pipeline.push({
       { $addFields: { diagnosis: '$diagnosis_record.primary_dx' } },
       /* ── ประวัติการแพ้ยา (ผู้ใช้ขอ 2026-09-03) ────────────────────────────
          join หลัง skip/limit เหมือน Diagnosis ⇒ อ่านแค่คนไข้ของหน้านั้น
-         เทียบด้วย $toString ทั้งสองฝั่ง เพราะ pid.value/vid.value อาจเป็น ObjectId หรือ string
-         แล้วแต่ใบ — ถ้าเทียบชนิดตรง ๆ แล้วพลาด จะเงียบ ๆ ไม่มีกล่องเตือน ซึ่งอันตรายกว่า */
+         candidate ด้านบนคงการรองรับ ObjectId/string โดยไม่แปลงฟิลด์ฝั่งปลายทาง */
       {
         $lookup: {
           from: PERSON_COLLECTION,
-          let: { person_id: '$_person_id' },
+          localField: '_person_lookup_ids',
+          foreignField: '_id',
           pipeline: [
             {
               $match: {
-                xrstatx: { $nin: [0, 3] },
-                $expr: { $eq: [{ $toString: '$_id' }, { $toString: '$$person_id' }] }
+                xrstatx: { $nin: [0, 3] }
               }
             },
             { $limit: 1 },
@@ -2861,12 +3369,12 @@ pipeline.push({
       {
         $lookup: {
           from: ASSESSMENT_COLLECTION,
-          let: { visit_id: '$_diagnosis_visit_id' },
+          localField: '_visit_lookup_ids',
+          foreignField: 'vid.value',
           pipeline: [
             {
               $match: {
-                xrstatx: { $nin: [0, 3] },
-                $expr: { $eq: [{ $toString: '$vid.value' }, { $toString: '$$visit_id' }] }
+                xrstatx: { $nin: [0, 3] }
               }
             },
             { $sort: { updated_at: -1, created_at: -1 } },
@@ -2892,6 +3400,8 @@ pipeline.push({
           _citizen_search_person: 0,
           _diagnosis_visit_id: 0,
           _person_id: 0,
+          _person_lookup_ids: 0,
+          _visit_lookup_ids: 0,
           diagnosis_record: 0,
           person_record: 0,
           assessment_record: 0
@@ -2935,6 +3445,65 @@ try {
 const facet = aggregateRows[0] || {}
 const orders = Array.isArray(facet.rows) ? facet.rows : []
 const total = Array.isArray(facet.meta) && facet.meta[0] ? Number(facet.meta[0].total || 0) : 0
+
+/* เพิ่ม metadata สิทธิ์โดยไม่กรองแถวออก: หน่วยอื่นต้องยังเห็น Order เหมือนเดิม
+   แต่ UI ใช้ can_action ปิดเฉพาะ control ที่เขียนข้อมูล พร้อมแสดง lock_reason. */
+const actionQueueByVisit = await readLatestActionQueues(orders.map(orderVisitActionId))
+orders.forEach(order => {
+  const access = actionAccessForOrder(order, actionQueueByVisit)
+  order.action_access = access
+  order.can_action = access.can_action
+  order.action_lock_reason = access.lock_reason
+})
+
+/* รายการเก่าบางแถวเคยบันทึก reject_reason เป็น Auto Number เช่น XRAYR-00002
+   แปลงเฉพาะแถวที่ยังไม่มีข้อความเหตุผลจริง เพื่อให้ข้อมูลเก่าแสดงชื่อจาก Master
+   และไม่เพิ่ม query ให้ Worklist ปกติที่ไม่มีรหัสค้างอยู่ */
+const unresolvedRejectCodes = []
+orders.forEach(order => {
+  const items = Array.isArray(order && order.items) ? order.items : []
+  items.forEach(item => {
+    const code = valueText(item && item.reject_reason_code).trim()
+    const display = valueText(item && item.reject_reason).trim()
+    if (code && (!display || display === code) && !unresolvedRejectCodes.includes(code)) {
+      unresolvedRejectCodes.push(code)
+    }
+  })
+})
+if (unresolvedRejectCodes.length) {
+  try {
+    const foundReasons = await app.dbFindAll({
+      from: REASON_SETTINGS_COLLECTION,
+      nosql: {
+        type: 'query',
+        collection: REASON_SETTINGS_COLLECTION,
+        query: { xrstatx: { $nin: [0, 3] }, reason_code: { $in: unresolvedRejectCodes } },
+        projection: { reason_code: 1, reason_text: 1 },
+        limit: unresolvedRejectCodes.length
+      }
+    }, false, false)
+    const reasonRows = foundReasons && foundReasons.success !== false && foundReasons.reply &&
+      Array.isArray(foundReasons.reply.data) ? foundReasons.reply.data : []
+    const reasonTextByCode = {}
+    reasonRows.forEach(row => {
+      const code = valueText(row && row.reason_code).trim()
+      const label = valueText(row && row.reason_text).trim()
+      if (code && label) reasonTextByCode[code] = label
+    })
+    orders.forEach(order => {
+      const items = Array.isArray(order && order.items) ? order.items : []
+      items.forEach(item => {
+        const code = valueText(item && item.reject_reason_code).trim()
+        const display = valueText(item && item.reject_reason).trim()
+        if (code && (!display || display === code) && reasonTextByCode[code]) {
+          item.reject_reason = reasonTextByCode[code]
+        }
+      })
+    })
+  } catch (error) {
+    /* ข้อมูลหลักยังต้องโหลดได้ แม้ Master เหตุผลอ่านไม่ได้ชั่วคราว */
+  }
+}
 
 /* เติม label ของเครื่องให้ทุก item — pipeline คืนแต่ code */
 orders.forEach(order => {

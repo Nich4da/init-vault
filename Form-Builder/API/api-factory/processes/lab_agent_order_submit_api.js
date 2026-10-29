@@ -37,6 +37,7 @@ const own = (object, key) => Object.prototype.hasOwnProperty.call(object, key)
 const isPlainObject = value => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 const thaiDateTimePattern = /^(?:\d{14}|\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?\+07:00)$/
 const birthDatePattern = /^\d{8}(?:\d{6})?$/
+const LAB_ORDER_EVENT_TYPE = 'lab.order.submit'
 
 const utf8ByteLength = text => {
   let bytes = 0
@@ -62,6 +63,7 @@ const utf8ByteLength = text => {
 }
 
 const ROOT_KEYS = [
+  'event_type',
   'order_no',
   'labno',
   'hn',
@@ -73,6 +75,8 @@ const ROOT_KEYS = [
   'patient_prefix',
   'patient_first_name',
   'patient_last_name',
+  'mother_name',
+  'is_maternal_blood',
   'birth_date',
   'sex',
   'visit_type',
@@ -153,6 +157,13 @@ const validatePayload = payload => {
     if (!own(payload, key)) errors.push('payload.' + key + ' เป็น field บังคับ')
   })
 
+  if (own(payload, 'event_type')) {
+    validateText(payload.event_type, 'payload.event_type', errors, { required: true })
+    if (typeof payload.event_type === 'string' && payload.event_type !== LAB_ORDER_EVENT_TYPE) {
+      errors.push('payload.event_type ต้องเป็น ' + LAB_ORDER_EVENT_TYPE)
+    }
+  }
+
   ;['order_no', 'labno', 'hn'].forEach(key => {
     if (own(payload, key)) validateText(payload[key], 'payload.' + key, errors, { required: true, max: 100 })
   })
@@ -163,6 +174,12 @@ const validatePayload = payload => {
   ;['patient_first_name', 'patient_last_name', 'station'].forEach(key => {
     if (own(payload, key)) validateText(payload[key], 'payload.' + key, errors, { max: 200 })
   })
+  if (own(payload, 'mother_name')) {
+    validateText(payload.mother_name, 'payload.mother_name', errors, {})
+  }
+  if (own(payload, 'is_maternal_blood') && typeof payload.is_maternal_blood !== 'boolean') {
+    errors.push('payload.is_maternal_blood ต้องเป็น boolean')
+  }
   ;['doctor_name', 'clinic_name'].forEach(key => {
     if (own(payload, key)) validateText(payload[key], 'payload.' + key, errors, { max: 300 })
   })
@@ -299,9 +316,9 @@ const validatePayload = payload => {
 }
 
 const normalizePayload = payload => {
-  const normalized = {}
+  const normalized = { event_type: LAB_ORDER_EVENT_TYPE }
   ROOT_KEYS.forEach(key => {
-    if (key === 'items' || !own(payload, key)) return
+    if (key === 'event_type' || key === 'items' || !own(payload, key)) return
     normalized[key] = key === 'encounter'
       ? { class: payload.encounter.class }
       : payload[key]

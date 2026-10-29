@@ -261,9 +261,6 @@ assert.strictEqual(historyOrder.locked_rows.length, 1)
 assert.strictEqual(historyOrder.report_ready, true, 'History PDF remains available in redacted mode')
 assert.strictEqual(Object.prototype.hasOwnProperty.call(historyOrder.report_params, 'grant_token'), false)
 const historyLockedReportKey = historyState.ehLabReportInstanceKey(historyOrder, 'dialog')
-historyState.ehLabOpenOrder(historyOrder)
-assert.strictEqual(historyState.ehLabDialog.visible, true, 'history must show the full sheet with locked rows before re-auth')
-assert.strictEqual(historyState.ehLabReauth.visible, false)
 historyState.ehLabRequestSensitive(historyOrder, historyOrder.locked_rows[0])
 assert.strictEqual(historyState.ehLabReauth.visible, true)
 historyState.ehLabReauth.password = 'correct-password'
@@ -272,17 +269,19 @@ assert.strictEqual(historyCalls.length, 2)
 assert.strictEqual(historyCalls[1].params.action, 'open_sensitive')
 assert.strictEqual(historyCalls[1].params.screen, 'emr_history')
 assert.strictEqual(historyState.ehLabReauth.password, '')
-assert.strictEqual(historyState.ehLabDialog.order.rows[0].value, 'REACTIVE')
-assert.strictEqual(historyState.ehLabDialog.order.report_ready, true)
-assert.strictEqual(Object.prototype.hasOwnProperty.call(historyState.ehLabDialog.order.report_params, 'grant_token'), false, 'History screen grant must not flow into PDF params')
-const historyUnlockedReportKey = historyState.ehLabReportInstanceKey(historyState.ehLabDialog.order, 'dialog')
+const historyUnlockedOrder = historyState.ehLabOrders[0]
+assert.strictEqual(historyUnlockedOrder.rows[0].value, 'REACTIVE', 'screen disclosure must update the inline card')
+assert.strictEqual(historyUnlockedOrder.report_ready, true)
+assert.strictEqual(historyState.ehLabDialog.visible, false, 'screen disclosure must not open a duplicate local whole-result dialog')
+assert.strictEqual(Object.prototype.hasOwnProperty.call(historyUnlockedOrder.report_params, 'grant_token'), false, 'History screen grant must not flow into PDF params')
+const historyUnlockedReportKey = historyState.ehLabReportInstanceKey(historyUnlockedOrder, 'dialog')
 assert.strictEqual(historyUnlockedReportKey, historyLockedReportKey, 'screen disclosure must not remount the redacted report with a screen grant')
 assert.notStrictEqual(
 	historyUnlockedReportKey,
-	historyState.ehLabReportInstanceKey({ ...historyState.ehLabDialog.order, source_order_id: 'different-order' }, 'dialog'),
+	historyState.ehLabReportInstanceKey({ ...historyUnlockedOrder, source_order_id: 'different-order' }, 'dialog'),
 	'different Orders must never share one report component instance',
 )
-historyState.ehLabRequestSensitivePdf(historyState.ehLabDialog.order, 'dialog')
+historyState.ehLabRequestSensitivePdf(historyUnlockedOrder, 'card')
 assert.strictEqual(historyState.ehLabReauth.visible, true)
 assert.strictEqual(historyState.ehLabReauth.mode, 'pdf')
 historyState.ehLabReauth.password = 'pdf-password'
@@ -290,25 +289,21 @@ historyState.ehLabSubmitSensitive()
 assert.strictEqual(historyCalls.length, 3)
 assert.strictEqual(historyCalls[2].params.screen, 'emr_history_pdf')
 assert.strictEqual(historyCalls[2].params.password, 'pdf-password')
-assert.strictEqual(historyState.ehLabPdfParams(historyState.ehLabDialog.order, 'dialog').grant_token, 'grant-token-001')
-historyState.ehLabRequestSensitivePdf(historyState.ehLabDialog.order, 'dialog')
+assert.strictEqual(historyState.ehLabPdfParams(historyUnlockedOrder, 'card').grant_token, 'grant-token-001')
+historyState.ehLabRequestSensitivePdf(historyUnlockedOrder, 'card')
 assert.strictEqual(historyState.ehLabReauth.visible, true, 'History must re-auth on every Sensitive PDF click')
-assert.strictEqual(historyState.ehLabPdfGrantReady(historyState.ehLabDialog.order, 'dialog'), false)
+assert.strictEqual(historyState.ehLabPdfGrantReady(historyUnlockedOrder, 'card'), false)
 historyState.ehLabCloseReauth()
-let historyReloads = 0
-historyState.ehLabReload = () => { historyReloads += 1 }
-historyState.ehLabCloseLabDialog()
-assert.strictEqual(historyReloads, 0, 'History close must redact locally and preserve only the five-minute grant')
+historyState.ehLabLoad(historyState.ehVisit)
 const historyRedactedOrder = historyState.ehLabOrders[0]
 assert.strictEqual(historyRedactedOrder.rows.length, 0)
 assert.strictEqual(historyRedactedOrder.locked_rows.length, 1)
 assert.strictEqual(Object.prototype.hasOwnProperty.call(historyRedactedOrder.report_params, 'grant_token'), false)
-historyState.ehLabOpenOrder(historyRedactedOrder)
-assert.strictEqual(historyCalls.length, 4)
-assert.strictEqual(historyCalls[3].params.action, 'reuse_sensitive')
-assert.strictEqual(historyCalls[3].params.sensitive_grant_token, 'grant-token-001')
-assert.strictEqual(historyState.ehLabDialog.order.rows[0].value, 'REACTIVE')
-historyState.ehLabCloseLabDialog()
+historyState.ehLabRequestSensitive(historyRedactedOrder, historyRedactedOrder.locked_rows[0])
+assert.strictEqual(historyCalls.length, 5)
+assert.strictEqual(historyCalls[4].params.action, 'reuse_sensitive')
+assert.strictEqual(historyCalls[4].params.sensitive_grant_token, 'grant-token-001')
+assert.strictEqual(historyState.ehLabOrders[0].rows[0].value, 'REACTIVE')
 
 for (const relativePath of [
 	'02-his/form-factory/treat-summary-template-FULL-v1.html',
@@ -316,11 +311,15 @@ for (const relativePath of [
 	'02-his/form-factory/emr-history-template-FULL-v1.html',
 ]) {
 	const template = fs.readFileSync(path.join(ROOT, relativePath), 'utf8')
-	assert.match(template, /Sensitive — ต้องยืนยันตัวตนก่อนดูผล/)
+	if (relativePath.includes('emr-history')) assert.match(template, /ปกปิดผล Sensitive/)
+	else assert.match(template, /Sensitive — ต้องยืนยันตัวตนก่อนดูผล/)
 	assert.match(template, /ยืนยันตัวตนเพื่อดูผล Sensitive/)
 	assert.match(template, /บันทึก Access Log ทุกครั้ง/)
 	assert.match(template, /autocomplete="current-password"/)
-	if (relativePath.includes('FULL')) {
+	if (relativePath.includes('emr-history')) {
+		assert.match(template, /ปกปิดผล Sensitive/)
+		assert.match(template, /ehLabRequestSensitive\(o,r\)/)
+	} else if (relativePath.includes('FULL')) {
 		assert.match(template, /class="lab-sensitive-locked-list"/)
 		assert.match(template, /ปิดบังค่าผลจนกว่าจะยืนยันตัวตน/)
 		assert.doesNotMatch(template, /ยังไม่รวม PDF\/ไฟล์แนบ/)
@@ -330,8 +329,8 @@ for (const relativePath of [
 }
 
 const historyTemplate = fs.readFileSync(path.join(ROOT, '02-his/form-factory/emr-history-template-FULL-v1.html'), 'utf8')
-assert(historyTemplate.includes(`:key="ehLabReportInstanceKey(o, 'card')"`), 'History card report must remount per Order/grant')
-assert(historyTemplate.includes(`:key="ehLabReportInstanceKey(ehLabDialog.order, 'dialog')"`), 'History dialog report must remount after re-auth')
+assert.match(historyTemplate, /:key="ehLabReportInstanceKey\(o,\s*'card'\)"/, 'History card report must remount per Order/grant')
+assert(!historyTemplate.includes('v-model="ehLabDialog.visible"'), 'History must use the shared whole-result Form instead of a local dialog')
 const treatTemplate = fs.readFileSync(path.join(ROOT, '02-his/form-factory/treat-summary-template-FULL-v1.html'), 'utf8')
 assert(treatTemplate.includes(`:key="tsReportInstanceKey(o, 'card')"`), 'Treat Summary card report must remount per Order/grant')
 assert(treatTemplate.includes(`:key="tsReportInstanceKey(tsLabDialog.order, 'dialog')"`), 'Treat Summary dialog report must remount after re-auth')
@@ -339,8 +338,8 @@ assert.match(treatTemplate, /ใช้ได้ 5 นาทีเฉพาะผ
 assert.match(treatTemplate, /PDF ที่มีผล Sensitive ต้องยืนยันใหม่ทุกครั้ง/)
 assert.match(treatTemplate, /tsRequestSensitivePdf\(tsLabDialog\.order, 'dialog'\)/)
 assert.match(historyTemplate, /PDF ที่มีผล Sensitive ต้องยืนยันใหม่ทุกครั้ง/)
-assert.match(historyTemplate, /ehLabRequestSensitivePdf\(ehLabDialog\.order, 'dialog'\)/)
-assert.match(historyTemplate, /ehLabFlagLabel\(r\)/, 'History full sheet must pass the result row so the source interpretation is available')
+assert.match(historyTemplate, /ehLabRequestSensitivePdf\(o,'card'\)/)
+assert.match(historyTemplate, /ehLabFlagLabel\(r\)/, 'History card must pass the result row so the source interpretation is available')
 assert.match(treatTemplate, /tsLabFlagLabel\(r\)/, 'Treat Summary full sheet must pass the result row so the source interpretation is available')
 
 for (const [name, template] of [['History', historyTemplate], ['Treat Summary', treatTemplate]]) {

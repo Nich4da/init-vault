@@ -1,5 +1,6 @@
 {
   "payload": {
+    "event_type": "lab.order.submit",
     "order_no": "UAT-R260831-APPEND-01",
     "labno": "1069999901",
     "hn": "HN-UAT-25690831-01",
@@ -11,8 +12,10 @@
     "patient_prefix": "ด.ช.",
     "patient_first_name": "ผู้ป่วย",
     "patient_last_name": "ทดสอบระบบ",
+    "mother_name": "ทดสอบ มารดา",
+    "is_maternal_blood": false,
     "birth_date": "20200101",
-    "sex": "ชาย",
+    "sex": "M",
     "visit_type": "OPD",
     "encounter": {
       "class": "OPD"

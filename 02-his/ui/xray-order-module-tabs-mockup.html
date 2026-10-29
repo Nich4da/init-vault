@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>X-ray Order Module — Orders & Move Unit</title>
+  <style>
+    :root{
+      color-scheme:light;
+      --bg:#f4f7f6;
+      --surface:#fff;
+      --surface-soft:#f7faf9;
+      --line:#dfe7e4;
+      --line-strong:#c9d6d1;
+      --text:#23302c;
+      --muted:#73817c;
+      --green:#0d7d5c;
+      --green-dark:#075c43;
+      --green-soft:#e7f5ef;
+      --blue:#287cc1;
+      --blue-soft:#edf6fd;
+      --orange:#d77a13;
+      --orange-soft:#fff5e7;
+      --danger:#d94d4d;
+      --danger-soft:#fff0f0;
+      --shadow:0 18px 50px rgba(29,58,48,.12);
+      --radius:12px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans Thai",sans-serif;font-size:14px}
+    button,select,textarea{font:inherit}
+    button{cursor:pointer}
+    button:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid rgba(40,124,193,.2);outline-offset:2px}
+    .prototype-bar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:9px 20px;background:#16372d;color:#fff;font-size:12px}
+    .prototype-bar strong{letter-spacing:.04em}
+    .prototype-bar span{opacity:.72}
+    .page{padding:24px}
+    .app{width:min(1440px,100%);min-height:820px;margin:auto;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+    .app-head{height:68px;display:flex;align-items:center;gap:12px;padding:0 22px;border-bottom:1px solid var(--line)}
+    .doc-icon{width:34px;height:34px;border-radius:8px;background:var(--green-soft);color:var(--green);display:grid;place-items:center;font-size:19px}
+    .app-title{font-size:22px;font-weight:750;line-height:1.2}
+    .version{padding:4px 8px;border:1px solid #cde8da;border-radius:6px;background:#effaf4;color:var(--green);font-size:12px}
+    .close{margin-left:auto;border:0;background:transparent;color:#8c9894;font-size:26px;line-height:1}
+    .patient-shell{padding:16px 20px 0}
+    .patient-picker{padding:15px 16px;border:1px solid var(--line);border-radius:10px;background:#f7f9fb}
+    .picker-top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:8px}
+    .picker-top strong{font-size:15px}
+    .picker-top span{color:#8b9692;font-size:12px}
+    .fake-select{height:44px;display:flex;align-items:center;padding:0 14px;border:1px solid #5aa7e8;border-radius:7px;background:#fff;box-shadow:0 0 0 2px rgba(40,124,193,.08)}
+    .fake-select span{margin-left:auto;color:#98a4a0}
+    .hint{margin-top:7px;color:#929d99;font-size:12px}
+    .patient-card{display:flex;align-items:center;gap:16px;margin-top:12px;padding:14px 16px;border:1px solid #d6e8df;border-radius:10px;background:#edf7f2}
+    .avatar{width:54px;height:54px;border:1px solid #d9dfdd;border-radius:10px;background:#fff;display:grid;place-items:center;color:#8b9692;font-size:25px}
+    .patient-main{min-width:0;flex:1}
+    .patient-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .patient-name{font-size:18px;font-weight:750}
+    .patient-meta{display:flex;gap:8px;align-items:center;margin-top:5px;color:var(--muted);font-size:12px;flex-wrap:wrap}
+    .chip{display:inline-flex;align-items:center;height:25px;padding:0 8px;border-radius:6px;border:1px solid var(--line);background:#fff;font-weight:650;white-space:nowrap}
+    .chip.hn{color:var(--blue);background:var(--blue-soft);border-color:#d9ebf8}
+    .chip.vn{color:var(--orange);background:var(--orange-soft);border-color:#f7dfbb}
+    .chip.ok{color:var(--green);background:#eff9e8;border-color:#dceecf}
+    .visit-context{padding-left:18px;border-left:1px solid var(--line);min-width:230px}
+    .visit-context small{display:block;color:var(--muted);font-size:11px;margin-bottom:3px}
+    .visit-context strong{display:block;font-size:13px}
+    .visit-context span{display:block;margin-top:2px;color:var(--muted);font-size:12px}
+    .tabs{display:flex;align-items:flex-end;gap:2px;margin:14px 20px 0;border-bottom:1px solid var(--line)}
+    .tab{position:relative;display:flex;align-items:center;gap:8px;height:46px;padding:0 18px;border:0;background:transparent;color:#64716c;font-weight:680}
+    .tab.active{color:var(--green)}
+    .tab.active::after{content:"";position:absolute;left:12px;right:12px;bottom:-1px;height:3px;border-radius:3px 3px 0 0;background:var(--green)}
+    .count{min-width:23px;height:21px;padding:0 6px;border-radius:10px;background:#eef1f0;color:#596560;display:grid;place-items:center;font-size:11px}
+    .tab.active .count{background:var(--green-soft);color:var(--green)}
+    .panel{display:none;padding:18px 20px 24px}
+    .panel.active{display:block}
+    .order-layout{display:grid;grid-template-columns:220px 1fr 330px;gap:16px}
+    .side,.catalog,.cart,.queue-box,.order-list,.design-note{border:1px solid var(--line);border-radius:var(--radius);background:#fff}
+    .section-title{display:flex;align-items:center;gap:8px;padding:13px 14px;border-bottom:1px solid var(--line);font-weight:750}
+    .side button{display:flex;align-items:center;width:100%;padding:11px 14px;border:0;border-bottom:1px solid #eef2f0;background:#fff;color:#596560;text-align:left}
+    .side button.active{background:var(--green-soft);color:var(--green);font-weight:700;border-left:3px solid var(--green)}
+    .catalog-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:12px}
+    .exam{padding:12px;border:1px solid var(--line);border-radius:9px;background:#fff}
+    .exam b{display:block;font-size:13px}
+    .exam small{display:block;margin-top:4px;color:var(--muted)}
+    .exam button{margin-top:10px;padding:5px 10px;border:1px solid #abd8c8;border-radius:6px;background:#f2faf7;color:var(--green)}
+    .cart{align-self:start;position:sticky;top:12px}
+    .cart-row{display:grid;grid-template-columns:1fr auto;gap:10px;padding:11px 13px;border-bottom:1px dashed var(--line)}
+    .cart-row small{display:block;margin-top:3px;color:var(--muted)}
+    .cart-price{text-align:right;font-weight:700}
+    .cart-total{display:flex;justify-content:space-between;padding:13px;font-size:15px;font-weight:750}
+    .primary{border:1px solid var(--green);border-radius:7px;background:var(--green);color:#fff;font-weight:700}
+    .secondary{border:1px solid var(--line-strong);border-radius:7px;background:#fff;color:#52605b;font-weight:650}
+    .danger{border:1px solid #edbcbc;border-radius:7px;background:#fff;color:var(--danger);font-weight:650}
+    .cart-actions{display:flex;gap:8px;padding:0 13px 13px}
+    .cart-actions button{height:36px;padding:0 14px;flex:1}
+    .orders-toolbar{display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;margin-bottom:14px;padding:13px 14px;border:1px solid #cfe3da;border-radius:10px;background:#f0f8f4}
+    .unit-line{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    .unit-icon{width:36px;height:36px;border-radius:8px;background:#fff;border:1px solid #d5e7df;display:grid;place-items:center;color:var(--green);font-size:17px}
+    .unit-copy small{display:block;color:var(--muted);font-size:11px}
+    .unit-copy strong{display:block;margin-top:2px;font-size:14px}
+    .tran-id{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#64716c;font-size:11px}
+    .move-button{height:38px;padding:0 16px;border:1px solid var(--blue);border-radius:7px;background:#fff;color:var(--blue);font-weight:750;white-space:nowrap}
+    .move-button:hover{background:var(--blue-soft)}
+    .summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}
+    .metric{padding:12px 14px;border:1px solid var(--line);border-radius:9px;background:#fff}
+    .metric small{color:var(--muted)}
+    .metric strong{display:block;margin-top:4px;font-size:18px}
+    .order-list{overflow:hidden}
+    .order-head{display:grid;grid-template-columns:minmax(210px,1fr) auto auto auto 24px;align-items:center;gap:10px;padding:13px 15px;border-bottom:1px solid var(--line);cursor:pointer}
+    .order-head:hover{background:var(--surface-soft)}
+    .order-no b{font-size:15px}
+    .order-no small{margin-left:6px;color:var(--muted)}
+    .order-time{color:var(--muted);font-size:12px}
+    .money{text-align:right;font-weight:750;min-width:105px}
+    .status{height:25px;padding:0 9px;border-radius:6px;display:inline-flex;align-items:center;font-size:12px;font-weight:700;white-space:nowrap}
+    .status.sent{color:var(--orange);background:var(--orange-soft);border:1px solid #f2d6ad}
+    .status.draft{color:#67736f;background:#f1f3f2;border:1px solid #dde3e0}
+    .status.paid{color:var(--green);background:var(--green-soft);border:1px solid #cfe8dd}
+    .order-body{display:none;padding:0 15px 14px;border-bottom:1px solid var(--line);background:#fbfcfc}
+    .order.open .order-body{display:block}
+    .order.open .chev{transform:rotate(90deg)}
+    .chev{transition:transform .15s;color:#87938e}
+    .item-row{display:grid;grid-template-columns:34px 88px 1fr auto;gap:10px;align-items:center;padding:9px 0;border-bottom:1px dashed var(--line)}
+    .item-row:last-of-type{border-bottom:0}
+    .item-type{height:23px;border-radius:5px;background:var(--orange-soft);color:var(--orange);display:grid;place-items:center;font-size:11px;font-weight:700}
+    .item-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);font-size:11px}
+    .order-actions{display:flex;justify-content:flex-end;gap:8px;padding-top:11px}
+    .order-actions button{height:32px;padding:0 11px}
+    .empty-note{padding:9px 12px;border-radius:7px;background:var(--blue-soft);color:#376b94;font-size:12px}
+    .design-note{margin-top:14px;padding:13px 15px;background:#f8faf9}
+    .design-note strong{display:block;margin-bottom:7px}
+    .design-note ul{margin:0;padding-left:20px;color:#5e6b66;line-height:1.75}
+    .modal-backdrop{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(18,35,30,.42);z-index:20}
+    .modal-backdrop.show{display:flex}
+    .modal{width:min(640px,100%);border-radius:12px;background:#fff;box-shadow:0 24px 70px rgba(0,0,0,.22);overflow:hidden}
+    .modal-head{display:flex;align-items:center;gap:10px;padding:16px 18px;border-bottom:1px solid var(--line)}
+    .modal-head strong{font-size:19px}
+    .modal-head button{margin-left:auto;border:0;background:transparent;font-size:22px;color:#8b9792}
+    .modal-body{padding:18px}
+    .context-strip{padding:10px 12px;border-radius:8px;background:var(--green-soft);color:#315f50;margin-bottom:15px}
+    .field{margin-bottom:14px}
+    .field label{display:block;margin-bottom:6px;font-weight:700}
+    .segmented{display:flex}
+    .segmented button{height:38px;padding:0 18px;border:1px solid var(--line-strong);background:#fff;color:#64716c}
+    .segmented button:first-child{border-radius:7px 0 0 7px}
+    .segmented button:last-child{border-radius:0 7px 7px 0}
+    .segmented button.active{background:var(--blue);border-color:var(--blue);color:#fff}
+    select,textarea{width:100%;border:1px solid var(--line-strong);border-radius:7px;background:#fff;color:var(--text);padding:9px 11px}
+    textarea{min-height:82px;resize:vertical}
+    .recommend{margin-top:7px;color:var(--muted);font-size:12px}
+    .modal-foot{display:flex;justify-content:flex-end;gap:9px;padding:13px 18px;border-top:1px solid var(--line);background:#fafbfb}
+    .modal-foot button{height:36px;padding:0 16px}
+    .toast{position:fixed;right:22px;bottom:22px;display:none;max-width:440px;padding:12px 15px;border-radius:9px;background:#173b30;color:#fff;box-shadow:var(--shadow);z-index:30}
+    .toast.show{display:block;animation:toast-in .2s ease-out}
+    @keyframes toast-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+    @media(max-width:980px){.order-layout{grid-template-columns:180px 1fr}.cart{grid-column:1/-1;position:static}.visit-context{display:none}.summary{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:680px){.page{padding:0}.app{border-radius:0;border-left:0;border-right:0}.patient-card{align-items:flex-start}.avatar{display:none}.order-layout{grid-template-columns:1fr}.side{display:none}.catalog-grid{grid-template-columns:1fr}.orders-toolbar{grid-template-columns:1fr}.move-button{width:100%}.summary{grid-template-columns:1fr 1fr}.order-head{grid-template-columns:1fr auto}.order-time,.money{display:none}.item-row{grid-template-columns:34px 1fr}.item-code,.item-row>span:last-child{display:none}.prototype-bar{align-items:flex-start;flex-direction:column}}
+  </style>
+</head>
+<body>
+  <div class="prototype-bar">
+    <strong>HTML PROTOTYPE · ยังไม่เชื่อม API</strong>
+    <span>แนวคิด: แยก “สั่งรายการ” และ “ดูใบ/ส่งต่อผู้ป่วย” เป็นคนละแท็บในโมดูลเดียว</span>
+  </div>
+  <main class="page">
+    <section class="app" aria-label="ต้นแบบโมดูลสั่งรายการตรวจ X-ray">
+      <header class="app-head">
+        <div class="doc-icon">▤</div>
+        <div class="app-title">สั่งรายการตรวจ</div>
+        <span class="version">v2 concept</span>
+        <button class="close" aria-label="ปิด">×</button>
+      </header>
+
+      <div class="patient-shell">
+        <div class="patient-picker">
+          <div class="picker-top"><strong>เลือกผู้ป่วยที่เปิด Visit วันนี้</strong><span>2026-10-18 · 2 Visit</span></div>
+          <div class="fake-select">HN6900001 · VN6900439 · 18 ตุลาคม 2569 · น.ส. ดำ ใจดี <span>⌄</span></div>
+          <div class="hint">บริบทผู้ป่วยชุดเดียวกันใช้ร่วมกันทั้ง 2 แท็บ</div>
+        </div>
+        <div class="patient-card">
+          <div class="avatar">●</div>
+          <div class="patient-main">
+            <div class="patient-line">
+              <span class="patient-name">น.ส. ดำ ใจดี</span>
+              <span class="chip hn">HN6900001</span>
+              <span class="chip">อายุ 8 · หญิง</span>
+              <span class="chip">เลือด O</span>
+              <span class="chip ok">✓ OFC</span>
+            </div>
+            <div class="patient-meta"><span class="chip vn">VN6900439</span><span>มาตรวจ 18/10/2569 · งานรังสีวิทยาทั่วไป อาคารเฉลิมฯ ชั้น 11</span></div>
+          </div>
+          <div class="visit-context">
+            <small>คิวปัจจุบัน</small>
+            <strong>งานรังสีวิทยาทั่วไป อาคารเฉลิมฯ ชั้น 11</strong>
+            <span class="tran-id">Visit Tran: 671…c82</span>
+          </div>
+        </div>
+      </div>
+
+      <nav class="tabs" aria-label="ส่วนของโมดูล">
+        <button class="tab active" data-tab="create">＋ สั่งรายการตรวจ</button>
+        <button class="tab" data-tab="orders">▤ ใบสั่งตรวจ / ส่งต่อ <span class="count" id="orderCount">2</span></button>
+      </nav>
+
+      <section class="panel active" id="create" aria-label="สั่งรายการตรวจ">
+        <div class="order-layout">
+          <aside class="side">
+            <div class="section-title">หมวด X-ray</div>
+            <button class="active">ภาพถ่ายรังสีทั่วไป</button>
+            <button>Ultrasound</button>
+            <button>CT Scan</button>
+            <button>MRI</button>
+            <button>Fluoroscopy</button>
+          </aside>
+          <section class="catalog">
+            <div class="section-title">ภาพถ่ายรังสีทั่วไป <span style="margin-left:auto;color:var(--muted);font-size:12px">แสดงเฉพาะรายการ X-ray</span></div>
+            <div class="catalog-grid">
+              <article class="exam"><b>Chest PA</b><small>D001 · Digital Radiography</small><button>＋ เพิ่มรายการ</button></article>
+              <article class="exam"><b>Chest AP Portable</b><small>D003 · Portable</small><button>＋ เพิ่มรายการ</button></article>
+              <article class="exam"><b>Skull AP, Lateral</b><small>D082 · 2 views</small><button>＋ เพิ่มรายการ</button></article>
+              <article class="exam"><b>Both Shoulder Axillary</b><small>D117 · 2 sides</small><button>＋ เพิ่มรายการ</button></article>
+              <article class="exam"><b>Hepatobiliary (DISIDA)</b><small>D891 · Nuclear Medicine</small><button>＋ เพิ่มรายการ</button></article>
+              <article class="exam"><b>Wrist AP, Lateral</b><small>D093 · Left / Right</small><button>＋ เพิ่มรายการ</button></article>
+            </div>
+          </section>
+          <aside class="cart">
+            <div class="section-title">รายการในใบ <span class="count" style="margin-left:auto">2</span></div>
+            <div class="cart-row"><div><b>Chest PA</b><small>D001 · ปกติ</small></div><div class="cart-price">฿500</div></div>
+            <div class="cart-row"><div><b>Skull AP, Lateral</b><small>D082 · ปกติ</small></div><div class="cart-price">฿500</div></div>
+            <div class="cart-total"><span>รวมทั้งใบ</span><span>฿1,000</span></div>
+            <div class="cart-actions"><button class="secondary">บันทึกร่าง</button><button class="primary" id="sendOrder">ส่งใบสั่งตรวจ</button></div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="panel" id="orders" aria-label="ใบสั่งตรวจและส่งต่อ">
+        <div class="orders-toolbar">
+          <div class="unit-line">
+            <div class="unit-icon">⌖</div>
+            <div class="unit-copy"><small>ตำแหน่งคิวปัจจุบันของผู้ป่วย</small><strong id="currentUnit">งานรังสีวิทยาทั่วไป อาคารเฉลิมฯ ชั้น 11</strong><span class="tran-id">Visit Tran ID พร้อมใช้งาน · ส่งต่อได้</span></div>
+          </div>
+          <button class="move-button" id="openMove">ส่งต่อผู้ป่วย (กำหนดเอง) →</button>
+        </div>
+
+        <div class="summary">
+          <div class="metric"><small>ใบใน Visit นี้</small><strong id="metricOrders">2 ใบ</strong></div>
+          <div class="metric"><small>รายการ X-ray</small><strong id="metricItems">8 รายการ</strong></div>
+          <div class="metric"><small>รวมค่าบริการ</small><strong id="metricTotal">฿27,550</strong></div>
+          <div class="metric"><small>การชำระ</small><strong style="color:var(--danger)">ยังไม่ชำระ</strong></div>
+        </div>
+
+        <section class="order-list" id="orderList">
+          <article class="order open" data-order="R2610180002">
+            <div class="order-head">
+              <div class="order-no"><b>R2610180002</b><small>2 รายการ</small></div>
+              <span class="status sent">X-ray 2</span>
+              <span class="status sent">ส่งแล้ว</span>
+              <div class="money">฿1,000.00</div>
+              <span class="chev">›</span>
+            </div>
+            <div class="order-body">
+              <div class="item-row"><span>1</span><span class="item-type">X-ray</span><span><b>Chest PA</b><br><small class="item-code">D001</small></span><span>฿500.00</span></div>
+              <div class="item-row"><span>2</span><span class="item-type">X-ray</span><span><b>Skull AP, Lateral</b><br><small class="item-code">D082</small></span><span>฿500.00</span></div>
+              <div class="order-actions"><button class="secondary">ดูรายละเอียดใบ</button><button class="danger">ยกเลิกใบ</button></div>
+            </div>
+          </article>
+          <article class="order" data-order="R2610160001">
+            <div class="order-head">
+              <div class="order-no"><b>R2610160001</b><small>6 รายการ</small></div>
+              <span class="status sent">X-ray 6</span>
+              <span class="status sent">ส่งแล้ว</span>
+              <div class="money">฿26,550.00</div>
+              <span class="chev">›</span>
+            </div>
+            <div class="order-body">
+              <div class="item-row"><span>1</span><span class="item-type">X-ray</span><span><b>Additional multiphase</b><br><small class="item-code">XR-MP</small></span><span>฿8,000.00</span></div>
+              <div class="item-row"><span>2</span><span class="item-type">X-ray</span><span><b>MRI + MRA + MRV Brain</b><br><small class="item-code">MR-BRAIN</small></span><span>฿12,000.00</span></div>
+              <div class="empty-note">ยังมีอีก 4 รายการ · กด “ดูรายละเอียดใบ” เพื่อดูทั้งหมด</div>
+              <div class="order-actions"><button class="secondary">ดูรายละเอียดใบ</button><button class="danger">ยกเลิกใบ</button></div>
+            </div>
+          </article>
+        </section>
+
+        <aside class="design-note">
+          <strong>หลักการของแท็บนี้</strong>
+          <ul>
+            <li>ใช้รายการใบแบบเดียวกับการ์ด EMR: โหลดด้วย Visit ID, เปิดดูรายการ, สถานะ และยอดเงินได้</li>
+            <li>ปุ่มส่งต่ออยู่ระดับ Visit เพราะ Move Unit ย้ายคิวผู้ป่วย ไม่ได้ย้าย Order ใบใดใบหนึ่ง</li>
+            <li>หลังส่งใบสำเร็จ ระบบควรสลับมาที่แท็บนี้และโหลดใบใหม่ โดยไม่ปิดโมดูล</li>
+          </ul>
+        </aside>
+      </section>
+    </section>
+  </main>
+
+  <div class="modal-backdrop" id="moveModal" role="dialog" aria-modal="true" aria-labelledby="moveTitle">
+    <section class="modal">
+      <header class="modal-head"><div class="doc-icon">→</div><strong id="moveTitle">ส่งต่อผู้ป่วย</strong><button id="closeMove" aria-label="ปิด">×</button></header>
+      <div class="modal-body">
+        <div class="context-strip"><b>น.ส. ดำ ใจดี · VN6900439</b><br><small>จาก งานรังสีวิทยาทั่วไป อาคารเฉลิมฯ ชั้น 11</small></div>
+        <div class="field"><label>คิวตรวจ</label><div class="segmented"><button class="active">ตามคิว</button><button>เร่งด่วน</button><button>STAT</button></div></div>
+        <div class="field"><label for="destination">แผนก/คลินิกปลายทาง</label><select id="destination"><option value="finance">f01 ห้องการเงิน</option><option value="clinic">d01.p ห้องการเงินพรีเมี่ยม</option><option value="xray">งานรังสีวิทยาอื่น</option></select><div class="recommend">ตัวเลือกเป็นตัวอย่าง — ฟอร์มจริงใช้รายการหน่วยงานจาก Move Unit เดิม</div></div>
+        <div class="field"><label for="note">หมายเหตุ</label><textarea id="note" placeholder="เช่น ส่งชำระค่าบริการหลังสั่งตรวจเพิ่มเติม"></textarea></div>
+      </div>
+      <footer class="modal-foot"><button class="secondary" id="cancelMove">ยกเลิก</button><button class="primary" id="confirmMove">ส่งตัว →</button></footer>
+    </section>
+  </div>
+  <div class="toast" id="toast" role="status"></div>
+
+  <script>
+    const tabs = [...document.querySelectorAll('.tab')]
+    const panels = [...document.querySelectorAll('.panel')]
+    const toast = document.getElementById('toast')
+    let orderCount = 2
+
+    function selectTab(id){
+      tabs.forEach(tab => tab.classList.toggle('active', tab.dataset.tab === id))
+      panels.forEach(panel => panel.classList.toggle('active', panel.id === id))
+    }
+    function notify(message){
+      toast.textContent = message
+      toast.classList.add('show')
+      clearTimeout(window.__toastTimer)
+      window.__toastTimer = setTimeout(() => toast.classList.remove('show'), 3400)
+    }
+    tabs.forEach(tab => tab.addEventListener('click', () => selectTab(tab.dataset.tab)))
+    document.getElementById('orderList').addEventListener('click', event => {
+      if(event.target.closest('button')) return
+      const order = event.target.closest('.order')
+      if(order) order.classList.toggle('open')
+    })
+
+    document.getElementById('sendOrder').addEventListener('click', () => {
+      if(document.querySelector('[data-order="R2610180003"]')){ selectTab('orders'); return }
+      const article = document.createElement('article')
+      article.className = 'order open'
+      article.dataset.order = 'R2610180003'
+      article.innerHTML = `<div class="order-head"><div class="order-no"><b>R2610180003</b><small>2 รายการ · สร้างเมื่อสักครู่</small></div><span class="status sent">X-ray 2</span><span class="status sent">ส่งแล้ว</span><div class="money">฿1,000.00</div><span class="chev">›</span></div><div class="order-body"><div class="item-row"><span>1</span><span class="item-type">X-ray</span><span><b>Chest PA</b><br><small class="item-code">D001</small></span><span>฿500.00</span></div><div class="item-row"><span>2</span><span class="item-type">X-ray</span><span><b>Skull AP, Lateral</b><br><small class="item-code">D082</small></span><span>฿500.00</span></div><div class="order-actions"><button class="secondary">ดูรายละเอียดใบ</button><button class="danger">ยกเลิกใบ</button></div></div>`
+      document.getElementById('orderList').prepend(article)
+      orderCount += 1
+      document.getElementById('orderCount').textContent = orderCount
+      document.getElementById('metricOrders').textContent = orderCount + ' ใบ'
+      document.getElementById('metricItems').textContent = '10 รายการ'
+      document.getElementById('metricTotal').textContent = '฿28,550'
+      selectTab('orders')
+      notify('ส่งใบ R2610180003 แล้ว · โหลดรายการและเปิดแท็บใบสั่งตรวจให้แล้ว')
+    })
+
+    const moveModal = document.getElementById('moveModal')
+    const openMove = () => moveModal.classList.add('show')
+    const closeMove = () => moveModal.classList.remove('show')
+    document.getElementById('openMove').addEventListener('click', openMove)
+    document.getElementById('closeMove').addEventListener('click', closeMove)
+    document.getElementById('cancelMove').addEventListener('click', closeMove)
+    moveModal.addEventListener('click', event => { if(event.target === moveModal) closeMove() })
+    document.querySelectorAll('.segmented button').forEach(button => button.addEventListener('click', () => {
+      document.querySelectorAll('.segmented button').forEach(x => x.classList.remove('active'))
+      button.classList.add('active')
+    }))
+    document.getElementById('confirmMove').addEventListener('click', () => {
+      const select = document.getElementById('destination')
+      document.getElementById('currentUnit').textContent = select.options[select.selectedIndex].text
+      closeMove()
+      notify('ส่งต่อผู้ป่วยแล้ว · ระบบจริงต้อง refresh Visit Tran และคิวของหน่วยงาน')
+    })
+    document.addEventListener('keydown', event => { if(event.key === 'Escape') closeMove() })
+  </script>
+</body>
+</html>

@@ -1,0 +1,720 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EMR History · LAB Result Card · All Rooms Confirmation</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --page: #eef2f6;
+      --surface: #ffffff;
+      --surface-soft: #f8fafc;
+      --ink: #303133;
+      --text: #606266;
+      --muted: #909399;
+      --border: #dcdfe6;
+      --border-light: #e4e7ed;
+      --border-lighter: #ebeef5;
+      --primary: #409eff;
+      --primary-dark: #337ecc;
+      --primary-soft: #ecf5ff;
+      --success: #529b2e;
+      --success-soft: #f0f9eb;
+      --warning: #b88230;
+      --warning-soft: #fdf6ec;
+      --danger: #c45656;
+      --danger-soft: #fef0f0;
+      --shadow: 0 12px 32px rgba(31, 35, 41, .1);
+      --font: "Noto Sans Thai", "Leelawadee UI", Tahoma, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body {
+      min-width: 320px;
+      min-height: 100vh;
+      margin: 0;
+      background: var(--page);
+      color: var(--text);
+      font: 13px/1.5 var(--font);
+    }
+    button { font: inherit; }
+    button:focus-visible {
+      outline: 3px solid rgba(64, 158, 255, .28);
+      outline-offset: 2px;
+    }
+
+    .page {
+      min-height: 100vh;
+      padding: 24px clamp(14px, 3vw, 40px) 48px;
+    }
+    .review-head {
+      width: min(1180px, 100%);
+      margin: 0 auto 14px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .eyebrow {
+      margin-bottom: 4px;
+      color: var(--primary-dark);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin: 0;
+      color: var(--ink);
+      font-size: clamp(21px, 3vw, 28px);
+      line-height: 1.25;
+    }
+    .lead {
+      max-width: 760px;
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .mock-badge {
+      flex: none;
+      padding: 6px 10px;
+      border: 1px solid #f3d19e;
+      border-radius: 6px;
+      background: var(--warning-soft);
+      color: var(--warning);
+      font-size: 10px;
+      font-weight: 750;
+    }
+
+    .emr-shell {
+      width: min(1180px, 100%);
+      margin: 0 auto;
+      overflow: hidden;
+      border: 1px solid var(--border-light);
+      border-radius: 10px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    .emr-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 13px 16px 11px;
+      border-bottom: 1px solid var(--border-lighter);
+    }
+    .emr-title h2 {
+      margin: 0;
+      color: #6a7280;
+      font-size: 14px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .emr-title::after {
+      content: "";
+      height: 1px;
+      flex: 1;
+      background: var(--border-light);
+    }
+
+    .filter-zone {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-lighter);
+      background: #fbfcfe;
+    }
+    .filter-label {
+      display: block;
+      margin-bottom: 7px;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 750;
+    }
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 1px 1px 4px;
+    }
+    .filter {
+      min-height: 31px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex: none;
+      padding: 5px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 750;
+      transition: border-color .15s ease, background-color .15s ease, color .15s ease;
+    }
+    .filter:hover { border-color: #a0cfff; color: var(--primary-dark); }
+    .filter[aria-pressed="true"] {
+      border-color: var(--primary);
+      background: var(--primary-soft);
+      color: var(--primary-dark);
+      box-shadow: inset 0 0 0 1px rgba(64, 158, 255, .08);
+    }
+    .filter-count {
+      min-width: 18px;
+      height: 18px;
+      display: inline-grid;
+      place-items: center;
+      padding: 0 5px;
+      border-radius: 9px;
+      background: #f0f2f5;
+      color: var(--muted);
+      font-size: 9px;
+      font-variant-numeric: tabular-nums;
+    }
+    .filter[aria-pressed="true"] .filter-count {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .result-zone { padding: 14px 16px 18px; }
+    .result-summary {
+      min-height: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 7px;
+      color: var(--muted);
+      font-size: 10px;
+    }
+    .result-summary strong { color: var(--text); }
+    .privacy-note { text-align: right; }
+
+    .columns,
+    .result-row {
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) minmax(48px, .55fr) minmax(64px, .8fr) minmax(54px, .62fr);
+      column-gap: 8px;
+      align-items: start;
+    }
+    .columns.micro-columns,
+    .result-row.micro-row {
+      grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
+    }
+    .columns.micro-columns,
+    .orders.micro-orders { min-width: 0; }
+    .result-row.micro-row .cell:nth-child(2),
+    .result-row.micro-row .narrative {
+      width: 100%;
+      max-width: none;
+    }
+    .columns {
+      min-width: 0;
+      padding: 8px 10px;
+      border: 1px solid var(--border-light);
+      border-radius: 7px 7px 0 0;
+      background: #f5f7fa;
+      color: #73767a;
+      font-size: 10px;
+      font-weight: 800;
+    }
+    .orders {
+      min-width: 0;
+      display: grid;
+      gap: 9px;
+      padding-top: 9px;
+    }
+    .table-scroll {
+      min-width: 0;
+      overflow: hidden;
+    }
+    .order-card {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--border-light);
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: 0 1px 2px rgba(31, 35, 41, .035);
+    }
+    .order-card::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 3px;
+      background: #c0c4cc;
+    }
+    .order-card.has-abnormal::before { background: var(--warning); }
+    .order-card.has-critical::before { background: var(--danger); }
+    .result-row {
+      min-height: 54px;
+      padding: 10px 10px 10px 16px;
+      border-top: 1px dashed var(--border-lighter);
+    }
+    .result-row:first-child { border-top: 0; }
+    .result-row:hover { background: #fbfdff; }
+    .result-row.micro-row { min-height: 108px; }
+    .cell { min-width: 0; overflow-wrap: anywhere; }
+    .test-name {
+      display: block;
+      color: var(--ink);
+      font-size: 12.5px;
+      font-weight: 750;
+      line-height: 1.45;
+    }
+    .result-value {
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 800;
+      line-height: 1.45;
+      font-variant-numeric: tabular-nums;
+      white-space: pre-wrap;
+    }
+    .result-value.high,
+    .interpretation.high { color: var(--warning); }
+    .result-value.critical,
+    .interpretation.critical { color: var(--danger); }
+    .unit,
+    .reference,
+    .interpretation {
+      color: var(--text);
+      font-size: 11.5px;
+      line-height: 1.5;
+    }
+    .empty-value { color: #a8abb2; }
+    .interpretation { font-weight: 700; }
+    .interpretation.normal { color: var(--success); }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      padding: 2px 7px;
+      border: 1px solid var(--border-light);
+      border-radius: 5px;
+      background: #f4f4f5;
+      color: #73767a;
+      font-size: 10px;
+      font-weight: 800;
+    }
+    .badge.high { border-color: #f3d19e; background: var(--warning-soft); color: var(--warning); }
+    .badge.critical { border-color: #fab6b6; background: var(--danger-soft); color: var(--danger); }
+    .badge.normal { border-color: #b3e19d; background: var(--success-soft); color: var(--success); }
+    .sensitive-wrap { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+    .unlock {
+      min-height: 27px;
+      padding: 4px 8px;
+      border: 1px solid #f3d19e;
+      border-radius: 5px;
+      background: var(--warning-soft);
+      color: var(--warning);
+      cursor: pointer;
+      font-size: 10px;
+      font-weight: 750;
+    }
+    .unlock:hover { border-color: var(--warning); }
+    .narrative {
+      position: relative;
+      max-height: 4.6em;
+      margin: 0;
+      overflow: hidden;
+      color: var(--text);
+      font: 11.5px/1.5 var(--font);
+      white-space: pre-wrap;
+    }
+    .narrative.expanded { max-height: none; }
+    .text-action {
+      margin-top: 4px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: var(--primary-dark);
+      cursor: pointer;
+      font-size: 10px;
+      font-weight: 750;
+    }
+    .order-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 6px;
+      padding: 7px 10px 8px;
+      border-top: 1px solid var(--border-lighter);
+      background: #fbfcfe;
+    }
+    .order-action {
+      min-height: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      padding: 4px 9px;
+      border: 1px solid #c8cfd9;
+      border-radius: 5px;
+      background: var(--surface);
+      color: #535a65;
+      cursor: pointer;
+      font-size: 10.5px;
+      font-weight: 750;
+      transition: border-color .15s ease, background-color .15s ease, color .15s ease;
+    }
+    .order-action.pdf-action { width: 72px; }
+    .order-action.open-action { width: 108px; }
+    .order-action:hover { border-color: #a0cfff; color: var(--primary-dark); }
+    .order-action.primary:hover { background: var(--primary-soft); }
+    .pdf-mark { color: #d85b5b; font-size: 13px; line-height: 1; }
+
+    .empty-state {
+      padding: 36px 16px;
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .decision-note {
+      width: min(1180px, 100%);
+      margin: 14px auto 0;
+      padding: 10px 12px;
+      border: 1px solid #b9dcff;
+      border-radius: 8px;
+      background: #f3f9ff;
+      color: #4e6f91;
+      font-size: 11px;
+      line-height: 1.6;
+    }
+    .decision-note strong { color: var(--primary-dark); }
+
+    .toast {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      z-index: 5;
+      max-width: min(360px, calc(100vw - 40px));
+      padding: 10px 12px;
+      border: 1px solid #b3e19d;
+      border-radius: 7px;
+      background: var(--success-soft);
+      color: var(--success);
+      box-shadow: 0 10px 30px rgba(31, 35, 41, .16);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    @media (max-width: 760px) {
+      .page { padding: 14px 10px 30px; }
+      .review-head { display: block; }
+      .mock-badge { width: max-content; margin-top: 10px; }
+      .emr-title { padding-inline: 12px; }
+      .filter-zone,
+      .result-zone { padding-inline: 12px; }
+      .result-summary { align-items: flex-start; flex-direction: column; gap: 2px; }
+      .privacy-note { text-align: left; }
+      .table-scroll { overflow: visible; }
+      .columns { display: none; }
+      .orders { min-width: 0; padding-top: 0; }
+      .result-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px 14px;
+        padding: 12px 13px 12px 16px;
+      }
+      .result-row.micro-row {
+        min-height: 0;
+        grid-template-columns: 1fr;
+      }
+      .result-row .cell:first-child { grid-column: 1 / -1; }
+      .cell::before {
+        content: attr(data-label);
+        display: block;
+        margin-bottom: 2px;
+        color: var(--muted);
+        font-size: 9px;
+        font-weight: 750;
+      }
+      .result-row .cell:first-child::before { display: none; }
+      .order-actions { padding-inline: 10px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="review-head">
+      <div>
+        <div class="eyebrow">LAB only · confirmation mockup</div>
+        <h1>Card ผล LAB แบบตัดข้อมูลส่วนเกิน</h1>
+        <p class="lead">แต่ละกรอบคือ 1 Order โดยไม่มีหัว Order/ห้อง/LAB No./สถานะ · ห้องทั่วไปแสดง 5 ช่อง, MB แสดงชื่อ Test + ผลข้อความ และมีปุ่ม PDF กับดูผลทั้งใบแบบย่อที่มุมขวาล่าง</p>
+      </div>
+      <span class="mock-badge">ข้อมูลตัวอย่างสำหรับตรวจ UI</span>
+    </header>
+
+    <section class="emr-shell" aria-labelledby="historyTitle">
+      <div class="emr-title">
+        <h2 id="historyTitle">ผลตรวจใน EMR History</h2>
+      </div>
+
+      <div class="filter-zone">
+        <span class="filter-label">ผลตรวจ lab</span>
+        <nav class="filters" id="filters" aria-label="กรองห้อง LAB"></nav>
+      </div>
+
+      <div class="result-zone">
+        <div class="result-summary" aria-live="polite">
+          <span id="summaryText"></span>
+          <span class="privacy-note">IM / MI-OUT ยังปกปิดผล Sensitive จนกว่าจะยืนยันตัวตน</span>
+        </div>
+
+        <div class="table-scroll">
+          <div class="columns" id="columns" aria-hidden="true">
+            <span>รายการตรวจ</span>
+            <span>ผล LAB</span>
+            <span>หน่วย</span>
+            <span>Ref. Range</span>
+            <span>แปลผล</span>
+          </div>
+          <div class="orders" id="orders"></div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="decision-note">
+      <strong>ขอบเขต mockup:</strong> ใช้ครบ 10 Section ที่ระบบ LAB เปิดอยู่ (BC, HM, HH, ML, IM, MI-OUT, MB, MY, BB, BG) และไม่รวม/ไม่แก้ X-ray · Card ไม่มี horizontal scroll; ปุ่มห้องตัดบรรทัดและ 5 คอลัมน์ย่อในพื้นที่ · MB ไม่แสดงหน่วย/Ref. Range/แปลผล · ลำดับ Profile ยึดผลที่ API ส่งมา · ปุ่มดูผลทั้งใบเปิด Form กลาง <code>lab_popup_result</code> โดยไม่สร้าง popup ซ้ำใน Card; scroll แนวนอนคงไว้เฉพาะตารางย้อนหลังใน popup
+    </aside>
+  </main>
+
+  <div class="toast" id="toast" role="status" hidden></div>
+
+  <script>
+    const ROOMS = [
+      { code: 'ALL', label: 'ทั้งหมด', title: 'ทุกห้อง LAB' },
+      { code: 'BC', label: 'BC', title: 'Biochemistry' },
+      { code: 'HM', label: 'HM', title: 'Hematology' },
+      { code: 'HH', label: 'HH', title: 'Hematology-Homeostasis' },
+      { code: 'ML', label: 'ML', title: 'Clinical Microscopy Laboratory' },
+      { code: 'IM', label: 'IM', title: 'Immunology' },
+      { code: 'MI-OUT', label: 'MI-OUT', title: 'Immunology · ส่งนอกรพ.' },
+      { code: 'MB', label: 'MB', title: 'Microbiology · MLab' },
+      { code: 'MY', label: 'MY', title: 'Mycology' },
+      { code: 'BB', label: 'BB', title: 'Blood Bank' },
+      { code: 'BG', label: 'BG', title: 'Biomolecular and Genetics' }
+    ];
+
+    /* ข้อมูล mock อิง shape ของ UAT fixtures ใน repository เท่านั้น ไม่ใช่ข้อมูลผู้ป่วยจริง */
+    const ORDERS = [
+      {
+        id: 'mock-bc-profile', room: 'BC',
+        rows: [
+          { name: 'Total protein', value: '7.2', unit: 'g/dL', ref: '6.0–8.0', flag: 'N' },
+          { name: 'Albumin', value: '4.3', unit: 'g/dL', ref: '3.5–5.2', flag: 'N' },
+          { name: 'Total bilirubin', value: '1.8', unit: 'mg/dL', ref: '0.2–1.2', flag: 'H' },
+          { name: 'AST', value: '36', unit: 'U/L', ref: '0–40', flag: 'N' },
+          { name: 'ALT', value: '42', unit: 'U/L', ref: '0–41', flag: 'H' }
+        ]
+      },
+      {
+        id: 'mock-hm-profile', room: 'HM',
+        rows: [
+          { name: 'Hemoglobin', value: '11.2', unit: 'g/dL', ref: '11.5–15.5', flag: 'L' },
+          { name: 'Hematocrit', value: '34', unit: '%', ref: '35–45', flag: 'L' },
+          { name: 'WBC', value: '8,200', unit: 'cell/uL', ref: '5,000–10,000', flag: 'N' },
+          { name: 'Platelet', value: '280,000', unit: 'cell/uL', ref: '150,000–450,000', flag: 'N' }
+        ]
+      },
+      { id: 'mock-hh', room: 'HH', rows: [
+        { name: 'Fibrinogen', value: '235', unit: 'mg/dL', ref: '200–400', flag: 'N' }
+      ] },
+      {
+        id: 'mock-ml-profile', room: 'ML',
+        rows: [
+          { name: 'Color', value: 'Yellow', unit: '', ref: '', flag: 'N' },
+          { name: 'Appearance', value: 'Clear', unit: '', ref: '', flag: 'N' },
+          { name: 'Specific gravity', value: '1.015', unit: '', ref: '1.005–1.030', flag: 'N' },
+          { name: 'pH', value: '6.0', unit: '', ref: '5.0–8.0', flag: 'N' }
+        ]
+      },
+      { id: 'mock-im-sensitive', room: 'IM', sensitive: true, rows: [
+        { name: 'Anti-HIV', value: 'Reactive (UAT)', unit: '', ref: '', flag: 'C' }
+      ] },
+      { id: 'mock-mi-out-sensitive', room: 'MI-OUT', sensitive: true, rows: [
+        { name: 'HIV-PCR (36362)', value: 'Detected 125 copies/mL (UAT)', unit: 'copies/mL', ref: 'Not detected', flag: 'H' }
+      ] },
+      { id: 'mock-mb', room: 'MB', rows: [
+        {
+          name: 'Aerobic culture',
+          value: 'SPECIMEN: Body Fluid (BF)\n* Aerobic Culture *\nNo growth after 5 days · UI WIDTH DEMO: MLab narrative continues across the remaining result area before wrapping\nREPORTED BY UAT LAB / APPROVED BY UAT LAB',
+          unit: '', ref: '', flag: 'TEXT'
+        }
+      ] },
+      { id: 'mock-my-sites', room: 'MY', rows: [
+        { name: 'SCABIES · ศีรษะ · เส้นผม', value: 'พบเชื้อ', unit: '', ref: '', flag: 'A' },
+        { name: 'SCABIES · ลำคอ · ตำแหน่งที่ห้อง LAB เพิ่มเอง', value: 'ไม่พบเชื้อ\nผลเพิ่มเติม UAT', unit: '', ref: '', flag: '' },
+        { name: 'SCABIES · แขน · ผิวหนัง', value: 'ไม่พบเชื้อ', unit: '', ref: '', flag: '' },
+        { name: 'SCABIES · ขา · เล็บ', value: 'พบเชื้อ', unit: '', ref: '', flag: 'A' }
+      ] },
+      { id: 'mock-bb', room: 'BB', rows: [
+        { name: "Direct Coombs' test", value: 'Negative', unit: '', ref: 'Negative', flag: 'N' }
+      ] },
+      { id: 'mock-bg', room: 'BG', rows: [
+        { name: 'Chromosome analysis in blood', value: '46,XX', unit: '', ref: '46,XX', flag: 'N' }
+      ] }
+    ];
+
+    const SHARED_RESULT_FORM = {
+      code: 'lab_popup_result',
+      id: '6ad789a39291822e416c02e7'
+    };
+
+    let activeRoom = 'ALL';
+    const unlockedOrders = new Set();
+
+    const escapeHtml = (value) => String(value == null ? '' : value).replace(/[&<>"']/g, (char) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+    })[char]);
+
+    const roomCount = (code) => code === 'ALL' ? ORDERS.length : ORDERS.filter((order) => order.room === code).length;
+    const visibleOrders = () => activeRoom === 'ALL' ? ORDERS : ORDERS.filter((order) => order.room === activeRoom);
+    const flagLabel = (flag) => ({ N: 'ปกติ', H: 'สูง', L: 'ต่ำ', C: 'วิกฤติ', A: 'ผิดปกติ', TEXT: 'รายงานข้อความ' })[flag] || '—';
+    const flagClass = (flag) => flag === 'C' ? 'critical' : ['H', 'L', 'A'].includes(flag) ? 'high' : flag === 'N' ? 'normal' : '';
+
+    function renderColumns() {
+      const columns = document.getElementById('columns');
+      const microOnly = activeRoom === 'MB';
+      columns.classList.toggle('micro-columns', microOnly);
+      columns.innerHTML = microOnly
+        ? '<span>รายการตรวจ</span><span>ผล LAB</span>'
+        : '<span>รายการตรวจ</span><span>ผล LAB</span><span>หน่วย</span><span>Ref. Range</span><span>แปลผล</span>';
+    }
+
+    function renderFilters() {
+      const host = document.getElementById('filters');
+      host.innerHTML = ROOMS.map((room) => `
+        <button class="filter" type="button" data-room="${escapeHtml(room.code)}"
+          aria-pressed="${activeRoom === room.code}" title="${escapeHtml(room.title)}">
+          <span>${escapeHtml(room.label)}</span>
+          <span class="filter-count">${roomCount(room.code)}</span>
+        </button>`).join('');
+      host.querySelectorAll('.filter').forEach((button) => {
+        button.addEventListener('click', () => {
+          activeRoom = button.dataset.room;
+          renderFilters();
+          renderOrders();
+        });
+      });
+    }
+
+    function resultCell(order, row, rowIndex) {
+      if (order.sensitive && !unlockedOrders.has(order.id)) {
+        return `<div class="sensitive-wrap">
+          <span class="badge high">ปกปิดผล Sensitive</span>
+          <button class="unlock" type="button" data-unlock="${escapeHtml(order.id)}">ยืนยันตัวตนเพื่อดู</button>
+        </div>`;
+      }
+      if (row.flag === 'TEXT') {
+        return `<pre class="narrative" id="narrative-${escapeHtml(order.id)}-${rowIndex}">${escapeHtml(row.value)}</pre>
+          <button class="text-action" type="button" data-narrative="narrative-${escapeHtml(order.id)}-${rowIndex}">อ่านทั้งหมด</button>`;
+      }
+      return `<span class="result-value ${flagClass(row.flag)}">${escapeHtml(row.value || '—')}</span>`;
+    }
+
+    function rowHtml(order, row, rowIndex) {
+      if (order.room === 'MB') {
+        return `<div class="result-row micro-row">
+          <div class="cell" data-label="รายการตรวจ"><strong class="test-name">${escapeHtml(row.name)}</strong></div>
+          <div class="cell" data-label="ผล LAB">${resultCell(order, row, rowIndex)}</div>
+        </div>`;
+      }
+      const isLocked = order.sensitive && !unlockedOrders.has(order.id);
+      const visibleUnit = isLocked ? '—' : (row.unit || '—');
+      const visibleRef = isLocked ? '—' : (row.ref || '—');
+      const visibleFlag = isLocked ? '—' : flagLabel(row.flag);
+      const tone = isLocked ? '' : flagClass(row.flag);
+      return `<div class="result-row">
+        <div class="cell" data-label="รายการตรวจ"><strong class="test-name">${escapeHtml(row.name)}</strong></div>
+        <div class="cell" data-label="ผล LAB">${resultCell(order, row, rowIndex)}</div>
+        <div class="cell unit ${visibleUnit === '—' ? 'empty-value' : ''}" data-label="หน่วย">${escapeHtml(visibleUnit)}</div>
+        <div class="cell reference ${visibleRef === '—' ? 'empty-value' : ''}" data-label="Ref. Range">${escapeHtml(visibleRef)}</div>
+        <div class="cell interpretation ${tone} ${visibleFlag === '—' ? 'empty-value' : ''}" data-label="แปลผล">
+          ${visibleFlag === '—' ? '—' : `<span class="badge ${tone}">${escapeHtml(visibleFlag)}</span>`}
+        </div>
+      </div>`;
+    }
+
+    function orderActionsHtml(order) {
+      return `<div class="order-actions">
+        <button class="order-action pdf-action" type="button" data-pdf="${escapeHtml(order.id)}" aria-label="เปิด PDF ของ Order ห้อง ${escapeHtml(order.room)}">
+          <span class="pdf-mark" aria-hidden="true">▧</span> PDF
+        </button>
+        <button class="order-action primary open-action" type="button" data-open-shared-result="${escapeHtml(order.id)}"
+          aria-label="เปิดผลทั้งใบด้วย Form กลาง ห้อง ${escapeHtml(order.room)}">ดูผลทั้งใบ</button>
+      </div>`;
+    }
+
+    function orderTone(order) {
+      if (order.sensitive && !unlockedOrders.has(order.id)) return '';
+      if (order.rows.some((row) => row.flag === 'C')) return 'has-critical';
+      if (order.rows.some((row) => ['H', 'L', 'A'].includes(row.flag))) return 'has-abnormal';
+      return '';
+    }
+
+    function renderOrders() {
+      const orders = visibleOrders();
+      const active = ROOMS.find((room) => room.code === activeRoom) || ROOMS[0];
+      renderColumns();
+      document.getElementById('summaryText').innerHTML = `<strong>${escapeHtml(active.label)}</strong> · ${orders.length} Order`;
+      const host = document.getElementById('orders');
+      host.classList.toggle('micro-orders', activeRoom === 'MB');
+      host.innerHTML = orders.length
+        ? orders.map((order) => `<article class="order-card ${orderTone(order)}" data-room="${escapeHtml(order.room)}" aria-label="Order ตัวอย่างห้อง ${escapeHtml(order.room)}">
+            ${order.rows.map((row, index) => rowHtml(order, row, index)).join('')}
+            ${orderActionsHtml(order)}
+          </article>`).join('')
+        : '<div class="empty-state">ไม่พบผล LAB ในห้องที่เลือก</div>';
+
+      host.querySelectorAll('[data-unlock]').forEach((button) => {
+        button.addEventListener('click', () => {
+          unlockedOrders.add(button.dataset.unlock);
+          renderOrders();
+          showToast('Mockup: ยืนยันตัวตนสำเร็จและแสดงผล Sensitive เฉพาะ Order นี้');
+        });
+      });
+      host.querySelectorAll('[data-narrative]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const target = document.getElementById(button.dataset.narrative);
+          const expanded = target.classList.toggle('expanded');
+          button.textContent = expanded ? 'ย่อผล' : 'อ่านทั้งหมด';
+        });
+      });
+      host.querySelectorAll('[data-pdf]').forEach((button) => {
+        button.addEventListener('click', () => openPdf(button.dataset.pdf));
+      });
+      host.querySelectorAll('[data-open-shared-result]').forEach((button) => {
+        button.addEventListener('click', () => openSharedResultForm(button.dataset.openSharedResult));
+      });
+    }
+
+    function openSharedResultForm(orderId) {
+      const order = ORDERS.find((item) => item.id === orderId);
+      if (!order) return;
+      showToast(`Mockup: เปิด Form กลาง ${SHARED_RESULT_FORM.code} · ห้อง ${order.room}`);
+    }
+
+    function openPdf(orderId) {
+      const order = ORDERS.find((item) => item.id === orderId);
+      if (!order) return;
+      if (order.sensitive) {
+        showToast(`Mockup: PDF ห้อง ${order.room} ต้องยืนยันตัวตนแยกทุกครั้งก่อนเปิด`);
+        return;
+      }
+      showToast(`Mockup: เปิด PDF ผล LAB ของ Order ห้อง ${order.room}`);
+    }
+
+    let toastTimer = null;
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.hidden = false;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { toast.hidden = true; }, 3200);
+    }
+
+    renderFilters();
+    renderOrders();
+  </script>
+</body>
+</html>
